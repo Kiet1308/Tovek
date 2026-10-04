@@ -7,6 +7,7 @@ mod source_recovery;
 mod value_provenance;
 mod capture_effects;
 mod bytecode_validate;
+mod expansion_budget;
 mod reconstruction_candidates;
 pub mod profile;
 pub mod upvalue_analysis;
@@ -25,7 +26,7 @@ use cfg::{
     function::Function,
     ssa::{
         self,
-        structuring::{structure_conditionals_with_changes, structure_jumps},
+        structuring::{structure_conditionals_with_changes, structure_jumps_with_changes},
     },
 };
 use ast::FxIndexMap as IndexMap;
@@ -244,7 +245,10 @@ pub fn analyze_upvalues_raw(
         .map_err(|error| format!("deserialize: {error}"))?
     {
         Bytecode::Error(message) => Err(message),
-        Bytecode::Chunk(chunk) => Ok(upvalue_analysis::RawUpvalueAnalysis::build(&chunk)),
+        Bytecode::Chunk(chunk) => {
+            expansion_budget::check(&chunk).map_err(|error| error.to_string())?;
+            Ok(upvalue_analysis::RawUpvalueAnalysis::build(&chunk))
+        }
     }
 }
 
@@ -391,12 +395,35 @@ fn try_decompile_bytecode_internal(
     // All fallible APIs share the same recovery boundary, including parsing,
     // lifting and final formatting. Worker builds must use panic=unwind too.
     std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        if options.compact_annotations && !(emit_upvalue_analysis && options.emit_binding_provenance) {
+            return Err(DecompileFailure::message("compact annotations require an artifact API with binding provenance"));
+        }
+        let _total_timer = prof::Timer::new(&prof::TOTAL);
+        let profile_context = profile::context(script_name, bytecode);
+        let _profile_context = ast::telemetry::enter(profile_context.clone());
+        let _profile_file = ast::telemetry::Span::new("DECOMPILE");
+        ast::telemetry::count("input_bytes", bytecode.len() as u64);
+        let mut prepared = {
+            let _timer = prof::Timer::new(&prof::DESER_LIFT);
+            let _span = ast::telemetry::Span::new("DESER_LIFT");
+            let parsed = deserializer::deserialize(bytecode, encode_key)
+                .map_err(|error| DecompileFailure::message(format!("deserialize: {error}")))?;
+            let chunk = match parsed {
+                Bytecode::Error(message) => return Ok(DecompileArtifact {
+                    source: compile_error_source(&message),
+                    upvalue_analysis: None,
+                }),
+                Bytecode::Chunk(chunk) => chunk,
+            };
+            PreparedChunk::new(chunk, emit_upvalue_analysis)?
+        };
         let mut sharing = Default::default();
         loop {
-            // Returning from an attempt drops its AST, analyses and thread-local
-            // scopes before the next one starts. Recursive retries kept all of
-            // that state alive until the final attempt finished.
-            match decompile_bytecode_internal(bytecode, encode_key, script_name, options, emit_upvalue_analysis, sharing)? {
+            // Attempts own all mutable IR and thread-local scopes. The parsed
+            // chunk and numeric input facts are immutable and safe to reuse;
+            // no RcLocal or closure body survives into the next attempt.
+            ast::telemetry::count("decompile_attempts", 1);
+            match decompile_bytecode_internal(&mut prepared, script_name, options, emit_upvalue_analysis, sharing, &profile_context)? {
                 DecompileAttempt::Complete(artifact) => return Ok(artifact),
                 DecompileAttempt::Retry(next) => sharing = next,
             }
@@ -405,6 +432,71 @@ fn try_decompile_bytecode_internal(
     .unwrap_or_else(|payload| Err(DecompileFailure::message(format!(
         "panicked: {}", panic_payload_message(payload.as_ref())
     ))))
+}
+
+/// Input facts are independent of storage sharing and of every AST rewrite.
+/// Keeping them here avoids reparsing and re-expanding raw evidence on a retry,
+/// without retaining mutable source trees or changing their ownership counts.
+struct PreparedChunk<'a> {
+    chunk: deserializer::chunk::Chunk<'a>,
+    capture_effects: capture_effects::CaptureEffects,
+    globals: std::sync::Arc<ast::ChunkGlobals>,
+    raw_upvalue_analysis: Option<upvalue_analysis::RawUpvalueAnalysis>,
+    types: Vec<std::cell::OnceCell<PrototypeTypes>>,
+}
+
+struct PrototypeTypes {
+    parameter_annotations: Vec<Option<String>>,
+    parameter_name_hints: Vec<Option<String>>,
+    locals: Vec<lifter::TypedLocalHint>,
+}
+
+impl<'a> PreparedChunk<'a> {
+    fn new(chunk: deserializer::chunk::Chunk<'a>, emit_upvalue_analysis: bool) -> Result<Self, DecompileFailure> {
+        validate_prototype_graph(&chunk.functions, chunk.main)
+            .map_err(DecompileFailure::message)?;
+        validate_source_opcodes(&chunk.functions).map_err(DecompileFailure::message)?;
+        bytecode_validate::validate(&chunk).map_err(DecompileFailure::message)?;
+        // Count constructor multiplicity before either ordinary lifting or the
+        // artifact path can allocate a static function occurrence tree.
+        let expansion = expansion_budget::check(&chunk)
+            .map_err(expansion_budget::ExpansionFailure::into_decompile_failure)?;
+        ast::telemetry::count("expanded_function_instances", expansion.instances);
+        ast::telemetry::count("expanded_instruction_words", expansion.instruction_words);
+        ast::telemetry::count("closure_depth", expansion.depth);
+        if std::env::var_os("MEDAL_DUMP_TYPES").is_some() {
+            debug_dump_types(&chunk);
+        }
+        let raw_upvalue_analysis = emit_upvalue_analysis
+            .then(|| upvalue_analysis::RawUpvalueAnalysis::build(&chunk));
+        let _timer = prof::Timer::new(&prof::SETUP);
+        let capture_effects = capture_effects::CaptureEffects::build(&chunk);
+        let globals = std::sync::Arc::new(chunk_globals(&chunk));
+        if globals.unspellable && globals.written.contains(b"getfenv".as_slice()) {
+            return Err(DecompileFailure::message(
+                "a global name no identifier spells, in a chunk that assigns getfenv",
+            ));
+        }
+        ast::telemetry::count("capture_readonly_slots", capture_effects.readonly.iter()
+            .flatten().filter(|&&readonly| readonly).count() as u64);
+        ast::telemetry::count("capture_readonly_refused", u64::from(capture_effects.refusal.is_some()));
+        let types = (0..chunk.functions.len()).map(|_| std::cell::OnceCell::new()).collect();
+        Ok(Self { chunk, capture_effects, globals, raw_upvalue_analysis, types })
+    }
+
+    fn types(&self, prototype: usize) -> &PrototypeTypes {
+        self.types[prototype].get_or_init(|| {
+            let proto = &self.chunk.functions[prototype];
+            let (parameter_annotations, parameter_name_hints) = parameter_types_from_bytecode(
+                proto.type_info.as_ref(), usize::from(proto.num_parameters), &self.chunk.userdata_type_names,
+            );
+            PrototypeTypes {
+                parameter_annotations,
+                parameter_name_hints,
+                locals: typed_local_hints_from_bytecode(proto.type_info.as_ref(), &self.chunk.userdata_type_names),
+            }
+        })
+    }
 }
 
 enum DecompileAttempt {
@@ -416,47 +508,26 @@ enum DecompileAttempt {
 /// (see `coalesce_generated_locals_in_function`); freer only when an attempt
 /// leaves a function over Luau's local limit.
 fn decompile_bytecode_internal(
-    bytecode: &[u8],
-    encode_key: u8,
+    prepared: &mut PreparedChunk<'_>,
     script_name: Option<&str>,
     options: DecompileOptions,
     emit_upvalue_analysis: bool,
     sharing: ast::coalesce_locals::Sharing,
+    profile_context: &Option<ast::telemetry::Context>,
 ) -> Result<DecompileAttempt, DecompileFailure> {
     // Reset the per-thread local-id sequence so this decompilation's `RcLocal`
     // ids (and thus the FxHash-iteration order that depends on them, and the
     // generated local names) are independent of any earlier work this thread
     // did. Without this, parallel `decompile-folder` runs are nondeterministic
     // even though each file is processed on a single thread. See ast::RcLocal.
-    if options.compact_annotations && !(emit_upvalue_analysis && options.emit_binding_provenance) {
-        return Err(DecompileFailure::message("compact annotations require an artifact API with binding provenance"));
-    }
     ast::reset_local_ids();
-    let _total_timer = prof::Timer::new(&prof::TOTAL);
     let call_origins = ast::call_origins::enter(emit_upvalue_analysis && options.emit_binding_provenance);
-    let profile_context = profile::context(script_name, bytecode);
-    let _profile_context = ast::telemetry::enter(profile_context.clone());
-    let _profile_file = ast::telemetry::Span::new("DECOMPILE");
-    ast::telemetry::count("input_bytes", bytecode.len() as u64);
     let profile_deser = ast::telemetry::Span::new("DESER_LIFT");
     let deser_timer = prof::Timer::new(&prof::DESER_LIFT);
-    let chunk = deserializer::deserialize(bytecode, encode_key)
-        .map_err(|e| DecompileFailure::message(format!("deserialize: {e}")))?;
-    match chunk {
-        Bytecode::Error(msg) => Ok(DecompileAttempt::Complete(DecompileArtifact {
-            source: compile_error_source(&msg),
-            upvalue_analysis: None,
-        })),
-        Bytecode::Chunk(chunk) => {
-            validate_prototype_graph(&chunk.functions, chunk.main)
-                .map_err(DecompileFailure::message)?;
-            validate_source_opcodes(&chunk.functions).map_err(DecompileFailure::message)?;
-            bytecode_validate::validate(&chunk).map_err(DecompileFailure::message)?;
-            if std::env::var_os("MEDAL_DUMP_TYPES").is_some() {
-                debug_dump_types(&chunk);
-            }
-            let raw_upvalue_analysis =
-                emit_upvalue_analysis.then(|| upvalue_analysis::RawUpvalueAnalysis::build(&chunk));
+    let chunk = &prepared.chunk;
+    let capture_effects = &prepared.capture_effects;
+    let globals = &prepared.globals;
+    {
             let setup_timer = prof::Timer::new(&prof::SETUP);
             let _reconstruction_search = if chunk.functions.len() <= 4096
                 && chunk.functions.iter().map(|p| p.instructions.len()).sum::<usize>() <= ast::reconstruction_search::PC_LIMIT {
@@ -466,19 +537,7 @@ fn decompile_bytecode_internal(
                     ast::reconstruction_search::enter(chunk.functions.iter().map(upvalue_analysis::decode_source_lines).collect())
                 }
             } else { ast::reconstruction_search::enter_truncated() };
-            let capture_effects = capture_effects::CaptureEffects::build(&chunk);
-            let globals = std::sync::Arc::new(chunk_globals(&chunk));
-            // A global no identifier spells is written `getfenv(1)["name"]`,
-            // which needs the standard `getfenv` wherever it runs.
-            if globals.unspellable && globals.written.contains(b"getfenv".as_slice()) {
-                return Err(DecompileFailure::message(
-                    "a global name no identifier spells, in a chunk that assigns getfenv",
-                ));
-            }
             drop(setup_timer);
-            ast::telemetry::count("capture_readonly_slots", capture_effects.readonly.iter()
-                .flatten().filter(|&&readonly| readonly).count() as u64);
-            ast::telemetry::count("capture_readonly_refused", u64::from(capture_effects.refusal.is_some()));
             let mut lifted = Vec::new();
             let root_function_id = emit_upvalue_analysis.then(|| format!("root:p{}", chunk.main));
             let root_function = Arc::<Mutex<ast::Function>>::default();
@@ -490,21 +549,12 @@ fn decompile_bytecode_internal(
             let mut stack = vec![(root_function, chunk.main, root_function_id)];
             while let Some((ast_func, func_id, static_function_id)) = stack.pop() {
                 ast::reconstruction_search::register_function(Arc::as_ptr(&ast_func) as usize, func_id);
-                let typed_locals = {
-                    let proto = &chunk.functions[func_id];
-                    let (annotations, hints) = parameter_types_from_bytecode(
-                        proto.type_info.as_ref(),
-                        usize::from(proto.num_parameters),
-                        &chunk.userdata_type_names,
-                    );
+                let types = prepared.types(func_id);
+                {
                     let mut ast_func = ast_func.lock();
-                    ast_func.parameter_annotations = annotations;
-                    ast_func.parameter_name_hints = hints;
-                    typed_local_hints_from_bytecode(
-                        proto.type_info.as_ref(),
-                        &chunk.userdata_type_names,
-                    )
-                };
+                    ast_func.parameter_annotations = types.parameter_annotations.clone();
+                    ast_func.parameter_name_hints = types.parameter_name_hints.clone();
+                }
                 let lifted_start = ast::current_local_id();
                 let (mut function, upvalues, child_functions) = Lifter::lift(
                     &chunk.functions,
@@ -512,7 +562,7 @@ fn decompile_bytecode_internal(
                     chunk.version,
                     func_id,
                     static_function_id,
-                    &typed_locals,
+                    &types.locals,
                     emit_upvalue_analysis && options.emit_binding_provenance,
                 );
                 function.lifted_ids = lifted_start..ast::current_local_id();
@@ -853,9 +903,10 @@ fn decompile_bytecode_internal(
             // all single-use temps + table rebuild are done) and BEFORE
             // expr_deinline (which neither creates nor consumes this idiom). With
             // pass (B) below it reproduces the source `lastStats.floors += 1`.
+            let mut cleanup_analysis = ast::analysis_session::AnalysisSession::new();
             {
                 ptime!(S_COPY_CLEANUP);
-                ast::copy_cleanup::copy_cleanup(&mut body);
+                ast::copy_cleanup::copy_cleanup_with_analysis(&mut body, &mut cleanup_analysis);
             }
             dump_stage("copy_cleanup", &body);
             // Eliminate redundant `x = nil` stores left by SSA phi-node
@@ -867,8 +918,18 @@ fn decompile_bytecode_internal(
             // `recover_guard_continue` (which must stay last).
             {
                 ptime!(S_ELIMINATE_NIL);
-                ast::eliminate_nil::eliminate_redundant_nil(&mut body);
+                ast::eliminate_nil::eliminate_redundant_nil_with_analysis(&mut body, &mut cleanup_analysis);
             }
+            // This short managed session has no unreported mutation between
+            // its consumers. Later reconstruction starts with its own facts.
+            if ast::telemetry::enabled() {
+                let stats = cleanup_analysis.stats();
+                ast::telemetry::count("late_capture_census_builds", stats.capture_builds as u64);
+                ast::telemetry::count("late_capture_census_hits", stats.capture_hits as u64);
+                ast::telemetry::count("late_capture_invalidations", stats.invalidations as u64);
+                ast::telemetry::count("late_capture_refusals", stats.refusals as u64);
+            }
+            drop(cleanup_analysis);
             // Expression-level de-inline (proposal §7): recover small pure scalar
             // helpers that `-O2` inlined as a sub-expression of a caller's
             // condition/RValue. Runs before normalize_conditions: the
@@ -1027,7 +1088,7 @@ fn decompile_bytecode_internal(
                     (body.to_string(), Vec::new(), Default::default())
                 }
             };
-            let upvalue_analysis = raw_upvalue_analysis.map(|raw| {
+            let upvalue_analysis = prepared.raw_upvalue_analysis.take().map(|raw| {
                 let mut analysis = upvalue_analysis::reconcile_bindings(
                     raw,
                     &linked_upvalue_bindings,
@@ -1047,7 +1108,6 @@ fn decompile_bytecode_internal(
                 source: out,
                 upvalue_analysis,
             }))
-        }
     }
 }
 
@@ -1293,7 +1353,10 @@ pub fn requires_fresh_decompilation() -> bool {
     }
 }
 
-fn batch_layout(items: &[BatchInput<'_>]) -> (Vec<usize>, Vec<usize>, Vec<usize>) {
+/// Build a request-local representative plan using the engine's exact context
+/// equality. Callers must bypass reuse when diagnostics require fresh execution.
+#[doc(hidden)]
+pub fn batch_layout(items: &[BatchInput<'_>]) -> (Vec<usize>, Vec<usize>, Vec<usize>) {
     // Options, executable and semantic environment are constant for this call.
     // Borrow exact bytecode; hash collisions still require byte equality.
     let mut contexts = FxHashMap::default();
@@ -1620,6 +1683,7 @@ fn cleanup_ssa<const SPECIALIZE: bool>(
     mut rounds_left: usize,
 ) -> bool {
     let mut changed = true;
+    let mut revisions = cfg::analysis::Revisions::default();
     let mut dominator_cache = None;
     while changed {
         if rounds_left == 0 {
@@ -1639,27 +1703,39 @@ fn cleanup_ssa<const SPECIALIZE: bool>(
             return true;
         }
 
-        let dominators = dominator_cache.get_or_insert_with(|| {
+        if dominator_cache.as_ref().is_none_or(|(revision, _)| *revision != revisions.topology()) {
             ptime!(F_SIMPLE_FAST);
-            cfg::dominators::Dominators::new(function.graph(), function.entry().unwrap())
-        });
-        let topology_changed = {
+            dominator_cache = Some((revisions.topology(),
+                cfg::dominators::Dominators::new(function.graph(), function.entry().unwrap())));
+            ast::telemetry::count("ssa_dominator_rebuilds", 1);
+        }
+        let dominators = &dominator_cache.as_ref().unwrap().1;
+        let jump_edits = {
             ptime!(F_STRUCTURE_JUMPS);
-            structure_jumps(function, dominators)
+            structure_jumps_with_changes(function, dominators)
         };
-        changed |= topology_changed;
+        changed |= jump_edits.changed;
+        revisions.advance(jump_edits.topology_changed, false, false);
 
         {
             ptime!(F_SSA_INLINE);
-            ssa::inline::inline_with_readonly_captures(function, local_to_group,
+            let edits = ssa::inline::inline_with_readonly_captures_report(function, local_to_group,
                 cells.upvalue_to_group, cells.readonly_ids, Some(incoming_upvalue_ids));
+            // The inliner reaches its own fixed point and does not change
+            // adjacency. Record its precise invalidations without scheduling
+            // extra outer rounds or rebuilding dominators for operand edits.
+            revisions.advance(false, edits.operands_changed || edits.usage_counts_changed,
+                edits.statement_layout_changed);
+            if ast::telemetry::enabled() {
+                ast::telemetry::count("ssa_inline_edited_blocks", edits.edited_blocks().count() as u64);
+            }
         }
 
         let sc = {
             ptime!(F_STRUCTURE_CONDS);
             structure_conditionals_with_changes(function, &|local| cells.protected.contains(local))
         };
-        if topology_changed || sc.topology_changed { dominator_cache = None; }
+        revisions.advance(sc.topology_changed, sc.changed, sc.changed);
         if sc.changed
         // || {
         //     let post_dominators = post_dominators(function.graph_mut());
@@ -1683,6 +1759,7 @@ fn cleanup_ssa<const SPECIALIZE: bool>(
             changed = true;
             cells.adopt_replacements(&local_map);
         }
+        revisions.advance(false, rp || !local_map.is_empty(), false);
         {
             ptime!(F_APPLY_MAP);
             ssa::construct::apply_local_map(function, local_map);

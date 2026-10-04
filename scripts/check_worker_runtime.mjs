@@ -62,10 +62,54 @@ try {
     assert.equal(result.results[3].decompilation.trim(),'return 4294967297i');
     console.log(JSON.stringify({vong:round+1,...result}));
   }
+  for (const script of [
+    { encoded_bytecode: good, script_name: 'x'.repeat(4097) },
+    { encoded_bytecode: good, id: 'x'.repeat(1025) },
+  ]) {
+    const response = await mf.dispatchFetch('http://localhost/decompile_batch', {
+      method:'POST', headers:{Authorization:secret,'Content-Type':'application/json'},
+      body:JSON.stringify({key:1,scripts:[script]}),
+    });
+    assert.equal(response.status,413);
+  }
+  const malformed = await mf.dispatchFetch('http://localhost/decompile_batch', {
+    method:'POST', headers:{Authorization:secret,'Content-Type':'application/json'},body:'{broken',
+  });
+  assert.equal(malformed.status,400);
+
+  const upgrade = await mf.dispatchFetch('http://localhost/decompile_ws', {
+    headers:{Authorization:secret,Upgrade:'websocket'},
+  });
+  assert.equal(upgrade.status,101);
+  const socket = upgrade.webSocket;
+  assert.ok(socket);
+  socket.accept();
+  const exchange = async (message) => {
+    const received = new Promise((resolve,reject) => {
+      const timeout = setTimeout(() => { socket.removeEventListener('message', listener); reject(new Error('WebSocket response timeout')); },10000);
+      const listener = (event) => { clearTimeout(timeout); socket.removeEventListener('message',listener); resolve(JSON.parse(event.data)); };
+      socket.addEventListener('message',listener);
+    });
+    socket.send(message);
+    return received;
+  };
+  try {
+    const before = await exchange(JSON.stringify({id:'ws-before',encoded_bytecode:good}));
+    assert.equal(before.decompilation.trim(),'return 7');
+    const badJson = await exchange('{broken');
+    assert.equal(badJson.id,'');
+    assert.match(badJson.decompilation,/decompile failed:.*invalid JSON/);
+    const badBase64 = await exchange(JSON.stringify({id:'ws-bad-base64',encoded_bytecode:'!'}));
+    assert.equal(badBase64.id,'ws-bad-base64');
+    assert.match(badBase64.decompilation,/decompile failed:.*base64/);
+    const after = await exchange(JSON.stringify({id:'ws-after',encoded_bytecode:good}));
+    assert.equal(after.id,'ws-after');
+    assert.equal(after.decompilation.trim(),'return 7');
+  } finally { socket.close(1000,'complete'); }
 } finally { await mf.dispose(); }
 const missing = runtime();
 try {
   const response=await missing.dispatchFetch('http://localhost/decompile_batch',{method:'POST',body});
   assert.equal(response.status,503);
 } finally { await missing.dispose(); }
-console.log('PASS: xác thực bằng binding, integer 64 bit và batch tiếp tục sau panic trên WASM.');
+console.log('PASS: xác thực, envelope limits, integer 64 bit, batch panic recovery và WebSocket tiếp tục sau JSON/base64 lỗi trên WASM.');

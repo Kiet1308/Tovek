@@ -1,0 +1,18 @@
+{
+  "target-baseline/release/luau-lifter": {
+    "sha256": "c0fb8ebb6e37b070305e1de72c4aef7eaec30e55349d7860bd5f9117f89d6542",
+    "bytes": 7134240
+  },
+  "target-candidate/release/luau-lifter": {
+    "sha256": "bfd6b36c7f0ffd2e9880cee7b729b51af3d5a2c511cec3586097322fa6c16901",
+    "bytes": 7224416
+  },
+  "target-baseline/release/examples/benchmark_single": {
+    "sha256": "6428c361f127fa63618421727ad23791400428fb63eb8bc57fc206d02e1b71de",
+    "bytes": 5786656
+  },
+  "target-candidate/release/examples/benchmark_single": {
+    "sha256": "1841f61dc6dbd99106ce01a3da959ac01ec2af64801dae6e01761e60431fa66c",
+    "bytes": 6245408
+  }
+}

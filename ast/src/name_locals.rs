@@ -2,6 +2,7 @@
 use crate::inline_temps::{collect_closures_in_statement, collect_usage};
 use itertools::Either;
 use rustc_hash::{FxHashMap, FxHashSet};
+#[cfg(test)]
 use triomphe::Arc;
 
 use crate::{
@@ -16,9 +17,7 @@ const RESERVED_KEYWORDS: &[&str] = &[
     "local", "nil", "not", "or", "repeat", "return", "then", "true", "until", "while",
 ];
 
-/// Stable identity of a local, based on the address of its backing allocation.
-/// Using the address (instead of cloning the `Arc`) avoids inflating the
-/// strong count, which `name_one` relies on to detect unused locals.
+/// Numeric phase-local identity; the preparation never retains AST owners.
 fn local_ptr(local: &RcLocal) -> usize {
     &*local.0 .0 as *const _ as usize
 }
@@ -3030,8 +3029,8 @@ fn arm_assigns_only(block: &Block, local: &RcLocal) -> bool {
 /// Collect the locals that look like `conditional_expressions` ternary-collapse
 /// candidates: a `local v` empty decl, an `if` immediately after whose then/else
 /// arms each *solely* assign `v`, and a use of `v` in the *immediately* following
-/// statement. Naming such a temp from an arm RHS would make `is_generated_temp(v)`
-/// false and suppress the collapse (+lines), so it must keep its generated name.
+/// statement. Naming records temporary intent for this shape independently of
+/// its final spelling; the later pass still applies every semantic proof guard.
 /// The strict adjacency is what keeps a 3-write/1-read temp whose use is NOT
 /// adjacent (so it never collapses) nameable — e.g.
 /// `local cFrame; if .. end; local a; local b; use(cFrame*a*b)`.
@@ -3104,9 +3103,52 @@ type FunctionDefinitions = FxHashMap<usize, Vec<ParameterIdentity>>;
 #[derive(Clone, Copy)]
 struct PreparationDomains { usage: bool, definitions: bool }
 
+/// Parameter slots supplement the existing read/write occurrence census rather
+/// than hashing every operand twice. Counts saturate at two because naming only
+/// asks whether a binder occurs once. Shared bodies contribute at each emitted
+/// occurrence; capture slots are already included in the ordinary read census.
+#[derive(Debug, PartialEq, Eq)]
+struct NamingOccurrences {
+    counts: FxHashMap<usize, u8>,
+    complete: bool,
+}
+
+impl Default for NamingOccurrences {
+    fn default() -> Self { Self { counts: FxHashMap::default(), complete: true } }
+}
+
+impl NamingOccurrences {
+    const BINDING_LIMIT: usize = 100_000;
+
+    fn note(&mut self, local: &RcLocal) {
+        if !self.complete { return; }
+        let ptr = local_ptr(local);
+        if let Some(count) = self.counts.get_mut(&ptr) {
+            *count = (*count + 1).min(2);
+        } else if self.counts.len() < Self::BINDING_LIMIT {
+            self.counts.insert(ptr, 1);
+        } else {
+            // Unknown is never evidence that a binding is unused.
+            self.complete = false;
+        }
+    }
+
+    fn only_binder(&self, ptr: usize, usage: &FxHashMap<usize, Usage>) -> bool {
+        if !self.complete || usage.len() > Self::BINDING_LIMIT { return false; }
+        let reads = usage.get(&ptr).map_or(0, |usage| usage.reads);
+        let writes = usage.get(&ptr).map_or(0, |usage| usage.writes);
+        match self.counts.get(&ptr).copied().unwrap_or(0) {
+            0 => reads == 0 && writes == 1,
+            1 => reads == 0 && writes == 0,
+            _ => false,
+        }
+    }
+}
+
 /// One read-only occurrence walk for naming prerequisites. The explicit domains
 /// preserve historical selector differences; no fact survives this naming call.
-/// All retained identities are numeric, so unused-local ownership stays exact.
+/// All retained identities are numeric, so analysis ownership cannot change
+/// unused-binding decisions.
 #[derive(Default)]
 struct NamingPreparation {
     create_element_aliases: FxHashSet<usize>,
@@ -3115,6 +3157,7 @@ struct NamingPreparation {
     field_aliases: FxHashMap<usize, String>,
     callee_aliases: FxHashMap<usize, RValue>,
     counts: FxHashMap<usize, Usage>,
+    occurrences: NamingOccurrences,
     identities: Option<FxHashMap<usize, u64>>,
     definitions: FunctionDefinitions,
     invalid_definitions: FxHashSet<usize>,
@@ -3162,7 +3205,9 @@ impl NamingPreparation {
                 }
                 // No deduplication: shared bodies contribute once per occurrence,
                 // and an indexed-LHS occurrence can have different active domains.
-                self.block(&closure.function.lock().body, domains);
+                let function = closure.function.lock();
+                for parameter in &function.parameters { self.occurrences.note(parameter); }
+                self.block(&function.body, domains);
             }
             RValue::Call(call) | RValue::Select(Select::Call(call)) => self.call(call),
             RValue::MethodCall(call) | RValue::Select(Select::MethodCall(call)) => self.method(call),
@@ -3329,10 +3374,10 @@ struct Namer {
     module_table_locals: FxHashSet<usize>,
     /// Locals that have already been named.
     named: FxHashSet<usize>,
-    /// Locals bound to a closure. Such a local keeps its (function-derived) name
-    /// even when unused, so a recovered local function whose calls were inlined
-    /// away by the Luau -O2 compiler reads as itself rather than `_`.
-    closure_locals: FxHashSet<usize>,
+    /// Table/function declarations keep meaningful inferred names even without
+    /// runtime reads. Their surviving structure describes a collection/helper;
+    /// replacing that name with `_` would hide useful source organization.
+    structural_locals: FxHashSet<usize>,
     /// Per-local usage facts gathered before naming (see `LocalUsage`).
     usage: FxHashMap<usize, LocalUsage>,
     /// Locals aliased to `*.createElement` (see `collect_create_element_aliases`).
@@ -3341,17 +3386,13 @@ struct Namer {
     callee_aliases: FxHashMap<usize, RValue>,
     /// Read/write/capture counts, preserving the exact selectors and occurrence
     /// semantics of `inline_temps::collect_usage`, so `is_collapse_candidate`
-    /// agrees bit-for-bit with the gate the elimination passes apply. Keyed by `local_ptr` (the
-    /// Arc *address*), NOT `RcLocal` — holding an `RcLocal` here would keep a
-    /// strong Arc clone alive for every local, inflating `Arc::count` and
-    /// breaking `name_one`'s unused-local detection (`Arc::count == 1` -> `_`).
-    /// See the note on `local_ptr`.
+    /// agrees with the semantic gate the elimination passes apply.
     counts: FxHashMap<usize, Usage>,
+    occurrences: NamingOccurrences,
     /// Declaration temps with a MOVABLE RHS in exactly the single-use shape the
-    /// later temp-inline / copy-cleanup passes fold away. Naming one of these
-    /// from whole-tree facts (a collection fill, a counter) would keep it alive
-    /// (+1 line), so `usage_based_hints` skips them — the fact then lands on
-    /// nothing, and the copy disappears as before.
+    /// later temp-inline / copy-cleanup passes fold away. Preserve temporary
+    /// intent for them and avoid deriving declaration-level usage hints for
+    /// a binder expected to disappear.
     movable_temp_locals: FxHashSet<usize>,
     /// How many enclosing functions (innermost first) have a first parameter
     /// used like an object (`p.field`, `p:method()`): a method candidate whose
@@ -3388,10 +3429,9 @@ impl Namer {
     /// Whether `local` is a `conditional_expressions` ternary-collapse candidate
     /// — the exact gate that pass applies (`reads == 1 && writes == 3 &&
     /// !captured`, conditional_expressions.rs:99). Such a temp (`local v; if c
-    /// then v = A else v = B end; use(v)`) must keep its generated `vN` name so
-    /// `is_generated_temp(v)` stays true and the collapse fires; naming it from
-    /// an arm RHS would suppress the collapse and leave the expanded if-else
-    /// (+lines). Counts are stable between here and that pass (only recover_methods
+    /// then v = A else v = B end; use(v)`) keeps temporary intent and avoids
+    /// taking a misleading name from only one arm's RHS. Counts are stable
+    /// between here and that pass (only recover_methods
     /// and a movable-temp inline run in between, neither of which alters a
     /// 3-write temp's read/write counts).
     fn is_collapse_candidate(&self, local: &RcLocal) -> bool {
@@ -4678,13 +4718,18 @@ impl Namer {
             return;
         }
         if let Some(name) = lock.source_name().map(str::to_string) {
-            lock.0 = Some(self.unique(&name, scope, policy));
+            let name = self.unique(&name, scope, policy);
+            lock.4.intent = crate::BindingIntent::Named;
+            lock.4.method_receiver = default_prefix == "p" && name == "self";
+            lock.0 = Some(name);
             return;
         }
         if let Some(name) = lock.0.clone()
             && is_constant_identifier(&name)
         {
             lock.0 = Some(self.unique(&name, scope, policy));
+            lock.4.intent = crate::BindingIntent::Named;
+            lock.4.method_receiver = false;
             return;
         }
         // Late irreducible-control-flow dispatchers deliberately carry semantic
@@ -4699,33 +4744,42 @@ impl Namer {
             )
         {
             lock.0 = Some(self.unique(&name, scope, policy));
+            lock.4.intent = crate::BindingIntent::Named;
+            lock.4.method_receiver = false;
             return;
         }
         if !(self.rename || lock.0.is_none()) {
             return;
         }
-        // An unused local (its only reference is the declaration itself) is named
-        // `_`, which is idiomatic and needs no uniqueness handling — UNLESS it is
-        // a recovered local function (closure-bound) whose calls were inlined away
-        // by the Luau -O2 compiler, which we keep named so it reads as itself.
+        // A binder with no other syntax occurrence is normally `_`. Meaningful
+        // table/function names are retained because the declaration itself still
+        // describes a collection/helper. Unread loop indices and scalar slots
+        // remain discards regardless of how many analysis handles are held.
         // The script's own global `_` keeps its name: the local would shadow
         // it for every later read.
-        if Arc::count(&local.0 .0) == 1 && !self.reserved.contains("_") {
-            if self.closure_locals.contains(&ptr)
+        if self.occurrences.only_binder(ptr, &self.counts) && !self.reserved.contains("_") {
+            if self.structural_locals.contains(&ptr)
                 && let Some(hint) = self.hints.get(&ptr).map(|hint| hint.name.clone())
             {
                 lock.0 = Some(self.unique(&hint, scope, policy));
+                lock.4.intent = crate::BindingIntent::Named;
             } else {
                 lock.0 = Some("_".to_string());
+                lock.4.intent = crate::BindingIntent::Discard;
             }
+            lock.4.method_receiver = false;
             return;
         }
-        let base = self
-            .hints
-            .get(&ptr)
-            .map(|hint| hint.name.clone())
-            .unwrap_or_else(|| default_prefix.to_string());
-        lock.0 = Some(self.unique(&base, scope, policy));
+        let hint = self.hints.get(&ptr);
+        lock.4.intent = if self.collapse_candidates.contains(&ptr) || self.movable_temp_locals.contains(&ptr) {
+            crate::BindingIntent::Temporary
+        } else if hint.is_some() { crate::BindingIntent::Named }
+        else if default_prefix == "p" { crate::BindingIntent::Parameter }
+        else { crate::BindingIntent::Temporary };
+        let base = hint.map(|hint| hint.name.clone()).unwrap_or_else(|| default_prefix.to_string());
+        let name = self.unique(&base, scope, policy);
+        lock.4.method_receiver = default_prefix == "p" && name == "self";
+        lock.0 = Some(name);
     }
 
     /// First pass: gather reserved globals and per-local naming hints.
@@ -4846,8 +4900,10 @@ impl Namer {
                             && let Some(rvalue) = assign.right.get(index)
                         {
                             self.children_or_result_hint(local);
+                            if matches!(rvalue, RValue::Table(_) | RValue::Closure(_)) {
+                                self.structural_locals.insert(local_ptr(local));
+                            }
                             if matches!(rvalue, RValue::Closure(_)) {
-                                self.closure_locals.insert(local_ptr(local));
                                 // A closure stored under an `onClose`/`setX` field
                                 // takes that field's name.
                                 self.callback_hint(local);
@@ -4872,9 +4928,8 @@ impl Namer {
                                 // NOTE: an empty `{}` IS `is_movable_single_value`
                                 // (vacuously — `.all()` over no entries), so a SINGLE-
                                 // USE empty-table temp WOULD be folded by the later
-                                // `inline_single_use_temps` (-1 line). Naming it `class`
-                                // makes `is_generated_temp` false and suppresses that
-                                // inline (+1 line). So additionally gate on it NOT being
+                                // `inline_single_use_temps`. A declaration-level class
+                                // hint is useful only when this is NOT
                                 // that inline shape (`reads == 1 && writes == 1 &&
                                 // !captured`); a genuine class table is referenced by
                                 // its metatable / method defs / return, hence always
@@ -4893,9 +4948,8 @@ impl Namer {
                             }
                             // RHS-derived naming must not fire on a
                             // `conditional_expressions` diamond temp (`local v; if c then
-                            // v = A else v = B end; use(v)`): naming it makes
-                            // `is_generated_temp(v)` false and suppresses the collapse to
-                            // `if c then A else B` (+lines). Such a temp is exactly the
+                            // v = A else v = B end; use(v)`): either arm alone can give
+                            // the result a misleading name. Such a temp is exactly the
                             // pass's gate `reads == 1 && writes == 3 && !captured`
                             // (conditional_expressions.rs:99); `is_collapse_candidate`
                             // mirrors it. Naming on a *single*-reassign (`local v; v = X`,
@@ -5282,7 +5336,7 @@ fn visit_calls_in_rvalue<P>(
 }
 
 fn current_name(local: &RcLocal) -> Option<String> {
-    local.0 .0.lock().0.clone().filter(|name| name != "_")
+    local.0 .0.lock().rendered_name().map(str::to_owned).filter(|name| name != "_")
 }
 
 fn shadow_safe_base(name: &str) -> String {
@@ -5337,7 +5391,9 @@ fn reserve_without_shadow(local: &RcLocal, visible: &mut FxHashMap<String, usize
         loop {
             let candidate = format!("{}{}", base, counter);
             if !visible.contains_key(&candidate) {
-                local.0 .0.lock().0 = Some(candidate.clone());
+                let mut data = local.0 .0.lock();
+                data.4.method_receiver = false;
+                data.0 = Some(candidate.clone());
                 name = candidate;
                 break;
             }
@@ -5478,7 +5534,7 @@ fn name_locals_impl<const REFERENCE: bool>(
     #[cfg(not(test))]
     let preparation = NamingPreparation::for_naming(block, collect_evidence);
     let NamingPreparation { create_element_aliases, collapse_candidates, class_signal_locals,
-        field_aliases, mut callee_aliases, counts, identities, definitions, invalid_definitions: _ } = preparation;
+        field_aliases, mut callee_aliases, counts, occurrences, identities, definitions, invalid_definitions: _ } = preparation;
     // An alias written again may call anything.
     callee_aliases.retain(|ptr, _| counts.get(ptr).is_some_and(|usage| usage.writes == 1));
     let mut usage = FxHashMap::default();
@@ -5526,11 +5582,12 @@ fn name_locals_impl<const REFERENCE: bool>(
         instance_assignment_conflicts: FxHashSet::default(),
         module_table_locals: FxHashSet::default(),
         named: FxHashSet::default(),
-        closure_locals: FxHashSet::default(),
+        structural_locals: FxHashSet::default(),
         usage,
         create_element_aliases,
         callee_aliases,
         counts,
+        occurrences,
         movable_temp_locals: FxHashSet::default(),
         receiver_like_depth: 0,
         at_root: false,
@@ -6016,12 +6073,12 @@ mod tests {
 
         name_locals(&mut block, true);
 
-        assert_eq!(name_of(&index), "i");
+        assert_eq!(name_of(&index), "_", "an unread index is a discard even while this test holds its handle");
         assert_eq!(name_of(&child_name), "childName");
         assert_eq!(name_of(&child), "child");
         let output = block.to_string();
         assert!(
-            output.contains("for i, childName in ipairs"),
+            output.contains("for _, childName in ipairs"),
             "unexpected loop binder naming:\n{output}"
         );
         assert!(
@@ -7031,7 +7088,7 @@ mod tests {
         name_locals(&mut block, true);
 
         assert_eq!(name_of(&shared), "v");
-        assert_eq!(name_of(&key), "k");
+        assert_eq!(name_of(&key), "_", "the unused key must not affect loop-value scope reservation");
         assert_eq!(
             name_of(&value),
             "v2",

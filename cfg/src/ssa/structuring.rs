@@ -902,8 +902,26 @@ fn joins_loop_exits(function: &Function, dominators: &crate::dominators::Dominat
         })
 }
 
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct JumpChanges {
+    /// Preserve the legacy outer-round schedule. In particular, deleting an
+    /// unreachable empty adapter alone did not request another round.
+    pub changed: bool,
+    /// Any block or adjacency change, including that unreachable deletion.
+    /// Analysis revisions must use this field independently of `changed`.
+    pub topology_changed: bool,
+}
+
 pub fn structure_jumps(function: &mut Function, dominators: &crate::dominators::Dominators) -> bool {
+    structure_jumps_with_changes(function, dominators).changed
+}
+
+pub fn structure_jumps_with_changes(
+    function: &mut Function,
+    dominators: &crate::dominators::Dominators,
+) -> JumpChanges {
     let mut did_structure = false;
+    let mut topology_changed = false;
     for node in function.graph().node_indices().collect_vec() {
         // we call function.remove_block, that might've resulted in node being removed
         if function.block(node).is_some()
@@ -944,6 +962,10 @@ pub fn structure_jumps(function: &mut Function, dominators: &crate::dominators::
                 }
                 if remove && function.entry() != &Some(node) {
                     function.remove_block(node);
+                    // With zero predecessors, none of the rewrites above ran.
+                    // The old convergence boolean intentionally stays false,
+                    // but graph-wide analyses must still see this deletion.
+                    topology_changed = true;
                     continue;
                 }
             }
@@ -967,7 +989,67 @@ pub fn structure_jumps(function: &mut Function, dominators: &crate::dominators::
             }
         }
     }
-    did_structure
+    JumpChanges {
+        changed: did_structure,
+        // Every legacy reported rewrite redirects/removes edges or merges a
+        // block; deletion without a predecessor rewrite is recorded above.
+        topology_changed: topology_changed || did_structure,
+    }
+}
+
+#[cfg(test)]
+mod jump_changes_tests {
+    use super::*;
+
+    #[test]
+    fn unreachable_adapter_deletion_invalidates_topology_without_an_extra_round() {
+        let mut function = Function::new(0);
+        let entry = function.new_block();
+        let adapter = function.new_block();
+        let exit = function.new_block();
+        function.set_entry(entry);
+        function.block_mut(entry).unwrap().push(ast::Return::default().into());
+        function.block_mut(exit).unwrap().push(ast::Return::default().into());
+        function.set_edges(adapter, vec![(exit, BlockEdge::default())]);
+        let mut legacy = function.deep_clone();
+        let dominators = crate::dominators::Dominators::new(function.graph(), entry);
+        let mut revisions = crate::analysis::Revisions::default();
+        let before = revisions.topology();
+
+        let changes = structure_jumps_with_changes(&mut function, &dominators);
+        assert_eq!(changes, JumpChanges { changed: false, topology_changed: true });
+        assert!(function.block(adapter).is_none());
+        assert_eq!(function.graph().node_count(), 2);
+        assert_eq!(function.graph().edge_count(), 0);
+        assert_eq!(function.entry(), &Some(entry));
+        revisions.advance(changes.topology_changed, false, false);
+        assert_ne!(revisions.topology(), before);
+
+        // Existing callers retain the old false return and exactly the same
+        // graph mutation; no new round is needed solely to invalidate facts.
+        assert!(!structure_jumps(&mut legacy, &dominators));
+        assert_eq!(format!("{function:?}"), format!("{legacy:?}"));
+        assert_eq!(structure_jumps_with_changes(&mut function, &dominators), JumpChanges::default());
+    }
+
+    #[test]
+    fn reachable_merge_reports_both_legacy_progress_and_topology() {
+        let mut function = Function::new(0);
+        let entry = function.new_block();
+        let exit = function.new_block();
+        function.set_entry(entry);
+        function.block_mut(entry).unwrap().push(ast::Comment::new("entry".into()).into());
+        function.block_mut(exit).unwrap().push(ast::Return::default().into());
+        function.set_edges(entry, vec![(exit, BlockEdge::default())]);
+        let mut legacy = function.deep_clone();
+        let dominators = crate::dominators::Dominators::new(function.graph(), entry);
+        assert_eq!(structure_jumps_with_changes(&mut function, &dominators),
+            JumpChanges { changed: true, topology_changed: true });
+        assert!(structure_jumps(&mut legacy, &dominators));
+        assert_eq!(format!("{function:?}"), format!("{legacy:?}"));
+        assert_eq!(function.graph().node_count(), 1);
+        assert_eq!(function.block(entry).unwrap().len(), 2);
+    }
 }
 
 #[cfg(test)]

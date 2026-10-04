@@ -92,7 +92,7 @@ def main():
 
     def process(item):
         entry, opt = item
-        row = dict(entry, opt=opt, status="failed", dataflow={"status": "unavailable"},
+        row = dict(entry, opt=opt, debug=manifest["debug_level"], status="failed", dataflow={"status": "unavailable"},
                    source_fidelity={"status": "unavailable"})
         try:
             source = fixture_path(args.vendor / entry["repo"], entry["file"])
@@ -103,6 +103,7 @@ def main():
             raw = compile_source(args, source, opt, manifest["debug_level"])
             bytecode = directory / (source.name + ".luaubc")
             bytecode.write_bytes(raw)
+            row["decoded_input_sha256"] = sha256(bytecode)
             output, elapsed = checked([args.lifter, bytecode, "--strict-no-synthetic-control",
                                        "--script-name", entry["file"], *args.lifter_arg], timeout=args.timeout)
             if not output.strip():
@@ -110,6 +111,7 @@ def main():
             emitted = directory / (source.name + ".out.luau")
             emitted.write_bytes(output)
             rebuilt = compile_source(args, emitted, opt, manifest["debug_level"])
+            row["recompile"] = "passed"
             a, b = parse_chunk(raw, 1), parse_chunk(rebuilt, 1)
             row["dataflow"] = compare_dataflow(a, b)
             pairs, missing, extra = compare_chunks(a, b)

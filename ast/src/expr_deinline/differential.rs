@@ -387,3 +387,60 @@ fn arithmetic_attempt_boundary_preserves_late_match_refusal() {
         assert_eq!(matches!(result.values.last(), Some(RValue::Call(_))), failed_attempts == 8191);
     }
 }
+
+#[test]
+fn repeated_root_priority_cache_preserves_late_rivals_scopes_and_metadata() {
+    fn make(count: usize, rival: bool) -> (Block, Vec<Arc<Mutex<Function>>>) {
+        crate::reset_local_ids();
+        let mut block = Block::default();
+        let mut functions = Vec::new();
+        let argument = local("argument");
+        let expression = |value: RValue, tag: usize| -> RValue {
+            Binary::new(predicate(value), Literal::String(format!("tag{tag}").into_bytes()).into(), Op::And).into()
+        };
+        for index in 0..count {
+            let parameter = local("parameter");
+            let tag = if rival && index + 1 == count { 0 } else { index };
+            let function = Arc::new(Mutex::new(Function {
+                parameters: vec![parameter.clone()],
+                body: Block(vec![Return::new(vec![expression(parameter.into(), tag)]).into()]), ..Default::default()
+            }));
+            block.0.push(assign(&local(&format!("helper{index}")), closure(&function, vec![])));
+            functions.push(function);
+        }
+        let caller = Arc::new(Mutex::new(Function {
+            body: Block(vec![Return::new((0..24).map(|index| expression(argument.clone().into(), index % count)).collect()).into()]),
+            ..Default::default()
+        }));
+        block.0.push(assign(&local("caller"), closure(&caller, vec![Upvalue::Copy(argument)])));
+        functions.push(caller);
+        annotate_block(&mut block, &mut 0);
+        (block, functions)
+    }
+    for count in [2, 8, 32] {
+        for rival in [false, true] {
+            let lines: Vec<_> = (0..=count).map(|index| vec![Some(if index + 1 >= count { 7 } else { 3 })]).collect();
+            let (mut actual, functions) = make(count, rival);
+            {
+                let _scope = crate::reconstruction_search::enter(lines.clone());
+                for (index, function) in functions.iter().enumerate() {
+                    crate::reconstruction_search::register_function(Arc::as_ptr(function) as usize, index);
+                }
+                priority_tests::reset_builds();
+                run(&mut actual, false);
+                assert!(priority_tests::builds() <= functions.len(), "one root bucket per visited function");
+            }
+            let (mut expected, functions) = make(count, rival);
+            {
+                let _scope = crate::reconstruction_search::enter(lines);
+                for (index, function) in functions.iter().enumerate() {
+                    crate::reconstruction_search::register_function(Arc::as_ptr(function) as usize, index);
+                }
+                reference::run(&mut expected, false);
+            }
+            assert_eq!(actual.to_string(), expected.to_string(), "{count} helpers, rival {rival}");
+            assert_eq!(shape(&actual), shape(&expected));
+            assert_eq!(snapshot(&actual), snapshot(&expected));
+        }
+    }
+}

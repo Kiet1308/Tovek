@@ -1,0 +1,6675 @@
+{
+  "schema_version": 1,
+  "decode_key": 1,
+  "scripts": [
+    {
+      "path": "Fusion/O0/src/Animation/ExternalTime.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "821f87ef492235f5e9615253317bffe57cdbb3f3f6cec03d5bdcb5e8ab3d5186",
+      "script_name": "src/Animation/ExternalTime.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O0"
+      ]
+    },
+    {
+      "path": "Fusion/O1/src/Animation/ExternalTime.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "583330971097aa747e2513286b3a4444db27fe89e5bb78a0987949319929ffae",
+      "script_name": "src/Animation/ExternalTime.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O1"
+      ]
+    },
+    {
+      "path": "Fusion/O2/src/Animation/ExternalTime.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "149b4bb6ad66e8f21631b2b77b43a7a9eec09e6a1cd2683bc354f564ca00c7c8",
+      "script_name": "src/Animation/ExternalTime.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O2"
+      ]
+    },
+    {
+      "path": "Fusion/O0/src/Animation/getTweenDuration.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "623ac91e166f102a57df33eecc0d01d7ef8281238ffaefb91d9c251e194c78ac",
+      "script_name": "src/Animation/getTweenDuration.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O0"
+      ]
+    },
+    {
+      "path": "Fusion/O1/src/Animation/getTweenDuration.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "2410ca0fc59a970742eba27afcc157db6150346eef83f28be3119eebf3950d12",
+      "script_name": "src/Animation/getTweenDuration.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O1"
+      ]
+    },
+    {
+      "path": "Fusion/O2/src/Animation/getTweenDuration.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "bc5f4e88e58e35aa2ca59becc2f459a24d4c2650b788319b5bc27cc04f874f34",
+      "script_name": "src/Animation/getTweenDuration.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O2"
+      ]
+    },
+    {
+      "path": "Fusion/O0/src/Animation/getTweenRatio.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "4254e323cb15da40cc6c9035841bb0e7a38822665b93060b1bdabd7575e3cde1",
+      "script_name": "src/Animation/getTweenRatio.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O0"
+      ]
+    },
+    {
+      "path": "Fusion/O1/src/Animation/getTweenRatio.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "d5f048045197a35053f59b276667f8f5df41ea0652eb3399202ea491256c2a27",
+      "script_name": "src/Animation/getTweenRatio.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O1"
+      ]
+    },
+    {
+      "path": "Fusion/O2/src/Animation/getTweenRatio.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "22357799fb29e5c00dd89535883c8d8b54b757ef78ce81cae3641e795cd9a923",
+      "script_name": "src/Animation/getTweenRatio.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O2"
+      ]
+    },
+    {
+      "path": "Fusion/O0/src/Animation/lerpType.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "b85b968234d1a856df0f40c2a19404ed8f56dbb3641fd29f8fa916a14f2436e7",
+      "script_name": "src/Animation/lerpType.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O0"
+      ]
+    },
+    {
+      "path": "Fusion/O1/src/Animation/lerpType.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "c8afb3f2f33b2a44124df3b08fc73fd6353c70964c1a2ad159c0eb3f8290e9de",
+      "script_name": "src/Animation/lerpType.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O1"
+      ]
+    },
+    {
+      "path": "Fusion/O2/src/Animation/lerpType.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "7e3905624c75e0b25e5c39dd1b7d72153706c6a11743b95d80143c2d782c3efd",
+      "script_name": "src/Animation/lerpType.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O2"
+      ]
+    },
+    {
+      "path": "Fusion/O0/src/Animation/packType.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "9c37c852eec970bf8a5d3524bc28c8986a7b0d6bdf2041478312321815703d90",
+      "script_name": "src/Animation/packType.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O0"
+      ]
+    },
+    {
+      "path": "Fusion/O1/src/Animation/packType.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "9a1e76e4f81e1f96bdfe09d63558e25d2df1d3e822b4d166392c0c1ddc28d7a7",
+      "script_name": "src/Animation/packType.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O1"
+      ]
+    },
+    {
+      "path": "Fusion/O2/src/Animation/packType.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "21236cfbaaa1bcd042b91339337de70d7f020ef9a3c0916cd52e10e425b81c1d",
+      "script_name": "src/Animation/packType.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O2"
+      ]
+    },
+    {
+      "path": "Fusion/O0/src/Animation/Spring.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "4270a46dcedd7625f0c8c970a8bf9ac73c00af19910ff382023807e9b4f5bafa",
+      "script_name": "src/Animation/Spring.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O0"
+      ]
+    },
+    {
+      "path": "Fusion/O1/src/Animation/Spring.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "8cba63477e9622e635cba5f16f790ad8f66d06c68b154865c496f7607b67c8f8",
+      "script_name": "src/Animation/Spring.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O1"
+      ]
+    },
+    {
+      "path": "Fusion/O2/src/Animation/Spring.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "8cba63477e9622e635cba5f16f790ad8f66d06c68b154865c496f7607b67c8f8",
+      "script_name": "src/Animation/Spring.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O2"
+      ]
+    },
+    {
+      "path": "Fusion/O0/src/Animation/springCoefficients.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "0a941d9f55c7d585f7dad5efd77e72aa8c7b3fd8fda0143fe5354eda79c16799",
+      "script_name": "src/Animation/springCoefficients.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O0"
+      ]
+    },
+    {
+      "path": "Fusion/O1/src/Animation/springCoefficients.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "fc5f2c1f8f46eeea8bf97b931221e5a36cdc83f2c792def0dc82554501a2a67f",
+      "script_name": "src/Animation/springCoefficients.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O1"
+      ]
+    },
+    {
+      "path": "Fusion/O2/src/Animation/springCoefficients.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "13b0cd27e8c325bf9e3a93de048ce70d47a0bb0dd47f380857daec11a84f8c19",
+      "script_name": "src/Animation/springCoefficients.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O2"
+      ]
+    },
+    {
+      "path": "Fusion/O0/src/Animation/Stopwatch.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "5597ce796c2c1e1647d07b1354b9a2dc9ced2523abd63bc2540362b66a2bc95a",
+      "script_name": "src/Animation/Stopwatch.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O0"
+      ]
+    },
+    {
+      "path": "Fusion/O1/src/Animation/Stopwatch.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "cd01ec34427ec5ddb054e395dc9e5c10c898faa52ea963ca38aa68f09426de88",
+      "script_name": "src/Animation/Stopwatch.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O1"
+      ]
+    },
+    {
+      "path": "Fusion/O2/src/Animation/Stopwatch.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "cd01ec34427ec5ddb054e395dc9e5c10c898faa52ea963ca38aa68f09426de88",
+      "script_name": "src/Animation/Stopwatch.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O2"
+      ]
+    },
+    {
+      "path": "Fusion/O0/src/Animation/Tween.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "18cfc7368e1fab4dcbffb6b5695f23c8580256c6da548494276fcac7aa4787fa",
+      "script_name": "src/Animation/Tween.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O0"
+      ]
+    },
+    {
+      "path": "Fusion/O1/src/Animation/Tween.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "0242ad83eeab819df2dfe167347de95ac05d2ef882b7f8bda92e19d38b771647",
+      "script_name": "src/Animation/Tween.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O1"
+      ]
+    },
+    {
+      "path": "Fusion/O2/src/Animation/Tween.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "0242ad83eeab819df2dfe167347de95ac05d2ef882b7f8bda92e19d38b771647",
+      "script_name": "src/Animation/Tween.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O2"
+      ]
+    },
+    {
+      "path": "Fusion/O0/src/Animation/unpackType.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "1bb78527ecbdd025b93d96f87a61ff9c7f88685ff8f15e15a0e0e5023f7c4a37",
+      "script_name": "src/Animation/unpackType.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O0"
+      ]
+    },
+    {
+      "path": "Fusion/O1/src/Animation/unpackType.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "041b93f27ac95f2ac57bab1983e5044ae9bb0be01209f8f0b91149a94657bed6",
+      "script_name": "src/Animation/unpackType.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O1"
+      ]
+    },
+    {
+      "path": "Fusion/O2/src/Animation/unpackType.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "249bd87e83feb386ebb3c566a593c96c76cff672d3ce4fbfeabe040e9af7e461",
+      "script_name": "src/Animation/unpackType.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O2"
+      ]
+    },
+    {
+      "path": "Fusion/O0/src/Colour/Oklab.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "abc84bd7d4fc5ce478dab7df0efa3adc8e2477c211a4a39fd275a7affed8cd14",
+      "script_name": "src/Colour/Oklab.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O0"
+      ]
+    },
+    {
+      "path": "Fusion/O1/src/Colour/Oklab.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "5ddc69b457df9e2e7dbc942197f5ab0cf31c740267fb510b6912090627c3637a",
+      "script_name": "src/Colour/Oklab.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O1"
+      ]
+    },
+    {
+      "path": "Fusion/O2/src/Colour/Oklab.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "91d69d12b30a69119a89e67b487f0fb77b0e27ead131011bd7de5cc50eb8996a",
+      "script_name": "src/Colour/Oklab.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O2"
+      ]
+    },
+    {
+      "path": "Fusion/O0/src/Colour/sRGB.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "60e5c5452a85e5164a18db30cca103078f4e1e010bdd70d26896b1b62c9c278b",
+      "script_name": "src/Colour/sRGB.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O0"
+      ]
+    },
+    {
+      "path": "Fusion/O1/src/Colour/sRGB.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "19a5d19a03b06b26ed7ecbcd85c43f7cbda1143fa8649a878a1eed087780318b",
+      "script_name": "src/Colour/sRGB.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O1"
+      ]
+    },
+    {
+      "path": "Fusion/O2/src/Colour/sRGB.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "e91341e379bb125742cf5195751c22018547386ac7a2ace561845e213f2c9d18",
+      "script_name": "src/Colour/sRGB.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O2"
+      ]
+    },
+    {
+      "path": "Fusion/O0/src/External.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "d5b6a8da04d44eb1b3c6a8d94adb6a4d5f733e06f4169ead2b863bbd87c2345a",
+      "script_name": "src/External.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O0"
+      ]
+    },
+    {
+      "path": "Fusion/O1/src/External.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "fff16addff67a8046c6124caff7f33e1ede4b806dd1f3bf96dffb02dbf842568",
+      "script_name": "src/External.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O1"
+      ]
+    },
+    {
+      "path": "Fusion/O2/src/External.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "8405f32be693ecdd814de9382afd0299709431d0b0794d5f8188cdb175dc2e56",
+      "script_name": "src/External.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O2"
+      ]
+    },
+    {
+      "path": "Fusion/O0/src/ExternalDebug.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "030592b751fc7037a90386cb7802da0bab7c6a7ad4b6a983775e9c3d4fab9500",
+      "script_name": "src/ExternalDebug.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O0"
+      ]
+    },
+    {
+      "path": "Fusion/O1/src/ExternalDebug.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "97c7499d39c18bb07810dfe64e4d1afda5441757e2ccfc272352eba6bc0d13cf",
+      "script_name": "src/ExternalDebug.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O1"
+      ]
+    },
+    {
+      "path": "Fusion/O2/src/ExternalDebug.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "97c7499d39c18bb07810dfe64e4d1afda5441757e2ccfc272352eba6bc0d13cf",
+      "script_name": "src/ExternalDebug.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O2"
+      ]
+    },
+    {
+      "path": "Fusion/O0/src/Graph/castToGraph.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "6f32b98652b3d882d22cabc87bc73bd6318509bbb1c81644f977ac20e9b350a1",
+      "script_name": "src/Graph/castToGraph.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O0"
+      ]
+    },
+    {
+      "path": "Fusion/O1/src/Graph/castToGraph.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "b45a70a471a8982237e767fd3ac0519d41dcc7810306d08256d70cd00f99f33b",
+      "script_name": "src/Graph/castToGraph.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O1"
+      ]
+    },
+    {
+      "path": "Fusion/O2/src/Graph/castToGraph.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "b45a70a471a8982237e767fd3ac0519d41dcc7810306d08256d70cd00f99f33b",
+      "script_name": "src/Graph/castToGraph.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O2"
+      ]
+    },
+    {
+      "path": "Fusion/O0/src/Graph/change.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "67b646f5bc3340eb827ac9e2a8c57fabe22c9e93ff2af3097c3d9df33f7999ca",
+      "script_name": "src/Graph/change.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O0"
+      ]
+    },
+    {
+      "path": "Fusion/O1/src/Graph/change.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "69e100b1616220969f746276f0140d5c55a5cfbbd1766fc28262a906ae89a985",
+      "script_name": "src/Graph/change.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O1"
+      ]
+    },
+    {
+      "path": "Fusion/O2/src/Graph/change.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "69e100b1616220969f746276f0140d5c55a5cfbbd1766fc28262a906ae89a985",
+      "script_name": "src/Graph/change.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O2"
+      ]
+    },
+    {
+      "path": "Fusion/O0/src/Graph/depend.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "114f9e77ebe550203c88147b2c7827de38402f0aa5f80bdf81ee092d638f028a",
+      "script_name": "src/Graph/depend.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O0"
+      ]
+    },
+    {
+      "path": "Fusion/O1/src/Graph/depend.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "08fedcae5d8822d0934c57cd77399f494cd71176028a014ab1cc8064c25e8b57",
+      "script_name": "src/Graph/depend.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O1"
+      ]
+    },
+    {
+      "path": "Fusion/O2/src/Graph/depend.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "08fedcae5d8822d0934c57cd77399f494cd71176028a014ab1cc8064c25e8b57",
+      "script_name": "src/Graph/depend.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O2"
+      ]
+    },
+    {
+      "path": "Fusion/O0/src/Graph/evaluate.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "cef6223ccae288a9bf953f3cc9f77120c064bc6d7251df0fe62366afaee226c8",
+      "script_name": "src/Graph/evaluate.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O0"
+      ]
+    },
+    {
+      "path": "Fusion/O1/src/Graph/evaluate.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "bbfb1d357e2344b924cb9df7507c85264f702340fcc28e146c24693a89ec6b7c",
+      "script_name": "src/Graph/evaluate.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O1"
+      ]
+    },
+    {
+      "path": "Fusion/O2/src/Graph/evaluate.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "294a929d90c818a574caeedf46d99f70c0f45695ebaa841f43cef0d60a863b13",
+      "script_name": "src/Graph/evaluate.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O2"
+      ]
+    },
+    {
+      "path": "Fusion/O0/src/Graph/Observer.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "510a70357d2ec4f5fc07ea3ebedf7e6c0a4f1ceda95d4977bbf24eeb3558aa30",
+      "script_name": "src/Graph/Observer.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O0"
+      ]
+    },
+    {
+      "path": "Fusion/O1/src/Graph/Observer.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "6ec2c9b900c5b2db9cb42a4cebe405b02cdd8174e9f1590ae5ff41559045d8cb",
+      "script_name": "src/Graph/Observer.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O1"
+      ]
+    },
+    {
+      "path": "Fusion/O2/src/Graph/Observer.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "9a143943260b04968cb950e5842443e7cde7d46549cfb8f98e9169ba4f2473c6",
+      "script_name": "src/Graph/Observer.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O2"
+      ]
+    },
+    {
+      "path": "Fusion/O0/src/init.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "574918166aab7d7039fd04b0e3d81780bfc58b3ce0cef65cb64fcfd32ed236a2",
+      "script_name": "src/init.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O0"
+      ]
+    },
+    {
+      "path": "Fusion/O1/src/init.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "75dcfdfb10b6beeb0b33d1227f54da2bf6cb717a3819538143fc28db9d6fa4c7",
+      "script_name": "src/init.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O1"
+      ]
+    },
+    {
+      "path": "Fusion/O2/src/init.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "75dcfdfb10b6beeb0b33d1227f54da2bf6cb717a3819538143fc28db9d6fa4c7",
+      "script_name": "src/init.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O2"
+      ]
+    },
+    {
+      "path": "Fusion/O0/src/Instances/applyInstanceProps.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "bca9852469af9efe83a4f960d396b6fdaa52734a79f907eb25e579e96adb5dc7",
+      "script_name": "src/Instances/applyInstanceProps.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O0"
+      ]
+    },
+    {
+      "path": "Fusion/O1/src/Instances/applyInstanceProps.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "43b90e8e4dd667297bceadbe49ea5a7fd5e4ada91e03df6413e450871d711f8e",
+      "script_name": "src/Instances/applyInstanceProps.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O1"
+      ]
+    },
+    {
+      "path": "Fusion/O2/src/Instances/applyInstanceProps.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "9025860cac51c2155e6c0d854f7e4fc7af44aaec898d7cd7e510f6b2c38bfe1d",
+      "script_name": "src/Instances/applyInstanceProps.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O2"
+      ]
+    },
+    {
+      "path": "Fusion/O0/src/Instances/Attribute.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "9d40eafeff3ebde3f97097f96f18a7d73655ebf6145b285dbed27eefee93270c",
+      "script_name": "src/Instances/Attribute.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O0"
+      ]
+    },
+    {
+      "path": "Fusion/O1/src/Instances/Attribute.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "e1bb0fed04bbf7650686cac0a516d9c9e5d57ad561ba7583c13c06b93375ec2e",
+      "script_name": "src/Instances/Attribute.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O1"
+      ]
+    },
+    {
+      "path": "Fusion/O2/src/Instances/Attribute.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "ce4e7ac9af20f3a46bae2c28a477e37976487d4607abd572a0e6c9b417454c72",
+      "script_name": "src/Instances/Attribute.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O2"
+      ]
+    },
+    {
+      "path": "Fusion/O0/src/Instances/AttributeChange.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "d9e5a8302c60fd184fcd301a09aa1fd31fa613fd610b2dbba8a146565d01d4b3",
+      "script_name": "src/Instances/AttributeChange.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O0"
+      ]
+    },
+    {
+      "path": "Fusion/O1/src/Instances/AttributeChange.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "acb7562a0105838e562625717ae8f40cc75a86b106ac4ab9bcf89adc00ff9602",
+      "script_name": "src/Instances/AttributeChange.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O1"
+      ]
+    },
+    {
+      "path": "Fusion/O2/src/Instances/AttributeChange.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "51eeac5a83b72b1893a1ddd7f325916a73751a3da7395046949a2e6445cfca0e",
+      "script_name": "src/Instances/AttributeChange.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O2"
+      ]
+    },
+    {
+      "path": "Fusion/O0/src/Instances/AttributeOut.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "0ddc37f0417e6be8ab60c44e0e9f47fd9c568003cc3a4db44d9f93602f4c804a",
+      "script_name": "src/Instances/AttributeOut.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O0"
+      ]
+    },
+    {
+      "path": "Fusion/O1/src/Instances/AttributeOut.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "7e2955f71c6381a776b0bbe0e83df74084cca2db9e61b6de464c070a6ec625fd",
+      "script_name": "src/Instances/AttributeOut.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O1"
+      ]
+    },
+    {
+      "path": "Fusion/O2/src/Instances/AttributeOut.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "eee099916553659f779e8b7d1ff16e2425516d3e2d2fd9da2a76a603a1f1cb67",
+      "script_name": "src/Instances/AttributeOut.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O2"
+      ]
+    },
+    {
+      "path": "Fusion/O0/src/Instances/Child.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "ffa2a39f825448af4bec41a007601d7aaa0c957aa5b4ab7b8ed47b02d31ee564",
+      "script_name": "src/Instances/Child.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O0"
+      ]
+    },
+    {
+      "path": "Fusion/O1/src/Instances/Child.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "8ee3d2cd5e8d0884fb78db1c4f119ba843064fbe7434b371ceb1277f15344c7e",
+      "script_name": "src/Instances/Child.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O1"
+      ]
+    },
+    {
+      "path": "Fusion/O2/src/Instances/Child.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "37fe042d76e25c1892e80cbc145004f4fa4bb809a79142f3c75c013a1fbc7740",
+      "script_name": "src/Instances/Child.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O2"
+      ]
+    },
+    {
+      "path": "Fusion/O0/src/Instances/Children.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "ab322915907d55f0a2962687d3c4ddf44e3e2e55cd657a3bf0dd92d55d66113a",
+      "script_name": "src/Instances/Children.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O0"
+      ]
+    },
+    {
+      "path": "Fusion/O1/src/Instances/Children.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "718a8f705abf82d3b7149af7f86b5bc6c38257a3ab32ec1210f4101887643e61",
+      "script_name": "src/Instances/Children.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O1"
+      ]
+    },
+    {
+      "path": "Fusion/O2/src/Instances/Children.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "b78bcdc295104cf7dad32fb416faa25b545d931f2cbe40e07218e0f3a370d625",
+      "script_name": "src/Instances/Children.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O2"
+      ]
+    },
+    {
+      "path": "Fusion/O0/src/Instances/defaultProps.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "99cc007a702b5a1d588fa5322673a796b2d2c8b5d5fd10584d2f866c6105af0e",
+      "script_name": "src/Instances/defaultProps.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O0"
+      ]
+    },
+    {
+      "path": "Fusion/O1/src/Instances/defaultProps.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "0750fd4c4947ee27a3936b665c6725268e22882919fc7b733842868971ba316c",
+      "script_name": "src/Instances/defaultProps.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O1"
+      ]
+    },
+    {
+      "path": "Fusion/O2/src/Instances/defaultProps.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "0750fd4c4947ee27a3936b665c6725268e22882919fc7b733842868971ba316c",
+      "script_name": "src/Instances/defaultProps.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O2"
+      ]
+    },
+    {
+      "path": "Fusion/O0/src/Instances/Hydrate.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "1275bd92a1a61b2201daed2c4dcee359e50ff1892c1b22b7abae129259a25edf",
+      "script_name": "src/Instances/Hydrate.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O0"
+      ]
+    },
+    {
+      "path": "Fusion/O1/src/Instances/Hydrate.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "e6d733aea85da325ffca4c70513eca4fe4c05c95f6ae1357268bf8ff2ba009f2",
+      "script_name": "src/Instances/Hydrate.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O1"
+      ]
+    },
+    {
+      "path": "Fusion/O2/src/Instances/Hydrate.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "45b300bd37623dd546a7c9f9fbfeac9430ba7451ea4213c21a9b31dc2eea56b6",
+      "script_name": "src/Instances/Hydrate.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O2"
+      ]
+    },
+    {
+      "path": "Fusion/O0/src/Instances/New.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "b06cfbeeb04591dec168362a7053d98f0ecbbfd1c5b2e2a2332dc3a8cbdae5ad",
+      "script_name": "src/Instances/New.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O0"
+      ]
+    },
+    {
+      "path": "Fusion/O1/src/Instances/New.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "91331e3068ed7b3e50926e33ef20a94c139f9655e958f8539f04e0de6b1900e4",
+      "script_name": "src/Instances/New.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O1"
+      ]
+    },
+    {
+      "path": "Fusion/O2/src/Instances/New.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "cff4d2bc31ba40c3a052452ad9fd92fbb0983c6f9aeac8c872b193f58b8d7460",
+      "script_name": "src/Instances/New.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O2"
+      ]
+    },
+    {
+      "path": "Fusion/O0/src/Instances/OnChange.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "bfcc52e06554c591cc00f9d3e1739d6138526dec9506f7006ce435c716fec3ab",
+      "script_name": "src/Instances/OnChange.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O0"
+      ]
+    },
+    {
+      "path": "Fusion/O1/src/Instances/OnChange.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "d60d68fa253d0614a933c9336a28f78e4db8fa3584a097e2feafc2cf20b28f14",
+      "script_name": "src/Instances/OnChange.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O1"
+      ]
+    },
+    {
+      "path": "Fusion/O2/src/Instances/OnChange.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "cafb35a54fa49dbd4a897bf522361492f7213e9c725d091481b0fc1bf0e7aa95",
+      "script_name": "src/Instances/OnChange.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O2"
+      ]
+    },
+    {
+      "path": "Fusion/O0/src/Instances/OnEvent.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "7dc9b71baac390a867d1122979a50163cf075f0e45e29a738ac1b82aab8594d9",
+      "script_name": "src/Instances/OnEvent.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O0"
+      ]
+    },
+    {
+      "path": "Fusion/O1/src/Instances/OnEvent.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "427b4ebee365b92ff2be1c7b359dd0b5641ecc1127e9805dc06d2451af923820",
+      "script_name": "src/Instances/OnEvent.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O1"
+      ]
+    },
+    {
+      "path": "Fusion/O2/src/Instances/OnEvent.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "95a7d5eb6654fc36c136f4515ed4ddb6485078066c1116dcf2632048e0d5c4c2",
+      "script_name": "src/Instances/OnEvent.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O2"
+      ]
+    },
+    {
+      "path": "Fusion/O0/src/Instances/Out.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "d1382486db5a3fc3ecb7bdb4907aa18a3998a72562cbea6c674c250203849d7a",
+      "script_name": "src/Instances/Out.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O0"
+      ]
+    },
+    {
+      "path": "Fusion/O1/src/Instances/Out.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "5662c4e8a613d25971478db7e61e92c04be790f4f374372519473ec8606dccee",
+      "script_name": "src/Instances/Out.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O1"
+      ]
+    },
+    {
+      "path": "Fusion/O2/src/Instances/Out.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "210f183622cfaafea53a24cb422330b94669b934d9f40f36737c834d95e1da19",
+      "script_name": "src/Instances/Out.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O2"
+      ]
+    },
+    {
+      "path": "Fusion/O0/src/Instances/Tag.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "2efff4b94c9c0c895b678e91ef82d46879414c3b8f5c9395f8737ec8903219cb",
+      "script_name": "src/Instances/Tag.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O0"
+      ]
+    },
+    {
+      "path": "Fusion/O1/src/Instances/Tag.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "40ee2e857e31959b1bae1eb9b43ec433642462f723e1d93f92d56cf575118bf8",
+      "script_name": "src/Instances/Tag.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O1"
+      ]
+    },
+    {
+      "path": "Fusion/O2/src/Instances/Tag.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "715019d8e0f238165415274f0e1c898c21f596a33deb36cbb46992444a1b7166",
+      "script_name": "src/Instances/Tag.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O2"
+      ]
+    },
+    {
+      "path": "Fusion/O0/src/Logging/formatError.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "0744f268c31edef698a6b86fca13696d737af03d2be8f5b301dc441295482949",
+      "script_name": "src/Logging/formatError.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O0"
+      ]
+    },
+    {
+      "path": "Fusion/O1/src/Logging/formatError.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "b93fd510dacbe15cd0bcea5164ff6e1520882c84a3eb6cae2614549b053b242b",
+      "script_name": "src/Logging/formatError.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O1"
+      ]
+    },
+    {
+      "path": "Fusion/O2/src/Logging/formatError.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "08d41a5c2bb55511f63baaf8d7eb232fb36bac1bea20b615e5c02881ae7f84ff",
+      "script_name": "src/Logging/formatError.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O2"
+      ]
+    },
+    {
+      "path": "Fusion/O0/src/Logging/messages.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "1fe5a1e5d9c38f48f0571b08b9fa368ca82ccbb130622e010983a1832026ff95",
+      "script_name": "src/Logging/messages.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O0"
+      ]
+    },
+    {
+      "path": "Fusion/O1/src/Logging/messages.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "a4a158b8d3e86f43cf0f9a25e2fc7c98e144850c33fda9f9df34dab0bd31fcd1",
+      "script_name": "src/Logging/messages.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O1"
+      ]
+    },
+    {
+      "path": "Fusion/O2/src/Logging/messages.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "a4a158b8d3e86f43cf0f9a25e2fc7c98e144850c33fda9f9df34dab0bd31fcd1",
+      "script_name": "src/Logging/messages.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O2"
+      ]
+    },
+    {
+      "path": "Fusion/O0/src/Logging/parseError.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "bd884734dcba26292273bc614e6ccdea5a332c6e381d4eae4c5e9c0fcefa4c7a",
+      "script_name": "src/Logging/parseError.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O0"
+      ]
+    },
+    {
+      "path": "Fusion/O1/src/Logging/parseError.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "b8411d37ea15790b18956cf2ddf66de11d9922b706f60a037e624d97de7fc5b7",
+      "script_name": "src/Logging/parseError.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O1"
+      ]
+    },
+    {
+      "path": "Fusion/O2/src/Logging/parseError.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "05e31c050b75056dd525500eea75a11cc118e0229ddcb1928f479cb36d8fffa7",
+      "script_name": "src/Logging/parseError.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O2"
+      ]
+    },
+    {
+      "path": "Fusion/O0/src/Memory/checkLifetime.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "9a537ae2c3ccaa50687583fc3e0073df24c7fd360e11311b57e913629930e977",
+      "script_name": "src/Memory/checkLifetime.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O0"
+      ]
+    },
+    {
+      "path": "Fusion/O1/src/Memory/checkLifetime.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "093694d4aad312032001b92faa2525df8be15708b2e9c7e1c7e1ad79e3081f97",
+      "script_name": "src/Memory/checkLifetime.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O1"
+      ]
+    },
+    {
+      "path": "Fusion/O2/src/Memory/checkLifetime.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "79c0530efb483cadee33bdfedf4c067ae616f0e4af4201e5a689f15cd900ae35",
+      "script_name": "src/Memory/checkLifetime.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O2"
+      ]
+    },
+    {
+      "path": "Fusion/O0/src/Memory/deriveScope.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "73ed0501498b08ed48946c61b17b93e2bf5b5b8e4d977abbde9b9312bcb6626b",
+      "script_name": "src/Memory/deriveScope.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O0"
+      ]
+    },
+    {
+      "path": "Fusion/O1/src/Memory/deriveScope.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "4731b31f50362574b74960c17955313f4ece2203649b2f310a640e4d4ce719bd",
+      "script_name": "src/Memory/deriveScope.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O1"
+      ]
+    },
+    {
+      "path": "Fusion/O2/src/Memory/deriveScope.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "4731b31f50362574b74960c17955313f4ece2203649b2f310a640e4d4ce719bd",
+      "script_name": "src/Memory/deriveScope.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O2"
+      ]
+    },
+    {
+      "path": "Fusion/O0/src/Memory/deriveScopeImpl.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "52a51808e34a032b23ddc8df9f2aaacf9f8e833693503a5452da77213fe6101a",
+      "script_name": "src/Memory/deriveScopeImpl.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O0"
+      ]
+    },
+    {
+      "path": "Fusion/O1/src/Memory/deriveScopeImpl.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "082d833915442bba5527c512668452f859a4d6c0b780189965d493cef33e0717",
+      "script_name": "src/Memory/deriveScopeImpl.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O1"
+      ]
+    },
+    {
+      "path": "Fusion/O2/src/Memory/deriveScopeImpl.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "a0d4b0cb8eb17285531ec23d612b1f1c6249b27303791d0dba58c13a69acc5e3",
+      "script_name": "src/Memory/deriveScopeImpl.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O2"
+      ]
+    },
+    {
+      "path": "Fusion/O0/src/Memory/doCleanup.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "534a71d484d1112b03245e64a43448cb3e85538107117aa915f0181b0e804991",
+      "script_name": "src/Memory/doCleanup.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O0"
+      ]
+    },
+    {
+      "path": "Fusion/O1/src/Memory/doCleanup.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "051de60550b7838056efad1d405acba3708ff46dcc1cff785b06a74e7e4d1a4b",
+      "script_name": "src/Memory/doCleanup.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O1"
+      ]
+    },
+    {
+      "path": "Fusion/O2/src/Memory/doCleanup.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "051de60550b7838056efad1d405acba3708ff46dcc1cff785b06a74e7e4d1a4b",
+      "script_name": "src/Memory/doCleanup.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O2"
+      ]
+    },
+    {
+      "path": "Fusion/O0/src/Memory/innerScope.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "baa8c860310d385c5f2f8d5b26fb7f6071b9889069b0964bb34d31591ee2c488",
+      "script_name": "src/Memory/innerScope.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O0"
+      ]
+    },
+    {
+      "path": "Fusion/O1/src/Memory/innerScope.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "058e3e5af03adb210145148e7e83f283ba4892297419b73f16aba39bbd0d3fdb",
+      "script_name": "src/Memory/innerScope.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O1"
+      ]
+    },
+    {
+      "path": "Fusion/O2/src/Memory/innerScope.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "058e3e5af03adb210145148e7e83f283ba4892297419b73f16aba39bbd0d3fdb",
+      "script_name": "src/Memory/innerScope.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O2"
+      ]
+    },
+    {
+      "path": "Fusion/O0/src/Memory/insert.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "4f3d9595a90c5fd120fa54e580db9c18b5dd7e0064829f2aa7bbe176abb95800",
+      "script_name": "src/Memory/insert.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O0"
+      ]
+    },
+    {
+      "path": "Fusion/O1/src/Memory/insert.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "004f580fbe0184178d0a796474c9711f0c728ce66a248be92eff58cf3f0f9a90",
+      "script_name": "src/Memory/insert.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O1"
+      ]
+    },
+    {
+      "path": "Fusion/O2/src/Memory/insert.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "004f580fbe0184178d0a796474c9711f0c728ce66a248be92eff58cf3f0f9a90",
+      "script_name": "src/Memory/insert.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O2"
+      ]
+    },
+    {
+      "path": "Fusion/O0/src/Memory/needsDestruction.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "d4e56788f5a3d64f2996e0d527147fffd1e16419c0a0ae7663e18667d7489bd4",
+      "script_name": "src/Memory/needsDestruction.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O0"
+      ]
+    },
+    {
+      "path": "Fusion/O1/src/Memory/needsDestruction.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "ac4ba8e1921159117f0d07aea4fe57c30ab9721129b0f8985606d8d7f00fb769",
+      "script_name": "src/Memory/needsDestruction.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O1"
+      ]
+    },
+    {
+      "path": "Fusion/O2/src/Memory/needsDestruction.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "ac4ba8e1921159117f0d07aea4fe57c30ab9721129b0f8985606d8d7f00fb769",
+      "script_name": "src/Memory/needsDestruction.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O2"
+      ]
+    },
+    {
+      "path": "Fusion/O0/src/Memory/scoped.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "20cde39d08821836938ad7aac44c503ee6e73ee9ee3c59a07e59b2927eb20510",
+      "script_name": "src/Memory/scoped.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O0"
+      ]
+    },
+    {
+      "path": "Fusion/O1/src/Memory/scoped.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "7c6611eab6e16a06d9636d064dc2e9898992eab2e009ea24abb15fa0097b5670",
+      "script_name": "src/Memory/scoped.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O1"
+      ]
+    },
+    {
+      "path": "Fusion/O2/src/Memory/scoped.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "7c6611eab6e16a06d9636d064dc2e9898992eab2e009ea24abb15fa0097b5670",
+      "script_name": "src/Memory/scoped.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O2"
+      ]
+    },
+    {
+      "path": "Fusion/O0/src/RobloxExternal.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "6800741055a0a5f54277cf5cdbd053087b708c2f174005db1636d5f288d200df",
+      "script_name": "src/RobloxExternal.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O0"
+      ]
+    },
+    {
+      "path": "Fusion/O1/src/RobloxExternal.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "ca9770fb7ba6623186ec30732f2c098e4830703cb6f67d70017c8f303f4f3565",
+      "script_name": "src/RobloxExternal.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O1"
+      ]
+    },
+    {
+      "path": "Fusion/O2/src/RobloxExternal.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "e24827e1b90bea7c8e5d149a54815d1cc992b6a8e3c9c070c78be798fc4f4690",
+      "script_name": "src/RobloxExternal.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O2"
+      ]
+    },
+    {
+      "path": "Fusion/O0/src/State/castToState.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "954a3fc469b440e8705e886c87bfb713b163aa0d86fdf922993b0df15b118371",
+      "script_name": "src/State/castToState.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O0"
+      ]
+    },
+    {
+      "path": "Fusion/O1/src/State/castToState.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "38e7845b5a1751d7c8688f95bb907911916de1cbcc18856d5b5a1043ce2a9fdf",
+      "script_name": "src/State/castToState.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O1"
+      ]
+    },
+    {
+      "path": "Fusion/O2/src/State/castToState.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "38e7845b5a1751d7c8688f95bb907911916de1cbcc18856d5b5a1043ce2a9fdf",
+      "script_name": "src/State/castToState.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O2"
+      ]
+    },
+    {
+      "path": "Fusion/O0/src/State/Computed.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "c6b110175c2873ce8d74275a2087af1c65621500e8dda70f2b9d3204963e7ee5",
+      "script_name": "src/State/Computed.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O0"
+      ]
+    },
+    {
+      "path": "Fusion/O1/src/State/Computed.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "d500bcc0954d50472e8f5a134a69ad576b0f8c30bc0be442bac5a4e16a5f9d60",
+      "script_name": "src/State/Computed.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O1"
+      ]
+    },
+    {
+      "path": "Fusion/O2/src/State/Computed.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "5e5103dd0510a308b42130e0303dfde59d7d1d9b2b3071ec69843aa14eee1da1",
+      "script_name": "src/State/Computed.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O2"
+      ]
+    },
+    {
+      "path": "Fusion/O0/src/State/For/Disassembly.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "3c9b7a8fbefdb6a161b73c2d1969a28df0de7ef160e651123cd371997f8d2737",
+      "script_name": "src/State/For/Disassembly.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O0"
+      ]
+    },
+    {
+      "path": "Fusion/O1/src/State/For/Disassembly.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "416daa75f1336abd54d6ad3111fc58441a59e7214c63c0c5c07f8ae7f8a19b6d",
+      "script_name": "src/State/For/Disassembly.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O1"
+      ]
+    },
+    {
+      "path": "Fusion/O2/src/State/For/Disassembly.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "c5cb083a175823028f305a82b78232159dfa990ffa1a6cb3c455a0ceb64f167f",
+      "script_name": "src/State/For/Disassembly.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O2"
+      ]
+    },
+    {
+      "path": "Fusion/O0/src/State/For/ForTypes.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "f5ab06125f75ea40fd7da337c1e158fd74b548dbad8557ecdb7e25a436420375",
+      "script_name": "src/State/For/ForTypes.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O0"
+      ]
+    },
+    {
+      "path": "Fusion/O1/src/State/For/ForTypes.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "e1236e836f04a7fc3d0c24e90830fcb4c00d26b3f1e0c274859f889be9b4d634",
+      "script_name": "src/State/For/ForTypes.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O1"
+      ]
+    },
+    {
+      "path": "Fusion/O2/src/State/For/ForTypes.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "e1236e836f04a7fc3d0c24e90830fcb4c00d26b3f1e0c274859f889be9b4d634",
+      "script_name": "src/State/For/ForTypes.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O2"
+      ]
+    },
+    {
+      "path": "Fusion/O0/src/State/For/init.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "5b8c43641189ceacb8dee2530877b28d7d749ca1179a447c0000602ed6ae357c",
+      "script_name": "src/State/For/init.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O0"
+      ]
+    },
+    {
+      "path": "Fusion/O1/src/State/For/init.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "f2c59a60a07eb27367311abd35e71a7cdac9cc8ad56ac6bae86d61ca8ceff465",
+      "script_name": "src/State/For/init.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O1"
+      ]
+    },
+    {
+      "path": "Fusion/O2/src/State/For/init.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "3c2ba19c6521b3917498321148b6852d59ed7cf8321baad0c9a026a3bcbbdc2c",
+      "script_name": "src/State/For/init.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O2"
+      ]
+    },
+    {
+      "path": "Fusion/O0/src/State/ForKeys.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "3d71469b48aa90a903ee3e85a9b9d3939701d183e8e8d0c8e41c288b5fa0c8c6",
+      "script_name": "src/State/ForKeys.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O0"
+      ]
+    },
+    {
+      "path": "Fusion/O1/src/State/ForKeys.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "a85f009da2d6a842a84bda1230411a4b7fc371ff968a264bf639465ed4f1da8a",
+      "script_name": "src/State/ForKeys.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O1"
+      ]
+    },
+    {
+      "path": "Fusion/O2/src/State/ForKeys.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "d990090e8abb36105a1d92146aebb236af69ea3e900e3166ea2ec9bb285cc364",
+      "script_name": "src/State/ForKeys.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O2"
+      ]
+    },
+    {
+      "path": "Fusion/O0/src/State/ForPairs.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "a32fec54f88c6a95663ad68ea2dcdb767951394e9b4186f8e64a86daa628354b",
+      "script_name": "src/State/ForPairs.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O0"
+      ]
+    },
+    {
+      "path": "Fusion/O1/src/State/ForPairs.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "08662b0ab7147fdd45a66d824d8b6416b5b31edc7a39475c207bac3f3deeb19f",
+      "script_name": "src/State/ForPairs.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O1"
+      ]
+    },
+    {
+      "path": "Fusion/O2/src/State/ForPairs.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "14940cc41819d61c40a733347702d17a89012af0a9232c4d3b12e5e721c55068",
+      "script_name": "src/State/ForPairs.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O2"
+      ]
+    },
+    {
+      "path": "Fusion/O0/src/State/ForValues.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "90f3ec220e0cfafd6e6bdfe2ac6aa65e8c17d06abb156b31e6f833ec0728911f",
+      "script_name": "src/State/ForValues.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O0"
+      ]
+    },
+    {
+      "path": "Fusion/O1/src/State/ForValues.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "4e657da0753ee13efdcac81968074064a17011d67786ddbaa517fc99a4b7b5ba",
+      "script_name": "src/State/ForValues.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O1"
+      ]
+    },
+    {
+      "path": "Fusion/O2/src/State/ForValues.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "e9e81df6081a248b75b0d2a2f8e4b14903155dd2b669faabcf578f61edf4b951",
+      "script_name": "src/State/ForValues.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O2"
+      ]
+    },
+    {
+      "path": "Fusion/O0/src/State/peek.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "23a6ac60b8352739537f409b067ca3cfb314a80bd15a931bc71a73961ec17995",
+      "script_name": "src/State/peek.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O0"
+      ]
+    },
+    {
+      "path": "Fusion/O1/src/State/peek.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "5a2a440be99c932d0857f8dc20421f51f0482751eaa42544878c42c6eee2c67f",
+      "script_name": "src/State/peek.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O1"
+      ]
+    },
+    {
+      "path": "Fusion/O2/src/State/peek.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "5a2a440be99c932d0857f8dc20421f51f0482751eaa42544878c42c6eee2c67f",
+      "script_name": "src/State/peek.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O2"
+      ]
+    },
+    {
+      "path": "Fusion/O0/src/State/updateAll.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "ab0a4851997ad5759f9d3000ff7f896637a90fb64e3337797424c75a64d936cf",
+      "script_name": "src/State/updateAll.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O0"
+      ]
+    },
+    {
+      "path": "Fusion/O1/src/State/updateAll.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "ab0a4851997ad5759f9d3000ff7f896637a90fb64e3337797424c75a64d936cf",
+      "script_name": "src/State/updateAll.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O1"
+      ]
+    },
+    {
+      "path": "Fusion/O2/src/State/updateAll.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "ab0a4851997ad5759f9d3000ff7f896637a90fb64e3337797424c75a64d936cf",
+      "script_name": "src/State/updateAll.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O2"
+      ]
+    },
+    {
+      "path": "Fusion/O0/src/State/Value.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "72b14cc3d02db0c44de94b2ff91fe5bc8b77dff8ea35937bdac5cf1b379546a8",
+      "script_name": "src/State/Value.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O0"
+      ]
+    },
+    {
+      "path": "Fusion/O1/src/State/Value.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "1b08a9f65e1abe9da505e516a632e2524155477c85af802d3adf3c005f63efc8",
+      "script_name": "src/State/Value.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O1"
+      ]
+    },
+    {
+      "path": "Fusion/O2/src/State/Value.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "1b08a9f65e1abe9da505e516a632e2524155477c85af802d3adf3c005f63efc8",
+      "script_name": "src/State/Value.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O2"
+      ]
+    },
+    {
+      "path": "Fusion/O0/src/Types.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "5bd5e0edc04c7c096b75b9ad35e4c8de960fcace5dc9df0ee7ed8622d525e106",
+      "script_name": "src/Types.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O0"
+      ]
+    },
+    {
+      "path": "Fusion/O1/src/Types.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "7552793e9fa0ad0f8443785a75682378d83484b9607cda4a80dd7ece41f97aa3",
+      "script_name": "src/Types.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O1"
+      ]
+    },
+    {
+      "path": "Fusion/O2/src/Types.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "7552793e9fa0ad0f8443785a75682378d83484b9607cda4a80dd7ece41f97aa3",
+      "script_name": "src/Types.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O2"
+      ]
+    },
+    {
+      "path": "Fusion/O0/src/Utility/Contextual.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "d785600cc2ee7dfe39f67d06b82d3a652a083e5be8474873d4c4376978b79683",
+      "script_name": "src/Utility/Contextual.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O0"
+      ]
+    },
+    {
+      "path": "Fusion/O1/src/Utility/Contextual.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "34782125a7d7dbe337e0aeba5dab096f01e3e9e20a6418887cee3135f6fba967",
+      "script_name": "src/Utility/Contextual.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O1"
+      ]
+    },
+    {
+      "path": "Fusion/O2/src/Utility/Contextual.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "be037b666537576ce7918f8c854e9dd1bca33508ac6c208a612c0961d2e4f913",
+      "script_name": "src/Utility/Contextual.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O2"
+      ]
+    },
+    {
+      "path": "Fusion/O0/src/Utility/isSimilar.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "911fb8d77ed47c842146cf9e9c066db6d95ac50ba0c7eb52b44a14a07b39a628",
+      "script_name": "src/Utility/isSimilar.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O0"
+      ]
+    },
+    {
+      "path": "Fusion/O1/src/Utility/isSimilar.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "22f6345ddee4e006e4165ae30e66a5f6b0bf92ad0c7ff1b0b3406775720cb222",
+      "script_name": "src/Utility/isSimilar.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O1"
+      ]
+    },
+    {
+      "path": "Fusion/O2/src/Utility/isSimilar.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "22f6345ddee4e006e4165ae30e66a5f6b0bf92ad0c7ff1b0b3406775720cb222",
+      "script_name": "src/Utility/isSimilar.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O2"
+      ]
+    },
+    {
+      "path": "Fusion/O0/src/Utility/merge.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "257410673207e38935c0d84811b896fff14fb93953e3c38d83a8eff8027f17f6",
+      "script_name": "src/Utility/merge.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O0"
+      ]
+    },
+    {
+      "path": "Fusion/O1/src/Utility/merge.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "6350ccad78d7946a571adb614c8e5fed5aeea50e8bde8d8093862d47ed7e2426",
+      "script_name": "src/Utility/merge.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O1"
+      ]
+    },
+    {
+      "path": "Fusion/O2/src/Utility/merge.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "13a5ef1e51babceec27d7f8c0ebeea778cdd33d957642124d94bd20daa11de8a",
+      "script_name": "src/Utility/merge.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O2"
+      ]
+    },
+    {
+      "path": "Fusion/O0/src/Utility/nameOf.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "53254a35aa54230324d5c1e9815523c83289e486cd1b05e7f8ea5a939ef82e7a",
+      "script_name": "src/Utility/nameOf.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O0"
+      ]
+    },
+    {
+      "path": "Fusion/O1/src/Utility/nameOf.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "d26ecb2afd17a7beddfed1be9f2ba0750fcdba236c9d2ddbd0be7d26e6d17ad3",
+      "script_name": "src/Utility/nameOf.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O1"
+      ]
+    },
+    {
+      "path": "Fusion/O2/src/Utility/nameOf.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "b3ccb2119b6b2f4e783945302746db53af16cc2c9a69abe286e70cbba2eb942e",
+      "script_name": "src/Utility/nameOf.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O2"
+      ]
+    },
+    {
+      "path": "Fusion/O0/src/Utility/never.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "119f5821f79384b3ae60a36601f5ad2318dafd3c8d316b82b621cf76299d87a0",
+      "script_name": "src/Utility/never.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O0"
+      ]
+    },
+    {
+      "path": "Fusion/O1/src/Utility/never.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "da1116f5b1036c607c40a94be0e388d8023030b89e0eabf404e06dfecedb5dc8",
+      "script_name": "src/Utility/never.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O1"
+      ]
+    },
+    {
+      "path": "Fusion/O2/src/Utility/never.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "da1116f5b1036c607c40a94be0e388d8023030b89e0eabf404e06dfecedb5dc8",
+      "script_name": "src/Utility/never.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O2"
+      ]
+    },
+    {
+      "path": "Fusion/O0/src/Utility/nicknames.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "7917bbe7ad8664181ca770b30a9c0f452e9391881832b9d49bc7a476b455d64f",
+      "script_name": "src/Utility/nicknames.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O0"
+      ]
+    },
+    {
+      "path": "Fusion/O1/src/Utility/nicknames.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "c2db5493de9b660082bde47eb6cb04351cbc0780bce362ee728ffd3d5071945f",
+      "script_name": "src/Utility/nicknames.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O1"
+      ]
+    },
+    {
+      "path": "Fusion/O2/src/Utility/nicknames.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "9d53a67cf159219e261b4679081b2066e03e25bbb479700cd72efffa393651b7",
+      "script_name": "src/Utility/nicknames.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O2"
+      ]
+    },
+    {
+      "path": "Fusion/O0/src/Utility/Safe.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "52887f987e838266ca5a4f392892ad6d22f3fc70bf52c104f65d0a98ca65f8f2",
+      "script_name": "src/Utility/Safe.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O0"
+      ]
+    },
+    {
+      "path": "Fusion/O1/src/Utility/Safe.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "bc3982c0874874bf40df14dc84e49f6b97d62d529d309a45c1a4382fca533585",
+      "script_name": "src/Utility/Safe.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O1"
+      ]
+    },
+    {
+      "path": "Fusion/O2/src/Utility/Safe.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "b18ad25ac520c5647d7c9f78c54f994799832bb998a0c1d1444ba913d0da54da",
+      "script_name": "src/Utility/Safe.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O2"
+      ]
+    },
+    {
+      "path": "Fusion/O0/src/Utility/xtypeof.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "ddf87d015b0419346956195cd66058b8d64e3f68a07688456a5861251d004b1c",
+      "script_name": "src/Utility/xtypeof.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O0"
+      ]
+    },
+    {
+      "path": "Fusion/O1/src/Utility/xtypeof.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "3b34626b2f7d11cd295e13e9886c9b4ac4b4beb6e4abcfe364c4b6ad7d0580a8",
+      "script_name": "src/Utility/xtypeof.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O1"
+      ]
+    },
+    {
+      "path": "Fusion/O2/src/Utility/xtypeof.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "3b34626b2f7d11cd295e13e9886c9b4ac4b4beb6e4abcfe364c4b6ad7d0580a8",
+      "script_name": "src/Utility/xtypeof.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "Fusion",
+        "O2"
+      ]
+    },
+    {
+      "path": "roact/O0/src/assertDeepEqual.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "21d150d46071a30feae6255c7bb52699ba0b7bc7892c1378a9824067f67e5f07",
+      "script_name": "src/assertDeepEqual.lua",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "roact",
+        "O0"
+      ]
+    },
+    {
+      "path": "roact/O1/src/assertDeepEqual.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "6ba33a460760027acef13d711c09ea7da63821b5e2231b8a042c4410b6ff19a5",
+      "script_name": "src/assertDeepEqual.lua",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "roact",
+        "O1"
+      ]
+    },
+    {
+      "path": "roact/O2/src/assertDeepEqual.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "5bd9c46b6adf34f68bd7e01d34778ab7b71d3e26032db19f6f83f33c89ecee2f",
+      "script_name": "src/assertDeepEqual.lua",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "roact",
+        "O2"
+      ]
+    },
+    {
+      "path": "roact/O0/src/assign.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "6536fdae18b38d1f43e805ceef763faa4b6e9077133d1e89bce28552719ebdea",
+      "script_name": "src/assign.lua",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "roact",
+        "O0"
+      ]
+    },
+    {
+      "path": "roact/O1/src/assign.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "0961de3af5f235691fad53c43fb76cbcb7b6c09c30d1b0cc06318c98840dcdb0",
+      "script_name": "src/assign.lua",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "roact",
+        "O1"
+      ]
+    },
+    {
+      "path": "roact/O2/src/assign.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "0961de3af5f235691fad53c43fb76cbcb7b6c09c30d1b0cc06318c98840dcdb0",
+      "script_name": "src/assign.lua",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "roact",
+        "O2"
+      ]
+    },
+    {
+      "path": "roact/O0/src/Binding.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "b874d2692e37aafe66133afbf911d02dcbbac321de4313ba7d70b526b1ecd104",
+      "script_name": "src/Binding.lua",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "roact",
+        "O0"
+      ]
+    },
+    {
+      "path": "roact/O1/src/Binding.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "1433ab0cb5326184f155bb6de31eb60a13ac36139c968ef4204679e642863c15",
+      "script_name": "src/Binding.lua",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "roact",
+        "O1"
+      ]
+    },
+    {
+      "path": "roact/O2/src/Binding.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "ddd16a8755cf7f2ddeb7d6fee08bfdc277b22cc4c3358f5d3e88bb436134ddc0",
+      "script_name": "src/Binding.lua",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "roact",
+        "O2"
+      ]
+    },
+    {
+      "path": "roact/O0/src/Component.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "c8c5a0c647ff6d155ccad4f3f8656b99412ebffaf07cc1156e05d86a4c2b134e",
+      "script_name": "src/Component.lua",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "roact",
+        "O0"
+      ]
+    },
+    {
+      "path": "roact/O1/src/Component.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "1266b2e071b3fe4e48539126bdf689b6b1e142d6f9412558dffaeddb90062718",
+      "script_name": "src/Component.lua",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "roact",
+        "O1"
+      ]
+    },
+    {
+      "path": "roact/O2/src/Component.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "c05bc47e0608c615bc5ad892bac383e965dd266bb37d29734133e3b9368d54ef",
+      "script_name": "src/Component.lua",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "roact",
+        "O2"
+      ]
+    },
+    {
+      "path": "roact/O0/src/ComponentLifecyclePhase.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "6b2b62c4ec31849dfd1b9c0db81f27ba0ad99fba3c3b94a472404aa5e19b9344",
+      "script_name": "src/ComponentLifecyclePhase.lua",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "roact",
+        "O0"
+      ]
+    },
+    {
+      "path": "roact/O1/src/ComponentLifecyclePhase.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "50e90c3e4a0e9a5bc598f3126d5658cacd828df375e05ee4746431c24d26194d",
+      "script_name": "src/ComponentLifecyclePhase.lua",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "roact",
+        "O1"
+      ]
+    },
+    {
+      "path": "roact/O2/src/ComponentLifecyclePhase.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "50e90c3e4a0e9a5bc598f3126d5658cacd828df375e05ee4746431c24d26194d",
+      "script_name": "src/ComponentLifecyclePhase.lua",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "roact",
+        "O2"
+      ]
+    },
+    {
+      "path": "roact/O0/src/Config.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "6409572317c7da37008b596af76f5e45871d0a166fbcb7579b46ae239be52288",
+      "script_name": "src/Config.lua",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "roact",
+        "O0"
+      ]
+    },
+    {
+      "path": "roact/O1/src/Config.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "47ce5899c27f3b1de46815b7b58b8dc04ae95e874e86ee38a04dcfb0b4e74408",
+      "script_name": "src/Config.lua",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "roact",
+        "O1"
+      ]
+    },
+    {
+      "path": "roact/O2/src/Config.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "202c3a854c0ec12cabf349de78797172a9e3a30647557cb447dc26da8dcff0de",
+      "script_name": "src/Config.lua",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "roact",
+        "O2"
+      ]
+    },
+    {
+      "path": "roact/O0/src/createContext.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "065779bc63a65f6c1f414ec761d37b361275430aa274a9c90b57032bde7bbd6a",
+      "script_name": "src/createContext.lua",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "roact",
+        "O0"
+      ]
+    },
+    {
+      "path": "roact/O1/src/createContext.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "dbdb0a28ffda49adc228087c52eea487455cc163d39cc14a5a5e24ec86134633",
+      "script_name": "src/createContext.lua",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "roact",
+        "O1"
+      ]
+    },
+    {
+      "path": "roact/O2/src/createContext.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "bb5bf391bb3f815bceae9c7cc9cbe529ca733e71c53b678d52fb9a65dabf222b",
+      "script_name": "src/createContext.lua",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "roact",
+        "O2"
+      ]
+    },
+    {
+      "path": "roact/O0/src/createElement.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "371447e18fc801d63d098136b9c8dc7c067be893e0a484f750d39dd8251aed21",
+      "script_name": "src/createElement.lua",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "roact",
+        "O0"
+      ]
+    },
+    {
+      "path": "roact/O1/src/createElement.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "b5ca925872ec749938b2727f3155ad7007c34bd682eee811156b643b5d8351d3",
+      "script_name": "src/createElement.lua",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "roact",
+        "O1"
+      ]
+    },
+    {
+      "path": "roact/O2/src/createElement.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "b5ca925872ec749938b2727f3155ad7007c34bd682eee811156b643b5d8351d3",
+      "script_name": "src/createElement.lua",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "roact",
+        "O2"
+      ]
+    },
+    {
+      "path": "roact/O0/src/createFragment.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "be0a2fb66eab0ec11713e9e3efba251d9ba26a31ed98cef7adb1f029cc039ef0",
+      "script_name": "src/createFragment.lua",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "roact",
+        "O0"
+      ]
+    },
+    {
+      "path": "roact/O1/src/createFragment.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "a2c74794966b1ac7aee744cb4ee778eefd3e47fb73b9547ce50277c224a38b10",
+      "script_name": "src/createFragment.lua",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "roact",
+        "O1"
+      ]
+    },
+    {
+      "path": "roact/O2/src/createFragment.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "a2c74794966b1ac7aee744cb4ee778eefd3e47fb73b9547ce50277c224a38b10",
+      "script_name": "src/createFragment.lua",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "roact",
+        "O2"
+      ]
+    },
+    {
+      "path": "roact/O0/src/createReconciler.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "0760b8960ef2e359978dde256f11bf9029bbe1bbe002a2e7e9dd57e7fdafe97f",
+      "script_name": "src/createReconciler.lua",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "roact",
+        "O0"
+      ]
+    },
+    {
+      "path": "roact/O1/src/createReconciler.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "2af6ff2b6d577c0b9e593bee85f2e003ba68831a79c1bcc768730d448efd0e27",
+      "script_name": "src/createReconciler.lua",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "roact",
+        "O1"
+      ]
+    },
+    {
+      "path": "roact/O2/src/createReconciler.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "c581ee26689a1738095569176a45274a372fea68f73adeb2dcac73b640e462f0",
+      "script_name": "src/createReconciler.lua",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "roact",
+        "O2"
+      ]
+    },
+    {
+      "path": "roact/O0/src/createReconcilerCompat.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "c51ed688a4fcb49ec1f14a81143a3154969cfd9910a618da86c137fc24fb8a26",
+      "script_name": "src/createReconcilerCompat.lua",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "roact",
+        "O0"
+      ]
+    },
+    {
+      "path": "roact/O1/src/createReconcilerCompat.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "3f3ed122a86374f1d3bfa70fccb7b583eb787cc45981c7659b51f2305236b1d5",
+      "script_name": "src/createReconcilerCompat.lua",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "roact",
+        "O1"
+      ]
+    },
+    {
+      "path": "roact/O2/src/createReconcilerCompat.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "3f3ed122a86374f1d3bfa70fccb7b583eb787cc45981c7659b51f2305236b1d5",
+      "script_name": "src/createReconcilerCompat.lua",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "roact",
+        "O2"
+      ]
+    },
+    {
+      "path": "roact/O0/src/createRef.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "fb5f9300e3c2b08daa02cbe50cc644d45d467f13d6b4e0e50adad49c855d563a",
+      "script_name": "src/createRef.lua",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "roact",
+        "O0"
+      ]
+    },
+    {
+      "path": "roact/O1/src/createRef.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "b777186ea7dab14eba2aa2fc974d830d8ac2539e3007fcc7681060c3b8aab7cb",
+      "script_name": "src/createRef.lua",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "roact",
+        "O1"
+      ]
+    },
+    {
+      "path": "roact/O2/src/createRef.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "763774cd75780a3a4e385b8230a1c839f4bd8360c2d99ada200ae72690c0f108",
+      "script_name": "src/createRef.lua",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "roact",
+        "O2"
+      ]
+    },
+    {
+      "path": "roact/O0/src/createSignal.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "6cf7ec29db7bdc926babbaf9f55ced922a4c7bc830430ba47945cfbe5601063a",
+      "script_name": "src/createSignal.lua",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "roact",
+        "O0"
+      ]
+    },
+    {
+      "path": "roact/O1/src/createSignal.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "525438ac47ed3cce35fdf715f619478cd5abb03c1dffd3366f3151cce9a92f94",
+      "script_name": "src/createSignal.lua",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "roact",
+        "O1"
+      ]
+    },
+    {
+      "path": "roact/O2/src/createSignal.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "525438ac47ed3cce35fdf715f619478cd5abb03c1dffd3366f3151cce9a92f94",
+      "script_name": "src/createSignal.lua",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "roact",
+        "O2"
+      ]
+    },
+    {
+      "path": "roact/O0/src/createSpy.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "58bef109bad143caa758cdd3298d6f3e09a2d38afca8a7c6fe7b8581a02fadf1",
+      "script_name": "src/createSpy.lua",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "roact",
+        "O0"
+      ]
+    },
+    {
+      "path": "roact/O1/src/createSpy.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "02b5be37be5211e4ecfe71ff83494d39c5c36f5fb5fd37dea427f54a1a370611",
+      "script_name": "src/createSpy.lua",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "roact",
+        "O1"
+      ]
+    },
+    {
+      "path": "roact/O2/src/createSpy.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "cc3dd8d45422595079b9f06d15cc5a052b3740a8c9a9032f24f7305af6939544",
+      "script_name": "src/createSpy.lua",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "roact",
+        "O2"
+      ]
+    },
+    {
+      "path": "roact/O0/src/ElementKind.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "54cc5eee816acac3e1ecd79a794de018dc5f4ec06437cf6961b443055ad328f5",
+      "script_name": "src/ElementKind.lua",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "roact",
+        "O0"
+      ]
+    },
+    {
+      "path": "roact/O1/src/ElementKind.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "3aafe7c2ed4b1e79db30d1ab5570643820fef1b357787788498c295f21b51692",
+      "script_name": "src/ElementKind.lua",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "roact",
+        "O1"
+      ]
+    },
+    {
+      "path": "roact/O2/src/ElementKind.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "ed8eb99a894d3f238aaaada0d014831c2bf55e778a57398eb48d43f735b1ae12",
+      "script_name": "src/ElementKind.lua",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "roact",
+        "O2"
+      ]
+    },
+    {
+      "path": "roact/O0/src/ElementUtils.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "0bf1fe3103ea4f80c620b87b0aa96daca66977342b864a23fef3b6dc40d3c71b",
+      "script_name": "src/ElementUtils.lua",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "roact",
+        "O0"
+      ]
+    },
+    {
+      "path": "roact/O1/src/ElementUtils.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "3e8ecbb25b7e470a6a1cdcd347f223c1d88d7ab5c7a7ea6eb40e3e8280bdcfe9",
+      "script_name": "src/ElementUtils.lua",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "roact",
+        "O1"
+      ]
+    },
+    {
+      "path": "roact/O2/src/ElementUtils.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "3e8ecbb25b7e470a6a1cdcd347f223c1d88d7ab5c7a7ea6eb40e3e8280bdcfe9",
+      "script_name": "src/ElementUtils.lua",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "roact",
+        "O2"
+      ]
+    },
+    {
+      "path": "roact/O0/src/forwardRef.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "eda8ec554c568701e2c90117194d9a28470a2eb0e58ca89980ac8563f1565a2c",
+      "script_name": "src/forwardRef.lua",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "roact",
+        "O0"
+      ]
+    },
+    {
+      "path": "roact/O1/src/forwardRef.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "d86c663e3506641399161206ed94f1b582e2defc4e01874394d8b73443bb4ad3",
+      "script_name": "src/forwardRef.lua",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "roact",
+        "O1"
+      ]
+    },
+    {
+      "path": "roact/O2/src/forwardRef.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "d86c663e3506641399161206ed94f1b582e2defc4e01874394d8b73443bb4ad3",
+      "script_name": "src/forwardRef.lua",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "roact",
+        "O2"
+      ]
+    },
+    {
+      "path": "roact/O0/src/getDefaultInstanceProperty.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "a88cfca7e0e5da9afe9789b254ae2ca6770f46eed13cb1722a5e852f0ddf82cf",
+      "script_name": "src/getDefaultInstanceProperty.lua",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "roact",
+        "O0"
+      ]
+    },
+    {
+      "path": "roact/O1/src/getDefaultInstanceProperty.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "30d9cfc2af7ac2022a4f8d4b295ba4f6d060690f37d74b82d05d166a499c678a",
+      "script_name": "src/getDefaultInstanceProperty.lua",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "roact",
+        "O1"
+      ]
+    },
+    {
+      "path": "roact/O2/src/getDefaultInstanceProperty.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "30d9cfc2af7ac2022a4f8d4b295ba4f6d060690f37d74b82d05d166a499c678a",
+      "script_name": "src/getDefaultInstanceProperty.lua",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "roact",
+        "O2"
+      ]
+    },
+    {
+      "path": "roact/O0/src/GlobalConfig.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "858e3242069654b58d19f10547d5e46acf64ae63015cb895f94abaeac0224a65",
+      "script_name": "src/GlobalConfig.lua",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "roact",
+        "O0"
+      ]
+    },
+    {
+      "path": "roact/O1/src/GlobalConfig.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "378935aae559815aaeb02b84419a41ebd41d7ee7907dc4d5235d2ee4463925a1",
+      "script_name": "src/GlobalConfig.lua",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "roact",
+        "O1"
+      ]
+    },
+    {
+      "path": "roact/O2/src/GlobalConfig.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "378935aae559815aaeb02b84419a41ebd41d7ee7907dc4d5235d2ee4463925a1",
+      "script_name": "src/GlobalConfig.lua",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "roact",
+        "O2"
+      ]
+    },
+    {
+      "path": "roact/O0/src/init.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "0e59ded81f8cf23ed50c23c38808429e622164738d5603f33a4677793574df07",
+      "script_name": "src/init.lua",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "roact",
+        "O0"
+      ]
+    },
+    {
+      "path": "roact/O1/src/init.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "c8e044fff3e8e6661f4047df353e09be4045573ed16cc16fe5fdae4f57b1f0f0",
+      "script_name": "src/init.lua",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "roact",
+        "O1"
+      ]
+    },
+    {
+      "path": "roact/O2/src/init.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "c8e044fff3e8e6661f4047df353e09be4045573ed16cc16fe5fdae4f57b1f0f0",
+      "script_name": "src/init.lua",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "roact",
+        "O2"
+      ]
+    },
+    {
+      "path": "roact/O0/src/internalAssert.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "23c684d8f61b664fbcd91235b2cfcaea79f7a59ec494495aa5f9485343ab615e",
+      "script_name": "src/internalAssert.lua",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "roact",
+        "O0"
+      ]
+    },
+    {
+      "path": "roact/O1/src/internalAssert.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "0881f80bd64466e9a2f732e2c2ccdf4c04b842de588e68407eafcd2c34019f6a",
+      "script_name": "src/internalAssert.lua",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "roact",
+        "O1"
+      ]
+    },
+    {
+      "path": "roact/O2/src/internalAssert.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "0881f80bd64466e9a2f732e2c2ccdf4c04b842de588e68407eafcd2c34019f6a",
+      "script_name": "src/internalAssert.lua",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "roact",
+        "O2"
+      ]
+    },
+    {
+      "path": "roact/O0/src/invalidSetStateMessages.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "977ae0ceccb7ac0824613c12f23843c5c008ca5fd9e0d67653f438cc58e8e2d8",
+      "script_name": "src/invalidSetStateMessages.lua",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "roact",
+        "O0"
+      ]
+    },
+    {
+      "path": "roact/O1/src/invalidSetStateMessages.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "4dbff185b1b8eb7016ffb735bcee95583e7dd46d050b52d9694cb1fbec2f74ee",
+      "script_name": "src/invalidSetStateMessages.lua",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "roact",
+        "O1"
+      ]
+    },
+    {
+      "path": "roact/O2/src/invalidSetStateMessages.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "4dbff185b1b8eb7016ffb735bcee95583e7dd46d050b52d9694cb1fbec2f74ee",
+      "script_name": "src/invalidSetStateMessages.lua",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "roact",
+        "O2"
+      ]
+    },
+    {
+      "path": "roact/O0/src/Logging.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "8920cb5840b62ae894d60b46ca32efd4690b2e7a1da9fa55a7bd5db775658122",
+      "script_name": "src/Logging.lua",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "roact",
+        "O0"
+      ]
+    },
+    {
+      "path": "roact/O1/src/Logging.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "36d9305c227dfa10859befa1f9ec4bdd9bde151b4b521c7ca925b157deafa5b2",
+      "script_name": "src/Logging.lua",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "roact",
+        "O1"
+      ]
+    },
+    {
+      "path": "roact/O2/src/Logging.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "1dbf01afcffbe5b08034a1de47d942453f29aa95e0fe861bc9d13c18c6ba364a",
+      "script_name": "src/Logging.lua",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "roact",
+        "O2"
+      ]
+    },
+    {
+      "path": "roact/O0/src/None.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "d71099ab1efaabfecc6c1c7a45765fd731f55218a575c4368635b222a868e6c8",
+      "script_name": "src/None.lua",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "roact",
+        "O0"
+      ]
+    },
+    {
+      "path": "roact/O1/src/None.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "addbf6d24198920f1fae16b412b96dfa1283899af9a1f71df98dce96e1db8ada",
+      "script_name": "src/None.lua",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "roact",
+        "O1"
+      ]
+    },
+    {
+      "path": "roact/O2/src/None.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "addbf6d24198920f1fae16b412b96dfa1283899af9a1f71df98dce96e1db8ada",
+      "script_name": "src/None.lua",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "roact",
+        "O2"
+      ]
+    },
+    {
+      "path": "roact/O0/src/NoopRenderer.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "fddeb52a4df6e59a1d585e73f6175fdcecbf7871db1645e487558b9008a1ae95",
+      "script_name": "src/NoopRenderer.lua",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "roact",
+        "O0"
+      ]
+    },
+    {
+      "path": "roact/O1/src/NoopRenderer.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "ba04e36a6e1eb1b38b66b57d3453b6896bb293cbcdee8fc3d4e8fe1a472aa1df",
+      "script_name": "src/NoopRenderer.lua",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "roact",
+        "O1"
+      ]
+    },
+    {
+      "path": "roact/O2/src/NoopRenderer.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "ba04e36a6e1eb1b38b66b57d3453b6896bb293cbcdee8fc3d4e8fe1a472aa1df",
+      "script_name": "src/NoopRenderer.lua",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "roact",
+        "O2"
+      ]
+    },
+    {
+      "path": "roact/O0/src/oneChild.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "b4703db48a80b1cfd68d7afc56ba372edc4455bbe62917feaf55fd025075c3ff",
+      "script_name": "src/oneChild.lua",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "roact",
+        "O0"
+      ]
+    },
+    {
+      "path": "roact/O1/src/oneChild.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "3b486a96ac0c971d57370bb2882ff5cae07d7685c984e24e4db0e8116f36b5fa",
+      "script_name": "src/oneChild.lua",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "roact",
+        "O1"
+      ]
+    },
+    {
+      "path": "roact/O2/src/oneChild.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "3b486a96ac0c971d57370bb2882ff5cae07d7685c984e24e4db0e8116f36b5fa",
+      "script_name": "src/oneChild.lua",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "roact",
+        "O2"
+      ]
+    },
+    {
+      "path": "roact/O0/src/Portal.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "afeb47a66890c640cc95af7e48b49cc1b1fe3a7469fdeb9536d8ba2bc8306b65",
+      "script_name": "src/Portal.lua",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "roact",
+        "O0"
+      ]
+    },
+    {
+      "path": "roact/O1/src/Portal.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "cf33dc789fa81547b1c0a5619255ee1dff4aeb9b76e1f7745369c5f7b4eb5606",
+      "script_name": "src/Portal.lua",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "roact",
+        "O1"
+      ]
+    },
+    {
+      "path": "roact/O2/src/Portal.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "cf33dc789fa81547b1c0a5619255ee1dff4aeb9b76e1f7745369c5f7b4eb5606",
+      "script_name": "src/Portal.lua",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "roact",
+        "O2"
+      ]
+    },
+    {
+      "path": "roact/O0/src/PropMarkers/Change.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "8bf5ce38c6f2b0964f424e412743f290d7ad3ca5e491a76135ca63d0b1bebc96",
+      "script_name": "src/PropMarkers/Change.lua",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "roact",
+        "O0"
+      ]
+    },
+    {
+      "path": "roact/O1/src/PropMarkers/Change.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "052385335a3e46b16a0ac02f91dfa0b1be5da14367e9eeb1edadad252f849073",
+      "script_name": "src/PropMarkers/Change.lua",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "roact",
+        "O1"
+      ]
+    },
+    {
+      "path": "roact/O2/src/PropMarkers/Change.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "c1bc7bac7e435ec86d9d8a815c3030d364705607b85239d7bda130190cc4bda0",
+      "script_name": "src/PropMarkers/Change.lua",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "roact",
+        "O2"
+      ]
+    },
+    {
+      "path": "roact/O0/src/PropMarkers/Children.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "0d4057099ed589c78255f8625b96abbfe423720762a08066f81a7aa0be4780e5",
+      "script_name": "src/PropMarkers/Children.lua",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "roact",
+        "O0"
+      ]
+    },
+    {
+      "path": "roact/O1/src/PropMarkers/Children.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "07e3241a333725b953afe1a49591f3a2442bf7a29be2fd60d1c45da44c812a87",
+      "script_name": "src/PropMarkers/Children.lua",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "roact",
+        "O1"
+      ]
+    },
+    {
+      "path": "roact/O2/src/PropMarkers/Children.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "07e3241a333725b953afe1a49591f3a2442bf7a29be2fd60d1c45da44c812a87",
+      "script_name": "src/PropMarkers/Children.lua",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "roact",
+        "O2"
+      ]
+    },
+    {
+      "path": "roact/O0/src/PropMarkers/Event.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "dfe2ec6de9a808a966c38be75d189a006015f2a5266584b7a01d10d02af4d600",
+      "script_name": "src/PropMarkers/Event.lua",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "roact",
+        "O0"
+      ]
+    },
+    {
+      "path": "roact/O1/src/PropMarkers/Event.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "9005fb198cb31bd2bb0f19ac9294fcd61aab510c4dcf40c1f8d3b7387742449f",
+      "script_name": "src/PropMarkers/Event.lua",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "roact",
+        "O1"
+      ]
+    },
+    {
+      "path": "roact/O2/src/PropMarkers/Event.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "8a14b43fa283888910cc1b582a3e6b0e0c59541e3b5cbe3b0b3a400a7e6a4920",
+      "script_name": "src/PropMarkers/Event.lua",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "roact",
+        "O2"
+      ]
+    },
+    {
+      "path": "roact/O0/src/PropMarkers/Ref.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "ce6571da6558e6c71ce4ac4c91717cd614703153fcb827e6e2d99ccfc5702cf6",
+      "script_name": "src/PropMarkers/Ref.lua",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "roact",
+        "O0"
+      ]
+    },
+    {
+      "path": "roact/O1/src/PropMarkers/Ref.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "2169b37b221307ddde1280a6515a3f7ed7482b3e5d75df7cb1820f1d2346b032",
+      "script_name": "src/PropMarkers/Ref.lua",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "roact",
+        "O1"
+      ]
+    },
+    {
+      "path": "roact/O2/src/PropMarkers/Ref.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "2169b37b221307ddde1280a6515a3f7ed7482b3e5d75df7cb1820f1d2346b032",
+      "script_name": "src/PropMarkers/Ref.lua",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "roact",
+        "O2"
+      ]
+    },
+    {
+      "path": "roact/O0/src/PureComponent.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "4707d3dfb8c0970bafac1499d7e997baeffc4b92d92082bae32ecc1a09ce7312",
+      "script_name": "src/PureComponent.lua",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "roact",
+        "O0"
+      ]
+    },
+    {
+      "path": "roact/O1/src/PureComponent.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "0cadfc08a099143ac7a2575ac4ae1d439f72e1c7e0f99d61eef7a5faf8c424d1",
+      "script_name": "src/PureComponent.lua",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "roact",
+        "O1"
+      ]
+    },
+    {
+      "path": "roact/O2/src/PureComponent.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "0cadfc08a099143ac7a2575ac4ae1d439f72e1c7e0f99d61eef7a5faf8c424d1",
+      "script_name": "src/PureComponent.lua",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "roact",
+        "O2"
+      ]
+    },
+    {
+      "path": "roact/O0/src/RobloxRenderer.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "2614459cf3865a6b9f3c16a5fd94efc552189618da1694dad92c94b0b22f030b",
+      "script_name": "src/RobloxRenderer.lua",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "roact",
+        "O0"
+      ]
+    },
+    {
+      "path": "roact/O1/src/RobloxRenderer.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "87344fe867bec8964e2348b538f55f65460934cf1bde112d5ad7ab6a711442ef",
+      "script_name": "src/RobloxRenderer.lua",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "roact",
+        "O1"
+      ]
+    },
+    {
+      "path": "roact/O2/src/RobloxRenderer.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "d636891c806f131775f32a56a54593eb3c757cab7c4a56ac0d190ff28abae2a4",
+      "script_name": "src/RobloxRenderer.lua",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "roact",
+        "O2"
+      ]
+    },
+    {
+      "path": "roact/O0/src/SingleEventManager.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "0d926f58739e9033b7c5dbb619f7aadb7764d48406cd6e87a4c8a6e2b97871af",
+      "script_name": "src/SingleEventManager.lua",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "roact",
+        "O0"
+      ]
+    },
+    {
+      "path": "roact/O1/src/SingleEventManager.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "e527315441237bd24ad540c649a6b3f6c983274b934cb365f19a52dbe5814386",
+      "script_name": "src/SingleEventManager.lua",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "roact",
+        "O1"
+      ]
+    },
+    {
+      "path": "roact/O2/src/SingleEventManager.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "a8c5b5f4415d26b6a0ed56ff4419e0063c24236cd7593370e277a9d729c25b84",
+      "script_name": "src/SingleEventManager.lua",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "roact",
+        "O2"
+      ]
+    },
+    {
+      "path": "roact/O0/src/strict.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "ad8c8ddff1aa648d1ec6e4fd913e2469fa57fc421b2a6dbe8fb853f782bd65f3",
+      "script_name": "src/strict.lua",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "roact",
+        "O0"
+      ]
+    },
+    {
+      "path": "roact/O1/src/strict.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "eac9ec06763857b11b9ce093b062c0fc71e4ca70ccaa88f71cfe00c0654072bc",
+      "script_name": "src/strict.lua",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "roact",
+        "O1"
+      ]
+    },
+    {
+      "path": "roact/O2/src/strict.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "e2ec54e475b5bb09a3840ac80623d8b937631a874c475cd9357210921e291557",
+      "script_name": "src/strict.lua",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "roact",
+        "O2"
+      ]
+    },
+    {
+      "path": "roact/O0/src/Symbol.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "555b27da34a3e7b3db6db5421e5d82b22e1fe0cef918d8ee429a0ed8d81a3f6b",
+      "script_name": "src/Symbol.lua",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "roact",
+        "O0"
+      ]
+    },
+    {
+      "path": "roact/O1/src/Symbol.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "2e39496c091660f71098434d27509e151b88fc984c33617bdaeae6fd67fc59d2",
+      "script_name": "src/Symbol.lua",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "roact",
+        "O1"
+      ]
+    },
+    {
+      "path": "roact/O2/src/Symbol.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "dbe8aecbb2849a1da0c6e75eed5c752aee892e01426663a17b0e1395264d9f1d",
+      "script_name": "src/Symbol.lua",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "roact",
+        "O2"
+      ]
+    },
+    {
+      "path": "roact/O0/src/Type.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "9b0ae7e0416c6868e9c8cf0326fd159b186d618f987dde82c719b78ba7d60f27",
+      "script_name": "src/Type.lua",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "roact",
+        "O0"
+      ]
+    },
+    {
+      "path": "roact/O1/src/Type.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "f39c0130f5af474a83c230f8177caf11ea1c777e004f8c9d997b990c2a049308",
+      "script_name": "src/Type.lua",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "roact",
+        "O1"
+      ]
+    },
+    {
+      "path": "roact/O2/src/Type.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "2e7b66fab4aec32a9a5007feefc9ede1d453dacbcc45c810e32ff16c41fb20f6",
+      "script_name": "src/Type.lua",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "roact",
+        "O2"
+      ]
+    },
+    {
+      "path": "promise/O0/lib/init.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "e977df889690a65177c6c107a228ef4b9c5c1b6cb40f4457b16182d82236d813",
+      "script_name": "lib/init.lua",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "promise",
+        "O0"
+      ]
+    },
+    {
+      "path": "promise/O1/lib/init.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "5f501a1b5c09ae5fe2bfb6fda014dce14916cffa4f0f278aa79d2b1e9f9b236d",
+      "script_name": "lib/init.lua",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "promise",
+        "O1"
+      ]
+    },
+    {
+      "path": "promise/O2/lib/init.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "dd1bea0c0521016c166ff6041bb27ca0a9ee8f9876be84f1052e42e5a74f7b6d",
+      "script_name": "lib/init.lua",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "promise",
+        "O2"
+      ]
+    },
+    {
+      "path": "RbxUtil/O0/modules/buffer-util/BufferReader.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "bd3dd3e7ff8ce7e16314b4c5dd93dc983e13fd20fad3d2e335b8011ecfcdb611",
+      "script_name": "modules/buffer-util/BufferReader.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O0"
+      ]
+    },
+    {
+      "path": "RbxUtil/O1/modules/buffer-util/BufferReader.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "bd3dd3e7ff8ce7e16314b4c5dd93dc983e13fd20fad3d2e335b8011ecfcdb611",
+      "script_name": "modules/buffer-util/BufferReader.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O1"
+      ]
+    },
+    {
+      "path": "RbxUtil/O2/modules/buffer-util/BufferReader.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "bd3dd3e7ff8ce7e16314b4c5dd93dc983e13fd20fad3d2e335b8011ecfcdb611",
+      "script_name": "modules/buffer-util/BufferReader.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O2"
+      ]
+    },
+    {
+      "path": "RbxUtil/O0/modules/buffer-util/BufferWriter.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "6bbab3714627376ffb5c24df2b998f903949e36331f947e7faa7a732752cc269",
+      "script_name": "modules/buffer-util/BufferWriter.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O0"
+      ]
+    },
+    {
+      "path": "RbxUtil/O1/modules/buffer-util/BufferWriter.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "6bbab3714627376ffb5c24df2b998f903949e36331f947e7faa7a732752cc269",
+      "script_name": "modules/buffer-util/BufferWriter.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O1"
+      ]
+    },
+    {
+      "path": "RbxUtil/O2/modules/buffer-util/BufferWriter.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "6bbab3714627376ffb5c24df2b998f903949e36331f947e7faa7a732752cc269",
+      "script_name": "modules/buffer-util/BufferWriter.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O2"
+      ]
+    },
+    {
+      "path": "RbxUtil/O0/modules/buffer-util/DataTypeBuffer.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "580af284eed5ff813819c332c8fda1c39467b9b39c87b9a4b51cb3ca00308e43",
+      "script_name": "modules/buffer-util/DataTypeBuffer.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O0"
+      ]
+    },
+    {
+      "path": "RbxUtil/O1/modules/buffer-util/DataTypeBuffer.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "580af284eed5ff813819c332c8fda1c39467b9b39c87b9a4b51cb3ca00308e43",
+      "script_name": "modules/buffer-util/DataTypeBuffer.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O1"
+      ]
+    },
+    {
+      "path": "RbxUtil/O2/modules/buffer-util/DataTypeBuffer.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "580af284eed5ff813819c332c8fda1c39467b9b39c87b9a4b51cb3ca00308e43",
+      "script_name": "modules/buffer-util/DataTypeBuffer.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O2"
+      ]
+    },
+    {
+      "path": "RbxUtil/O0/modules/buffer-util/init.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "3fd2e04e1ca659d8b650259aba0917ada416d52124d4d4546812f6ba8dde1f2a",
+      "script_name": "modules/buffer-util/init.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O0"
+      ]
+    },
+    {
+      "path": "RbxUtil/O1/modules/buffer-util/init.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "3fd2e04e1ca659d8b650259aba0917ada416d52124d4d4546812f6ba8dde1f2a",
+      "script_name": "modules/buffer-util/init.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O1"
+      ]
+    },
+    {
+      "path": "RbxUtil/O2/modules/buffer-util/init.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "3fd2e04e1ca659d8b650259aba0917ada416d52124d4d4546812f6ba8dde1f2a",
+      "script_name": "modules/buffer-util/init.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O2"
+      ]
+    },
+    {
+      "path": "RbxUtil/O0/modules/buffer-util/Types.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "e5d2aa0acf27326c5d3373cf1413b1a43c205363c8dc369f05dd4d693076458e",
+      "script_name": "modules/buffer-util/Types.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O0"
+      ]
+    },
+    {
+      "path": "RbxUtil/O1/modules/buffer-util/Types.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "e5d2aa0acf27326c5d3373cf1413b1a43c205363c8dc369f05dd4d693076458e",
+      "script_name": "modules/buffer-util/Types.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O1"
+      ]
+    },
+    {
+      "path": "RbxUtil/O2/modules/buffer-util/Types.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "e5d2aa0acf27326c5d3373cf1413b1a43c205363c8dc369f05dd4d693076458e",
+      "script_name": "modules/buffer-util/Types.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O2"
+      ]
+    },
+    {
+      "path": "RbxUtil/O0/modules/comm/Client/ClientComm.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "a01d1aed827d1ecec42c7756cbd9663fae78de00cb24f1a6d1287da55036284f",
+      "script_name": "modules/comm/Client/ClientComm.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O0"
+      ]
+    },
+    {
+      "path": "RbxUtil/O1/modules/comm/Client/ClientComm.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "a56d7296b447c3e0afdb00bf63e1024e6418d9d7a6682b89c9aa4d0ad9f75ad7",
+      "script_name": "modules/comm/Client/ClientComm.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O1"
+      ]
+    },
+    {
+      "path": "RbxUtil/O2/modules/comm/Client/ClientComm.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "21a33b2f360f86a739bbab6d1d8a82deab01155b86b7231525dad3169bcc6728",
+      "script_name": "modules/comm/Client/ClientComm.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O2"
+      ]
+    },
+    {
+      "path": "RbxUtil/O0/modules/comm/Client/ClientRemoteProperty.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "b1f42858c3248d9fb249889adbab9ec6eeaee4205ed12b6cadf31c221567b335",
+      "script_name": "modules/comm/Client/ClientRemoteProperty.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O0"
+      ]
+    },
+    {
+      "path": "RbxUtil/O1/modules/comm/Client/ClientRemoteProperty.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "39ac656a56cd09fa5439d2e7828db971f4e8e0d9400c77899b29c39054a3e224",
+      "script_name": "modules/comm/Client/ClientRemoteProperty.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O1"
+      ]
+    },
+    {
+      "path": "RbxUtil/O2/modules/comm/Client/ClientRemoteProperty.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "c4444e0dca915119c0010ace7ec49fc62322d378ae39a0c848d47e8592a29270",
+      "script_name": "modules/comm/Client/ClientRemoteProperty.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O2"
+      ]
+    },
+    {
+      "path": "RbxUtil/O0/modules/comm/Client/ClientRemoteSignal.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "323e410608367c0ac9aca6f5e8f1c7707198fc4f132f7211ae623f063f3df194",
+      "script_name": "modules/comm/Client/ClientRemoteSignal.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O0"
+      ]
+    },
+    {
+      "path": "RbxUtil/O1/modules/comm/Client/ClientRemoteSignal.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "576cf1c3c241e7af551acce0b1e54ba2a6c3656d0ea5130c646d0482703e55dd",
+      "script_name": "modules/comm/Client/ClientRemoteSignal.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O1"
+      ]
+    },
+    {
+      "path": "RbxUtil/O2/modules/comm/Client/ClientRemoteSignal.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "5236c48ebe10bdd0358283166be9ff77441d09a34c57b74c8006263718d0c00e",
+      "script_name": "modules/comm/Client/ClientRemoteSignal.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O2"
+      ]
+    },
+    {
+      "path": "RbxUtil/O0/modules/comm/Client/init.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "d6e31c29e82267b92077903a80bea9e03560aad639c5f50ba9ef0f4cce03b31a",
+      "script_name": "modules/comm/Client/init.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O0"
+      ]
+    },
+    {
+      "path": "RbxUtil/O1/modules/comm/Client/init.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "7e503a926c7d770bd26664ba822b08ab0e638d70f6683f21d2899aeba2995279",
+      "script_name": "modules/comm/Client/init.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O1"
+      ]
+    },
+    {
+      "path": "RbxUtil/O2/modules/comm/Client/init.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "8e21e2e2ab63d80736f536fc63447ef58daaf5472a74b9165f191a5fefe918c4",
+      "script_name": "modules/comm/Client/init.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O2"
+      ]
+    },
+    {
+      "path": "RbxUtil/O0/modules/comm/init.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "4f5302280cb593007100e843c0cb69d8ffe753753d8f8e3ced4abd4006ca2d1d",
+      "script_name": "modules/comm/init.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O0"
+      ]
+    },
+    {
+      "path": "RbxUtil/O1/modules/comm/init.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "cb2aec651c47f20ce4c97b9b54371c8fd3015f4e10fd3860690ba96edb9b188f",
+      "script_name": "modules/comm/init.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O1"
+      ]
+    },
+    {
+      "path": "RbxUtil/O2/modules/comm/init.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "cb2aec651c47f20ce4c97b9b54371c8fd3015f4e10fd3860690ba96edb9b188f",
+      "script_name": "modules/comm/init.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O2"
+      ]
+    },
+    {
+      "path": "RbxUtil/O0/modules/comm/Server/init.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "79b9d48c107212de56622be925c4aafe05c11cf5ff3dc07faab0a86f7550bd54",
+      "script_name": "modules/comm/Server/init.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O0"
+      ]
+    },
+    {
+      "path": "RbxUtil/O1/modules/comm/Server/init.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "b61db5875e32fa7f756c97392717be713e399d09c835c28845814734163d833c",
+      "script_name": "modules/comm/Server/init.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O1"
+      ]
+    },
+    {
+      "path": "RbxUtil/O2/modules/comm/Server/init.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "6499d3bbdde393285b42e0ce11672e4c0fe03f5287f74c7d84db4797354ac926",
+      "script_name": "modules/comm/Server/init.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O2"
+      ]
+    },
+    {
+      "path": "RbxUtil/O0/modules/comm/Server/RemoteProperty.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "ccdd21b89ede6d94c074c2c81a170659876b03b410fb19090a30b6304865332e",
+      "script_name": "modules/comm/Server/RemoteProperty.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O0"
+      ]
+    },
+    {
+      "path": "RbxUtil/O1/modules/comm/Server/RemoteProperty.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "83c0482e43cbff935a932dc72900d5a530538b190d122cd64dd5f0d79e9b7421",
+      "script_name": "modules/comm/Server/RemoteProperty.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O1"
+      ]
+    },
+    {
+      "path": "RbxUtil/O2/modules/comm/Server/RemoteProperty.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "35f1d60cdbc155360f159dba5a49d86f4681de0452caea5fbf8e28387c68fbeb",
+      "script_name": "modules/comm/Server/RemoteProperty.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O2"
+      ]
+    },
+    {
+      "path": "RbxUtil/O0/modules/comm/Server/RemoteSignal.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "e854b095a76aec19790007f286bdda4be6e02686045a6f1a495157b18ece82f6",
+      "script_name": "modules/comm/Server/RemoteSignal.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O0"
+      ]
+    },
+    {
+      "path": "RbxUtil/O1/modules/comm/Server/RemoteSignal.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "f70d17c70e9ba7c4368c20bf41ff7ee190835fab220adaa23649a12fb4df76bb",
+      "script_name": "modules/comm/Server/RemoteSignal.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O1"
+      ]
+    },
+    {
+      "path": "RbxUtil/O2/modules/comm/Server/RemoteSignal.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "f159c6eb7c6fb6ad2f1e136f8f4137b8dbfa9954ae030f43bd1adbcd05a3e9c4",
+      "script_name": "modules/comm/Server/RemoteSignal.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O2"
+      ]
+    },
+    {
+      "path": "RbxUtil/O0/modules/comm/Server/ServerComm.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "bcb817fcc80ec7e5ab1f003cc12d6dff6b12bbf83803267f78083fed7e3a8d0a",
+      "script_name": "modules/comm/Server/ServerComm.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O0"
+      ]
+    },
+    {
+      "path": "RbxUtil/O1/modules/comm/Server/ServerComm.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "b7bc4292899f32229f83cefa79d2bc34758d3a85f52056266ad425d85c86f04b",
+      "script_name": "modules/comm/Server/ServerComm.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O1"
+      ]
+    },
+    {
+      "path": "RbxUtil/O2/modules/comm/Server/ServerComm.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "5187795425036f961acb4ba730311828710241adf3a777f4ff61f02d747f98d7",
+      "script_name": "modules/comm/Server/ServerComm.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O2"
+      ]
+    },
+    {
+      "path": "RbxUtil/O0/modules/comm/Types.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "c4f06384052f8f22a7fd05fabf084b6de70659560980e8f4f6aed8f4c62f3003",
+      "script_name": "modules/comm/Types.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O0"
+      ]
+    },
+    {
+      "path": "RbxUtil/O1/modules/comm/Types.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "c4f06384052f8f22a7fd05fabf084b6de70659560980e8f4f6aed8f4c62f3003",
+      "script_name": "modules/comm/Types.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O1"
+      ]
+    },
+    {
+      "path": "RbxUtil/O2/modules/comm/Types.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "c4f06384052f8f22a7fd05fabf084b6de70659560980e8f4f6aed8f4c62f3003",
+      "script_name": "modules/comm/Types.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O2"
+      ]
+    },
+    {
+      "path": "RbxUtil/O0/modules/comm/Util.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "480afef6881ad1f09f4090b62cc8ea951342d6021bc0fe14ae088182d82ee547",
+      "script_name": "modules/comm/Util.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O0"
+      ]
+    },
+    {
+      "path": "RbxUtil/O1/modules/comm/Util.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "3b9481c4b725094c7eb33716eee07cc6dcd52d68a10f025b7684c6279d1a4c83",
+      "script_name": "modules/comm/Util.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O1"
+      ]
+    },
+    {
+      "path": "RbxUtil/O2/modules/comm/Util.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "a1328d4ab680d0448165b33dd79a9b21a7e5adee4463c04dac8ea725d9481044",
+      "script_name": "modules/comm/Util.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O2"
+      ]
+    },
+    {
+      "path": "RbxUtil/O0/modules/component/init.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "112594a28ca3f6f7e75186d9c401ae0e150f1a937c033b07e9a79a514f45285c",
+      "script_name": "modules/component/init.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O0"
+      ]
+    },
+    {
+      "path": "RbxUtil/O1/modules/component/init.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "ccb4a76da67c6ae0a65f0391680436afab6bd47546d32bfcd33e1fc32a69ba00",
+      "script_name": "modules/component/init.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O1"
+      ]
+    },
+    {
+      "path": "RbxUtil/O2/modules/component/init.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "86cf87a94f6c2f2ceb6043503e0cd2f62cd6e1c640733dd4f2d76c1b15d0b8b3",
+      "script_name": "modules/component/init.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O2"
+      ]
+    },
+    {
+      "path": "RbxUtil/O0/modules/concur/init.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "e04d1321ec3789ddfb731e9efc7750427afa373c5e7c30158ed3f2e3c7cf5e8d",
+      "script_name": "modules/concur/init.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O0"
+      ]
+    },
+    {
+      "path": "RbxUtil/O1/modules/concur/init.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "d468357316af91a5fe2061e77d9988fb95c8d9e59acfc1d76a9cac7e7ff6e099",
+      "script_name": "modules/concur/init.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O1"
+      ]
+    },
+    {
+      "path": "RbxUtil/O2/modules/concur/init.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "deff5f4533f5359a40e26ccdd7b536718ebda76029a119ffc62748e16c642f09",
+      "script_name": "modules/concur/init.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O2"
+      ]
+    },
+    {
+      "path": "RbxUtil/O0/modules/enum-list/init.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "3f84f102342f7a389be8f85c48c143e3bb5082407b863e29f1348d3b015ea5bd",
+      "script_name": "modules/enum-list/init.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O0"
+      ]
+    },
+    {
+      "path": "RbxUtil/O1/modules/enum-list/init.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "15002cd1163c770b31e25698c3737f9d35f91a63c8c7025233e067efefecc7b6",
+      "script_name": "modules/enum-list/init.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O1"
+      ]
+    },
+    {
+      "path": "RbxUtil/O2/modules/enum-list/init.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "059b656892136a5ff73919bf44b985ab2dfd5e4e293549d41332854c1af36c8d",
+      "script_name": "modules/enum-list/init.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O2"
+      ]
+    },
+    {
+      "path": "RbxUtil/O0/modules/find/init.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "01a5ed85833d401de9ad7f99e73bb58e47c73723b921bc8254d7e663c4889c2b",
+      "script_name": "modules/find/init.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O0"
+      ]
+    },
+    {
+      "path": "RbxUtil/O1/modules/find/init.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "1bc2b54e6f1bb8f111b165a95c28a3797e6e489fac72d7a7af9b87ace907df6e",
+      "script_name": "modules/find/init.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O1"
+      ]
+    },
+    {
+      "path": "RbxUtil/O2/modules/find/init.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "36299678979e9fbce8088bf4a618ec78eb156d68cd4b0ac562d17a6e17437038",
+      "script_name": "modules/find/init.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O2"
+      ]
+    },
+    {
+      "path": "RbxUtil/O0/modules/input/Gamepad.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "10fa0c99fc026623fa051504a443326b2acc5b0e181f07ee10b66b02fcaa6c6b",
+      "script_name": "modules/input/Gamepad.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O0"
+      ]
+    },
+    {
+      "path": "RbxUtil/O1/modules/input/Gamepad.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "982123cf32db40b067d5c463ee8cf72d86d7c8055a57fda204921fcf4afb5881",
+      "script_name": "modules/input/Gamepad.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O1"
+      ]
+    },
+    {
+      "path": "RbxUtil/O2/modules/input/Gamepad.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "ba7390f35e0bfc5880227787898315a23bf7be85a58e81d93d54b67731de3ccd",
+      "script_name": "modules/input/Gamepad.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O2"
+      ]
+    },
+    {
+      "path": "RbxUtil/O0/modules/input/init.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "684f8d9bcaecc5aa3dae678699a0ed1cd66829707a860de4ea2d5656863e8c98",
+      "script_name": "modules/input/init.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O0"
+      ]
+    },
+    {
+      "path": "RbxUtil/O1/modules/input/init.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "617f864dda0947d588386a76e19cf8ce5f01410cd3aa8649b567ede93ac586b3",
+      "script_name": "modules/input/init.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O1"
+      ]
+    },
+    {
+      "path": "RbxUtil/O2/modules/input/init.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "617f864dda0947d588386a76e19cf8ce5f01410cd3aa8649b567ede93ac586b3",
+      "script_name": "modules/input/init.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O2"
+      ]
+    },
+    {
+      "path": "RbxUtil/O0/modules/input/Keyboard.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "30bae67b0a5c37782d3b8f597bc9cd5c383ab5b3b0985a3d0a354151ae18ed0c",
+      "script_name": "modules/input/Keyboard.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O0"
+      ]
+    },
+    {
+      "path": "RbxUtil/O1/modules/input/Keyboard.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "093f902d998510f0b8dea5018575f8b16596be6f0bdd18ed636ad611662f2f2f",
+      "script_name": "modules/input/Keyboard.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O1"
+      ]
+    },
+    {
+      "path": "RbxUtil/O2/modules/input/Keyboard.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "093f902d998510f0b8dea5018575f8b16596be6f0bdd18ed636ad611662f2f2f",
+      "script_name": "modules/input/Keyboard.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O2"
+      ]
+    },
+    {
+      "path": "RbxUtil/O0/modules/input/Mouse.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "ab7a576c933c13c691364b9da53086876c0ad2495355bf620d1200bec1fa5f51",
+      "script_name": "modules/input/Mouse.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O0"
+      ]
+    },
+    {
+      "path": "RbxUtil/O1/modules/input/Mouse.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "99cd0b9c41e4ed8fd7a77c39c144748f1b5f1961e2508394a221a13eb4380bb4",
+      "script_name": "modules/input/Mouse.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O1"
+      ]
+    },
+    {
+      "path": "RbxUtil/O2/modules/input/Mouse.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "f6722842f1d542c474f68c48b3758663f9b1785e610f8c0e398fef7ae34b8da6",
+      "script_name": "modules/input/Mouse.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O2"
+      ]
+    },
+    {
+      "path": "RbxUtil/O0/modules/input/PreferredInput.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "35aeecd76abae1cd4c74e9ebb050f26334df647de65bc8e57064d94ac88af152",
+      "script_name": "modules/input/PreferredInput.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O0"
+      ]
+    },
+    {
+      "path": "RbxUtil/O1/modules/input/PreferredInput.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "0cd0f1142f55784cdf734c171f8abb44c220a2a3de553b7866b8eab0e6e20dc8",
+      "script_name": "modules/input/PreferredInput.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O1"
+      ]
+    },
+    {
+      "path": "RbxUtil/O2/modules/input/PreferredInput.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "766d92a27325b9dac7b7abd9504318fa3f379078d098eef41e5d982f656fbaa2",
+      "script_name": "modules/input/PreferredInput.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O2"
+      ]
+    },
+    {
+      "path": "RbxUtil/O0/modules/input/Touch.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "7015633fd6a26772cf9d0afe57d35eb88d6fb9bba86d7b2bfe4a5b9d755bdb23",
+      "script_name": "modules/input/Touch.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O0"
+      ]
+    },
+    {
+      "path": "RbxUtil/O1/modules/input/Touch.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "b39c3a85c3c5d56af7b73204f400f45aa0b1b0e080b2f105731379a1df15a165",
+      "script_name": "modules/input/Touch.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O1"
+      ]
+    },
+    {
+      "path": "RbxUtil/O2/modules/input/Touch.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "b39c3a85c3c5d56af7b73204f400f45aa0b1b0e080b2f105731379a1df15a165",
+      "script_name": "modules/input/Touch.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O2"
+      ]
+    },
+    {
+      "path": "RbxUtil/O0/modules/loader/init.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "e8281d73b0763b6c219cc14ffd5b248cb200f3f55043adb261234254ac7ba281",
+      "script_name": "modules/loader/init.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O0"
+      ]
+    },
+    {
+      "path": "RbxUtil/O1/modules/loader/init.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "4c4ed16a2db062c41273fa61b10654275442c03dfc21ec4abbde7521c96e32e6",
+      "script_name": "modules/loader/init.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O1"
+      ]
+    },
+    {
+      "path": "RbxUtil/O2/modules/loader/init.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "1e7a34b14ae532011bbe03bab8a3995892c737b61f004ca4d536f884ba2ddfaa",
+      "script_name": "modules/loader/init.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O2"
+      ]
+    },
+    {
+      "path": "RbxUtil/O0/modules/log/init.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "eb051fc425d88854cf8df627d343b8d954fe7b99154de2d49ed9e3e20f0f7070",
+      "script_name": "modules/log/init.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O0"
+      ]
+    },
+    {
+      "path": "RbxUtil/O1/modules/log/init.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "62202777b220b325fdd882bb4154d23631fba287713af0813613a8fdc03fc29b",
+      "script_name": "modules/log/init.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O1"
+      ]
+    },
+    {
+      "path": "RbxUtil/O2/modules/log/init.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "7c49379c82a9759c18f726ddffd8696b9a5c9062386ff5365db7e61c92e0b8b7",
+      "script_name": "modules/log/init.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O2"
+      ]
+    },
+    {
+      "path": "RbxUtil/O0/modules/net/init.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "a6e4f4b9453c034d1a2f562b4560cdff486e7c836ec19aee099d8386f736a031",
+      "script_name": "modules/net/init.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O0"
+      ]
+    },
+    {
+      "path": "RbxUtil/O1/modules/net/init.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "3d334066b74c6b496cbe88fa811642aa78f402d1c623f7b88697841c2efbe10f",
+      "script_name": "modules/net/init.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O1"
+      ]
+    },
+    {
+      "path": "RbxUtil/O2/modules/net/init.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "a38a77383b58a40b1b9e3a101ba12c174523e5188d9335133d43982f3b9ecd21",
+      "script_name": "modules/net/init.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O2"
+      ]
+    },
+    {
+      "path": "RbxUtil/O0/modules/option/init.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "08d0baf7d09f30cc1370f16b2965732fab74d90440c4327343129604c347d1b3",
+      "script_name": "modules/option/init.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O0"
+      ]
+    },
+    {
+      "path": "RbxUtil/O1/modules/option/init.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "bec546f09513867a10521fd812beb2972dc802965339bead48641b12f0287e5f",
+      "script_name": "modules/option/init.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O1"
+      ]
+    },
+    {
+      "path": "RbxUtil/O2/modules/option/init.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "bec546f09513867a10521fd812beb2972dc802965339bead48641b12f0287e5f",
+      "script_name": "modules/option/init.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O2"
+      ]
+    },
+    {
+      "path": "RbxUtil/O0/modules/pid/init.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "4d90e2e9008dfbd7987a785b2c7f2e32cea599ce0a962e6439dcd6dfe2b9e247",
+      "script_name": "modules/pid/init.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O0"
+      ]
+    },
+    {
+      "path": "RbxUtil/O1/modules/pid/init.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "4d90e2e9008dfbd7987a785b2c7f2e32cea599ce0a962e6439dcd6dfe2b9e247",
+      "script_name": "modules/pid/init.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O1"
+      ]
+    },
+    {
+      "path": "RbxUtil/O2/modules/pid/init.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "4d90e2e9008dfbd7987a785b2c7f2e32cea599ce0a962e6439dcd6dfe2b9e247",
+      "script_name": "modules/pid/init.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O2"
+      ]
+    },
+    {
+      "path": "RbxUtil/O0/modules/quaternion/init.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "f3265910c825e3a6c69d955e7dfd577e6d9282b9f58b891a6240069738a18b7a",
+      "script_name": "modules/quaternion/init.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O0"
+      ]
+    },
+    {
+      "path": "RbxUtil/O1/modules/quaternion/init.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "0decedd007fea05a8e4e05d69cbe32977e639415353048aca67e10ab968ae3a6",
+      "script_name": "modules/quaternion/init.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O1"
+      ]
+    },
+    {
+      "path": "RbxUtil/O2/modules/quaternion/init.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "9d84ea564bc16adfa3053ac721ee75b7f426482846b68fcd8e1858e04353ea91",
+      "script_name": "modules/quaternion/init.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O2"
+      ]
+    },
+    {
+      "path": "RbxUtil/O0/modules/query/init.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "cef29823b749d3f92cd9f6640e218502d66c8f7c5a405c661d5f20a8f61d08d2",
+      "script_name": "modules/query/init.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O0"
+      ]
+    },
+    {
+      "path": "RbxUtil/O1/modules/query/init.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "13fdd56a464ae8d0869f48f1bd195c92dcf5bd8d8e4632b13b1977d5ec374e6d",
+      "script_name": "modules/query/init.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O1"
+      ]
+    },
+    {
+      "path": "RbxUtil/O2/modules/query/init.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "5d3730567e2e50a5359ed7020fe669e8f270303d10976f0c96c94a40d97099df",
+      "script_name": "modules/query/init.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O2"
+      ]
+    },
+    {
+      "path": "RbxUtil/O0/modules/sequent/init.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "883c3c5a1aa20b2eb80ade18e184f39c231acba5e3970aaf8cc9f8ca4779510b",
+      "script_name": "modules/sequent/init.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O0"
+      ]
+    },
+    {
+      "path": "RbxUtil/O1/modules/sequent/init.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "16037119b9b85cc49283ee88239c7b4080276c0407f8ff3c1c77f655850d878c",
+      "script_name": "modules/sequent/init.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O1"
+      ]
+    },
+    {
+      "path": "RbxUtil/O2/modules/sequent/init.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "068290006951386f4c12057546146f86465782bb0a826fe0fe21f790ac0a9cf0",
+      "script_name": "modules/sequent/init.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O2"
+      ]
+    },
+    {
+      "path": "RbxUtil/O0/modules/ser/init.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "3b692549e6e44860eaa10f7091fe5893d5978f76f7ab2c02a9c9af15d2f45524",
+      "script_name": "modules/ser/init.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O0"
+      ]
+    },
+    {
+      "path": "RbxUtil/O1/modules/ser/init.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "63ff59de8e4ad5103d2ded148688f2a012a126864021cbab55a4a61d84895e95",
+      "script_name": "modules/ser/init.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O1"
+      ]
+    },
+    {
+      "path": "RbxUtil/O2/modules/ser/init.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "ced6d7366c98bcdd0e92b3685789bbe59b44647f9b5d5a35e89d0d8cd51e9dc5",
+      "script_name": "modules/ser/init.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O2"
+      ]
+    },
+    {
+      "path": "RbxUtil/O0/modules/shake/init.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "ee38998c39433b4dddae9d5ceaf23eaa5bd735fcb9216f51eaf415460473f4fd",
+      "script_name": "modules/shake/init.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O0"
+      ]
+    },
+    {
+      "path": "RbxUtil/O1/modules/shake/init.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "ee38998c39433b4dddae9d5ceaf23eaa5bd735fcb9216f51eaf415460473f4fd",
+      "script_name": "modules/shake/init.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O1"
+      ]
+    },
+    {
+      "path": "RbxUtil/O2/modules/shake/init.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "ee38998c39433b4dddae9d5ceaf23eaa5bd735fcb9216f51eaf415460473f4fd",
+      "script_name": "modules/shake/init.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O2"
+      ]
+    },
+    {
+      "path": "RbxUtil/O0/modules/signal/init.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "413a625fd514c1496d0c022b67c7e17d26214918e726d67ffc66210a7014c499",
+      "script_name": "modules/signal/init.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O0"
+      ]
+    },
+    {
+      "path": "RbxUtil/O1/modules/signal/init.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "794317fad1f7dceb9baaf9de72020633fef818e5ed453d9643ee6dded5a6d07f",
+      "script_name": "modules/signal/init.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O1"
+      ]
+    },
+    {
+      "path": "RbxUtil/O2/modules/signal/init.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "1664d81fdf578fe2104bbaa56ba4c8e0bd08586a8277049b22a6f5ba712dc551",
+      "script_name": "modules/signal/init.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O2"
+      ]
+    },
+    {
+      "path": "RbxUtil/O0/modules/silo/init.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "1f6850eccaff03989d6563c1e32d95f5ae2202bc4e474de3d6331914a0a0f60e",
+      "script_name": "modules/silo/init.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O0"
+      ]
+    },
+    {
+      "path": "RbxUtil/O1/modules/silo/init.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "50c785906dbfabb9f723f445a63d5bafaadf7a34d4440b21d64a24945755752f",
+      "script_name": "modules/silo/init.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O1"
+      ]
+    },
+    {
+      "path": "RbxUtil/O2/modules/silo/init.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "04aa0ff1ce0e5f2fb5342f703418750d2663e2bd692eec3445fa03af969a6635",
+      "script_name": "modules/silo/init.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O2"
+      ]
+    },
+    {
+      "path": "RbxUtil/O0/modules/silo/TableWatcher.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "45325801bc368982baa1485a7a2f79c2d1137fb5608e24b4391de7c539f82359",
+      "script_name": "modules/silo/TableWatcher.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O0"
+      ]
+    },
+    {
+      "path": "RbxUtil/O1/modules/silo/TableWatcher.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "d06e821670bb9e1ff945294d2311bb379d005d11be6ff6c654fbadda98552135",
+      "script_name": "modules/silo/TableWatcher.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O1"
+      ]
+    },
+    {
+      "path": "RbxUtil/O2/modules/silo/TableWatcher.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "a94fd1c8e6687962e23e5fa36875de52600cb5f8f0c2494f28c32161c4fb9ceb",
+      "script_name": "modules/silo/TableWatcher.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O2"
+      ]
+    },
+    {
+      "path": "RbxUtil/O0/modules/silo/Util.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "eca191f00b8d6cd53664242b86529f8b1bd1b2bec012cfa076153a4af6f2ea39",
+      "script_name": "modules/silo/Util.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O0"
+      ]
+    },
+    {
+      "path": "RbxUtil/O1/modules/silo/Util.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "deea6381658c0b9b164a8e438c63f021e4fb8990b5cc761b8a1504051a4e7a3a",
+      "script_name": "modules/silo/Util.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O1"
+      ]
+    },
+    {
+      "path": "RbxUtil/O2/modules/silo/Util.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "0e26af2958ff6b3704f4a7fafb724ef9b582aac87db789a11131c10a92d9b747",
+      "script_name": "modules/silo/Util.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O2"
+      ]
+    },
+    {
+      "path": "RbxUtil/O0/modules/spring/init.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "9e0eaf33c8a6ac6536fa14f075683ef1afe58663c1449e2e0da41658926bf509",
+      "script_name": "modules/spring/init.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O0"
+      ]
+    },
+    {
+      "path": "RbxUtil/O1/modules/spring/init.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "425ecd3df0f5daad0a4a06cdcdb97c289e039be60f76d92b8d63417143d9f5fe",
+      "script_name": "modules/spring/init.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O1"
+      ]
+    },
+    {
+      "path": "RbxUtil/O2/modules/spring/init.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "bb614a292b090302bc265f025eb9e6e600fb4eb5611776d9f6d830292d5c6940",
+      "script_name": "modules/spring/init.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O2"
+      ]
+    },
+    {
+      "path": "RbxUtil/O0/modules/stream/init.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "8ac509ee41682462232765eb5b72a04f90af0da29113bee2ee55abac0d28a1c7",
+      "script_name": "modules/stream/init.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O0"
+      ]
+    },
+    {
+      "path": "RbxUtil/O1/modules/stream/init.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "8ac509ee41682462232765eb5b72a04f90af0da29113bee2ee55abac0d28a1c7",
+      "script_name": "modules/stream/init.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O1"
+      ]
+    },
+    {
+      "path": "RbxUtil/O2/modules/stream/init.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "8ac509ee41682462232765eb5b72a04f90af0da29113bee2ee55abac0d28a1c7",
+      "script_name": "modules/stream/init.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O2"
+      ]
+    },
+    {
+      "path": "RbxUtil/O0/modules/streamable/init.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "7a99e5d7dd6c85154f4a576917be9cc19efdc3778909666306332d00951370e8",
+      "script_name": "modules/streamable/init.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O0"
+      ]
+    },
+    {
+      "path": "RbxUtil/O1/modules/streamable/init.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "095e5db5bca7eb96d78e7ff7d6cf2f86baa26613e03a6fef8b93f677ce6f35fc",
+      "script_name": "modules/streamable/init.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O1"
+      ]
+    },
+    {
+      "path": "RbxUtil/O2/modules/streamable/init.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "095e5db5bca7eb96d78e7ff7d6cf2f86baa26613e03a6fef8b93f677ce6f35fc",
+      "script_name": "modules/streamable/init.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O2"
+      ]
+    },
+    {
+      "path": "RbxUtil/O0/modules/streamable/Streamable.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "c92ecaecda5a9e9c16e2812ca7e4f2f6e5a2d07ac12b921bd12177d35ea74ef8",
+      "script_name": "modules/streamable/Streamable.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O0"
+      ]
+    },
+    {
+      "path": "RbxUtil/O1/modules/streamable/Streamable.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "fa2745e595253ef976c3685060b1532b09650941370e4edeb67e23a65680a48b",
+      "script_name": "modules/streamable/Streamable.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O1"
+      ]
+    },
+    {
+      "path": "RbxUtil/O2/modules/streamable/Streamable.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "79d47cd6632c7fa6927ed70a0c2fe621049878d2c746c8572ffd7b226bbccad3",
+      "script_name": "modules/streamable/Streamable.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O2"
+      ]
+    },
+    {
+      "path": "RbxUtil/O0/modules/streamable/StreamableUtil.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "ff0ca1cb9b32be7c74ac1aa9b5b19f9cbbb76080b50e6c934211f52f2078ad71",
+      "script_name": "modules/streamable/StreamableUtil.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O0"
+      ]
+    },
+    {
+      "path": "RbxUtil/O1/modules/streamable/StreamableUtil.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "e9b6a26bc859720fc0ce3e395d568b849fda26888cfe441f726de78a3fb7e89a",
+      "script_name": "modules/streamable/StreamableUtil.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O1"
+      ]
+    },
+    {
+      "path": "RbxUtil/O2/modules/streamable/StreamableUtil.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "0611401507aff32ada3a1062a0a4f1d9e689f88dd34960fc63c6af9207e30dd1",
+      "script_name": "modules/streamable/StreamableUtil.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O2"
+      ]
+    },
+    {
+      "path": "RbxUtil/O0/modules/symbol/init.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "a18321f9128636a3a5a0da2493f8df736e910b1406439b83f36086ce99f60413",
+      "script_name": "modules/symbol/init.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O0"
+      ]
+    },
+    {
+      "path": "RbxUtil/O1/modules/symbol/init.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "99307241a13da00a8b9650af37b41ef1e12a2919d9555f22ad0db410cf4964a8",
+      "script_name": "modules/symbol/init.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O1"
+      ]
+    },
+    {
+      "path": "RbxUtil/O2/modules/symbol/init.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "b93c5f5de8aab05ea6b0a67b22699f1825b2ebe8aa970a69b7396b68a25740bc",
+      "script_name": "modules/symbol/init.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O2"
+      ]
+    },
+    {
+      "path": "RbxUtil/O0/modules/table-util/init.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "6615cf2acf5ddf8853f7b2978a386e0c1a4c8218d0c31d778c83c331c28cfbad",
+      "script_name": "modules/table-util/init.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O0"
+      ]
+    },
+    {
+      "path": "RbxUtil/O1/modules/table-util/init.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "8bad6b0b2b70198f65259c62bed91a89e32feb517ccd7620a546ced22655863c",
+      "script_name": "modules/table-util/init.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O1"
+      ]
+    },
+    {
+      "path": "RbxUtil/O2/modules/table-util/init.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "4031a65db6e909cbd3186390cd89208d4b24b76bca54cd9314ac1ef2829f380b",
+      "script_name": "modules/table-util/init.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O2"
+      ]
+    },
+    {
+      "path": "RbxUtil/O0/modules/task-queue/init.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "b37b9d3a447906ac6a3b08b8fade7a23f2357f38e1dc7d954cbc3e7502d6e05c",
+      "script_name": "modules/task-queue/init.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O0"
+      ]
+    },
+    {
+      "path": "RbxUtil/O1/modules/task-queue/init.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "5fba25c69235d637ef6d5f1212ddde66abb4581a00f6ceb7312bef7379c65ca2",
+      "script_name": "modules/task-queue/init.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O1"
+      ]
+    },
+    {
+      "path": "RbxUtil/O2/modules/task-queue/init.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "d6a0b1865a7cb1eb90364663bf1d45e29ac760acfda307a98cea3f44267d82a5",
+      "script_name": "modules/task-queue/init.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O2"
+      ]
+    },
+    {
+      "path": "RbxUtil/O0/modules/timer/init.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "2397eaf106d83fdd9a286a0ba3a9f45ad2b394ffe3d917c27692b3095399d41c",
+      "script_name": "modules/timer/init.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O0"
+      ]
+    },
+    {
+      "path": "RbxUtil/O1/modules/timer/init.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "91d73a651d92a9d136629da21456f4d187177dfe5f8872f800982730f3c46950",
+      "script_name": "modules/timer/init.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O1"
+      ]
+    },
+    {
+      "path": "RbxUtil/O2/modules/timer/init.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "a2a0ca9784436aff0be1187fcb3e28d8c24221711a63d50d5bd97858618b3681",
+      "script_name": "modules/timer/init.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O2"
+      ]
+    },
+    {
+      "path": "RbxUtil/O0/modules/tree/init.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "97b29334ac08dd625f391168dfb2c61c3acc46ff758306942e680e6507e8f9a5",
+      "script_name": "modules/tree/init.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O0"
+      ]
+    },
+    {
+      "path": "RbxUtil/O1/modules/tree/init.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "3c798ecdb8f315cf99a874b501a6dbda7768260e39fd55a3dea6f61d85bda271",
+      "script_name": "modules/tree/init.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O1"
+      ]
+    },
+    {
+      "path": "RbxUtil/O2/modules/tree/init.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "79da7d3b14bae93971ed681f146ac19d138958234c6630b8274cd96c1c00093e",
+      "script_name": "modules/tree/init.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O2"
+      ]
+    },
+    {
+      "path": "RbxUtil/O0/modules/trove/init.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "c3beba0f5b525ea302558ff8096cea44c7d81e46f458c45161a02d375eb2cd44",
+      "script_name": "modules/trove/init.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O0"
+      ]
+    },
+    {
+      "path": "RbxUtil/O1/modules/trove/init.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "9e08b9689ea3667c9071e1f284f68c5b88fa24425158a2dda39c9724f61b177a",
+      "script_name": "modules/trove/init.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O1"
+      ]
+    },
+    {
+      "path": "RbxUtil/O2/modules/trove/init.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "524ec8be80cd52333b1e0acce884de9a76ea99c3a013df676a4b59e113ceac0c",
+      "script_name": "modules/trove/init.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O2"
+      ]
+    },
+    {
+      "path": "RbxUtil/O0/modules/typed-remote/init.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "fdf94fab2fcfb7804ebf66bde4636163000cfcb3f5c4601e1075a5f0b0021d42",
+      "script_name": "modules/typed-remote/init.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O0"
+      ]
+    },
+    {
+      "path": "RbxUtil/O1/modules/typed-remote/init.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "d4d2904e59e0e5a8a3b05ca80a202f4f5412ddabe05174157ee14ef396999324",
+      "script_name": "modules/typed-remote/init.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O1"
+      ]
+    },
+    {
+      "path": "RbxUtil/O2/modules/typed-remote/init.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "b173020bd03753a1261ff51e2ebf625a22ffb886268965db443964721097ffdd",
+      "script_name": "modules/typed-remote/init.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O2"
+      ]
+    },
+    {
+      "path": "RbxUtil/O0/modules/wait-for/init.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "6a7e5b55d08d1385c11df17592c461317ff8cf3f460d748a7c3350b87038e1a0",
+      "script_name": "modules/wait-for/init.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O0"
+      ]
+    },
+    {
+      "path": "RbxUtil/O1/modules/wait-for/init.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "ec9982972721c907b88fd6559e17245a2918a1c286113d85dbeeeb8968bef7ea",
+      "script_name": "modules/wait-for/init.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O1"
+      ]
+    },
+    {
+      "path": "RbxUtil/O2/modules/wait-for/init.luau.luaubc",
+      "encoding": "raw",
+      "input_sha256": "71a62d36ae9c4a536621dc18816c0d2a7f3004c75d13dff4f3460614b96f59ed",
+      "script_name": "modules/wait-for/init.luau",
+      "groups": [
+        "all",
+        "public",
+        "development",
+        "RbxUtil",
+        "O2"
+      ]
+    },
+    {
+      "path": "Rodux/O0/src/combineReducers.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "22f745de892e5b2d808260abc78f17f5ab0ea95bbdee1df5cfa15ecc52fcd90b",
+      "script_name": "src/combineReducers.lua",
+      "groups": [
+        "all",
+        "public",
+        "holdout",
+        "Rodux",
+        "O0"
+      ]
+    },
+    {
+      "path": "Rodux/O1/src/combineReducers.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "12f9efa7ad6d5d9190006f455543ad499a6b6f7c433dc66b074445038e354d2a",
+      "script_name": "src/combineReducers.lua",
+      "groups": [
+        "all",
+        "public",
+        "holdout",
+        "Rodux",
+        "O1"
+      ]
+    },
+    {
+      "path": "Rodux/O2/src/combineReducers.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "12f9efa7ad6d5d9190006f455543ad499a6b6f7c433dc66b074445038e354d2a",
+      "script_name": "src/combineReducers.lua",
+      "groups": [
+        "all",
+        "public",
+        "holdout",
+        "Rodux",
+        "O2"
+      ]
+    },
+    {
+      "path": "Rodux/O0/src/createReducer.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "939c82202eb303a52b7cac7e32074110c75750f26decc7b600ed17cd75c5a7e1",
+      "script_name": "src/createReducer.lua",
+      "groups": [
+        "all",
+        "public",
+        "holdout",
+        "Rodux",
+        "O0"
+      ]
+    },
+    {
+      "path": "Rodux/O1/src/createReducer.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "c1a1f1d37e65e77ea8697525ef2c54a9a9fe8136c158681f03e5b0ad0eb36e66",
+      "script_name": "src/createReducer.lua",
+      "groups": [
+        "all",
+        "public",
+        "holdout",
+        "Rodux",
+        "O1"
+      ]
+    },
+    {
+      "path": "Rodux/O2/src/createReducer.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "c1a1f1d37e65e77ea8697525ef2c54a9a9fe8136c158681f03e5b0ad0eb36e66",
+      "script_name": "src/createReducer.lua",
+      "groups": [
+        "all",
+        "public",
+        "holdout",
+        "Rodux",
+        "O2"
+      ]
+    },
+    {
+      "path": "Rodux/O0/src/init.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "672a811230065fb2eeb0091e2d505ffec62b0ac27d53f958e5a6573569c391e1",
+      "script_name": "src/init.lua",
+      "groups": [
+        "all",
+        "public",
+        "holdout",
+        "Rodux",
+        "O0"
+      ]
+    },
+    {
+      "path": "Rodux/O1/src/init.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "1180d33b7f92e4431035373e76ba4516652043d19350fee7156afbf8af03fd05",
+      "script_name": "src/init.lua",
+      "groups": [
+        "all",
+        "public",
+        "holdout",
+        "Rodux",
+        "O1"
+      ]
+    },
+    {
+      "path": "Rodux/O2/src/init.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "1180d33b7f92e4431035373e76ba4516652043d19350fee7156afbf8af03fd05",
+      "script_name": "src/init.lua",
+      "groups": [
+        "all",
+        "public",
+        "holdout",
+        "Rodux",
+        "O2"
+      ]
+    },
+    {
+      "path": "Rodux/O0/src/loggerMiddleware.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "295792995eb60498284f0ba8b00817567e8fd9957c7b628754f4e4522b0d15cd",
+      "script_name": "src/loggerMiddleware.lua",
+      "groups": [
+        "all",
+        "public",
+        "holdout",
+        "Rodux",
+        "O0"
+      ]
+    },
+    {
+      "path": "Rodux/O1/src/loggerMiddleware.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "258932aee31bc6718b775198d751c6051bf5b56f7d8229d6f0e9c3535e4529ad",
+      "script_name": "src/loggerMiddleware.lua",
+      "groups": [
+        "all",
+        "public",
+        "holdout",
+        "Rodux",
+        "O1"
+      ]
+    },
+    {
+      "path": "Rodux/O2/src/loggerMiddleware.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "0912cc55e2853fff11c74ab54a019540572d0b688c7b349377951af566df5c15",
+      "script_name": "src/loggerMiddleware.lua",
+      "groups": [
+        "all",
+        "public",
+        "holdout",
+        "Rodux",
+        "O2"
+      ]
+    },
+    {
+      "path": "Rodux/O0/src/makeActionCreator.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "0741ddd5026b9a5dfe7ca5dd56c69f9e777394adfe7474c24d7e6f5b0ceeffda",
+      "script_name": "src/makeActionCreator.lua",
+      "groups": [
+        "all",
+        "public",
+        "holdout",
+        "Rodux",
+        "O0"
+      ]
+    },
+    {
+      "path": "Rodux/O1/src/makeActionCreator.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "f3a6abeb7f02524879403c4ee8098bb9e38188f2fecf83dfd22445a67d40128d",
+      "script_name": "src/makeActionCreator.lua",
+      "groups": [
+        "all",
+        "public",
+        "holdout",
+        "Rodux",
+        "O1"
+      ]
+    },
+    {
+      "path": "Rodux/O2/src/makeActionCreator.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "7613d3a91461958d18c4cce5a0ecd3faa59e0d60e197de2d79ca6bf4ebe73d45",
+      "script_name": "src/makeActionCreator.lua",
+      "groups": [
+        "all",
+        "public",
+        "holdout",
+        "Rodux",
+        "O2"
+      ]
+    },
+    {
+      "path": "Rodux/O0/src/makeThunkMiddleware.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "fe39c66f157dad08aad924c0a8ff2995f442cf2cd888e76ffbecc1e296e613be",
+      "script_name": "src/makeThunkMiddleware.lua",
+      "groups": [
+        "all",
+        "public",
+        "holdout",
+        "Rodux",
+        "O0"
+      ]
+    },
+    {
+      "path": "Rodux/O1/src/makeThunkMiddleware.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "85d3dd01958447a89b3e45702162e9973c7bb49c8756b5b2fcc6ca55648466d8",
+      "script_name": "src/makeThunkMiddleware.lua",
+      "groups": [
+        "all",
+        "public",
+        "holdout",
+        "Rodux",
+        "O1"
+      ]
+    },
+    {
+      "path": "Rodux/O2/src/makeThunkMiddleware.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "85d3dd01958447a89b3e45702162e9973c7bb49c8756b5b2fcc6ca55648466d8",
+      "script_name": "src/makeThunkMiddleware.lua",
+      "groups": [
+        "all",
+        "public",
+        "holdout",
+        "Rodux",
+        "O2"
+      ]
+    },
+    {
+      "path": "Rodux/O0/src/NoYield.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "3b32ff129bdc09d541eb9a511f4eed7f0e034aabd26db533ff17b24e31acad7c",
+      "script_name": "src/NoYield.lua",
+      "groups": [
+        "all",
+        "public",
+        "holdout",
+        "Rodux",
+        "O0"
+      ]
+    },
+    {
+      "path": "Rodux/O1/src/NoYield.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "9353a23aa649eff4223f9b5f4b41950b20cda73b0b33eaab70d1cb1f277ff6d5",
+      "script_name": "src/NoYield.lua",
+      "groups": [
+        "all",
+        "public",
+        "holdout",
+        "Rodux",
+        "O1"
+      ]
+    },
+    {
+      "path": "Rodux/O2/src/NoYield.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "60ab477546e300770b41bcf78bdd783d3a49360b33fbff857e7e91ed135de3de",
+      "script_name": "src/NoYield.lua",
+      "groups": [
+        "all",
+        "public",
+        "holdout",
+        "Rodux",
+        "O2"
+      ]
+    },
+    {
+      "path": "Rodux/O0/src/prettyPrint.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "d155bd76d987ac20c25d2b4f23f9cb067406f62353ae0a5c5c6a1627308293da",
+      "script_name": "src/prettyPrint.lua",
+      "groups": [
+        "all",
+        "public",
+        "holdout",
+        "Rodux",
+        "O0"
+      ]
+    },
+    {
+      "path": "Rodux/O1/src/prettyPrint.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "fa424d299e0f63f23e9f37df6a676b6575dad19aa44e56dd7214110969628e53",
+      "script_name": "src/prettyPrint.lua",
+      "groups": [
+        "all",
+        "public",
+        "holdout",
+        "Rodux",
+        "O1"
+      ]
+    },
+    {
+      "path": "Rodux/O2/src/prettyPrint.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "abe357be91cf7a46daac0b5b03fd1d4f42686cd06ad31fe7689eb3abdf218eb3",
+      "script_name": "src/prettyPrint.lua",
+      "groups": [
+        "all",
+        "public",
+        "holdout",
+        "Rodux",
+        "O2"
+      ]
+    },
+    {
+      "path": "Rodux/O0/src/Signal.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "e029920c8074e3a35cdad74f860867e0f5590cc93e2e598db483d3858dcdb599",
+      "script_name": "src/Signal.lua",
+      "groups": [
+        "all",
+        "public",
+        "holdout",
+        "Rodux",
+        "O0"
+      ]
+    },
+    {
+      "path": "Rodux/O1/src/Signal.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "125d4664bffa54f10b5c135eba23bd17a1d135ef97fdbfce7641ba3d7f3f7466",
+      "script_name": "src/Signal.lua",
+      "groups": [
+        "all",
+        "public",
+        "holdout",
+        "Rodux",
+        "O1"
+      ]
+    },
+    {
+      "path": "Rodux/O2/src/Signal.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "ce90fc557f0df11c50695149475e2b0e2fb2dae9196a8393e12224574b6026a4",
+      "script_name": "src/Signal.lua",
+      "groups": [
+        "all",
+        "public",
+        "holdout",
+        "Rodux",
+        "O2"
+      ]
+    },
+    {
+      "path": "Rodux/O0/src/Store.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "fe23265dbee75388a91f76f4141489f9439ded4afff0a0dcc87e97b61b92ffff",
+      "script_name": "src/Store.lua",
+      "groups": [
+        "all",
+        "public",
+        "holdout",
+        "Rodux",
+        "O0"
+      ]
+    },
+    {
+      "path": "Rodux/O1/src/Store.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "545a9e78b7c6e2cd252ad61acd9713eef6bae955e383f218fa052f9f3b3982ef",
+      "script_name": "src/Store.lua",
+      "groups": [
+        "all",
+        "public",
+        "holdout",
+        "Rodux",
+        "O1"
+      ]
+    },
+    {
+      "path": "Rodux/O2/src/Store.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "72d40b9ac404e5bef53eed4ef48c2bd721c01111b399d2a3b4c8487bc07a47c1",
+      "script_name": "src/Store.lua",
+      "groups": [
+        "all",
+        "public",
+        "holdout",
+        "Rodux",
+        "O2"
+      ]
+    },
+    {
+      "path": "Rodux/O0/src/thunkMiddleware.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "ea7f45692e2a43c72556430c3cd6217c9fcf3a9f6ce2e7f17938f3ab51499142",
+      "script_name": "src/thunkMiddleware.lua",
+      "groups": [
+        "all",
+        "public",
+        "holdout",
+        "Rodux",
+        "O0"
+      ]
+    },
+    {
+      "path": "Rodux/O1/src/thunkMiddleware.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "0dadb890d05a179d5e92b6689cbd94b2c98df197e9e8828e1186f603a8d4f081",
+      "script_name": "src/thunkMiddleware.lua",
+      "groups": [
+        "all",
+        "public",
+        "holdout",
+        "Rodux",
+        "O1"
+      ]
+    },
+    {
+      "path": "Rodux/O2/src/thunkMiddleware.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "0dadb890d05a179d5e92b6689cbd94b2c98df197e9e8828e1186f603a8d4f081",
+      "script_name": "src/thunkMiddleware.lua",
+      "groups": [
+        "all",
+        "public",
+        "holdout",
+        "Rodux",
+        "O2"
+      ]
+    },
+    {
+      "path": "Rodux/O0/src/types/actions.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "6c51a56314a7fd4961582b1af79a9be1ec4045661f244977e78cb3683ec113b6",
+      "script_name": "src/types/actions.lua",
+      "groups": [
+        "all",
+        "public",
+        "holdout",
+        "Rodux",
+        "O0"
+      ]
+    },
+    {
+      "path": "Rodux/O1/src/types/actions.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "6c51a56314a7fd4961582b1af79a9be1ec4045661f244977e78cb3683ec113b6",
+      "script_name": "src/types/actions.lua",
+      "groups": [
+        "all",
+        "public",
+        "holdout",
+        "Rodux",
+        "O1"
+      ]
+    },
+    {
+      "path": "Rodux/O2/src/types/actions.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "6c51a56314a7fd4961582b1af79a9be1ec4045661f244977e78cb3683ec113b6",
+      "script_name": "src/types/actions.lua",
+      "groups": [
+        "all",
+        "public",
+        "holdout",
+        "Rodux",
+        "O2"
+      ]
+    },
+    {
+      "path": "Rodux/O0/src/types/reducers.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "b747a85514ccb43ba666c0226e7d877391c031bb8248bcb691b3da1c4dd884d7",
+      "script_name": "src/types/reducers.lua",
+      "groups": [
+        "all",
+        "public",
+        "holdout",
+        "Rodux",
+        "O0"
+      ]
+    },
+    {
+      "path": "Rodux/O1/src/types/reducers.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "ff1b9bc174cf3a4fb85e589bfb00a117cd58223cabb294d72245b5a7b2fc3bea",
+      "script_name": "src/types/reducers.lua",
+      "groups": [
+        "all",
+        "public",
+        "holdout",
+        "Rodux",
+        "O1"
+      ]
+    },
+    {
+      "path": "Rodux/O2/src/types/reducers.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "ff1b9bc174cf3a4fb85e589bfb00a117cd58223cabb294d72245b5a7b2fc3bea",
+      "script_name": "src/types/reducers.lua",
+      "groups": [
+        "all",
+        "public",
+        "holdout",
+        "Rodux",
+        "O2"
+      ]
+    },
+    {
+      "path": "Rodux/O0/src/types/store.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "615e8183c4ef7ee884350e964b64c67e76ad1919f23668e962f02b849cbb6622",
+      "script_name": "src/types/store.lua",
+      "groups": [
+        "all",
+        "public",
+        "holdout",
+        "Rodux",
+        "O0"
+      ]
+    },
+    {
+      "path": "Rodux/O1/src/types/store.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "ce0ed3134f8cc59d1e53b890b1cc43f13dd404b57b0f4671eddb63a12632c592",
+      "script_name": "src/types/store.lua",
+      "groups": [
+        "all",
+        "public",
+        "holdout",
+        "Rodux",
+        "O1"
+      ]
+    },
+    {
+      "path": "Rodux/O2/src/types/store.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "ce0ed3134f8cc59d1e53b890b1cc43f13dd404b57b0f4671eddb63a12632c592",
+      "script_name": "src/types/store.lua",
+      "groups": [
+        "all",
+        "public",
+        "holdout",
+        "Rodux",
+        "O2"
+      ]
+    },
+    {
+      "path": "Rodux/O0/src/types/thunks.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "18de78316ecc40e0c3c33d54e3c224e7ab09226831730b2ac13f2958a912a6ec",
+      "script_name": "src/types/thunks.lua",
+      "groups": [
+        "all",
+        "public",
+        "holdout",
+        "Rodux",
+        "O0"
+      ]
+    },
+    {
+      "path": "Rodux/O1/src/types/thunks.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "2c39600271446ffcd7f445236616067a6eaf64c7756cbccfa5b13d0779580f42",
+      "script_name": "src/types/thunks.lua",
+      "groups": [
+        "all",
+        "public",
+        "holdout",
+        "Rodux",
+        "O1"
+      ]
+    },
+    {
+      "path": "Rodux/O2/src/types/thunks.lua.luaubc",
+      "encoding": "raw",
+      "input_sha256": "2c39600271446ffcd7f445236616067a6eaf64c7756cbccfa5b13d0779580f42",
+      "script_name": "src/types/thunks.lua",
+      "groups": [
+        "all",
+        "public",
+        "holdout",
+        "Rodux",
+        "O2"
+      ]
+    }
+  ]
+}

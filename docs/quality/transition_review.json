@@ -1,0 +1,932 @@
+{
+  "contract": "Independent exact before/after source review. Does not change original-bytecode oracle status or create allowlist approval. Debug metadata/resource timing are outside existing dataflow model.",
+  "cpu_affinity": [
+    4,
+    5
+  ],
+  "compiler_sha256": "aba878910fa3767ceeca9d72fa586282a72c53866adfc9460c3d1cfdd0e6d177",
+  "ast_sha256": "e829e869efea2d274c5f210809c6eff97cbae0f5ecc452513e6cf86dc5fe02a9",
+  "cases": [
+    {
+      "file": "modules/comm/Client/ClientComm.luau",
+      "opt": 0,
+      "before_output_sha256": "40de2da4910562d6902f7ebd188d6172609eec171b6fde4517d02d5d3f651943",
+      "after_output_sha256": "93e91ec1e02a8e8106796bd89f190067c1d36df03e2e0e03a4c9f26052931f7a",
+      "decoded_input_sha256": "a01d1aed827d1ecec42c7756cbd9663fae78de00cb24f1a6d1287da55036284f",
+      "original_oracle_before": "unknown",
+      "original_oracle_after": "unknown",
+      "binding_canonical_ast_equal": true,
+      "type_syntax_equal": true,
+      "recompiled_comparisons": [
+        {
+          "debug": 0,
+          "before_sha256": "29dccd92d103efe182c599a9525b7f06ff28f94d7beef2ca0f445a68e3a85f87",
+          "after_sha256": "29dccd92d103efe182c599a9525b7f06ff28f94d7beef2ca0f445a68e3a85f87",
+          "exact_bytes_equal": true,
+          "before_bytes": 1638,
+          "after_bytes": 1638,
+          "dataflow": {
+            "model": "luau-register-cfg-bisimulation-v2",
+            "status": "proved",
+            "fingerprints": [
+              "a5da95410b76ab8c215fa317353fc896aa7dd0e9e5220d2bf40d95e315d9ef62",
+              "a5da95410b76ab8c215fa317353fc896aa7dd0e9e5220d2bf40d95e315d9ef62"
+            ],
+            "summaries": [
+              {
+                "back_edges": 3,
+                "joins": 9,
+                "instructions": 170,
+                "edges": 174,
+                "prototypes": 8,
+                "open_packs": 5
+              },
+              {
+                "back_edges": 3,
+                "joins": 9,
+                "instructions": 170,
+                "edges": 174,
+                "prototypes": 8,
+                "open_packs": 5
+              }
+            ],
+            "acyclic_unknown": {
+              "original": "unsupported FORGPREP at pc 24",
+              "rebuilt": "unsupported FORGPREP at pc 24"
+            }
+          },
+          "legacy_tiers": [
+            "exact",
+            "exact",
+            "exact",
+            "exact",
+            "exact",
+            "exact",
+            "exact",
+            "exact"
+          ],
+          "missing": [],
+          "extra": []
+        },
+        {
+          "debug": 1,
+          "before_sha256": "2dca41de9bff69fbbd9bc02bfe914b19987e8505a2afc3d180b8974ab923b5e1",
+          "after_sha256": "2dca41de9bff69fbbd9bc02bfe914b19987e8505a2afc3d180b8974ab923b5e1",
+          "exact_bytes_equal": true,
+          "before_bytes": 1922,
+          "after_bytes": 1922,
+          "dataflow": {
+            "model": "luau-register-cfg-bisimulation-v2",
+            "status": "proved",
+            "fingerprints": [
+              "a5da95410b76ab8c215fa317353fc896aa7dd0e9e5220d2bf40d95e315d9ef62",
+              "a5da95410b76ab8c215fa317353fc896aa7dd0e9e5220d2bf40d95e315d9ef62"
+            ],
+            "summaries": [
+              {
+                "back_edges": 3,
+                "joins": 9,
+                "instructions": 170,
+                "edges": 174,
+                "prototypes": 8,
+                "open_packs": 5
+              },
+              {
+                "back_edges": 3,
+                "joins": 9,
+                "instructions": 170,
+                "edges": 174,
+                "prototypes": 8,
+                "open_packs": 5
+              }
+            ],
+            "acyclic_unknown": {
+              "original": "unsupported FORGPREP at pc 24",
+              "rebuilt": "unsupported FORGPREP at pc 24"
+            }
+          },
+          "legacy_tiers": [
+            "exact",
+            "exact",
+            "exact",
+            "exact",
+            "exact",
+            "exact",
+            "exact",
+            "exact"
+          ],
+          "missing": [],
+          "extra": []
+        },
+        {
+          "debug": 2,
+          "before_sha256": "873d694f53d2cd5f49ea633fc9a1d8df49d03adbba4dcbd570475d6412e70d33",
+          "after_sha256": "1b96cb7467ed726936f58bc5295426bcd43a11d39513bbeb924398a14f6c58ae",
+          "exact_bytes_equal": false,
+          "before_bytes": 2232,
+          "after_bytes": 2232,
+          "dataflow": {
+            "model": "luau-register-cfg-bisimulation-v2",
+            "status": "proved",
+            "fingerprints": [
+              "a5da95410b76ab8c215fa317353fc896aa7dd0e9e5220d2bf40d95e315d9ef62",
+              "a5da95410b76ab8c215fa317353fc896aa7dd0e9e5220d2bf40d95e315d9ef62"
+            ],
+            "summaries": [
+              {
+                "back_edges": 3,
+                "joins": 9,
+                "instructions": 170,
+                "edges": 174,
+                "prototypes": 8,
+                "open_packs": 5
+              },
+              {
+                "back_edges": 3,
+                "joins": 9,
+                "instructions": 170,
+                "edges": 174,
+                "prototypes": 8,
+                "open_packs": 5
+              }
+            ],
+            "acyclic_unknown": {
+              "original": "unsupported FORGPREP at pc 24",
+              "rebuilt": "unsupported FORGPREP at pc 24"
+            }
+          },
+          "legacy_tiers": [
+            "exact",
+            "exact",
+            "exact",
+            "exact",
+            "exact",
+            "exact",
+            "exact",
+            "exact"
+          ],
+          "missing": [],
+          "extra": []
+        }
+      ],
+      "manual_review": "Only the unused fixed formal of the forwarding closure changes from p3 to _. The fixed-parameter count remains one and varargs remain unchanged, so the receiver is still consumed and only trailing arguments are forwarded to the same captured v2. No body use of either name exists; binding-canonical ASTs match exactly. Before/after recompilation is byte-identical at the actual -g1 profile. This establishes non-regression for the exact source transition, not equivalence of either output to original bytecode."
+    },
+    {
+      "file": "modules/comm/Client/ClientComm.luau",
+      "opt": 1,
+      "before_output_sha256": "40de2da4910562d6902f7ebd188d6172609eec171b6fde4517d02d5d3f651943",
+      "after_output_sha256": "93e91ec1e02a8e8106796bd89f190067c1d36df03e2e0e03a4c9f26052931f7a",
+      "decoded_input_sha256": "a56d7296b447c3e0afdb00bf63e1024e6418d9d7a6682b89c9aa4d0ad9f75ad7",
+      "original_oracle_before": "unknown",
+      "original_oracle_after": "unknown",
+      "binding_canonical_ast_equal": true,
+      "type_syntax_equal": true,
+      "recompiled_comparisons": [
+        {
+          "debug": 0,
+          "before_sha256": "d1dc156e433a9d981245ce4bec45a37381ba6944ab7a9ce3068a928044b80e90",
+          "after_sha256": "d1dc156e433a9d981245ce4bec45a37381ba6944ab7a9ce3068a928044b80e90",
+          "exact_bytes_equal": true,
+          "before_bytes": 1668,
+          "after_bytes": 1668,
+          "dataflow": {
+            "model": "luau-register-cfg-bisimulation-v2",
+            "status": "proved",
+            "fingerprints": [
+              "d52b02d73e9a2b14ecb8fc5b5bbc480782af3612544d9c0e2401bc7a1f669b86",
+              "d52b02d73e9a2b14ecb8fc5b5bbc480782af3612544d9c0e2401bc7a1f669b86"
+            ],
+            "summaries": [
+              {
+                "back_edges": 3,
+                "joins": 14,
+                "instructions": 168,
+                "edges": 177,
+                "prototypes": 8,
+                "fastcall_sites": 5,
+                "open_packs": 5
+              },
+              {
+                "back_edges": 3,
+                "joins": 14,
+                "instructions": 168,
+                "edges": 177,
+                "prototypes": 8,
+                "fastcall_sites": 5,
+                "open_packs": 5
+              }
+            ],
+            "acyclic_unknown": {
+              "original": "unsupported FASTCALL2K at pc 4",
+              "rebuilt": "unsupported FASTCALL2K at pc 4"
+            }
+          },
+          "legacy_tiers": [
+            "exact",
+            "exact",
+            "exact",
+            "exact",
+            "exact",
+            "exact",
+            "exact",
+            "exact"
+          ],
+          "missing": [],
+          "extra": []
+        },
+        {
+          "debug": 1,
+          "before_sha256": "524cd2d9a5fc612d7212957204a60d2999e96b8f9b4a7c312c92fc620b568efc",
+          "after_sha256": "524cd2d9a5fc612d7212957204a60d2999e96b8f9b4a7c312c92fc620b568efc",
+          "exact_bytes_equal": true,
+          "before_bytes": 1949,
+          "after_bytes": 1949,
+          "dataflow": {
+            "model": "luau-register-cfg-bisimulation-v2",
+            "status": "proved",
+            "fingerprints": [
+              "d52b02d73e9a2b14ecb8fc5b5bbc480782af3612544d9c0e2401bc7a1f669b86",
+              "d52b02d73e9a2b14ecb8fc5b5bbc480782af3612544d9c0e2401bc7a1f669b86"
+            ],
+            "summaries": [
+              {
+                "back_edges": 3,
+                "joins": 14,
+                "instructions": 168,
+                "edges": 177,
+                "prototypes": 8,
+                "fastcall_sites": 5,
+                "open_packs": 5
+              },
+              {
+                "back_edges": 3,
+                "joins": 14,
+                "instructions": 168,
+                "edges": 177,
+                "prototypes": 8,
+                "fastcall_sites": 5,
+                "open_packs": 5
+              }
+            ],
+            "acyclic_unknown": {
+              "original": "unsupported FASTCALL2K at pc 4",
+              "rebuilt": "unsupported FASTCALL2K at pc 4"
+            }
+          },
+          "legacy_tiers": [
+            "exact",
+            "exact",
+            "exact",
+            "exact",
+            "exact",
+            "exact",
+            "exact",
+            "exact"
+          ],
+          "missing": [],
+          "extra": []
+        },
+        {
+          "debug": 2,
+          "before_sha256": "7eab9772daf642db4227ef463ce9f24adecd7a87087c353f683d24581d1e8f95",
+          "after_sha256": "0ae4b4cc625cb49e4d5f058cbbfaff55804072f89767de71e149ac21b7dd7964",
+          "exact_bytes_equal": false,
+          "before_bytes": 2259,
+          "after_bytes": 2259,
+          "dataflow": {
+            "model": "luau-register-cfg-bisimulation-v2",
+            "status": "proved",
+            "fingerprints": [
+              "d52b02d73e9a2b14ecb8fc5b5bbc480782af3612544d9c0e2401bc7a1f669b86",
+              "d52b02d73e9a2b14ecb8fc5b5bbc480782af3612544d9c0e2401bc7a1f669b86"
+            ],
+            "summaries": [
+              {
+                "back_edges": 3,
+                "joins": 14,
+                "instructions": 168,
+                "edges": 177,
+                "prototypes": 8,
+                "fastcall_sites": 5,
+                "open_packs": 5
+              },
+              {
+                "back_edges": 3,
+                "joins": 14,
+                "instructions": 168,
+                "edges": 177,
+                "prototypes": 8,
+                "fastcall_sites": 5,
+                "open_packs": 5
+              }
+            ],
+            "acyclic_unknown": {
+              "original": "unsupported FASTCALL2K at pc 4",
+              "rebuilt": "unsupported FASTCALL2K at pc 4"
+            }
+          },
+          "legacy_tiers": [
+            "exact",
+            "exact",
+            "exact",
+            "exact",
+            "exact",
+            "exact",
+            "exact",
+            "exact"
+          ],
+          "missing": [],
+          "extra": []
+        }
+      ],
+      "manual_review": "Only the unused fixed formal of the forwarding closure changes from p3 to _. The fixed-parameter count remains one and varargs remain unchanged, so the receiver is still consumed and only trailing arguments are forwarded to the same captured v2. No body use of either name exists; binding-canonical ASTs match exactly. Before/after recompilation is byte-identical at the actual -g1 profile. This establishes non-regression for the exact source transition, not equivalence of either output to original bytecode."
+    },
+    {
+      "file": "modules/comm/Client/ClientComm.luau",
+      "opt": 2,
+      "before_output_sha256": "c4567062fb2b739e1cfd7107a69912d2ffd6faa0acac2105ff2dbda8d0ca5e3d",
+      "after_output_sha256": "b51368fa01651bf0b77a26a849dcb5ec5b4179ff9d4c802ac2a5a0bbb65653a0",
+      "decoded_input_sha256": "21a33b2f360f86a739bbab6d1d8a82deab01155b86b7231525dad3169bcc6728",
+      "original_oracle_before": "unknown",
+      "original_oracle_after": "unknown",
+      "binding_canonical_ast_equal": true,
+      "type_syntax_equal": true,
+      "recompiled_comparisons": [
+        {
+          "debug": 0,
+          "before_sha256": "449813ca7800bb95599e369997ed12ac32c345abeaf857c1a7d701b27a1ca757",
+          "after_sha256": "449813ca7800bb95599e369997ed12ac32c345abeaf857c1a7d701b27a1ca757",
+          "exact_bytes_equal": true,
+          "before_bytes": 1703,
+          "after_bytes": 1703,
+          "dataflow": {
+            "model": "luau-register-cfg-bisimulation-v2",
+            "status": "proved",
+            "fingerprints": [
+              "d52b02d73e9a2b14ecb8fc5b5bbc480782af3612544d9c0e2401bc7a1f669b86",
+              "d52b02d73e9a2b14ecb8fc5b5bbc480782af3612544d9c0e2401bc7a1f669b86"
+            ],
+            "summaries": [
+              {
+                "back_edges": 3,
+                "joins": 14,
+                "instructions": 168,
+                "edges": 177,
+                "prototypes": 8,
+                "fastcall_sites": 5,
+                "open_packs": 5
+              },
+              {
+                "back_edges": 3,
+                "joins": 14,
+                "instructions": 168,
+                "edges": 177,
+                "prototypes": 8,
+                "fastcall_sites": 5,
+                "open_packs": 5
+              }
+            ],
+            "acyclic_unknown": {
+              "original": "unsupported FASTCALL2K at pc 4",
+              "rebuilt": "unsupported FASTCALL2K at pc 4"
+            }
+          },
+          "legacy_tiers": [
+            "exact",
+            "exact",
+            "exact",
+            "exact",
+            "exact",
+            "exact",
+            "exact",
+            "exact"
+          ],
+          "missing": [],
+          "extra": []
+        },
+        {
+          "debug": 1,
+          "before_sha256": "b6ad5a77989bf2d4787c1c7565990acedc632e726ff92778e0d39b29c1126702",
+          "after_sha256": "b6ad5a77989bf2d4787c1c7565990acedc632e726ff92778e0d39b29c1126702",
+          "exact_bytes_equal": true,
+          "before_bytes": 1984,
+          "after_bytes": 1984,
+          "dataflow": {
+            "model": "luau-register-cfg-bisimulation-v2",
+            "status": "proved",
+            "fingerprints": [
+              "d52b02d73e9a2b14ecb8fc5b5bbc480782af3612544d9c0e2401bc7a1f669b86",
+              "d52b02d73e9a2b14ecb8fc5b5bbc480782af3612544d9c0e2401bc7a1f669b86"
+            ],
+            "summaries": [
+              {
+                "back_edges": 3,
+                "joins": 14,
+                "instructions": 168,
+                "edges": 177,
+                "prototypes": 8,
+                "fastcall_sites": 5,
+                "open_packs": 5
+              },
+              {
+                "back_edges": 3,
+                "joins": 14,
+                "instructions": 168,
+                "edges": 177,
+                "prototypes": 8,
+                "fastcall_sites": 5,
+                "open_packs": 5
+              }
+            ],
+            "acyclic_unknown": {
+              "original": "unsupported FASTCALL2K at pc 4",
+              "rebuilt": "unsupported FASTCALL2K at pc 4"
+            }
+          },
+          "legacy_tiers": [
+            "exact",
+            "exact",
+            "exact",
+            "exact",
+            "exact",
+            "exact",
+            "exact",
+            "exact"
+          ],
+          "missing": [],
+          "extra": []
+        },
+        {
+          "debug": 2,
+          "before_sha256": "678a44ead4e038daed045f9242646ba4bccd1b68a58c4bff657bef11e68874d9",
+          "after_sha256": "97cbebd96e31810377af94fd74e0496a1fb5baa6ae583de813eb9ffadded5fb2",
+          "exact_bytes_equal": false,
+          "before_bytes": 2294,
+          "after_bytes": 2294,
+          "dataflow": {
+            "model": "luau-register-cfg-bisimulation-v2",
+            "status": "proved",
+            "fingerprints": [
+              "d52b02d73e9a2b14ecb8fc5b5bbc480782af3612544d9c0e2401bc7a1f669b86",
+              "d52b02d73e9a2b14ecb8fc5b5bbc480782af3612544d9c0e2401bc7a1f669b86"
+            ],
+            "summaries": [
+              {
+                "back_edges": 3,
+                "joins": 14,
+                "instructions": 168,
+                "edges": 177,
+                "prototypes": 8,
+                "fastcall_sites": 5,
+                "open_packs": 5
+              },
+              {
+                "back_edges": 3,
+                "joins": 14,
+                "instructions": 168,
+                "edges": 177,
+                "prototypes": 8,
+                "fastcall_sites": 5,
+                "open_packs": 5
+              }
+            ],
+            "acyclic_unknown": {
+              "original": "unsupported FASTCALL2K at pc 4",
+              "rebuilt": "unsupported FASTCALL2K at pc 4"
+            }
+          },
+          "legacy_tiers": [
+            "exact",
+            "exact",
+            "exact",
+            "exact",
+            "exact",
+            "exact",
+            "exact",
+            "exact"
+          ],
+          "missing": [],
+          "extra": []
+        }
+      ],
+      "manual_review": "Only the unused fixed formal of the forwarding closure changes from p3 to _. The fixed-parameter count remains one and varargs remain unchanged, so the receiver is still consumed and only trailing arguments are forwarded to the same captured v2. No body use of either name exists; binding-canonical ASTs match exactly. Before/after recompilation is byte-identical at the actual -g1 profile. This establishes non-regression for the exact source transition, not equivalence of either output to original bytecode."
+    },
+    {
+      "file": "modules/input/Gamepad.luau",
+      "opt": 2,
+      "before_output_sha256": "5b8a3796b429120d6ff56fb30b1c9061d6d583d6e71ee224cb28aa64dfd6dbc4",
+      "after_output_sha256": "21bebf0be66fcb8b9a954a0fac2122bdef69b5e36b6fec28c1e4d9622e36d7ec",
+      "decoded_input_sha256": "ba7390f35e0bfc5880227787898315a23bf7be85a58e81d93d54b67731de3ccd",
+      "original_oracle_before": "unknown",
+      "original_oracle_after": "unknown",
+      "binding_canonical_ast_equal": false,
+      "type_syntax_equal": true,
+      "recompiled_comparisons": [
+        {
+          "debug": 0,
+          "before_sha256": "591cc62b06c606a84ee4116585edc54e076361ba641196edfe143f30b9873ece",
+          "after_sha256": "a2cb29a4b12e070afcb9a3af59e45a4c2102b660353e04509f4c1b7eed738c94",
+          "exact_bytes_equal": false,
+          "before_bytes": 4886,
+          "after_bytes": 4886,
+          "dataflow": {
+            "model": "luau-acyclic-use-def-v2",
+            "status": "unknown",
+            "reasons": {
+              "original": "unsupported FASTCALL1 at pc 0",
+              "rebuilt": "unsupported FASTCALL1 at pc 0"
+            },
+            "graph": {
+              "model": "luau-register-cfg-bisimulation-v2",
+              "status": "unknown",
+              "fingerprints": [
+                "ddbe187df3ac1b0c336b4ee945017c6cce6d7054b8f29980e3db1cfe51f416cb",
+                "d8a29b5cbc7f54e74eb94d45f39e943243825fec0add7e59157085676d2f8c35"
+              ],
+              "summaries": [
+                {
+                  "back_edges": 5,
+                  "joins": 35,
+                  "instructions": 532,
+                  "edges": 542,
+                  "prototypes": 28,
+                  "fastcall_sites": 13,
+                  "reference_captures": 2,
+                  "close_sites": 2,
+                  "open_packs": 3
+                },
+                {
+                  "back_edges": 5,
+                  "joins": 35,
+                  "instructions": 532,
+                  "edges": 542,
+                  "prototypes": 28,
+                  "fastcall_sites": 13,
+                  "reference_captures": 2,
+                  "close_sites": 2,
+                  "open_packs": 3
+                }
+              ],
+              "reason": "no structural bisimulation under the bounded register mapping"
+            }
+          },
+          "legacy_tiers": [
+            "exact",
+            "exact",
+            "exact",
+            "exact",
+            "exact",
+            "exact",
+            "exact",
+            "exact",
+            "exact",
+            "exact",
+            "exact",
+            "exact",
+            "exact",
+            "exact",
+            "exact",
+            "exact",
+            "exact",
+            "exact",
+            "exact",
+            "exact",
+            "exact",
+            "exact",
+            "exact",
+            "exact",
+            "exact",
+            "exact",
+            "exact",
+            "exact",
+            "exact"
+          ],
+          "missing": [],
+          "extra": []
+        },
+        {
+          "debug": 1,
+          "before_sha256": "86ea15e014733712a50477cedb70021d089b5ad827e91d17dac7650ca226989c",
+          "after_sha256": "a7a069ec71d49ce33059e8bff3a1fa5e872618e1a5f754ec4c418fbc51807102",
+          "exact_bytes_equal": false,
+          "before_bytes": 5870,
+          "after_bytes": 5867,
+          "dataflow": {
+            "model": "luau-acyclic-use-def-v2",
+            "status": "unknown",
+            "reasons": {
+              "original": "unsupported FASTCALL1 at pc 0",
+              "rebuilt": "unsupported FASTCALL1 at pc 0"
+            },
+            "graph": {
+              "model": "luau-register-cfg-bisimulation-v2",
+              "status": "unknown",
+              "fingerprints": [
+                "ddbe187df3ac1b0c336b4ee945017c6cce6d7054b8f29980e3db1cfe51f416cb",
+                "d8a29b5cbc7f54e74eb94d45f39e943243825fec0add7e59157085676d2f8c35"
+              ],
+              "summaries": [
+                {
+                  "back_edges": 5,
+                  "joins": 35,
+                  "instructions": 532,
+                  "edges": 542,
+                  "prototypes": 28,
+                  "fastcall_sites": 13,
+                  "reference_captures": 2,
+                  "close_sites": 2,
+                  "open_packs": 3
+                },
+                {
+                  "back_edges": 5,
+                  "joins": 35,
+                  "instructions": 532,
+                  "edges": 542,
+                  "prototypes": 28,
+                  "fastcall_sites": 13,
+                  "reference_captures": 2,
+                  "close_sites": 2,
+                  "open_packs": 3
+                }
+              ],
+              "reason": "no structural bisimulation under the bounded register mapping"
+            }
+          },
+          "legacy_tiers": [
+            "exact",
+            "exact",
+            "exact",
+            "exact",
+            "exact",
+            "exact",
+            "exact",
+            "exact",
+            "exact",
+            "exact",
+            "exact",
+            "exact",
+            "exact",
+            "exact",
+            "exact",
+            "exact",
+            "exact",
+            "exact",
+            "exact",
+            "exact",
+            "exact",
+            "exact",
+            "exact",
+            "exact",
+            "exact",
+            "exact",
+            "exact",
+            "exact",
+            "exact"
+          ],
+          "missing": [],
+          "extra": []
+        },
+        {
+          "debug": 2,
+          "before_sha256": "b73a49a31fccde9f39bb18ab43373c73bbf0ff1f5e47dfa8429cd908c63d9257",
+          "after_sha256": "0df2cc0dcbe9babfc3d8d87e26ea167a8868cc9063699d214d74734f49055cb6",
+          "exact_bytes_equal": false,
+          "before_bytes": 6546,
+          "after_bytes": 6542,
+          "dataflow": {
+            "model": "luau-acyclic-use-def-v2",
+            "status": "unknown",
+            "reasons": {
+              "original": "unsupported FASTCALL1 at pc 0",
+              "rebuilt": "unsupported FASTCALL1 at pc 0"
+            },
+            "graph": {
+              "model": "luau-register-cfg-bisimulation-v2",
+              "status": "unknown",
+              "fingerprints": [
+                "ddbe187df3ac1b0c336b4ee945017c6cce6d7054b8f29980e3db1cfe51f416cb",
+                "d8a29b5cbc7f54e74eb94d45f39e943243825fec0add7e59157085676d2f8c35"
+              ],
+              "summaries": [
+                {
+                  "back_edges": 5,
+                  "joins": 35,
+                  "instructions": 532,
+                  "edges": 542,
+                  "prototypes": 28,
+                  "fastcall_sites": 13,
+                  "reference_captures": 2,
+                  "close_sites": 2,
+                  "open_packs": 3
+                },
+                {
+                  "back_edges": 5,
+                  "joins": 35,
+                  "instructions": 532,
+                  "edges": 542,
+                  "prototypes": 28,
+                  "fastcall_sites": 13,
+                  "reference_captures": 2,
+                  "close_sites": 2,
+                  "open_packs": 3
+                }
+              ],
+              "reason": "no structural bisimulation under the bounded register mapping"
+            }
+          },
+          "legacy_tiers": [
+            "exact",
+            "exact",
+            "exact",
+            "exact",
+            "exact",
+            "exact",
+            "exact",
+            "exact",
+            "exact",
+            "exact",
+            "exact",
+            "exact",
+            "exact",
+            "exact",
+            "exact",
+            "exact",
+            "exact",
+            "exact",
+            "exact",
+            "exact",
+            "exact",
+            "exact",
+            "exact",
+            "exact",
+            "exact",
+            "exact",
+            "exact",
+            "exact",
+            "exact"
+          ],
+          "missing": [],
+          "extra": []
+        }
+      ],
+      "manual_review": "Only the sole nonrecursive local callback fn is inlined into its only HeartbeatDelay argument. Its body captures the same self, p, and v and does not refer to fn. Between the old declaration and the argument position are only reads of the lexically bound, unchanged HeartbeatDelay and parameter p3; neither can run script code or mutate captures. The prior SetMotor call, callback guard and StopMotor call, subsequent HeartbeatDelay result binding and Trove:Add call retain their order and arity. The inferred-call uncertainty annotation is retained. The named callback debug metadata/line positions can change, which is outside the existing oracle semantics contract; original-input and output-pair graph status remain unknown.",
+      "gamepad_recompiled_g0_review": {
+        "strings_equal": true,
+        "main_ids": [
+          27,
+          27
+        ],
+        "prototype_counts": [
+          28,
+          28
+        ],
+        "prototype_headers_and_constants_equal": true,
+        "changed_code_prototypes": [
+          19
+        ],
+        "instruction_changes": [
+          {
+            "pc": 5,
+            "opcode": "NEWCLOSURE",
+            "before_operands": [
+              5,
+              0,
+              0,
+              0,
+              5,
+              0
+            ],
+            "after_operands": [
+              6,
+              0,
+              0,
+              0,
+              6,
+              0
+            ]
+          },
+          {
+            "pc": 20,
+            "opcode": "CAPTURE",
+            "before_operands": [
+              0,
+              5,
+              0,
+              5,
+              1280,
+              0
+            ],
+            "after_operands": [
+              0,
+              6,
+              0,
+              6,
+              1536,
+              0
+            ]
+          },
+          {
+            "pc": 25,
+            "opcode": "MOVE",
+            "before_operands": [
+              6,
+              8,
+              0,
+              8,
+              2054,
+              0
+            ],
+            "after_operands": [
+              5,
+              8,
+              0,
+              8,
+              2053,
+              0
+            ]
+          },
+          {
+            "pc": 27,
+            "opcode": "GETTABLEKS",
+            "before_operands": [
+              7,
+              0,
+              27,
+              6912,
+              1769479,
+              5
+            ],
+            "after_operands": [
+              6,
+              0,
+              27,
+              6912,
+              1769478,
+              5
+            ]
+          },
+          {
+            "pc": 29,
+            "opcode": "MOVE",
+            "before_operands": [
+              9,
+              6,
+              0,
+              6,
+              1545,
+              0
+            ],
+            "after_operands": [
+              8,
+              5,
+              0,
+              5,
+              1288,
+              0
+            ]
+          },
+          {
+            "pc": 30,
+            "opcode": "NAMECALL",
+            "before_operands": [
+              7,
+              7,
+              95,
+              24327,
+              6227719,
+              6
+            ],
+            "after_operands": [
+              6,
+              6,
+              95,
+              24326,
+              6227462,
+              6
+            ]
+          },
+          {
+            "pc": 32,
+            "opcode": "CALL",
+            "before_operands": [
+              7,
+              3,
+              1,
+              259,
+              66311,
+              0
+            ],
+            "after_operands": [
+              6,
+              3,
+              1,
+              259,
+              66310,
+              0
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

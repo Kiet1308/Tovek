@@ -11,10 +11,23 @@ use worker::*;
 
 /// Roblox client bytecode decode key (`op = op * key % 256`).
 const CLIENT_KEY: u8 = 203;
+const MAX_SCRIPT_BYTES: usize = 16 * 1024 * 1024;
+const MAX_SCRIPT_NAME_BYTES: usize = 4 * 1024;
+const MAX_ID_BYTES: usize = 1024;
+const MAX_BATCH_ITEMS: usize = 50_000;
+// The isolate has a smaller aggregate budget than the native server. These
+// caps cover decoded input and the final JSON, including JSON string escaping.
+const MAX_REQUEST_BYTES: usize = 16 * 1024 * 1024;
+const MAX_DECODED_BATCH_BYTES: usize = 16 * 1024 * 1024;
+const MAX_SOURCE_BYTES: usize = 16 * 1024 * 1024;
+const MAX_RESPONSE_BYTES: usize = 32 * 1024 * 1024;
+const MAX_RESPONSE_METADATA_BYTES: usize = 4 * 1024 * 1024;
+const RESPONSE_BUDGET_ERROR: &str = "batch response budget exceeded";
 
 #[derive(Deserialize)]
 struct DecompileMessage {
     id: String,
+    #[serde(alias = "bytecode")]
     encoded_bytecode: String,
     #[serde(default, alias = "scriptName")]
     script_name: Option<String>,
@@ -37,6 +50,7 @@ struct BatchItem {
     #[serde(default)]
     id: Option<String>,
     /// base64-encoded bytecode.
+    #[serde(alias = "bytecode")]
     encoded_bytecode: String,
     #[serde(default, alias = "scriptName")]
     script_name: Option<String>,
@@ -82,12 +96,26 @@ const MAX_BATCH_REUSE_KEY_BYTES: usize = 4 * 1024 * 1024;
 fn decompile_batch_items(
     scripts: Vec<BatchItem>,
     reuse_results: bool,
+    decompile: impl FnMut(&[u8], Option<&str>) -> std::result::Result<String, String>,
+) -> BatchResponse {
+    decompile_batch_items_with_budget(scripts, reuse_results, decompile, MAX_SOURCE_BYTES, MAX_RESPONSE_BYTES)
+}
+
+fn decompile_batch_items_with_budget(
+    scripts: Vec<BatchItem>, reuse_results: bool,
     mut decompile: impl FnMut(&[u8], Option<&str>) -> std::result::Result<String, String>,
+    source_limit: usize, response_limit: usize,
 ) -> BatchResponse {
     use std::collections::{hash_map::Entry, HashMap};
     let mut contexts: HashMap<(String, Option<String>), usize> = HashMap::new();
     let mut key_bytes = 0usize;
     let mut results: Vec<BatchResultItem> = Vec::with_capacity(scripts.len());
+    let fallback_sizes = scripts.iter().enumerate().map(|(index, item)| {
+        json_length(&failed_item(index, item.id.clone().unwrap_or_else(|| index.to_string()), RESPONSE_BUDGET_ERROR))
+            .saturating_add(1)
+    }).collect::<Vec<_>>();
+    let mut reserved = fallback_sizes.iter().sum::<usize>().saturating_add(128);
+    let mut response_bytes = 0usize;
     let mut execute = |encoded: &str, script_name: Option<&str>| {
         BASE64_STANDARD.decode(encoded.as_bytes())
             .map_err(|error| format!("base64: {error}"))
@@ -107,12 +135,11 @@ fn decompile_batch_items(
             match contexts.entry((item.encoded_bytecode, item.script_name)) {
                 Entry::Occupied(entry) => {
                     let previous = &results[*entry.get()];
-                    results.push(BatchResultItem {
-                        index, id, ok: previous.ok,
-                        decompilation: previous.decompilation.clone(),
-                        error: previous.error.clone(),
-                    });
-                    continue;
+                    match (&previous.decompilation, &previous.error) {
+                        (Some(source), _) => Ok(source.clone()),
+                        (_, Some(error)) => Err(error.clone()),
+                        _ => Err("decompile result unavailable".into()),
+                    }
                 }
                 Entry::Vacant(entry) => {
                     let (encoded, script_name) = entry.key();
@@ -127,20 +154,111 @@ fn decompile_batch_items(
         } else {
             execute(&item.encoded_bytecode, item.script_name.as_deref())
         };
-        results.push(match outcome {
-            Ok(source) => BatchResultItem {
-                index, id, ok: true, decompilation: Some(source), error: None,
+        let mut row = match outcome {
+            Ok(source) if source.len() <= source_limit => BatchResultItem {
+                index, id, ok: true, decompilation: Some(source.into_boxed_str().into_string()), error: None,
             },
-            Err(reason) => BatchResultItem {
-                index, id, ok: false, decompilation: None, error: Some(reason),
+            Ok(_) => failed_item(index, id, "decompiled source exceeds the output limit"),
+            Err(reason) => {
+                let mut reason = reason;
+                truncate_text(&mut reason, 4096);
+                failed_item(index, id, &reason)
             },
-        });
+        };
+        reserved = reserved.saturating_sub(fallback_sizes[index]);
+        let mut bytes = json_length(&row).saturating_add(1);
+        if bytes > response_limit.saturating_sub(response_bytes).saturating_sub(reserved) {
+            row = failed_item(index, row.id, RESPONSE_BUDGET_ERROR);
+            bytes = json_length(&row).saturating_add(1);
+        }
+        response_bytes = response_bytes.saturating_add(bytes);
+        results.push(row);
     }
     BatchResponse {
         count: results.len(),
         ok_count: results.iter().filter(|result| result.ok).count(),
         results,
     }
+}
+
+fn failed_item(index: usize, id: String, error: &str) -> BatchResultItem {
+    BatchResultItem { index, id, ok: false, decompilation: None, error: Some(error.into()) }
+}
+
+fn truncate_text(text: &mut String, maximum: usize) {
+    if text.len() <= maximum { return; }
+    let mut end = maximum;
+    while !text.is_char_boundary(end) { end -= 1; }
+    text.truncate(end);
+}
+
+fn json_length(value: &impl Serialize) -> usize {
+    struct Counter(usize);
+    impl std::io::Write for Counter {
+        fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+            self.0 = self.0.saturating_add(bytes.len()); Ok(bytes.len())
+        }
+        fn flush(&mut self) -> std::io::Result<()> { Ok(()) }
+    }
+    let mut counter = Counter(0);
+    if serde_json::to_writer(&mut counter, value).is_err() { return usize::MAX; }
+    counter.0
+}
+
+fn encoded_decoded_size(encoded: &str) -> usize {
+    let padding = encoded.as_bytes().iter().rev().take_while(|&&byte| byte == b'=').take(2).count();
+    encoded.len().div_ceil(4).saturating_mul(3).saturating_sub(padding)
+}
+
+fn validate_item(encoded: &str, name: Option<&str>, id: Option<&str>) -> std::result::Result<usize, String> {
+    if name.is_some_and(|name| name.len() > MAX_SCRIPT_NAME_BYTES) {
+        return Err(format!("script name exceeds {MAX_SCRIPT_NAME_BYTES} bytes"));
+    }
+    if id.is_some_and(|id| id.len() > MAX_ID_BYTES) {
+        return Err(format!("script id exceeds {MAX_ID_BYTES} bytes"));
+    }
+    let decoded = encoded_decoded_size(encoded);
+    if decoded > MAX_SCRIPT_BYTES { return Err(format!("bytecode exceeds {MAX_SCRIPT_BYTES} bytes")); }
+    Ok(decoded)
+}
+
+fn validate_batch(scripts: &[BatchItem]) -> std::result::Result<(), String> {
+    validate_batch_with_limits(scripts, MAX_DECODED_BATCH_BYTES, MAX_RESPONSE_METADATA_BYTES)
+}
+
+fn validate_batch_with_limits(scripts: &[BatchItem], decoded_limit: usize, metadata_limit: usize) -> std::result::Result<(), String> {
+    if scripts.len() > MAX_BATCH_ITEMS { return Err(format!("too many scripts (max {MAX_BATCH_ITEMS})")); }
+    let mut decoded = 0usize;
+    let mut metadata = 128usize;
+    for (index, item) in scripts.iter().enumerate() {
+        decoded = decoded.saturating_add(validate_item(&item.encoded_bytecode, item.script_name.as_deref(), item.id.as_deref())?);
+        if decoded > decoded_limit { return Err(format!("decoded batch exceeds {decoded_limit} bytes")); }
+        metadata = metadata.saturating_add(json_length(&failed_item(index,
+            item.id.clone().unwrap_or_else(|| index.to_string()), RESPONSE_BUDGET_ERROR))).saturating_add(1);
+        if metadata > metadata_limit {
+            return Err(format!("batch response metadata exceeds {metadata_limit} bytes"));
+        }
+    }
+    Ok(())
+}
+
+async fn bounded_body(req: &mut Request, maximum: usize) -> std::result::Result<Vec<u8>, (String, u16)> {
+    if req.headers().get("Content-Length").ok().flatten()
+        .and_then(|length| length.parse::<u64>().ok()).is_some_and(|length| length > maximum as u64)
+    { return Err((format!("request body exceeds {maximum} bytes"), 413)); }
+    let mut stream = req.stream().map_err(|error| (error.to_string(), 400))?;
+    let mut body = Vec::new();
+    while let Some(frame) = stream.next().await {
+        let frame = frame.map_err(|error| (error.to_string(), 400))?;
+        let required = body.len().checked_add(frame.len()).filter(|length| *length <= maximum)
+            .ok_or_else(|| (format!("request body exceeds {maximum} bytes"), 413))?;
+        if required > body.capacity() {
+            let capacity = body.capacity().saturating_mul(2).max(required).min(maximum);
+            body.reserve_exact(capacity - body.len());
+        }
+        body.extend_from_slice(&frame);
+    }
+    Ok(body)
 }
 
 /// Essence-based `application/octet-stream` detection (tolerates `; charset=...`).
@@ -324,6 +442,64 @@ mod tests {
             |_, _| { calls += 1; Ok("fresh diagnostic execution".into()) });
         assert_eq!(calls, 8);
     }
+
+    #[test]
+    fn websocket_bad_json_base64_and_flags_do_not_prevent_later_good_messages() {
+        let good = |id: &str| serde_json::json!({"id": id, "encoded_bytecode": "AQ==", "script_name": "Widget"}).to_string();
+        let mut calls = 0;
+        let mut decompile = |bytes: &[u8], name: Option<&str>, options: DecompileOptions| {
+            calls += 1;
+            assert_eq!(bytes, [1]);
+            assert_eq!(name, Some("Widget"));
+            assert!(options.dont_reuse_var);
+            Ok("return 7".to_string())
+        };
+        let options = DecompileOptions { dont_reuse_var: true, ..DecompileOptions::default() };
+        let texts = [good("before"), "{bad".into(),
+            r#"{"id":"bad-base64","encoded_bytecode":"!"}"#.into(),
+            r#"{"id":"bad-flags","encoded_bytecode":"AQ==","flags":"unknown"}"#.into(), good("after")];
+        let results = texts.iter().map(|text| decompile_ws_text(text, options, &mut decompile)).collect::<Vec<_>>();
+        assert_eq!(calls, 2);
+        assert_eq!(results[0].decompilation, "return 7");
+        assert_eq!(results[1].id, "");
+        assert_eq!(results[2].id, "bad-base64");
+        assert_eq!(results[3].id, "bad-flags");
+        assert_eq!(results[4].id, "after");
+        assert_eq!(results[4].decompilation, "return 7");
+        assert!(results[1..4].iter().all(|result| result.decompilation.starts_with("-- decompile failed:")));
+    }
+
+    #[test]
+    fn envelope_caps_cover_names_ids_padding_and_aggregate_decoded_input() {
+        for count in 0..32 {
+            let encoded = BASE64_STANDARD.encode(vec![1; count]);
+            assert_eq!(encoded_decoded_size(&encoded), count);
+        }
+        assert!(validate_item("AQ==", Some(&"x".repeat(MAX_SCRIPT_NAME_BYTES + 1)), None).is_err());
+        assert!(validate_item("AQ==", None, Some(&"x".repeat(MAX_ID_BYTES + 1))).is_err());
+        let inputs = vec![item(&[1, 2], None, None), item(&[1, 2], None, None)];
+        assert!(validate_batch_with_limits(&inputs, 4, 1024).is_ok());
+        assert!(validate_batch_with_limits(&inputs, 3, 1024).unwrap_err().contains("decoded"));
+        assert!(validate_batch_with_limits(&inputs, 4, 128).unwrap_err().contains("metadata"));
+    }
+
+    #[test]
+    fn response_budget_counts_escaping_and_duplicate_results_without_losing_good_neighbours() {
+        let input = || vec![item(&[1], None, None), item(&[2], None, None), item(&[1], None, None)];
+        let mut calls = 0;
+        let response = decompile_batch_items_with_budget(input(), true, |bytes, _| {
+            calls += 1;
+            Ok(if bytes == [2] { "\n".repeat(1000) } else { "return 7".into() })
+        }, 4096, 500);
+        assert_eq!(calls, 2);
+        assert!(json_length(&response) <= 500);
+        assert_eq!(response.ok_count, 2);
+        assert_eq!(response.results[1].error.as_deref(), Some(RESPONSE_BUDGET_ERROR));
+        assert_eq!(response.results[2].decompilation.as_deref(), Some("return 7"));
+        let response = decompile_batch_items_with_budget(input(), false, |_, _| Ok("x".repeat(17)), 16, 500);
+        assert_eq!(response.ok_count, 0);
+        assert!(response.results.iter().all(|result| result.error.as_ref().unwrap().contains("output limit")));
+    }
 }
 
 fn parse_bool(raw: &str, field: &str) -> std::result::Result<bool, String> {
@@ -349,6 +525,46 @@ fn authorize(req: &Request, env: &Env) -> Result<Option<Response>> {
     Ok(None)
 }
 
+fn ws_failure(id: String, reason: impl AsRef<str>) -> DecompileResponse {
+    let mut reason = reason.as_ref().to_string();
+    truncate_text(&mut reason, 4096);
+    DecompileResponse { id, decompilation: format!("-- decompile failed: {reason}") }
+}
+
+/// Transport errors stay inside one message. With malformed JSON there is no
+/// trustworthy correlation id, so the error uses the empty id; later messages
+/// on the socket remain usable.
+fn decompile_ws_text(
+    text: &str, header_options: DecompileOptions,
+    mut decompile: impl FnMut(&[u8], Option<&str>, DecompileOptions) -> std::result::Result<String, String>,
+) -> DecompileResponse {
+    if text.len() > MAX_REQUEST_BYTES { return ws_failure(String::new(), "websocket message exceeds the request limit"); }
+    let message: DecompileMessage = match serde_json::from_str(text) {
+        Ok(message) => message,
+        Err(error) => return ws_failure(String::new(), format!("invalid JSON message: {error}")),
+    };
+    if message.id.len() > MAX_ID_BYTES { return ws_failure(String::new(), "script id exceeds the limit"); }
+    if let Err(error) = validate_item(&message.encoded_bytecode, message.script_name.as_deref(), Some(&message.id)) {
+        return ws_failure(message.id, error);
+    }
+    let options = match body_options(message.flags.as_deref(), message.dont_reuse_var) {
+        Ok(options) => header_options.union(options),
+        Err(error) => return ws_failure(message.id, error),
+    };
+    let bytecode = match BASE64_STANDARD.decode(&message.encoded_bytecode) {
+        Ok(bytecode) => bytecode,
+        Err(error) => return ws_failure(message.id, format!("base64: {error}")),
+    };
+    let source = match decompile(&bytecode, message.script_name.as_deref(), options) {
+        Ok(source) if source.len() <= MAX_SOURCE_BYTES => source,
+        Ok(_) => return ws_failure(message.id, "decompiled source exceeds the output limit"),
+        Err(error) => return ws_failure(message.id, error),
+    };
+    let response = DecompileResponse { id: message.id, decompilation: source };
+    if json_length(&response) > MAX_RESPONSE_BYTES { return ws_failure(response.id, "JSON response exceeds the output limit"); }
+    response
+}
+
 #[event(fetch, respond_with_errors)]
 pub async fn main(req: Request, env: Env, _ctx: worker::Context) -> Result<Response> {
     console_error_panic_hook::set_once();
@@ -370,46 +586,22 @@ pub async fn main(req: Request, env: Env, _ctx: worker::Context) -> Result<Respo
             server.accept()?;
 
             wasm_bindgen_futures::spawn_local(async move {
-                let mut event_stream = server.events().expect("could not open stream");
+                let mut event_stream = match server.events() {
+                    Ok(stream) => stream,
+                    Err(_) => { let _ = server.close(Some(1011), Some("could not open stream")); return; }
+                };
                 while let Some(event) = event_stream.next().await {
-                    if let WebsocketEvent::Message(msg) =
-                        event.expect("received error in websocket")
-                    {
-                        let msg = msg
-                            .json::<DecompileMessage>()
-                            .expect("malformed decompile message");
-                        let message_options =
-                            match body_options(msg.flags.as_deref(), msg.dont_reuse_var) {
-                                Ok(options) => options,
-                                Err(e) => {
-                                    let resp = DecompileResponse {
-                                        id: msg.id,
-                                        decompilation: format!("-- decompile failed: {e}"),
-                                    };
-                                    server
-                                        .send_with_str(serde_json::to_string(&resp).unwrap())
-                                        .unwrap();
-                                    continue;
-                                }
-                            };
-                        let options = header_options.union(message_options);
-                        let bytecode = BASE64_STANDARD
-                            .decode(msg.encoded_bytecode)
-                            .expect("bytecode must be base64 encoded");
-                        let decompilation = try_decompile_bytecode_with_options(
-                            &bytecode,
-                            1,
-                            msg.script_name.as_deref(),
-                            options,
-                        )
-                        .unwrap_or_else(|reason| format!("-- decompile failed: {reason}"));
-                        let resp = DecompileResponse {
-                            id: msg.id,
-                            decompilation,
+                    let event = match event { Ok(event) => event, Err(_) => break };
+                    if let WebsocketEvent::Message(msg) = event {
+                        let response = match msg.text() {
+                            Some(text) => decompile_ws_text(&text, header_options, |bytes, name, options| {
+                                // Preserve the existing WebSocket decode-key contract.
+                                try_decompile_bytecode_with_options(bytes, 1, name, options)
+                            }),
+                            None => ws_failure(String::new(), "websocket message must be JSON text"),
                         };
-                        server
-                            .send_with_str(serde_json::to_string(&resp).unwrap())
-                            .unwrap();
+                        let encoded = match serde_json::to_string(&response) { Ok(encoded) => encoded, Err(_) => break };
+                        if server.send_with_str(encoded).is_err() { break; }
                     }
                 }
             });
@@ -422,6 +614,9 @@ pub async fn main(req: Request, env: Env, _ctx: worker::Context) -> Result<Respo
             }
 
             let script_name = req.headers().get("X-Script-Name").ok().flatten();
+            if let Err(error) = validate_item("", script_name.as_deref(), None) {
+                return Response::error(error, 413);
+            }
             let options = match request_options(&req) {
                 Ok(options) => options,
                 Err(e) => return Response::error(e, 400),
@@ -429,7 +624,9 @@ pub async fn main(req: Request, env: Env, _ctx: worker::Context) -> Result<Respo
             // RAW: when the caller declares octet-stream, the body IS the bytecode
             // (no base64). Otherwise decode base64 as before. Either way, key 203.
             let raw = is_octet_stream(&req);
-            let body = req.bytes().await?;
+            let body = match bounded_body(&mut req, MAX_REQUEST_BYTES).await {
+                Ok(body) => body, Err((error, status)) => return Response::error(error, status),
+            };
             let bytecode = if raw {
                 body
             } else {
@@ -445,7 +642,8 @@ pub async fn main(req: Request, env: Env, _ctx: worker::Context) -> Result<Respo
                 script_name.as_deref(),
                 options,
             ) {
-                Ok(source) => Response::ok(source),
+                Ok(source) if source.len() <= MAX_SOURCE_BYTES => Response::ok(source),
+                Ok(_) => Response::error("decompiled source exceeds the output limit", 413),
                 Err(reason) => Response::error(format!("decompile failed: {reason}"), 422),
             }
         })
@@ -454,11 +652,14 @@ pub async fn main(req: Request, env: Env, _ctx: worker::Context) -> Result<Respo
                 return Ok(response);
             }
 
-            let body = req.bytes().await?;
+            let body = match bounded_body(&mut req, MAX_REQUEST_BYTES).await {
+                Ok(body) => body, Err((error, status)) => return Response::error(error, status),
+            };
             let request: BatchRequest = match serde_json::from_slice(&body) {
                 Ok(request) => request,
                 Err(e) => return Response::error(format!("invalid JSON batch: {e}"), 400),
             };
+            if let Err(error) = validate_batch(&request.scripts) { return Response::error(error, 413); }
             let key = request.key.unwrap_or(CLIENT_KEY);
             let header_options = match request_options(&req) {
                 Ok(options) => options,
@@ -479,6 +680,9 @@ pub async fn main(req: Request, env: Env, _ctx: worker::Context) -> Result<Respo
             let response = decompile_batch_items(request.scripts, reuse_results, |bytecode, script_name| {
                 try_decompile_bytecode_with_options(bytecode, key, script_name, options)
             });
+            if json_length(&response) > MAX_RESPONSE_BYTES {
+                return Response::error("batch response exceeds the output limit", 413);
+            }
             Response::from_json(&response)
         })
         .run(req, env)

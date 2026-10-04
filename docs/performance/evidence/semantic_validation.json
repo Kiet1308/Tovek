@@ -1,0 +1,69 @@
+{
+  "schema_version": 1,
+  "state": "passed",
+  "recorded_at_start_utc": "2026-10-04T08:57:42.292396+00:00",
+  "candidate_binary": {
+    "path": "/workspace/scratch/8b51247a47e6/tooling/target-candidate/release/luau-lifter",
+    "sha256": "bfd6b36c7f0ffd2e9880cee7b729b51af3d5a2c511cec3586097322fa6c16901"
+  },
+  "branch": "codex/cold-script-engine-rewrite",
+  "git_head_at_start": "55c5bcd71b01f5ab630bc7102c0162235d534722",
+  "environment": {
+    "RAYON_NUM_THREADS": "1"
+  },
+  "expected": {
+    "deep_review_cases": 253,
+    "semantic_fixture_count": 148,
+    "semantic_roundtrip_cases": 444
+  },
+  "deep_review_log": "deep-review.log",
+  "deep_review_results": "deep-review/results.json",
+  "semantic_roundtrip_log": "semantic-roundtrip.log",
+  "semantic_worktree": "semantic-roundtrip",
+  "vm_validation_manifest": "benchmark-vm-validation.json",
+  "recorded_at_completion_utc": "2026-10-04T08:58:49.326997+00:00",
+  "candidate_binary_unchanged": true,
+  "deep_review": {
+    "exit_code": 0,
+    "total": 253,
+    "passed": 253,
+    "failed": []
+  },
+  "semantic_roundtrip": {
+    "exit_code": 0,
+    "total": 444,
+    "passed": 444,
+    "failed": 0,
+    "fixture_count": 148,
+    "evidence_index": "semantic-roundtrip/evidence-index.json"
+  },
+  "commands": {
+    "deep_review": [
+      "python3",
+      "-u",
+      "scripts/check_deep_review.py",
+      "--compiler",
+      "/workspace/scratch/8b51247a47e6/tooling/luau-build/luau-compile",
+      "--vm",
+      "/workspace/scratch/8b51247a47e6/tooling/benchmark-vm/benchmark-vm",
+      "--lifter",
+      "/workspace/scratch/8b51247a47e6/tooling/target-candidate/release/luau-lifter",
+      "--work",
+      "/workspace/scratch/8b51247a47e6/validation/deep-review"
+    ],
+    "semantic_roundtrip": [
+      "python3",
+      "-u",
+      "scripts/semantic_roundtrip.py",
+      "--compiler",
+      "/workspace/scratch/8b51247a47e6/tooling/luau-build/luau-compile",
+      "--luau",
+      "/workspace/scratch/8b51247a47e6/tooling/luau-build/luau",
+      "--lifter",
+      "/workspace/scratch/8b51247a47e6/tooling/target-candidate/release/luau-lifter",
+      "--keep",
+      "/workspace/scratch/8b51247a47e6/validation/semantic-roundtrip"
+    ]
+  },
+  "command_working_directory": "/workspace/scratch/8b51247a47e6/Tovek"
+}

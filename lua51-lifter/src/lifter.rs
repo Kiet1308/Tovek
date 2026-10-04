@@ -590,8 +590,8 @@ impl<'a, 'b> Lifter<'a, 'b> {
                         } else {
                             statements.push(
                                 ast::Assign::new(
-                                    (function.0..function.0 + return_values - 1)
-                                        .map(|r| self.locals[&Register(r)].clone().into())
+                                    (usize::from(function.0)..usize::from(function.0) + usize::from(return_values) - 1)
+                                        .map(|r| self.locals[&Register(r as u8)].clone().into())
                                         .collect_vec(),
                                     vec![ast::RValue::Select(call.into())],
                                 )
@@ -631,8 +631,8 @@ impl<'a, 'b> Lifter<'a, 'b> {
                     if b != 0 {
                         statements.push(
                             ast::Assign::new(
-                                (destination.0..destination.0 + b - 1)
-                                    .map(|r| self.locals[&Register(r)].clone().into())
+                                (usize::from(destination.0)..usize::from(destination.0) + usize::from(b) - 1)
+                                    .map(|r| self.locals[&Register(r as u8)].clone().into())
                                     .collect(),
                                 vec![ast::RValue::Select(vararg.into())],
                             )

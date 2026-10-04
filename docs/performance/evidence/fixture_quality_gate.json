@@ -1,0 +1,364 @@
+{
+  "schema_version": 1,
+  "kind": "tovek-quality-gate-v1",
+  "status": "passed",
+  "metrics": [
+    "discard_locals",
+    "require_field_relays",
+    "generated_single_use_AstExprLocal"
+  ],
+  "minimum_metrics": [],
+  "failures": [],
+  "reviewed_exceptions": [],
+  "cases": [
+    {
+      "case_id": "[\"single\",\"arithmetic_result_fold.luaubc\",9,2,1]",
+      "decoded_input_sha256": "6b2244d9586876bd5cc2f41a983a66b54ea9163401e9272e52bad4159504036e",
+      "before_output_sha256": "099c98b2bab3863e4fb94610df1aa9f0bd32c36d760025e6428d186d4775fd0f",
+      "after_output_sha256": "099c98b2bab3863e4fb94610df1aa9f0bd32c36d760025e6428d186d4775fd0f",
+      "proof_status": "different",
+      "proof_model": "luau-acyclic-use-def-v2",
+      "runtime_status": "unavailable",
+      "output_changed": false
+    },
+    {
+      "case_id": "[\"single\",\"branch_constructor_initialized.luaubc\",9,2,1]",
+      "decoded_input_sha256": "77b6780bd90a7c1728b815b3639a849855ecfe73ccbd2348e00cdc55a0ce7a54",
+      "before_output_sha256": "5caa333946bd8ec5c4db332e0809a917ea5588ab68ee3a6379b2bf4e0e406716",
+      "after_output_sha256": "5caa333946bd8ec5c4db332e0809a917ea5588ab68ee3a6379b2bf4e0e406716",
+      "proof_status": "proved",
+      "proof_model": "luau-acyclic-use-def-v2",
+      "runtime_status": "unavailable",
+      "output_changed": false
+    },
+    {
+      "case_id": "[\"single\",\"cache_context.luaubc\",9,2,1]",
+      "decoded_input_sha256": "308ee9e9563fcf33fba1bb7520f73870b3fbe336a2b4a6846cf6266401ea4b4f",
+      "before_output_sha256": "c440a749b4a26f6d15b57ce75c5a1cf3972f0269940810d67e9494ad0cc22142",
+      "after_output_sha256": "c440a749b4a26f6d15b57ce75c5a1cf3972f0269940810d67e9494ad0cc22142",
+      "proof_status": "unknown",
+      "proof_model": "luau-acyclic-use-def-v2",
+      "runtime_status": "unavailable",
+      "output_changed": false
+    },
+    {
+      "case_id": "[\"single\",\"cell_swap_beside_copy.luaubc\",9,2,1]",
+      "decoded_input_sha256": "b4b60103cc0c54159be320779760a81dd94232c9a16769f162dd5aa5b8122b32",
+      "before_output_sha256": "afa3079c64e5b3e06cb959de0be81498aa3bcaa35be28e0e7f08b40b6e64cc2b",
+      "after_output_sha256": "afa3079c64e5b3e06cb959de0be81498aa3bcaa35be28e0e7f08b40b6e64cc2b",
+      "proof_status": "unknown",
+      "proof_model": "luau-acyclic-use-def-v2",
+      "runtime_status": "unavailable",
+      "output_changed": false
+    },
+    {
+      "case_id": "[\"single\",\"closure_captured_nil_init.luaubc\",11,2,1]",
+      "decoded_input_sha256": "ef65c9d65cb2f49b1daa51d23b6111da480a2f33badfc5a1445ce786677ebd13",
+      "before_output_sha256": "ac8381c0236410910f51b6395dee32cb481d86dfe92d0f3df256765852afd3a2",
+      "after_output_sha256": "ac8381c0236410910f51b6395dee32cb481d86dfe92d0f3df256765852afd3a2",
+      "proof_status": "unknown",
+      "proof_model": "luau-acyclic-use-def-v2",
+      "runtime_status": "unavailable",
+      "output_changed": false
+    },
+    {
+      "case_id": "[\"single\",\"collapsed_conditional_stays_ssa.luaubc\",9,2,1]",
+      "decoded_input_sha256": "d6dec710cfd4df69df2f43373eb12bca3561a870a05ec2eb4e38eb6a7989a02d",
+      "before_output_sha256": "5cb03ed2b4be8011253c033e485f821b89a490d0f025abe9dde1fddddbb76d31",
+      "after_output_sha256": "5cb03ed2b4be8011253c033e485f821b89a490d0f025abe9dde1fddddbb76d31",
+      "proof_status": "unknown",
+      "proof_model": "luau-acyclic-use-def-v2",
+      "runtime_status": "unavailable",
+      "output_changed": false
+    },
+    {
+      "case_id": "[\"single\",\"dead_self_update.luaubc\",9,2,1]",
+      "decoded_input_sha256": "deaf38d78faa82db26690b65a5df4bea89dbe925e0ee147ed7916fb87f436276",
+      "before_output_sha256": "2b2b4c4cf0b90be120a40063d335d70cad8495f5c9f2899a4ef203de21721c4c",
+      "after_output_sha256": "2b2b4c4cf0b90be120a40063d335d70cad8495f5c9f2899a4ef203de21721c4c",
+      "proof_status": "proved",
+      "proof_model": "luau-register-cfg-bisimulation-v2",
+      "runtime_status": "unavailable",
+      "output_changed": false
+    },
+    {
+      "case_id": "[\"single\",\"deinline_budget.luaubc\",9,2,1]",
+      "decoded_input_sha256": "52aa080298cefb945115dd9a2c430b2c02c06324f000d6817c3cf1da3796e91a",
+      "before_output_sha256": "92dfe9d0cb795ed0644f4ba621c9a1c7b5e83cdb756f5ece808b3c1f22994f80",
+      "after_output_sha256": "92dfe9d0cb795ed0644f4ba621c9a1c7b5e83cdb756f5ece808b3c1f22994f80",
+      "proof_status": "proved",
+      "proof_model": "luau-acyclic-use-def-v2",
+      "runtime_status": "unavailable",
+      "output_changed": false
+    },
+    {
+      "case_id": "[\"single\",\"deinline_declared_prefix.luaubc\",9,2,1]",
+      "decoded_input_sha256": "ceef2f909a1eac1a852cf0dbcbcb337cea4a89793cc2a04af028a175bfe966d6",
+      "before_output_sha256": "9c8d07fa377ac587712b322a59e7e9ec61fc29c1f9c59a9c33ea0868edff2630",
+      "after_output_sha256": "9c8d07fa377ac587712b322a59e7e9ec61fc29c1f9c59a9c33ea0868edff2630",
+      "proof_status": "unknown",
+      "proof_model": "luau-acyclic-use-def-v2",
+      "runtime_status": "unavailable",
+      "output_changed": false
+    },
+    {
+      "case_id": "[\"single\",\"deinline_declared_select.luaubc\",9,2,1]",
+      "decoded_input_sha256": "3397eb5286abee1f750376ac58a5c6bc7737bb540891f3896d8f0dc221fd3c16",
+      "before_output_sha256": "ee5ba69af224ea2ae6ef05a68ae4833fa0225096923798fd251bc64c98c92e92",
+      "after_output_sha256": "ee5ba69af224ea2ae6ef05a68ae4833fa0225096923798fd251bc64c98c92e92",
+      "proof_status": "proved",
+      "proof_model": "luau-acyclic-use-def-v2",
+      "runtime_status": "unavailable",
+      "output_changed": false
+    },
+    {
+      "case_id": "[\"single\",\"deinline_fall_off.luaubc\",9,2,1]",
+      "decoded_input_sha256": "0f0b9f28fd4147b2cc4c5be4585dab774ffc3905dd185c7d3263c0372c887a52",
+      "before_output_sha256": "32840e016ad1e54c7c3f1d5158916fc1c4b6976aca061fa6534b4f48416d4957",
+      "after_output_sha256": "32840e016ad1e54c7c3f1d5158916fc1c4b6976aca061fa6534b4f48416d4957",
+      "proof_status": "proved",
+      "proof_model": "luau-register-cfg-bisimulation-v2",
+      "runtime_status": "unavailable",
+      "output_changed": false
+    },
+    {
+      "case_id": "[\"single\",\"deinline_first_read.luaubc\",9,2,1]",
+      "decoded_input_sha256": "8c78f380a8bf9f8dc9ccd47dcdac2a39768f8e78b17ef96f016815eda0d2eb1e",
+      "before_output_sha256": "da373001515f578e1226a726099d34419817afc5fb065cf8aba4c9a8832b6ee2",
+      "after_output_sha256": "da373001515f578e1226a726099d34419817afc5fb065cf8aba4c9a8832b6ee2",
+      "proof_status": "unknown",
+      "proof_model": "luau-acyclic-use-def-v2",
+      "runtime_status": "unavailable",
+      "output_changed": false
+    },
+    {
+      "case_id": "[\"single\",\"deinline_first_read_statement.luaubc\",9,2,1]",
+      "decoded_input_sha256": "124b903f4438463298c75e0bccfbdb0e35e005c476d30fb2ee2a0662a4b648fa",
+      "before_output_sha256": "822efd05bfd4e3bef2aa02119ef0c24ab1b20fb2fc203df5c9e0098319593519",
+      "after_output_sha256": "822efd05bfd4e3bef2aa02119ef0c24ab1b20fb2fc203df5c9e0098319593519",
+      "proof_status": "unknown",
+      "proof_model": "luau-acyclic-use-def-v2",
+      "runtime_status": "unavailable",
+      "output_changed": false
+    },
+    {
+      "case_id": "[\"single\",\"deinline_guard_select.luaubc\",9,2,1]",
+      "decoded_input_sha256": "cfdc57ead6a13e41a979b94eed5f69bab5363cd8f188337009311203b9821814",
+      "before_output_sha256": "1cc8f54acec4e601e47fb63e7f3806758829a3dcb123b535824e21a1a4996766",
+      "after_output_sha256": "1cc8f54acec4e601e47fb63e7f3806758829a3dcb123b535824e21a1a4996766",
+      "proof_status": "unknown",
+      "proof_model": "luau-acyclic-use-def-v2",
+      "runtime_status": "unavailable",
+      "output_changed": false
+    },
+    {
+      "case_id": "[\"single\",\"deinline_local_tuple.luaubc\",9,2,1]",
+      "decoded_input_sha256": "5633588189ed9fcbfe51c4cc016b22998f3f74edceae36a738575870aeb6eeae",
+      "before_output_sha256": "82725a13ae7490f4836f7dbe68ebeb986d07fd56124e39e905f213086fbcfc42",
+      "after_output_sha256": "82725a13ae7490f4836f7dbe68ebeb986d07fd56124e39e905f213086fbcfc42",
+      "proof_status": "unknown",
+      "proof_model": "luau-acyclic-use-def-v2",
+      "runtime_status": "unavailable",
+      "output_changed": false
+    },
+    {
+      "case_id": "[\"single\",\"deinline_outer_anchor.luaubc\",9,2,1]",
+      "decoded_input_sha256": "5f9beb440c9c4873755c9243838bda394c817906c4c9dc26eae0d4643e7018f7",
+      "before_output_sha256": "4033dd9a24dbc0c4370c97493a77e40f3694d0237e39ab0965a0577555632b34",
+      "after_output_sha256": "4033dd9a24dbc0c4370c97493a77e40f3694d0237e39ab0965a0577555632b34",
+      "proof_status": "proved",
+      "proof_model": "luau-acyclic-use-def-v2",
+      "runtime_status": "unavailable",
+      "output_changed": false
+    },
+    {
+      "case_id": "[\"single\",\"deinline_specialized_shorter.luaubc\",9,2,1]",
+      "decoded_input_sha256": "c3dfae4d7ef450585850fb7961a24597193baa78eee68e59314949d45d7b85b9",
+      "before_output_sha256": "aa50ae77049b75f97698b98201c9cf56469a57ff64c131c1f6bb406a359d927b",
+      "after_output_sha256": "aa50ae77049b75f97698b98201c9cf56469a57ff64c131c1f6bb406a359d927b",
+      "proof_status": "proved",
+      "proof_model": "luau-acyclic-use-def-v2",
+      "runtime_status": "unavailable",
+      "output_changed": false
+    },
+    {
+      "case_id": "[\"single\",\"fastcall_arguments.luaubc\",9,2,1]",
+      "decoded_input_sha256": "54d7d751df2012d17f457af7ebe1f5c91839b3949ddfe56bd65e7bd88373de29",
+      "before_output_sha256": "188c3b32ddc4f9b8187af80cc19f3f3b168f378a282e949127fea1b853fe6198",
+      "after_output_sha256": "188c3b32ddc4f9b8187af80cc19f3f3b168f378a282e949127fea1b853fe6198",
+      "proof_status": "proved",
+      "proof_model": "luau-register-cfg-bisimulation-v2",
+      "runtime_status": "unavailable",
+      "output_changed": false
+    },
+    {
+      "case_id": "[\"single\",\"generic_for_local.luaubc\",9,2,1]",
+      "decoded_input_sha256": "42fcf7019c7f17b9afc4fcba82e2ac57bab43f507bfced6b8bf825a132d15450",
+      "before_output_sha256": "caf8c88d72fda49bf672d83a210cdf51a309ddbdf4b37c9a0b447485706155ba",
+      "after_output_sha256": "caf8c88d72fda49bf672d83a210cdf51a309ddbdf4b37c9a0b447485706155ba",
+      "proof_status": "proved",
+      "proof_model": "luau-register-cfg-bisimulation-v2",
+      "runtime_status": "unavailable",
+      "output_changed": false
+    },
+    {
+      "case_id": "[\"single\",\"iteration_cell.luaubc\",9,2,1]",
+      "decoded_input_sha256": "deb3a0d51f78017935e5fdd02b3b7296361ee10b67bd56816e4d1e331eb128c3",
+      "before_output_sha256": "9310306c31cf9520f0d3819071481bb09e0c66026cf7ee560a859477a91bd4b8",
+      "after_output_sha256": "9310306c31cf9520f0d3819071481bb09e0c66026cf7ee560a859477a91bd4b8",
+      "proof_status": "unknown",
+      "proof_model": "luau-acyclic-use-def-v2",
+      "runtime_status": "unavailable",
+      "output_changed": false
+    },
+    {
+      "case_id": "[\"single\",\"library_constants.luaubc\",9,2,1]",
+      "decoded_input_sha256": "9d651d57fd1a05f522078653ae988d0bbdc8bc15b05a9d3c5eea671cb7cc1bb5",
+      "before_output_sha256": "d98223185accd53728dd731d6c98d4aba544286b841579358dcbaf6da01df94e",
+      "after_output_sha256": "d98223185accd53728dd731d6c98d4aba544286b841579358dcbaf6da01df94e",
+      "proof_status": "different",
+      "proof_model": "luau-acyclic-use-def-v2",
+      "runtime_status": "unavailable",
+      "output_changed": false
+    },
+    {
+      "case_id": "[\"single\",\"locals_over_limit_distinct_names.luaubc\",9,2,1]",
+      "decoded_input_sha256": "725875712a023b8b5bf15e323c108d6d9b1e88ee52cfb26ea8a99fc19b49e02e",
+      "before_output_sha256": "a2cfa42af6a9b2696fc9e76b8040370f2480746c8f26da625206dafddbf76d20",
+      "after_output_sha256": "a2cfa42af6a9b2696fc9e76b8040370f2480746c8f26da625206dafddbf76d20",
+      "proof_status": "unknown",
+      "proof_model": "luau-acyclic-use-def-v2",
+      "runtime_status": "unavailable",
+      "output_changed": false
+    },
+    {
+      "case_id": "[\"single\",\"locals_over_limit_same_name.luaubc\",9,2,1]",
+      "decoded_input_sha256": "ebe234248b7899e96ed4b3fad611bf67c52f76811b76de0e8b35c33f828162ae",
+      "before_output_sha256": "aa0ac57c4fb07f7ad31dec151cf90da86294e85c7dac583beee2a10d58d46272",
+      "after_output_sha256": "aa0ac57c4fb07f7ad31dec151cf90da86294e85c7dac583beee2a10d58d46272",
+      "proof_status": "unknown",
+      "proof_model": "luau-acyclic-use-def-v2",
+      "runtime_status": "unavailable",
+      "output_changed": false
+    },
+    {
+      "case_id": "[\"single\",\"loop_return_skips_loop_tail.luaubc\",9,2,1]",
+      "decoded_input_sha256": "2f2e13e717d2a4c00139c3e751e57ed517ab943b8b7ae5c9533fcfca8a82f5fc",
+      "before_output_sha256": "c8b6646f420b1eef36bc639f4328f3aa9dd9497c1e2ef53bfebeccec7e019a43",
+      "after_output_sha256": "c8b6646f420b1eef36bc639f4328f3aa9dd9497c1e2ef53bfebeccec7e019a43",
+      "proof_status": "unknown",
+      "proof_model": "luau-acyclic-use-def-v2",
+      "runtime_status": "unavailable",
+      "output_changed": false
+    },
+    {
+      "case_id": "[\"single\",\"module_methods.luaubc\",9,2,1]",
+      "decoded_input_sha256": "b27d4f27daf04825ebb7861b6bdb3a54fcf554fdcb296454b755e563ee0f28f0",
+      "before_output_sha256": "27506ec6389a25b34d07d9e36aad739d45a8781da04041f093a588e55770caa2",
+      "after_output_sha256": "27506ec6389a25b34d07d9e36aad739d45a8781da04041f093a588e55770caa2",
+      "proof_status": "proved",
+      "proof_model": "luau-acyclic-use-def-v2",
+      "runtime_status": "unavailable",
+      "output_changed": false
+    },
+    {
+      "case_id": "[\"single\",\"numeric_loop_return.luaubc\",9,2,1]",
+      "decoded_input_sha256": "c4ecdafba7827722adb6102abdd88b659d4d97d6a0a78f616f3f78bc2d48f51f",
+      "before_output_sha256": "1d95c89b1254e8c2d024739a4e388c6afe449f5d6c6d6c8f468760fedd0a880c",
+      "after_output_sha256": "1d95c89b1254e8c2d024739a4e388c6afe449f5d6c6d6c8f468760fedd0a880c",
+      "proof_status": "unknown",
+      "proof_model": "luau-acyclic-use-def-v2",
+      "runtime_status": "unavailable",
+      "output_changed": false
+    },
+    {
+      "case_id": "[\"single\",\"register_phi_webs.luaubc\",9,2,1]",
+      "decoded_input_sha256": "e3f2222b894e299d4539a746c8b9b7eef7974f9d42c51a651cfa7a99e22fca4d",
+      "before_output_sha256": "84a6b0ef1b7407dcdd48b7f40b50ad916c3f1e9e8da6cfc71dd83d29c1ffe9c2",
+      "after_output_sha256": "84a6b0ef1b7407dcdd48b7f40b50ad916c3f1e9e8da6cfc71dd83d29c1ffe9c2",
+      "proof_status": "unknown",
+      "proof_model": "luau-acyclic-use-def-v2",
+      "runtime_status": "unavailable",
+      "output_changed": false
+    },
+    {
+      "case_id": "[\"single\",\"return_guard.luaubc\",9,2,1]",
+      "decoded_input_sha256": "e72a3f694b7ce9cccd53a75f291d3523891e1ab7ebaf4fcfdd2751ebbad052ba",
+      "before_output_sha256": "d8a58ccf4d125def19126d026aaff40b5c47fb899452378e9fbbd0afd098a0c2",
+      "after_output_sha256": "d8a58ccf4d125def19126d026aaff40b5c47fb899452378e9fbbd0afd098a0c2",
+      "proof_status": "unknown",
+      "proof_model": "luau-acyclic-use-def-v2",
+      "runtime_status": "unavailable",
+      "output_changed": false
+    },
+    {
+      "case_id": "[\"single\",\"shared_return_tail.luaubc\",9,2,1]",
+      "decoded_input_sha256": "394ca659fb5a61d9b4906f92b9670c39287cbdfe45243c31602c291b91fe8275",
+      "before_output_sha256": "6cd745c0a4cd5d3e1d4706aefff6766e2b4da6d0779755c70c11861a15b98607",
+      "after_output_sha256": "6cd745c0a4cd5d3e1d4706aefff6766e2b4da6d0779755c70c11861a15b98607",
+      "proof_status": "unknown",
+      "proof_model": "luau-acyclic-use-def-v2",
+      "runtime_status": "unavailable",
+      "output_changed": false
+    },
+    {
+      "case_id": "[\"single\",\"template_repeated_key.luaubc\",9,2,1]",
+      "decoded_input_sha256": "95ce59f2a6ea56aa35012565ebd9e59fd54416309d65c1e27d0a294f28c233b7",
+      "before_output_sha256": "677f54a0bfcc563811a3bc367d8fd407b8f2f3490e0eb7e15dba483365e7e3e3",
+      "after_output_sha256": "677f54a0bfcc563811a3bc367d8fd407b8f2f3490e0eb7e15dba483365e7e3e3",
+      "proof_status": "unknown",
+      "proof_model": "luau-acyclic-use-def-v2",
+      "runtime_status": "unavailable",
+      "output_changed": false
+    },
+    {
+      "case_id": "[\"single\",\"ui_tree_branch_scope.luaubc\",9,2,1]",
+      "decoded_input_sha256": "0a25e33e8d2f77ea820d05092402b96bb8e5a9654b4821ec1b5f1970e32b56f0",
+      "before_output_sha256": "3fdbb85fdb4e72b7164c029e574d794d498eb438dd455691747e48b2657afd93",
+      "after_output_sha256": "3fdbb85fdb4e72b7164c029e574d794d498eb438dd455691747e48b2657afd93",
+      "proof_status": "proved",
+      "proof_model": "luau-register-cfg-bisimulation-v2",
+      "runtime_status": "unavailable",
+      "output_changed": false
+    },
+    {
+      "case_id": "[\"single\",\"upvalue_analysis_nested.luaubc\",11,2,1]",
+      "decoded_input_sha256": "99cc4db1fbaa5e717a6a88d552f8d484fca8b8cc8390cc8334d516794fd3720e",
+      "before_output_sha256": "3f5c0f3809c10bbd0244165a9ebdad17f85e820a34198da31760e366794e0762",
+      "after_output_sha256": "3f5c0f3809c10bbd0244165a9ebdad17f85e820a34198da31760e366794e0762",
+      "proof_status": "unknown",
+      "proof_model": "luau-acyclic-use-def-v2",
+      "runtime_status": "unavailable",
+      "output_changed": false
+    },
+    {
+      "case_id": "[\"single\",\"upvalue_analysis_nested_g0.luaubc\",11,2,1]",
+      "decoded_input_sha256": "556c8f8f3b9cbe2c53e3c4e32d166154bd2a4bd571ffea7b6fe2e7c5a6a31afc",
+      "before_output_sha256": "2f05e622d0c049df37d27a32557ad3548b35da7c725edcdc3a6a5dc5194dba5f",
+      "after_output_sha256": "2f05e622d0c049df37d27a32557ad3548b35da7c725edcdc3a6a5dc5194dba5f",
+      "proof_status": "unknown",
+      "proof_model": "luau-acyclic-use-def-v2",
+      "runtime_status": "unavailable",
+      "output_changed": false
+    }
+  ],
+  "approved_outputs": [],
+  "summary": {
+    "cases_before": 33,
+    "cases_after": 33,
+    "failures": 0,
+    "reviewed_exceptions": 0,
+    "output_changes": 0,
+    "current_proofs": {
+      "different": 2,
+      "proved": 11,
+      "unknown": 20
+    }
+  },
+  "contract": "Per-case gates; no aggregate improvement cancels an individual regression. Unknown/different are not proof. Reviewed exceptions are exact, hash-bound and visible; runtime/status/compile/input failures cannot be waived. A passed finite test gate does not prove universal equivalence or human readability.",
+  "evidence": {
+    "before_sha256": "295a9ade16e2063061a176db2478c828f26098c325948d93e5d0283a58d13a1c",
+    "after_sha256": "8a5ca69788464e23d33aed1b14d1b3fd171b310a4a733b6c57dce6903b13f4bf",
+    "allowlist_sha256": null
+  }
+}

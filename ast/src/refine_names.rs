@@ -72,6 +72,8 @@ pub struct Report {
 struct Node {
     local: RcLocal,
     before: String,
+    intent: crate::BindingIntent,
+    method_receiver: bool,
     kind: &'static str,
     scope: Option<usize>,
     ambiguous_owner: bool,
@@ -371,7 +373,9 @@ impl Graph {
                 return None;
             }
             let data = local.0.lock();
-            let before = data.0.clone().unwrap_or_default();
+            let before = data.rendered_name().unwrap_or_default().to_owned();
+            let intent = data.4.intent;
+            let method_receiver = data.4.method_receiver;
             let source_protected = !data.2.is_empty();
             let mut candidates = vec![Candidate {
                 name: before.clone(),
@@ -389,7 +393,7 @@ impl Graph {
                     from_binding: None,
                 });
             }
-            if data.4.conditional_result && !data.4.parameter && generated(&before) {
+            if data.4.conditional_result && !data.4.parameter && intent.is_inferred() {
                 candidates.push(Candidate {
                     name: "selected".into(), priority: 40,
                     reason: "preserved_conditional_result",
@@ -406,6 +410,8 @@ impl Graph {
                 Node {
                     local: local.clone(),
                     before,
+                    intent,
+                    method_receiver,
                     kind: "external",
                     scope: None,
                     ambiguous_owner: false,
@@ -999,8 +1005,8 @@ impl Graph {
             for (value, state) in std::mem::take(&mut self.state_reads) {
                 let Some(node) = self.nodes.get(&state) else { continue; };
                 let name = match self.best(state) {
-                    Some((name, priority)) if (generated(&node.before) || weak(node)) && priority >= rename_floor(node) => Some(name),
-                    _ if generated(&node.before) => None,
+                    Some((name, priority)) if (node.intent.is_inferred() || weak(node)) && priority >= rename_floor(node) => Some(name),
+                    _ if node.intent.is_inferred() => None,
                     _ => Some(node.before.clone()),
                 };
                 if self.immutable(value)
@@ -1053,13 +1059,13 @@ impl Graph {
                 "budget_exhausted"
             } else if node.source_protected {
                 "source_protected"
-            } else if node.before == "self" {
+            } else if node.method_receiver || node.before == "self" {
                 "method_receiver_protected"
             } else if node.ambiguous_owner || node.scope.is_none() {
                 "unknown_owner"
             } else if node.overflow {
                 "candidate_budget_exhausted"
-            } else if !(generated(&node.before) || generic_parameter || module_key || weak(node)) {
+            } else if !(node.intent.is_inferred() || generic_parameter || module_key || weak(node)) {
                 "kept_existing_role"
             } else {
                 let floor = rename_floor(node);
@@ -1105,7 +1111,9 @@ impl Graph {
             if let Some(base) = proposals.get(id) {
                 let node = &self.nodes[id];
                 let name = reserved.allocate(base, node.scope);
-                node.local.0.lock().0 = Some(name);
+                let mut local = node.local.0.lock();
+                local.4.intent = crate::BindingIntent::Named;
+                local.0 = Some(name);
                 if self.options.emit_report { statuses.insert(*id, "renamed"); }
                 self.report.renamed += 1;
             }

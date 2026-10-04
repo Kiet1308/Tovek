@@ -8310,6 +8310,8 @@ thread_local! {
 #[cfg(test)]
 mod terminal_block_regressions;
 
+mod plan;
+
 /// Read-only proof and emission. The caller retains the original CFG for a
 /// possible certified fallback without cloning it for the speculative pass.
 pub fn lift_attempt_borrowed_with_ignored_locals(
@@ -8341,6 +8343,11 @@ pub fn lift_attempt_borrowed_with_ignored_locals(
         if ast::env_flag!("MEDAL_DEBUG_RESTRUCTURE") {
             eprintln!("source-like first attempt id={} -> Structured({} stmts)", function.id, block.len());
         }
+        local_ids.committed = true;
+        return StructureAttempt::Structured(block);
+    }
+    if let Some(plan) = plan::RegionPlan::prove(function) {
+        let block = plan.materialize();
         local_ids.committed = true;
         return StructureAttempt::Structured(block);
     }

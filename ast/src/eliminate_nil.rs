@@ -31,9 +31,9 @@
 //! * A closure capturing `x` by `Upvalue::Ref` can mutate the parent cell via a
 //!   call we cannot see through, so any *captured* local (Copy or Ref) is
 //!   excluded entirely and never tracked or deleted. The exclusion set is
-//!   computed over the WHOLE tree up front (`collect_usage` recurses into every
-//!   nested block and closure), so a capture textually later than a store is
-//!   still seen.
+//!   computed over the WHOLE tree up front, including every nested block and
+//!   closure, so a capture textually later than a store is still seen. Unknown
+//!   captures (work bound or locked body) refuse this optional pass unchanged.
 //! * A loop body runs 0+ times with loop-carried state, so its body is analysed
 //!   from an EMPTY incoming set (assume nothing at the loop head) and, after the
 //!   loop, every local the body could write — *including* the for-loop control
@@ -58,29 +58,36 @@ use rustc_hash::FxHashSet;
 use triomphe::Arc;
 
 use crate::{
-    inline_temps::collect_usage, Assign, Block, LValue, Literal, LocalRw, RValue, RcLocal,
+    analysis_session::{any_statement_bounded, AnalysisSession, ChangeSet},
+    Assign, Block, LValue, Literal, LocalRw, RValue, RcLocal,
     Statement, Traverse,
 };
 
 /// Delete redundant `x = nil` stores throughout `block`, its nested blocks, and
 /// its closures. See the module docs for the soundness argument.
 pub fn eliminate_redundant_nil(block: &mut Block) {
+    eliminate_redundant_nil_with_analysis(block, &mut AnalysisSession::new());
+}
+
+pub fn eliminate_redundant_nil_with_analysis(block: &mut Block, session: &mut AnalysisSession) {
     // Only a bare `x = nil` store can be deleted; skip the census without one.
-    if !block.any_statement_deep(&mut |statement| matches!(statement, Statement::Assign(assign)
+    match any_statement_bounded(block, &mut |statement| matches!(statement, Statement::Assign(assign)
         if !assign.prefix && !assign.parallel && assign.left.len() == 1 && assign.right.len() == 1
             && matches!(assign.left[0], LValue::Local(_))
             && matches!(assign.right[0], RValue::Literal(Literal::Nil))))
     {
-        return;
+        Some(true) => {}
+        Some(false) => return,
+        None => { session.refuse(); return; }
     }
-    let usage = collect_usage(block);
-    let excluded: FxHashSet<RcLocal> = usage
-        .into_iter()
-        .filter(|(_, u)| u.captured)
-        .map(|(local, _)| local)
-        .collect();
+    let Some((revision, excluded)) = session.take_captures(block) else {
+        session.refuse();
+        return;
+    };
     let mut nil = FxHashSet::default();
-    walk(&mut block.0, &mut nil, &excluded);
+    let mut changes = ChangeSet::capture_preserving();
+    walk(&mut block.0, &mut nil, &excluded, &mut changes);
+    session.publish_captures(block, revision, excluded, changes);
 }
 
 /// Whether a statement list contains an unstructured jump at its own level.
@@ -95,7 +102,7 @@ fn contains_goto_or_label(statements: &[Statement]) -> bool {
 /// (`Closure`'s `Traverse` impl does not descend into its body, so a closure
 /// nested inside another closure is reached by that body's own walk — no
 /// double-processing.)
-fn clean_closures(statement: &mut Statement, excluded: &FxHashSet<RcLocal>) {
+fn clean_closures(statement: &mut Statement, excluded: &FxHashSet<u64>, changes: &mut ChangeSet) {
     let mut functions = Vec::new();
     statement.post_traverse_rvalues(&mut |rvalue| -> Option<()> {
         if let RValue::Closure(closure) = rvalue {
@@ -105,7 +112,7 @@ fn clean_closures(statement: &mut Statement, excluded: &FxHashSet<RcLocal>) {
     });
     for function in functions {
         let mut nil = FxHashSet::default();
-        walk(&mut function.lock().body.0, &mut nil, excluded);
+        walk(&mut function.lock().body.0, &mut nil, excluded, changes);
     }
 }
 
@@ -140,11 +147,12 @@ fn walk_loop_body(
     block: &Arc<Mutex<Block>>,
     control: &[RcLocal],
     nil: &mut FxHashSet<RcLocal>,
-    excluded: &FxHashSet<RcLocal>,
+    excluded: &FxHashSet<u64>,
+    changes: &mut ChangeSet,
 ) {
     let mut body = block.lock();
     let mut body_nil = FxHashSet::default();
-    walk(&mut body.0, &mut body_nil, excluded);
+    walk(&mut body.0, &mut body_nil, excluded, changes);
     let mut written = FxHashSet::default();
     collect_written(&body.0, &mut written);
     for local in control {
@@ -155,18 +163,18 @@ fn walk_loop_body(
 
 /// Independently clean a statement's nested blocks (each from an empty set),
 /// without threading any `nil` state. Used only on the bail path.
-fn clean_child_blocks(statement: &mut Statement, excluded: &FxHashSet<RcLocal>) {
+fn clean_child_blocks(statement: &mut Statement, excluded: &FxHashSet<u64>, changes: &mut ChangeSet) {
     let mut empty = FxHashSet::default();
     match statement {
         Statement::If(r#if) => {
-            walk(&mut r#if.then_block.lock().0, &mut empty, excluded);
+            walk(&mut r#if.then_block.lock().0, &mut empty, excluded, changes);
             empty.clear();
-            walk(&mut r#if.else_block.lock().0, &mut empty, excluded);
+            walk(&mut r#if.else_block.lock().0, &mut empty, excluded, changes);
         }
-        Statement::While(r#while) => walk(&mut r#while.block.lock().0, &mut empty, excluded),
-        Statement::Repeat(repeat) => walk(&mut repeat.block.lock().0, &mut empty, excluded),
-        Statement::NumericFor(nf) => walk(&mut nf.block.lock().0, &mut empty, excluded),
-        Statement::GenericFor(gf) => walk(&mut gf.block.lock().0, &mut empty, excluded),
+        Statement::While(r#while) => walk(&mut r#while.block.lock().0, &mut empty, excluded, changes),
+        Statement::Repeat(repeat) => walk(&mut repeat.block.lock().0, &mut empty, excluded, changes),
+        Statement::NumericFor(nf) => walk(&mut nf.block.lock().0, &mut empty, excluded, changes),
+        Statement::GenericFor(gf) => walk(&mut gf.block.lock().0, &mut empty, excluded, changes),
         _ => {}
     }
 }
@@ -176,7 +184,7 @@ fn clean_child_blocks(statement: &mut Statement, excluded: &FxHashSet<RcLocal>) 
 fn is_redundant_nil_store(
     assign: &Assign,
     nil: &FxHashSet<RcLocal>,
-    excluded: &FxHashSet<RcLocal>,
+    excluded: &FxHashSet<u64>,
 ) -> bool {
     if assign.prefix || assign.parallel || assign.left.len() != 1 || assign.right.len() != 1 {
         return false;
@@ -185,18 +193,18 @@ fn is_redundant_nil_store(
         return false;
     };
     matches!(&assign.right[0], RValue::Literal(Literal::Nil))
-        && !excluded.contains(target)
+        && !excluded.contains(&target.stable_id())
         && nil.contains(target)
 }
 
 /// Apply a (non-deleted) assignment's effect on the definitely-nil set.
-fn apply_assign(assign: &Assign, nil: &mut FxHashSet<RcLocal>, excluded: &FxHashSet<RcLocal>) {
+fn apply_assign(assign: &Assign, nil: &mut FxHashSet<RcLocal>, excluded: &FxHashSet<u64>) {
     if assign.prefix {
         // `local a, b` (no initializers) — every declared local starts nil.
         if assign.right.is_empty() {
             for lvalue in &assign.left {
                 if let LValue::Local(local) = lvalue {
-                    if !excluded.contains(local) {
+                    if !excluded.contains(&local.stable_id()) {
                         nil.insert(local.clone());
                     }
                 }
@@ -210,7 +218,7 @@ fn apply_assign(assign: &Assign, nil: &mut FxHashSet<RcLocal>, excluded: &FxHash
         for (i, lvalue) in assign.left.iter().enumerate() {
             if let LValue::Local(local) = lvalue {
                 if matches!(assign.right.get(i), Some(RValue::Literal(Literal::Nil)))
-                    && !excluded.contains(local)
+                    && !excluded.contains(&local.stable_id())
                 {
                     nil.insert(local.clone());
                 } else {
@@ -226,7 +234,7 @@ fn apply_assign(assign: &Assign, nil: &mut FxHashSet<RcLocal>, excluded: &FxHash
     if !assign.parallel && assign.left.len() == 1 && assign.right.len() == 1 {
         if let LValue::Local(local) = &assign.left[0] {
             if matches!(&assign.right[0], RValue::Literal(Literal::Nil)) {
-                if !excluded.contains(local) {
+                if !excluded.contains(&local.stable_id()) {
                     nil.insert(local.clone());
                 }
             } else {
@@ -250,7 +258,8 @@ fn apply_assign(assign: &Assign, nil: &mut FxHashSet<RcLocal>, excluded: &FxHash
 fn walk(
     statements: &mut Vec<Statement>,
     nil: &mut FxHashSet<RcLocal>,
-    excluded: &FxHashSet<RcLocal>,
+    excluded: &FxHashSet<u64>,
+    changes: &mut ChangeSet,
 ) {
     // Unstructured control flow at this level: clean nested blocks/closures
     // independently but do not delete or track here. Report the conservative
@@ -260,16 +269,17 @@ fn walk(
         let mut written = FxHashSet::default();
         collect_written(statements, &mut written);
         for statement in statements.iter_mut() {
-            clean_closures(statement, excluded);
-            clean_child_blocks(statement, excluded);
+            clean_closures(statement, excluded, changes);
+            clean_child_blocks(statement, excluded, changes);
         }
         nil.retain(|local| !written.contains(local));
         return;
     }
 
+    let mut removed = Vec::new();
     let mut index = 0;
     while index < statements.len() {
-        clean_closures(&mut statements[index], excluded);
+        clean_closures(&mut statements[index], excluded, changes);
 
         // Decide deletion with a shared borrow that ends before the `remove`.
         let delete = matches!(
@@ -277,9 +287,13 @@ fn walk(
             Statement::Assign(assign) if is_redundant_nil_store(assign, nil, excluded)
         );
         if delete {
-            statements.remove(index);
-            // `x` is still nil; `nil` is unchanged. Do not advance — the next
-            // statement now occupies `index`.
+            if let Statement::Assign(assign) = &statements[index]
+                && let LValue::Local(local) = &assign.left[0] { changes.touch(local); }
+            statements[index] = crate::Empty {}.into();
+            removed.push(index);
+            // The no-op store contains no closures and changes no capture.
+            // Keep indices stable and compact once after the forward walk.
+            index += 1;
             continue;
         }
 
@@ -287,23 +301,23 @@ fn walk(
             Statement::Assign(assign) => apply_assign(assign, nil, excluded),
             Statement::If(r#if) => {
                 let mut then_nil = nil.clone();
-                walk(&mut r#if.then_block.lock().0, &mut then_nil, excluded);
+                walk(&mut r#if.then_block.lock().0, &mut then_nil, excluded, changes);
                 let mut else_nil = nil.clone();
-                walk(&mut r#if.else_block.lock().0, &mut else_nil, excluded);
+                walk(&mut r#if.else_block.lock().0, &mut else_nil, excluded, changes);
                 // Merge = intersection: definitely-nil after the `if` only if
                 // definitely-nil on BOTH arms. This only shrinks `nil`, so it can
                 // never wrongly mark a local nil.
                 nil.retain(|local| then_nil.contains(local) && else_nil.contains(local));
             }
-            Statement::While(r#while) => walk_loop_body(&r#while.block, &[], nil, excluded),
-            Statement::Repeat(repeat) => walk_loop_body(&repeat.block, &[], nil, excluded),
+            Statement::While(r#while) => walk_loop_body(&r#while.block, &[], nil, excluded, changes),
+            Statement::Repeat(repeat) => walk_loop_body(&repeat.block, &[], nil, excluded, changes),
             Statement::NumericFor(nf) => {
                 let control = [nf.counter.clone()];
-                walk_loop_body(&nf.block, &control, nil, excluded);
+                walk_loop_body(&nf.block, &control, nil, excluded, changes);
             }
             Statement::GenericFor(gf) => {
                 let control = gf.res_locals.clone();
-                walk_loop_body(&gf.block, &control, nil, excluded);
+                walk_loop_body(&gf.block, &control, nil, excluded, changes);
             }
             // Only Assign and loops write bare locals; this is belt-and-braces.
             other => {
@@ -313,6 +327,16 @@ fn walk(
             }
         }
         index += 1;
+    }
+    if !removed.is_empty() {
+        let mut removed = removed.into_iter().peekable();
+        let mut index = 0;
+        statements.retain(|_| {
+            let keep = removed.peek() != Some(&index);
+            if !keep { removed.next(); }
+            index += 1;
+            keep
+        });
     }
 }
 

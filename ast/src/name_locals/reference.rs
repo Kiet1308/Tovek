@@ -450,9 +450,31 @@ pub(super) fn prepare(block: &Block, collect_evidence: bool) -> super::NamingPre
     let definitions = definitions.into_iter().map(|(binder, parameters)| {
         (binder, parameters.iter().map(|local| ParameterIdentity::of(local)).collect())
     }).collect();
+    fn occurrences(block: &Block, out: &mut super::NamingOccurrences) {
+        for statement in &block.0 {
+            collect_closures_in_statement(statement, &mut |closure| {
+                let function = closure.function.lock();
+                for parameter in &function.parameters { out.note(parameter); }
+                occurrences(&function.body, out);
+            });
+            match statement {
+                Statement::If(node) => {
+                    occurrences(&node.then_block.lock(), out);
+                    occurrences(&node.else_block.lock(), out);
+                }
+                Statement::While(node) => occurrences(&node.block.lock(), out),
+                Statement::Repeat(node) => occurrences(&node.block.lock(), out),
+                Statement::NumericFor(node) => occurrences(&node.block.lock(), out),
+                Statement::GenericFor(node) => occurrences(&node.block.lock(), out),
+                _ => {}
+            }
+        }
+    }
+    let mut occurrence_counts = super::NamingOccurrences::default();
+    occurrences(block, &mut occurrence_counts);
     super::NamingPreparation { create_element_aliases: old.create_element_aliases,
         collapse_candidates: old.collapse_candidates, class_signal_locals: old.class_signal_locals,
-        field_aliases, callee_aliases, counts, identities, definitions,
+        field_aliases, callee_aliases, counts, occurrences: occurrence_counts, identities, definitions,
         invalid_definitions: FxHashSet::default() }
 }
 

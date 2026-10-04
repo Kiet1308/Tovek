@@ -206,6 +206,35 @@ pub enum Instruction {
 impl Instruction {
     pub fn parse(input: &[u8]) -> IResult<&[u8], Self> {
         let (input, instruction) = RawInstruction::parse(input)?;
+        // B/C are nine-bit fields. Validate before narrowing to register/count
+        // bytes, and before constructing ranges with byte-sized endpoints.
+        let operands_fit = match &instruction {
+            RawInstruction(OperationCode::Move | OperationCode::GetUpvalue | OperationCode::SetUpvalue
+                | OperationCode::GetIndex | OperationCode::Minus | OperationCode::Not
+                | OperationCode::Length, Layout::BC { b, .. }) => *b <= u8::MAX as u16,
+            RawInstruction(OperationCode::LoadNil, Layout::BC { a, b, .. }) =>
+                *b <= u8::MAX as u16 && *b >= u16::from(*a),
+            RawInstruction(OperationCode::LoadBoolean, Layout::BC { b, c, .. }) => *b <= 1 && *c <= 1,
+            RawInstruction(OperationCode::PrepMethodCall, Layout::BC { a, b, .. }) =>
+                a.checked_add(1).is_some() && *b <= u8::MAX as u16,
+            RawInstruction(OperationCode::Concatenate, Layout::BC { b, c, .. }) =>
+                *b < *c && *c <= u8::MAX as u16,
+            RawInstruction(OperationCode::Equal | OperationCode::LessThan | OperationCode::LessThanOrEqual,
+                Layout::BC { a, .. }) => *a <= 1,
+            RawInstruction(OperationCode::Test, Layout::BC { c, .. }) => *c <= 1,
+            RawInstruction(OperationCode::TestSet, Layout::BC { b, c, .. }) => *b <= u8::MAX as u16 && *c <= 1,
+            RawInstruction(OperationCode::Call, Layout::BC { b, c, .. }) => *b <= u8::MAX as u16 && *c <= u8::MAX as u16,
+            RawInstruction(OperationCode::TailCall | OperationCode::Return | OperationCode::SetList | OperationCode::VarArg,
+                Layout::BC { b, .. }) => *b <= u8::MAX as u16,
+            RawInstruction(OperationCode::IterateNumericForLoop | OperationCode::InitNumericForLoop,
+                Layout::BSx { a, .. }) => a.checked_add(3).is_some(),
+            RawInstruction(OperationCode::IterateGenericForLoop, Layout::BC { a, c, .. }) =>
+                *c != 0 && usize::from(*a) + 2 + usize::from(*c) <= usize::from(u8::MAX),
+            _ => true,
+        };
+        if !operands_fit {
+            return Err(Err::Failure(Error::from_error_kind(input, ErrorKind::Verify)));
+        }
         let instruction = match instruction {
             RawInstruction(OperationCode::Move, Layout::BC { a, b, .. }) => Self::Move {
                 destination: Register(a),
@@ -359,13 +388,13 @@ impl Instruction {
             }
             RawInstruction(OperationCode::IterateNumericForLoop, Layout::BSx { a, b_sx }) => {
                 Self::IterateNumericForLoop {
-                    control: (a..=a + 4).map(Register).collect(),
+                    control: (a..=a + 3).map(Register).collect(),
                     skip: b_sx,
                 }
             }
             RawInstruction(OperationCode::InitNumericForLoop, Layout::BSx { a, b_sx }) => {
                 Self::InitNumericForLoop {
-                    control: (a..=a + 4).map(Register).collect(),
+                    control: (a..=a + 3).map(Register).collect(),
                     skip: b_sx,
                 }
             }
@@ -374,13 +403,9 @@ impl Instruction {
                     generator: Register(a),
                     state: Register(a + 1),
                     internal_control: Register(a + 2),
-                    vars: (a + 3..a + 3 + c as u8).map(Register).collect(),
+                    vars: (usize::from(a) + 3..usize::from(a) + 3 + usize::from(c))
+                        .map(|register| Register(register as u8)).collect(),
                 };
-                // must have at least external control variable
-                assert!(match &res {
-                    Self::IterateGenericForLoop { vars, .. } => !vars.is_empty(),
-                    _ => unreachable!(),
-                });
                 res
             }
             RawInstruction(OperationCode::SetList, Layout::BC { a, b, c }) => Self::SetList {
@@ -405,5 +430,29 @@ impl Instruction {
         };
 
         Ok((input, instruction))
+    }
+}
+
+#[cfg(test)]
+mod validation_tests {
+    use super::*;
+
+    #[test]
+    fn operand_widths_and_loop_ranges_fail_before_narrowing_or_overflow() {
+        let abc = |op: u32, a: u32, b: u32, c: u32| (op | (a << 6) | (c << 14) | (b << 23)).to_le_bytes();
+        for bytes in [
+            abc(0, 0, 256, 0), // MOVE with a nine-bit register
+            abc(11, 255, 0, 0), // SELF needs A+1
+            abc(21, 0, 2, 1), // CONCAT has a reversed range
+            abc(28, 0, 256, 1), // CALL count would truncate
+            abc(33, 0, 0, 0), // TFORLOOP needs an external result
+            abc(33, 254, 0, 1), // TFORLOOP register range overflows
+            abc(3, 10, 9, 0), // LOADNIL reversed range
+        ] { assert!(Instruction::parse(&bytes).is_err(), "{bytes:?}"); }
+        let numeric = 31u32 | (252 << 6);
+        assert!(matches!(Instruction::parse(&numeric.to_le_bytes()),
+            Ok(([], Instruction::IterateNumericForLoop { control, .. })) if control.len() == 4));
+        let overflow = 31u32 | (253 << 6);
+        assert!(Instruction::parse(&overflow.to_le_bytes()).is_err());
     }
 }

@@ -2070,6 +2070,14 @@ mod copy_sharing_regressions {
                     eval(&f, &[Value::Number(11.0), Value::Boolean(false)]),
                     eval(&f, &[Value::Number(11.0), Value::Boolean(true)]),
                 ];
+                let mut sparse = f.deep_clone();
+                Liveness::with_sparse_solver(|| {
+                    Destructor::new(&mut sparse, IndexMap::default(), FxHashSet::default(), 32).destruct();
+                });
+                assert_eq!(before, [
+                    eval(&sparse, &[Value::Number(11.0), Value::Boolean(false)]),
+                    eval(&sparse, &[Value::Number(11.0), Value::Boolean(true)]),
+                ], "sparse liveness copies={copies} keep={keep}");
                 Destructor::new(&mut f, IndexMap::default(), FxHashSet::default(), 32).destruct();
                 let after = [
                     eval(&f, &[Value::Number(11.0), Value::Boolean(false)]),

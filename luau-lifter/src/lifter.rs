@@ -147,9 +147,9 @@ impl<'a> Lifter<'a> {
             let parameter = ast::RcLocal::default();
             let mut ranges = Vec::new();
             self.debug_ranges.covering(i, 0, &mut ranges);
-            let mut names = ranges.into_iter()
+            let names = ranges.into_iter()
                 .filter_map(|index| self.debug_bindings[index].as_ref());
-            if let (Some(binding), None) = (names.next(), names.next()) {
+            if let crate::metadata_index::MetadataMatch::Unique(binding) = crate::metadata_index::unique_match(names) {
                 parameter.0.lock().add_source_binding(binding.clone());
             }
             self.function.parameters.push(parameter.clone());
@@ -216,13 +216,9 @@ impl<'a> Lifter<'a> {
 
     fn debug_binding(&self, local: &super::deserializer::function::DebugLocal) -> Option<ast::SourceBinding> {
         let proto = &self.function_list[self.function.id];
-        if local.start_pc >= local.end_pc || local.end_pc > proto.instructions.len()
-            || local.register >= proto.max_stack_size { return None; }
-        Some(ast::SourceBinding {
-            origin: ast::BindingOrigin::DebugLocal { prototype: self.function.id,
-                register: local.register, start_pc: local.start_pc, end_pc: local.end_pc },
-            name: self.debug_name(local.name_index)?,
-        })
+        crate::metadata_index::debug_binding(self.function.id, local.name_index, local.register,
+            local.start_pc..local.end_pc, proto.instructions.len(),
+            proto.max_stack_size, self.string_table)
     }
 
     fn record_typed_local_hints(&mut self, statements: &[ast::Statement], pcs: &[usize]) {
@@ -288,8 +284,8 @@ impl<'a> Lifter<'a> {
                         self.debug_ranges.starting_after_through(register, pc, through, &mut ranges);
                     }
                 }
-                let mut bindings = ranges.iter().filter_map(|&index| self.debug_bindings[index].as_ref());
-                if let (Some(binding), None) = (bindings.next(), bindings.next()) {
+                let bindings = ranges.iter().filter_map(|&index| self.debug_bindings[index].as_ref());
+                if let crate::metadata_index::MetadataMatch::Unique(binding) = crate::metadata_index::unique_match(bindings) {
                     self.function.local_source_bindings.entry((node, base + index, written_index)).or_default().push(binding.clone());
                 }
                 ranges.clear();

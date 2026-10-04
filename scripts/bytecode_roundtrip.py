@@ -1339,14 +1339,15 @@ def main() -> int:
 
     report = {"summary": summary, "files": results}
     if args.write_baseline:
+        from refresh_bytecode_baseline import summarize as summarize_baseline
         compact = {
-            "summary": {k: summary[k] for k in ("inputs", "protos", "exact", "equiv", "differ", "missing", "extra", "equiv_ratio")},
             "files": [
                 {"file": r["file"], "status": r["status"], "nonequiv": r.get("nonequiv", 0),
                  "protos": r.get("protos", 0)}
                 for r in results
             ],
         }
+        compact["summary"] = summarize_baseline(compact)
         pathlib.Path(args.write_baseline).write_text(json.dumps(compact, indent=1), encoding="utf-8")
     if args.report:
         pathlib.Path(args.report).write_text(json.dumps(report, indent=1), encoding="utf-8")

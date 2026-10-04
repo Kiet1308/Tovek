@@ -200,6 +200,9 @@ jobs:
         run: |
           set -euo pipefail
           python3 -m unittest discover -s scripts -p 'test_*.py'
+          python3 scripts/refresh_bytecode_baseline.py \
+            docs/bytecode_roundtrip/baseline_residual_control_flow.json \
+            docs/bytecode_roundtrip/baseline_semantic_roundtrip.json
           python3 scripts/output_size.py \
             --root "residual=$RUNNER_TEMP/residual-control-strict" \
             --root "semantic=$RUNNER_TEMP/semantic-roundtrip/out" \
@@ -408,6 +411,52 @@ jobs:
             --keep "$RUNNER_TEMP/roadmap-v2-public" \
             --report "$RUNNER_TEMP/roadmap-v2-public.json"
 
+      - name: Compare per-case semantics and presentation with the PR base
+        env:
+          QUALITY_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          set -euo pipefail
+          if [[ ! "$QUALITY_BASE" =~ ^[0-9a-f]{40}$ || "$QUALITY_BASE" =~ ^0+$ ]]; then
+            echo 'No valid base commit for the quality comparison' >&2
+            exit 1
+          fi
+          git fetch --no-tags --depth 1 origin "$QUALITY_BASE"
+          git worktree add --detach "$RUNNER_TEMP/quality-base" FETCH_HEAD
+          CARGO_TARGET_DIR="$RUNNER_TEMP/quality-base-target" \
+            cargo +nightly-2026-06-15 build --release --locked \
+              --manifest-path "$RUNNER_TEMP/quality-base/Cargo.toml" -p luau-lifter --bin luau-lifter
+          # Both engines run the current, identical frozen fixtures and tools.
+          # This avoids comparing binaries from different compiler builds.
+          python3 scripts/roadmap_v2.py \
+            --compiler "$RUNNER_TEMP/luau-build/luau-compile" \
+            --luau "$RUNNER_TEMP/luau-build/luau" \
+            --lifter "$RUNNER_TEMP/quality-base-target/release/luau-lifter" \
+            --ast "$RUNNER_TEMP/luau-build/luau-ast" --determinism \
+            --keep "$RUNNER_TEMP/quality-base-runtime" \
+            --report "$RUNNER_TEMP/quality-base-runtime.json"
+          python3 scripts/public_source_roundtrip.py \
+            --vendor "$RUNNER_TEMP/roadmap-v2-vendor" \
+            --compiler "$RUNNER_TEMP/luau-build/luau-compile" \
+            --lifter "$RUNNER_TEMP/quality-base-target/release/luau-lifter" \
+            --ast "$RUNNER_TEMP/luau-build/luau-ast" \
+            --keep "$RUNNER_TEMP/quality-base-public" \
+            --report "$RUNNER_TEMP/quality-base-public.json"
+          python3 scripts/quality_gate.py freeze \
+            --input runtime-v9="$RUNNER_TEMP/quality-base-runtime.json" \
+            --input public-v9="$RUNNER_TEMP/quality-base-public.json" \
+            --report "$RUNNER_TEMP/quality-before.json"
+          python3 scripts/quality_gate.py freeze \
+            --input runtime-v9="$RUNNER_TEMP/roadmap-v2.json" \
+            --input public-v9="$RUNNER_TEMP/roadmap-v2-public.json" \
+            --report "$RUNNER_TEMP/quality-after.json"
+          python3 scripts/quality_gate.py compare \
+            --before "$RUNNER_TEMP/quality-before.json" \
+            --after "$RUNNER_TEMP/quality-after.json" \
+            --allowlist docs/quality/reviewed_changes.json \
+            --metric discard_locals --metric require_field_relays \
+            --metric generated_single_use_AstExprLocal \
+            --report "$RUNNER_TEMP/quality-gate.json"
+
       - name: V2 static module summaries and require cycles
         run: |
           python3 scripts/module_summaries.py \
@@ -479,6 +528,7 @@ jobs:
             ${{ runner.temp }}/bytecode-roundtrip-*.json
             ${{ runner.temp }}/bytecode-roundtrip-*.md
             ${{ runner.temp }}/output-size.json
+            ${{ runner.temp }}/quality-*.json
             ${{ runner.temp }}/roadmap-v2.json
             ${{ runner.temp }}/bytecode-v12.json
             ${{ runner.temp }}/roadmap-v2-lineage.json

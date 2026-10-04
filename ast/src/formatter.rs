@@ -2520,13 +2520,12 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
             .parameters
             .iter()
             .skip(1)
-            .any(|param| param.0.0.lock().0.as_deref() == Some("self"))
+            .any(RcLocal::is_method_receiver)
         {
             return false;
         }
 
-        let first_parameter_name = first_parameter.0.0.lock().0.clone();
-        if first_parameter_name.as_deref() == Some("self") {
+        if first_parameter.is_method_receiver() {
             return true;
         }
 
@@ -2548,18 +2547,10 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
     }
 
     fn statement_uses_local(statement: &Statement, local: &RcLocal) -> bool {
-        if statement
-            .values_read()
-            .into_iter()
-            .any(|read| read == local)
-        {
+        if statement.any_local_read(&mut |read| read == local) {
             return true;
         }
-        if statement
-            .values_written()
-            .into_iter()
-            .any(|written| written == local)
-        {
+        if statement.any_local_write(&mut |written| written == local) {
             return true;
         }
         if statement
@@ -2674,7 +2665,7 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
     }
 
     fn local_is_named_self(local: &RcLocal) -> bool {
-        local.0.0.lock().0.as_deref() == Some("self")
+        local.0.0.lock().rendered_name() == Some("self")
     }
 
     fn format_rvalue(&mut self, rvalue: &RValue) -> fmt::Result {

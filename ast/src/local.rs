@@ -9,6 +9,10 @@ use std::{
 };
 use triomphe::Arc;
 
+#[cfg(test)]
+#[path = "binding_presentation_tests.rs"]
+mod binding_presentation_tests;
+
 /// A local variable: its (eventual) source name, plus an optional naming hint
 /// derived from the compiler's bytecode type information (`vector`, `buffer`,
 /// `cframe`, ...).  The hint is attached by SSA construction from the lifter's
@@ -18,6 +22,36 @@ use triomphe::Arc;
 #[derive(Debug, Default, Clone, PartialEq, PartialOrd, Ord, Eq, Hash)]
 pub struct Local(pub Option<String>, pub Option<String>, pub Vec<SourceBinding>, pub Option<Box<BindingLineage>>, pub BindingRoles);
 
+/// Why an inferred binding is presented as a declaration. This is independent
+/// of its eventual spelling and never proves that its value can be moved.
+/// Recorded source bindings always override this policy.
+#[derive(Debug, Default, Clone, Copy, PartialEq, PartialOrd, Ord, Eq, Hash)]
+pub enum BindingIntent {
+    #[default]
+    Temporary,
+    Parameter,
+    Named,
+    Discard,
+}
+
+impl BindingIntent {
+    /// Compatibility at the AST construction boundary only. Once constructed,
+    /// renaming a binding cannot change transformation eligibility.
+    fn from_initial_name(name: Option<&str>) -> Self {
+        let Some(name) = name else { return Self::Temporary; };
+        let generated = |prefix| name.strip_prefix(prefix)
+            .is_some_and(|suffix| suffix.bytes().all(|byte| byte.is_ascii_digit()));
+        if generated('v') { Self::Temporary }
+        else if generated('p') { Self::Parameter }
+        else if name == "_" { Self::Discard }
+        else { Self::Named }
+    }
+
+    pub fn is_inferred(self) -> bool {
+        matches!(self, Self::Temporary | Self::Parameter)
+    }
+}
+
 /// Source presentation constraints, independent of storage ancestry and cell
 /// ownership. A conditional result is inferred, never a recovered source local.
 #[derive(Debug, Default, Clone, Copy, PartialEq, PartialOrd, Ord, Eq, Hash)]
@@ -25,6 +59,10 @@ pub struct BindingRoles {
     pub parameter: bool,
     pub conditional_result: bool,
     pub separate_from_parameter: bool,
+    pub intent: BindingIntent,
+    /// A confirmed/explicit receiver is emitted as `self`, even if a consumer
+    /// changes the display-name slot. Only a first parameter affects colon form.
+    pub method_receiver: bool,
 }
 
 /// Diagnostic ancestry of storage/SSA identities, not an equality or lifetime
@@ -151,13 +189,18 @@ pub(crate) fn constructor_preserves_function_name(statement: &crate::Statement, 
 
 impl From<Option<String>> for Local {
     fn from(name: Option<String>) -> Self {
-        Self(name, None, Vec::new(), None, BindingRoles::default())
+        Self::new(name)
     }
 }
 
 impl Local {
     pub fn new(name: Option<String>) -> Self {
-        Self(name, None, Vec::new(), None, BindingRoles::default())
+        let roles = BindingRoles {
+            intent: BindingIntent::from_initial_name(name.as_deref()),
+            method_receiver: name.as_deref() == Some("self"),
+            ..BindingRoles::default()
+        };
+        Self(name, None, Vec::new(), None, roles)
     }
 
     /// An unnamed local carrying a bytecode-type naming hint.
@@ -170,8 +213,13 @@ impl Local {
         self.1.as_deref()
     }
 
+    pub fn rendered_name(&self) -> Option<&str> {
+        if self.4.method_receiver { Some("self") } else { self.0.as_deref() }
+    }
+
     pub fn add_source_binding(&mut self, binding: SourceBinding) {
         if valid_source_name(&binding.name) && !self.2.contains(&binding) {
+            if binding.name != "self" { self.4.method_receiver = false; }
             self.2.push(binding);
             self.2.sort();
         }
@@ -193,7 +241,7 @@ impl Local {
 
 impl fmt::Display for Local {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match &self.0 {
+        match self.rendered_name() {
             Some(name) => write!(f, "{}", name),
             None => write!(f, "UNNAMED_LOCAL"),
         }
@@ -322,7 +370,7 @@ impl Infer for RcLocal {
 
 impl Display for RcLocal {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match &self.0.0.lock().0 {
+        match self.0.0.lock().rendered_name() {
             Some(name) => write!(f, "{}", name),
             None => {
                 let mut hasher = NoHashHasher::<u8>::default();
@@ -357,6 +405,25 @@ impl RcLocal {
         !local.2.is_empty() || local.4.conditional_result
     }
 
+    /// A presentation candidate only. Callers still prove reads/writes, capture
+    /// behavior, evaluation order and arity before transforming the binding.
+    pub fn is_inferred_temporary(&self) -> bool {
+        let local = self.0.lock();
+        local.2.is_empty() && !local.4.parameter && !local.4.conditional_result
+            && local.4.intent == BindingIntent::Temporary
+    }
+
+    pub fn is_method_receiver(&self) -> bool {
+        self.0.lock().4.method_receiver
+    }
+
+    pub fn mark_method_receiver(&self) {
+        let mut local = self.0.lock();
+        local.4.method_receiver = true;
+        local.4.intent = BindingIntent::Named;
+        local.0 = Some("self".into());
+    }
+
     pub fn inherit_source_bindings(&self, other: &Self) {
         if self == other { return; }
         let (evidence, lineage, roles) = {
@@ -368,6 +435,9 @@ impl RcLocal {
         local.4.parameter |= roles.parameter;
         local.4.conditional_result |= roles.conditional_result;
         local.4.separate_from_parameter |= roles.separate_from_parameter;
+        // Mandatory coalescing must not discard a retained readable role. A
+        // receiver role belongs to its binder, not to a value copied into it.
+        if roles.intent == BindingIntent::Named { local.4.intent = BindingIntent::Named; }
         for binding in evidence { local.add_source_binding(binding); }
         if let Some(lineage) = lineage {
             local.3.get_or_insert_with(Default::default).inherit(&lineage);

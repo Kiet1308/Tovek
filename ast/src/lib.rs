@@ -20,6 +20,7 @@ mod call;
 pub mod call_origins;
 pub mod node_origins;
 pub mod annotations;
+pub mod analysis_session;
 mod close;
 mod closure;
 mod r#continue;
