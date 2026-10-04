@@ -2743,6 +2743,32 @@ mod tests {
     }
 
     #[test]
+    fn invalid_duplicate_wrappers_fail_before_reusing_a_valid_memo() {
+        let temp = TestDir::new("invalid-duplicate-memo");
+        let work = Work {
+            input: temp.0.join("Module.lua"), output: temp.0.join("Module.luau"),
+            output_root: temp.0.clone(), rel: "Module.lua".into(), source_rel: "Module.luau".into(),
+            kind: WorkKind::RawBytecode, volt_export: None,
+        };
+        let memo = DuplicateMemo::default();
+        memo.get_or_compute(b"a", || panic!("empty memo cannot hit"), || {
+            Ok(luau_lifter::DecompileArtifact { source: "return 1".into(), upvalue_analysis: None })
+        }).unwrap();
+        let mut scratch = Vec::new();
+        // YQ== is canonical for b"a". YR== has nonzero trailing bits; YQ lacks
+        // required padding. All wrappers must fail even with a matching decoded
+        // artifact already in the memo, and repeated failures remain isolated.
+        for text in [b"YR==".as_slice(), b"-- duplicate\nY R==\n", b"YQ", b"bad!"] {
+            let (outcome, entry, unavailable, source) = process_one_preloaded(
+                &work, text, 1, &mut scratch, false, DecompileOptions::default(), None, None, Some(&memo),
+            );
+            assert!(matches!(outcome, Outcome::Fail(reason) if reason.starts_with("base64:")));
+            assert!(entry.is_none() && unavailable.is_none() && source.is_none());
+            assert!(!work.output.exists());
+        }
+    }
+
+    #[test]
     fn concurrent_atomic_writes_prepare_before_serialized_publication() {
         let directory = TestDir::new("parallel-publication");
         let root = std::fs::canonicalize(&directory.0).unwrap();

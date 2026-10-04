@@ -172,10 +172,9 @@ pub fn run_with_cache(
         // `PRELOAD_BUDGET`: the rest is read again where its group runs, so
         // memory does not grow with the folder.
         let preloaded = std::sync::atomic::AtomicUsize::new(0);
-        let (texts, payloads): (Vec<_>, Vec<_>) = work.par_iter().map_init(
-            || (Vec::new(), Vec::new()), |scratch, item| {
+        let (texts, payloads): (Vec<_>, Vec<_>) = work.par_iter().map_init(Vec::new, |scratch, item| {
             let text = std::fs::read(&item.input);
-            let payload = text.as_ref().ok().and_then(|text| payload_key(text, scratch));
+            let payload = text.as_ref().ok().map(|text| payload_key(text, scratch));
             let keep = text.as_ref().map_or(true, |bytes| {
                 let before = preloaded.fetch_add(bytes.len(), std::sync::atomic::Ordering::Relaxed);
                 before + bytes.len() <= PRELOAD_BUDGET
@@ -359,22 +358,21 @@ struct FolderDiagnostic {
 /// Input bytes kept from the grouping read for the decompile pass.
 const PRELOAD_BUDGET: usize = 64 << 20;
 
-/// A scheduling fingerprint, never an equality proof. Decode first so wrapper
-/// comments, whitespace and line boundaries cannot split equal computations.
-fn payload_key(text: &[u8], scratch: &mut (Vec<u8>, Vec<u8>)) -> Option<(u64, usize)> {
-    use base64::prelude::*;
+/// A scheduling fingerprint, never an equality proof. Hash the compact wrapper
+/// in one write so comments, whitespace and line boundaries do not split equal
+/// computations. STANDARD accepts only canonical base64, so equal decoded bytes
+/// have equal compact encodings. Every member still validates/decodes separately
+/// before exact-byte memo lookup; invalid wrappers never reuse an artifact.
+fn payload_key(text: &[u8], compact: &mut Vec<u8>) -> (u64, usize) {
     use std::hash::Hasher;
-    let (compact, bytecode) = scratch;
     crate::decompile_core::compact_wrapper_payload(text, compact);
-    bytecode.clear();
-    BASE64_STANDARD.decode_vec(compact.as_slice(), bytecode).ok()?;
     let mut hasher = rustc_hash::FxHasher::default();
-    hasher.write(bytecode);
-    Some((hasher.finish(), bytecode.len()))
+    hasher.write(compact);
+    (hasher.finish(), compact.len())
 }
 
 /// Work indices grouped by identical payload key and module hint, in input
-/// order. Unreadable/invalid inputs stay alone and fail in their own slot.
+/// order. Unreadable inputs stay alone and fail in their own slot.
 fn duplicate_groups(work: &[crate::decompile_core::Work], payloads: &[Option<(u64, usize)>]) -> Vec<Vec<usize>> {
     let mut contexts = rustc_hash::FxHashMap::default();
     let mut groups: Vec<Vec<usize>> = Vec::with_capacity(work.len());
@@ -753,8 +751,8 @@ mod tests {
         }).collect::<Vec<_>>();
         work[4].kind = WorkKind::SourceFallback;
         let texts: [&[u8]; 6] = [b"YWJj", b"ZGVm", b"-- comment\nY W\tJ\rj\n", b"YWJj", b"YWJj", b"bad!"];
-        let mut scratch = (Vec::new(), Vec::new());
-        let payloads = texts.iter().map(|text| payload_key(text, &mut scratch)).collect::<Vec<_>>();
+        let mut scratch = Vec::new();
+        let payloads = texts.iter().map(|text| Some(payload_key(text, &mut scratch))).collect::<Vec<_>>();
         assert_eq!(duplicate_groups(&work, &payloads), vec![vec![0, 2], vec![1], vec![3], vec![4], vec![5]]);
     }
     use super::*;
