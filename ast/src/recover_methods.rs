@@ -319,7 +319,7 @@ fn try_convert_method(owner: Owner, method: &str, closure: &crate::Closure, scan
     }
 
     // Already a `self` receiver (idempotence / pre-existing) — nothing to do.
-    if p0.0 .0.lock().0.as_deref() == Some("self") {
+    if p0.is_method_receiver() {
         return;
     }
 
@@ -331,7 +331,7 @@ fn try_convert_method(owner: Owner, method: &str, closure: &crate::Closure, scan
         .parameters
         .iter()
         .skip(1)
-        .any(|param| param.0 .0.lock().0.as_deref() == Some("self"))
+        .any(RcLocal::is_method_receiver)
     {
         return;
     }
@@ -360,7 +360,7 @@ fn try_convert_method(owner: Owner, method: &str, closure: &crate::Closure, scan
     // All gates passed: declare param[0] as `self`. Leave it IN the parameters
     // Vec — the formatter strips index 0 when rendering colon-form; popping it
     // would desync param/arg counts.
-    p0.0 .0.lock().0 = Some("self".into());
+    p0.mark_method_receiver();
 }
 
 #[derive(Default)]
@@ -581,7 +581,7 @@ fn rvalue_mentions_self_name(rvalue: &RValue) -> bool {
 }
 
 fn local_is_named_self(local: &RcLocal) -> bool {
-    local.0 .0.lock().0.as_deref() == Some("self")
+    local.0 .0.lock().rendered_name() == Some("self")
 }
 
 // ---------------------------------------------------------------------------

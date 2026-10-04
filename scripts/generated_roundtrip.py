@@ -15,6 +15,8 @@ import tempfile
 from roadmap_v2 import checked, compile_source, observation, sha256
 from bytecode_roundtrip import parse_chunk
 from bytecode_dataflow import compare_dataflow
+from output_quality import analyze_tree
+from source_fidelity import compare_ast, parse_ast
 
 
 VERSION = "scalar-branch-table-capture-loop-v1"
@@ -99,6 +101,7 @@ def check(args, units, directory, opt, debug):
     try:
         raw = compile_source(args, source, opt, debug)
         (directory / "input.luaubc").write_bytes(raw)
+        row["decoded_input_sha256"] = sha256(directory / "input.luaubc")
         row["failure"] = "decompile"
         output, elapsed = checked([args.lifter, directory / "input.luaubc", "--strict-no-synthetic-control"], timeout=args.timeout)
         emitted = directory / "output.luau"
@@ -106,7 +109,13 @@ def check(args, units, directory, opt, debug):
         row.update(output_sha256=sha256(emitted), decompile_seconds=elapsed)
         row["failure"] = "recompile"
         rebuilt = compile_source(args, emitted, opt, debug)
+        row["recompile"] = "passed"
         row["dataflow"] = compare_dataflow(parse_chunk(raw, 1), parse_chunk(rebuilt, 1))
+        if getattr(args, "ast", None):
+            source_ast = parse_ast(args.ast, source, args.timeout)
+            output_ast = parse_ast(args.ast, emitted, args.timeout)
+            row["source_fidelity"] = compare_ast(source_ast, output_ast)
+            row["output_quality"] = analyze_tree(output_ast, output.decode("utf-8"))
         row["failure"] = "runtime"
         observations = {}
         for variant in ("source", "output"):
@@ -132,12 +141,15 @@ def main():
     parser.add_argument("--seed-start", type=int, default=0)
     parser.add_argument("--seeds", type=int, default=12)
     parser.add_argument("--timeout", type=float, default=10)
+    parser.add_argument("--ast", type=pathlib.Path, help="pinned luau-ast for the per-case presentation regression gate")
     parser.add_argument("--reduce", action="store_true")
     parser.add_argument("--keep", type=pathlib.Path, required=True)
     parser.add_argument("--report", type=pathlib.Path, required=True)
     args = parser.parse_args()
     for name in ("compiler", "lifter", "luau"):
         setattr(args, name, getattr(args, name).resolve(strict=True))
+    if args.ast:
+        args.ast = args.ast.resolve(strict=True)
     if args.seeds < 1:
         parser.error("--seeds must be positive")
     args.keep.mkdir(parents=True, exist_ok=True)
@@ -166,6 +178,8 @@ def main():
                         for name in ("compiler", "lifter", "luau")}, "work": str(work), "rows": rows,
               "summary": dict(collections.Counter(r["status"] for r in rows)),
               "limitations": "Finite generated grammar and runtime vectors; no exhaustive equivalence claim. Reducer preserves failure category, not necessarily root cause."}
+    if args.ast:
+        report["tools"]["ast"] = dict(path=str(args.ast), sha256=sha256(args.ast))
     args.report.parent.mkdir(parents=True, exist_ok=True)
     args.report.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8", newline="\n")
     print(json.dumps(report["summary"]))

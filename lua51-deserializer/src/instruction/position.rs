@@ -9,6 +9,9 @@ pub struct Position {
 impl Position {
     pub fn parse(input: &[u8]) -> IResult<&[u8], Vec<Self>> {
         let (input, positions_length) = le_u32(input)?;
+        if positions_length as usize > input.len() / 4 {
+            return Err(nom::Err::Failure(nom::error::Error::new(input, nom::error::ErrorKind::Count)));
+        }
         let (input, source_positions) = count(le_u32, positions_length as usize)(input)?;
 
         Ok((

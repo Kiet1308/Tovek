@@ -22,6 +22,10 @@
 
 mod statement_values;
 pub(crate) use statement_values::{visit_stmt_rvalues, visit_stmt_rvalues_mut};
+mod pattern_cache;
+use pattern_cache::{CompiledPattern, CompiledPatterns, PreparedPattern};
+#[cfg(test)]
+mod canonical_tests;
 
 use parking_lot::Mutex;
 use rustc_hash::{FxHashMap, FxHashSet};
@@ -367,9 +371,13 @@ struct Progress {
 }
 
 pub fn deinline(body: &mut Block) {
+    deinline_with_patterns(body, CompiledPatterns::default());
+}
+
+fn deinline_with_patterns(body: &mut Block, mut patterns: CompiledPatterns) {
     // Every rewrite needs a target; the module-wide censuses below are only
     // worth building when some helper passes the per-declaration gates.
-    if !any_structural_target(body) {
+    if !any_structural_target(body, &mut patterns) {
         crate::telemetry::count("skipped_without_targets", 1);
         return;
     }
@@ -423,7 +431,7 @@ pub fn deinline(body: &mut Block) {
             let _span = crate::telemetry::Span::new("D_COLLECT_TARGETS");
             let captures = initial_captures.take().unwrap_or_else(||
                 std::rc::Rc::new(crate::deinline_safety::CaptureSafety::new(body)));
-            let mut targets = collect_targets(body, &write_counts, captures);
+            let mut targets = collect_targets(body, &write_counts, captures, &mut patterns);
             crate::telemetry::count("accepted_targets", targets.len() as u64);
             if targets.len() > 256 {
                 crate::telemetry::count("target_budget_exhausted", 1);
@@ -493,6 +501,11 @@ pub fn deinline(body: &mut Block) {
             break;
         }
         converted.extend(newly.binders.iter().cloned());
+        // Canonical pattern syntax is reusable only for helpers whose owned
+        // body was not edited. Capture/call-graph and parameter-motion proofs
+        // are rebuilt above on every iteration, even for a reused pattern.
+        patterns.retain_unchanged(targets.into_iter().map(|target| (target.func_ptr,
+            CompiledPattern { kind: target.kind, falls_off: target.falls_off, pat: target.pat })), &newly.bodies);
         previous = Some(newly);
         if search.exhausted() { break; }
     }
@@ -1244,7 +1257,100 @@ pub(crate) fn canon(stmts: &[Statement]) -> Vec<Statement> {
 /// and the rewritten `value_tail_ret` window are NOT cached (they are rare and not
 /// a plain slice). The cache is cleared per position (`stmts` mutates on splice, so
 /// absolute indices are only valid within a single `try_match_at` call).
-type CanonCache = FxHashMap<(usize, usize), std::rc::Rc<Vec<Statement>>>;
+#[derive(Default)]
+struct CanonCache {
+    windows: FxHashMap<(usize, usize), std::rc::Rc<Vec<Statement>>>,
+    lengths: WindowLengths,
+}
+
+impl CanonCache {
+    fn clear(&mut self) {
+        self.windows.clear();
+        self.lengths.clear();
+    }
+
+    fn top_len(&mut self, stmts: &[Statement], start: usize, width: usize) -> usize {
+        self.lengths.get(stmts, start, width)
+    }
+}
+
+/// Tiny windows keep the allocation-free length predicate. Repeated or growing
+/// windows pay at most 64 raw statements of direct scans before switching to a
+/// prefix summary. All keys belong to one immutable try_match_at invocation;
+/// clearing at the next position also invalidates every splice/child revision.
+struct WindowLengths {
+    remaining_scan: usize,
+    last: Option<(usize, usize, usize)>,
+    prefixes: FxHashMap<usize, PrefixLengths>,
+}
+
+impl Default for WindowLengths {
+    fn default() -> Self { Self { remaining_scan: 64, last: None, prefixes: Default::default() } }
+}
+
+impl WindowLengths {
+    fn clear(&mut self) {
+        self.remaining_scan = 64;
+        self.last = None;
+        self.prefixes.clear();
+    }
+
+    fn get(&mut self, stmts: &[Statement], start: usize, width: usize) -> usize {
+        if let Some((previous_start, previous_width, length)) = self.last
+            && (previous_start, previous_width) == (start, width)
+        {
+            return length;
+        }
+        let length = if !self.prefixes.contains_key(&start) && width <= self.remaining_scan {
+            self.remaining_scan -= width;
+            #[cfg(test)]
+            canonical_tests::record_direct(width);
+            canon_top_len(&stmts[start..start + width], true)
+        } else {
+            self.prefixes.entry(start).or_default().get(&stmts[start..], width)
+        };
+        self.last = Some((start, width, length));
+        length
+    }
+}
+
+/// Top-level canon length for every requested prefix of one start position.
+/// The first foldable guard and non-trivia count completely describe N1/N2/N3.
+/// Later guard bodies are never visited once the first foldable one is known.
+#[derive(Default)]
+struct PrefixLengths {
+    lengths: Vec<usize>,
+    effective: usize,
+    first_guard: Option<usize>,
+    last_void: bool,
+}
+
+impl PrefixLengths {
+    fn get(&mut self, stmts: &[Statement], width: usize) -> usize {
+        let from = self.lengths.len();
+        for statement in &stmts[from..width.max(from)] {
+            if !is_match_trivia(statement) {
+                if self.first_guard.is_none() && is_foldable_guard(statement) {
+                    self.first_guard = Some(self.effective);
+                }
+                self.effective += 1;
+                self.last_void = matches!(statement, Statement::Return(ret) if ret.values.is_empty());
+            }
+            let effective = self.effective - usize::from(self.last_void);
+            let length = self.first_guard.filter(|&guard| guard + 1 < effective)
+                .map_or(effective, |guard| guard + 1);
+            self.lengths.push(length);
+        }
+        if width > from {
+            crate::telemetry::count("canonical_length_prefix_statements", (width - from) as u64);
+            #[cfg(test)]
+            canonical_tests::record_indexed(width - from);
+        }
+        let length = width.checked_sub(1).map_or(0, |index| self.lengths[index]);
+        debug_assert_eq!(length, canon_top_len(&stmts[..width], true));
+        length
+    }
+}
 
 /// Tail-canon of the contiguous window `stmts[start..start+w]`, memoized in `cache`.
 /// Byte-identical to `canon_recurse(canon_top(&stmts[start..start+w], true), true)`;
@@ -1257,7 +1363,7 @@ fn canon_window(
     start: usize,
     w: usize,
 ) -> std::rc::Rc<Vec<Statement>> {
-    if let Some(c) = cache.get(&(start, w)) {
+    if let Some(c) = cache.windows.get(&(start, w)) {
         return c.clone();
     }
     dprof::inc(&dprof::CANON_RECURSE_CALLS, 1);
@@ -1272,7 +1378,7 @@ fn canon_window(
         canon_top(&stmts[start..start + w], true),
         true,
     ));
-    cache.insert((start, w), c.clone());
+    cache.windows.insert((start, w), c.clone());
     c
 }
 
@@ -2504,7 +2610,7 @@ fn deinline_block(
     // recompute the very same deep-clone. Memoizing by `(start, w)` collapses those
     // to one canon per distinct window. Single-threaded (the serial tail), so `Rc`
     // is fine; the whole `deinline` pass never runs inside the parallel region.
-    let mut canon_cache: CanonCache = FxHashMap::default();
+    let mut canon_cache = CanonCache::default();
     while i < stmts.len() {
         // The first statement at or after `i` that is not `Empty`: a cursor
         // that only moves forward between splices.
@@ -3208,8 +3314,9 @@ fn match_void(
         if is_func_body_top && i == 0 && start + w == stmts.len() {
             continue;
         }
-        if w < kc || canon_top_len(raw, true) < kc {
-            let shorter = canon_top_len(raw, true) < kc
+        let canonical_length = canon_cache.top_len(stmts, start, w);
+        if w < kc || canonical_length < kc {
+            let shorter = canonical_length < kc
                 && !(block_has_return(raw) && !(is_func_tail && start + w == stmts.len()));
             if shorter {
                 let plain = canon_window(canon_cache, t, stmts, start, w);
@@ -3228,7 +3335,7 @@ fn match_void(
         // BEFORE the recursive `block_has_return` return-safety scan (both are
         // side-effect-free, so this reordering is byte-identical — it only avoids
         // computing `block_has_return` for windows whose length already can't match).
-        if canon_top_len(raw, true) == kc {
+        if canonical_length == kc {
             let plain_blocked = {
                 dprof::inc(&dprof::BHR_CALLS, 1);
                 crate::telemetry::count("return_scan_calls", 1);
@@ -3354,7 +3461,7 @@ fn match_value(
         // rejects most widths, so run it BEFORE the recursive `block_has_return`
         // return-safety scan. Both are pure `continue` gates, so the order is
         // byte-identical; it just avoids scanning returns for wrong-length regions.
-        if canon_top_len(region, true) != kc {
+        if canon_cache.top_len(stmts, body_start, w) != kc {
             continue;
         }
         // the region assigns RESULT; it must not itself contain returns.
@@ -5552,7 +5659,7 @@ fn has_loop_void_return(stmts: &[Statement], inside_loop: bool) -> bool {
 /// Whether some `local f = function ... end` passes the gates of
 /// [`collect_targets`] that depend only on the helper itself (a necessary
 /// condition for any target).
-fn any_structural_target(body: &Block) -> bool {
+fn any_structural_target(body: &Block, patterns: &mut CompiledPatterns) -> bool {
     let mut found = false;
     each_closure_decl(&body.0, &mut |_, function| {
         if found {
@@ -5563,8 +5670,8 @@ fn any_structural_target(body: &Block) -> bool {
             return;
         }
         let (body, _) = pattern_body(&g.body.0, &g.parameters);
-        let Some((kind, falls_off)) = classify_returns(&body) else { return; };
-        let pattern = if falls_off { canon(&returning_nil(&body)) } else { canon(&body) };
+        let Some(prepared) = PreparedPattern::new(&body) else { return; };
+        let CompiledPattern { kind, falls_off, pat: pattern } = prepared.finish(&body);
         if pattern.is_empty() {
             return;
         }
@@ -5577,6 +5684,12 @@ fn any_structural_target(body: &Block) -> bool {
                 || has_loop_void_return(&pattern, false),
             TKind::Value => value_leaf_shape(&pattern) || loop_exit,
         };
+        if found && matches!(&body, std::borrow::Cow::Borrowed(_)) {
+            // No mutation occurs between this gate and the first collection.
+            // Owned tuple lowering mints fresh locals, so it keeps its original
+            // independent construction and local-allocation order.
+            patterns.seed(Arc::as_ptr(function), CompiledPattern { kind, falls_off, pat: pattern });
+        }
     });
     found
 }
@@ -5765,6 +5878,7 @@ fn collect_targets(
     body: &Block,
     write_counts: &FxHashMap<RcLocal, usize>,
     captures: std::rc::Rc<crate::deinline_safety::CaptureSafety>,
+    patterns: &mut CompiledPatterns,
 ) -> Vec<Target> {
     // P4: a write-once census (`write_counts`, computed once by the caller — see the
     // invariance note in `deinline`) replaces the old `Arc::count(&l) == 1` gate.
@@ -5820,8 +5934,9 @@ fn collect_targets(
             continue;
         }
         let (body, returns) = pattern_body(&g.body.0, &g.parameters);
-        let (kind, falls_off) = match classify_returns(&body) {
-            Some(classified) => classified,
+        let prepared = match patterns.take(Arc::as_ptr(&func)).map(PreparedPattern::from)
+            .or_else(|| PreparedPattern::new(&body)) {
+            Some(prepared) => prepared,
             None => {
                 // multi-return / mixed / bare-vararg leaf / non-terminal value return
                 deinline_reject!(
@@ -5831,12 +5946,13 @@ fn collect_targets(
                 continue;
             }
         };
+        let (kind, falls_off) = (prepared.kind, prepared.falls_off);
         let shape = crate::deinline_safety::CaptureSafety::new(&g.body);
         if !shape.complete() || shape.nodes() > 2048 {
             deinline_reject!(RejectReason::ShapeBudget, g.name.as_deref().unwrap_or("<anon>"));
             continue;
         }
-        let pat = if falls_off { canon(&returning_nil(&body)) } else { canon(&body) };
+        let pat = prepared.finish(&body).pat;
         if pat.is_empty() {
             deinline_reject!(
                 RejectReason::EmptyPattern,
@@ -6027,6 +6143,7 @@ fn collect_targets(
             )
         };
         crate::call_origins::register_callee(f_local.stable_id(), g.bytecode_proto_id);
+        patterns.remember(func_ptr, &g.body.0, matches!(&body, std::borrow::Cow::Borrowed(_)));
         drop(g);
         let pat_nodes = pat.iter().map(dbg_stmt_node_count).sum();
         targets.push(Target {
@@ -6071,6 +6188,7 @@ fn collect_targets(
 /// whose value returns are not all terminal leaves after canonicalization.
 /// With the flag `Target::falls_off`: a value function that may also return
 /// nothing is matched as [`returning_nil`] of its body.
+#[cfg(test)]
 fn classify_returns(body: &[Statement]) -> Option<(TKind, bool)> {
     let mut has_void = false;
     let mut has_value = false;

@@ -285,16 +285,24 @@ Two extra routes skip per-script overhead — ideal for dumping a whole game in 
 | `POST /decompile/raw` | **raw** bytecode (one script, no base64) | `text/plain` source |
 | `POST /decompile/batch` | **many** scripts in one request | JSON results array |
 
-The local server runs at most four requests at once across these routes. Later
-requests wait in a first-come, first-served queue without their bodies being read,
-up to `TOVEK_QUEUE_LIMIT` waiting requests (default 1024) for at most
-`TOVEK_QUEUE_TIMEOUT_SECS` (default 120). Only a full queue or an expired wait is
-answered with HTTP `503` and `Retry-After: 1`; the bundled client scripts retry it.
+The local server reserves at most eight places for uploads and completed response
+buffers, including at most two batch requests. It separately admits four CPU jobs,
+including at most two batch quanta of eight scripts each. Batches rejoin CPU
+admission between quanta, leaving admission capacity for interactive traffic.
+Waiting requests leave their bodies unread, up to `TOVEK_QUEUE_LIMIT` waiting
+places (default 1024); batches can occupy at most half of those waiting places.
+An admission wait expires after `TOVEK_QUEUE_TIMEOUT_SECS` (default 120). A full
+queue or an expired wait receives HTTP `503` and `Retry-After: 1`; the bundled
+clients retry it. Batch CPU admission failures remain per-item errors.
 Admitted uploads have a **30-second total body-read deadline**;
 set `TOVEK_UPLOAD_TIMEOUT_SECS` to a positive integer to change it. An expired
 upload receives HTTP `408` with `Connection: close` and releases its slot.
 Completed uploads are not subject to this deadline while decompilation runs;
 CPU work retains its slot until it finishes, even if the client disconnects.
+Set `TOVEK_SOURCE_CACHE_MIB` to a positive budget to enable an optional source
+cache and concurrent duplicate sharing; both are disabled by default. See the
+[native server limits and scheduling](web-server/README.md) and
+[Worker limits and recovery](luau-worker/README.md) for the complete contracts.
 
 - **Raw** (`/decompile/raw`): send the bytecode bytes verbatim — no base64 encode/decode.
   Use `Content-Type: application/octet-stream`, the optional `X-Script-Name` header, and an
@@ -310,9 +318,9 @@ CPU work retains its slot until it finishes, even if the client disconnects.
     batch** — that item gets `ok:false` + an `error`; only a malformed request framing is a
     `400`.
 
-Load `decompile-batch.client.luau` to pre-walk every script, decompile them all in one batch
-(raw by default — flip `USE_RAW` if your executor mangles binary bodies), and drive
-SynSaveInstance from the cached results.
+Load `decompile-batch.client.luau` to pre-walk every script, send bounded batch
+chunks (raw by default — flip `USE_RAW` if your executor mangles binary bodies),
+and drive SynSaveInstance from the collected results.
 
 ---
 

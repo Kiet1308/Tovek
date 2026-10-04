@@ -16,19 +16,24 @@ local SERVER_URL = "http://localhost:3000/decompile"
 local httpRequest = request or http_request or (syn and syn.request) or (http and http.request)
 assert(httpRequest, "no executor `request` function found")
 
--- The server queues requests while every decompile slot is busy and answers
--- 503 only when that queue is full; wait as long as it asks, then try again.
+-- Retry temporary admission, upload and transport failures with bounded attempts.
 local MAX_ATTEMPTS = 5
 
 local function post(options)
     local response
     for attempt = 1, MAX_ATTEMPTS do
-        response = httpRequest(options)
-        if response.StatusCode ~= 503 then
+        local ok, value = pcall(httpRequest, options)
+        response = if ok and type(value) == "table" then value else {
+            StatusCode = 599, Body = "request failed: " .. tostring(value), Headers = {},
+        }
+        local status = response.StatusCode
+        if status ~= 408 and status ~= 429 and status ~= 502 and status ~= 503 and status ~= 504 and status ~= 599 then
             break
         end
+        if attempt == MAX_ATTEMPTS then break end
         local headers = response.Headers or {}
-        task.wait(tonumber(headers["Retry-After"] or headers["retry-after"]) or attempt)
+        local delay = math.max(tonumber(headers["Retry-After"] or headers["retry-after"]) or 0, math.min(8, 2 ^ (attempt - 1)))
+        task.wait(delay + math.random() * 0.25)
     end
     return response
 end

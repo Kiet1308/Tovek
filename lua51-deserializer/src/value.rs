@@ -33,14 +33,12 @@ impl<'a> Value<'a> {
             }
             4 => {
                 let (input, value) = parse_string(input)?;
-
-                // TODO: lua bytecode actually allows the string to be completely empty
-                // it sets the type to string but gc to NULL
-                // this probably causes some weird behavior
-                assert!(!value.is_empty());
-
-                // exclude null terminator
-                Ok((input, Self::String(&value[..value.len() - 1])))
+                // A zero length is the absent-name sentinel, not a string
+                // constant. Keep malformed data inside the parser's error
+                // boundary instead of panicking or guessing an empty value.
+                let string = value.strip_suffix(&[0]).ok_or_else(||
+                    Err::Failure(Error::from_error_kind(input, ErrorKind::Verify)))?;
+                Ok((input, Self::String(string)))
             }
             _ => Err(Err::Failure(Error::from_error_kind(
                 input,
@@ -52,12 +50,34 @@ impl<'a> Value<'a> {
 
 pub fn parse_string(input: &[u8]) -> IResult<&[u8], &[u8]> {
     let (input, string_length) = le_u32(input)?;
-    take(string_length as usize)(input)
+    let (input, value) = take(string_length as usize)(input)?;
+    if !value.is_empty() && value.last() != Some(&0) {
+        return Err(Err::Failure(Error::from_error_kind(input, ErrorKind::Verify)));
+    }
+    Ok((input, value))
 }
 
 pub fn parse_strings(input: &[u8]) -> IResult<&[u8], Vec<&[u8]>> {
     let (input, string_count) = le_u32(input)?;
+    if string_count as usize > input.len() / 4 {
+        return Err(Err::Failure(Error::from_error_kind(input, ErrorKind::Count)));
+    }
     let (input, strings) = count(parse_string, string_count as usize)(input)?;
 
     Ok((input, strings))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn string_constants_distinguish_empty_absent_and_unterminated_bytes() {
+        assert!(matches!(Value::parse(&[4, 1, 0, 0, 0, 0]), Ok(([], Value::String([])))));
+        assert!(Value::parse(&[4, 0, 0, 0, 0]).is_err());
+        assert!(Value::parse(&[4, 1, 0, 0, 0, b'x']).is_err());
+        // The source-name field may be absent and inherit its parent's name.
+        assert!(matches!(parse_string(&[0, 0, 0, 0]), Ok(([], []))));
+        assert!(parse_strings(&[255, 255, 255, 255]).is_err());
+    }
 }

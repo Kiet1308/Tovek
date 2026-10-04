@@ -1,5 +1,4 @@
 use nom::{
-    combinator::opt,
     multi::count,
     number::complete::{le_u32, le_u8},
     IResult,
@@ -10,6 +9,16 @@ use crate::{
     local::Local,
     value::{self, Value},
 };
+
+pub const MAX_FUNCTION_DEPTH: usize = 256;
+pub const MAX_FUNCTIONS: usize = 65_536;
+pub const MAX_INSTRUCTION_WORDS: usize = 8_000_000;
+
+struct ParseBudget { functions: usize, instruction_words: usize }
+
+fn refusal(input: &[u8], code: nom::error::ErrorKind) -> nom::Err<nom::error::Error<&[u8]>> {
+    nom::Err::Failure(nom::error::Error::new(input, code))
+}
 
 #[derive(Debug)]
 pub struct Function<'a> {
@@ -38,6 +47,44 @@ impl<'a> Function<'a> {
     }
 
     pub fn parse(input: &'a [u8]) -> IResult<&'a [u8], Self> {
+        let mut budget = ParseBudget {
+            functions: MAX_FUNCTIONS, instruction_words: MAX_INSTRUCTION_WORDS,
+        };
+        let (mut input, root) = Self::parse_prefix(input, 0, &mut budget)?;
+        let mut pending = vec![root];
+        loop {
+            if pending.last().is_some_and(|(_, remaining)| *remaining > 0) {
+                let (rest, child) = Self::parse_prefix(input, pending.len(), &mut budget)?;
+                input = rest;
+                pending.push(child);
+                continue;
+            }
+            let (mut function, _) = pending.pop().expect("root is returned when its frame completes");
+            // Stripped debug sections still encode their zero counts. Missing
+            // sections must not consume a sibling prototype as metadata.
+            let (rest, positions) = Position::parse(input)?;
+            let (rest, locals) = Local::parse_list(rest)?;
+            let (rest, upvalues) = value::parse_strings(rest)?;
+            function.positions = positions;
+            function.locals = locals;
+            function.upvalues = upvalues;
+            input = rest;
+            if let Some((parent, remaining)) = pending.last_mut() {
+                parent.closures.push(function);
+                *remaining -= 1;
+            } else {
+                return Ok((input, function));
+            }
+        }
+    }
+
+    // Children precede their parent's debug tail on the wire. Keep that parse
+    // state explicitly instead of spending native stack for each prototype.
+    fn parse_prefix(input: &'a [u8], depth: usize, budget: &mut ParseBudget) -> IResult<&'a [u8], (Self, usize)> {
+        if depth > MAX_FUNCTION_DEPTH || budget.functions == 0 {
+            return Err(refusal(input, nom::error::ErrorKind::TooLarge));
+        }
+        budget.functions -= 1;
         let (input, name) = value::parse_string(input)?;
         let (input, line_defined) = le_u32(input)?;
         let (input, last_line_defined) = le_u32(input)?;
@@ -46,18 +93,23 @@ impl<'a> Function<'a> {
         let (input, vararg_flag) = le_u8(input)?;
         let (input, maximum_stack_size) = le_u8(input)?;
         let (input, code_length) = le_u32(input)?;
+        if code_length == 0 || code_length as usize > budget.instruction_words {
+            return Err(refusal(input, nom::error::ErrorKind::TooLarge));
+        }
+        budget.instruction_words -= code_length as usize;
         let (input, code) = parse_code(input, code_length as usize)?;
         let (input, constants_length) = le_u32(input)?;
+        if constants_length as usize > input.len() {
+            return Err(refusal(input, nom::error::ErrorKind::Count));
+        }
         let (input, constants) = count(Value::parse, constants_length as usize)(input)?;
         let (input, closures_length) = le_u32(input)?;
-        let (input, closures) = count(Self::parse, closures_length as usize)(input)?;
-        let (input, positions) = opt(Position::parse)(input)?;
-        let (input, locals) = opt(Local::parse_list)(input)?;
-        let (input, upvalues) = opt(value::parse_strings)(input)?;
-
+        if closures_length as usize > budget.functions || closures_length as usize > input.len() / 40 {
+            return Err(refusal(input, nom::error::ErrorKind::Count));
+        }
         Ok((
             input,
-            Self {
+            (Self {
                 name,
                 line_defined,
                 last_line_defined,
@@ -66,12 +118,12 @@ impl<'a> Function<'a> {
                 maximum_stack_size,
                 code,
                 constants,
-                closures,
-                positions: positions.unwrap_or_default(),
-                locals: locals.unwrap_or_default(),
-                upvalues: upvalues.unwrap_or_default(),
+                closures: Vec::new(),
+                positions: Vec::new(),
+                locals: Vec::new(),
+                upvalues: Vec::new(),
                 number_of_parameters,
-            },
+            }, closures_length as usize),
         ))
     }
 }
@@ -117,5 +169,42 @@ mod tests {
         assert!(matches!(code[0], Instruction::SetList { block_number: 512, .. }));
         assert!(matches!(code[1], Instruction::ExtraArgument));
         assert!(parse_code(&bytes[..4], 1).is_err());
+    }
+
+    fn nested_prototypes(depth: usize) -> Vec<u8> {
+        let mut bytes = Vec::new();
+        for level in 0..=depth {
+            bytes.extend([0; 12]); // absent source name and line range
+            bytes.extend([0, 0, 0, 2]);
+            bytes.extend(1u32.to_le_bytes());
+            bytes.extend((30u32 | (1 << 23)).to_le_bytes()); // RETURN no values
+            bytes.extend(0u32.to_le_bytes()); // constants
+            bytes.extend(u32::from(level < depth).to_le_bytes());
+        }
+        for _ in 0..=depth { bytes.extend([0; 12]); }
+        bytes
+    }
+
+    #[test]
+    fn debug_sections_are_mandatory_even_when_stripped() {
+        let bytes = nested_prototypes(1);
+        assert!(matches!(Function::parse(&bytes), Ok(([], _))));
+        for cut in 0..bytes.len() {
+            assert!(Function::parse(&bytes[..cut]).is_err(), "accepted truncation at {cut}");
+        }
+        let mut huge_count = nested_prototypes(0);
+        let debug_start = huge_count.len() - 12;
+        huge_count[debug_start..debug_start + 4].copy_from_slice(&u32::MAX.to_le_bytes());
+        assert!(Function::parse(&huge_count).is_err());
+    }
+
+    #[test]
+    fn nesting_budget_is_checked_without_recursive_parsing() {
+        let at_limit = nested_prototypes(MAX_FUNCTION_DEPTH);
+        assert!(matches!(Function::parse(&at_limit), Ok(([], _))));
+        for depth in [MAX_FUNCTION_DEPTH + 1, 4096] {
+            let bytes = nested_prototypes(depth);
+            assert!(Function::parse(&bytes).is_err());
+        }
     }
 }

@@ -5,6 +5,7 @@ pub mod inline;
 mod param_dependency_graph;
 pub mod structuring;
 pub mod upvalues;
+mod value_index;
 //pub mod dataflow;
 
 pub use construct::construct;

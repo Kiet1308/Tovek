@@ -94,9 +94,7 @@ fn eligible(local: &RcLocal, facts: &Facts) -> bool {
     if !evidence.2.is_empty() || evidence.4.parameter { return false; }
     // A conditional result is a presentation role, not a recorded source name.
     // Never merge it into a parameter; remove only its terminal, unobserved write.
-    evidence.4.conditional_result || evidence.0.as_deref().is_some_and(|name|
-        name == "v" || name.strip_prefix('v').is_some_and(|n|
-            !n.is_empty() && n.bytes().all(|c| c.is_ascii_digit())))
+    evidence.4.conditional_result || evidence.4.intent == crate::BindingIntent::Temporary
 }
 
 fn rewrite_block(block: &mut Block, facts: &Facts, removed: &mut FxHashSet<RcLocal>,

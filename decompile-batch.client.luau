@@ -7,12 +7,11 @@
 -- them one-at-a-time as SynSaveInstance walks the game — hundreds of round-trips,
 -- each paying base64 encode/decode. This client instead:
 --   1. pre-walks every LocalScript/ModuleScript/Script up front,
---   2. reads each one's bytecode and ships them ALL in ONE request per CHUNK_SIZE
---      via POST /decompile/batch (the server decompiles them in parallel),
+--   2. reads bytecode into one chunk bounded by script count and estimated bytes,
+--      then sends it via POST /decompile/batch,
 --   3. caches the results by Instance, then installs getgenv().decompile to answer
 --      from the cache (no HTTP during the SynSaveInstance pass),
---   4. falls back to a single POST for any cache miss (so it can never do worse
---      than the simple client).
+--   4. falls back to a single POST for any cache miss.
 --
 -- RAW vs base64: with USE_RAW = true the batch body is the binary MDB1 framing —
 -- raw bytecode, zero base64 on either side. Some executors mangle request bodies
@@ -25,7 +24,9 @@ local RAW_URL = BASE_URL .. "/decompile/raw"
 local SINGLE_URL = BASE_URL .. "/decompile"
 
 local KEY = 203 -- Roblox client bytecode decode key.
-local CHUNK_SIZE = 250 -- scripts per HTTP request (bounds body size + memory).
+local CHUNK_SIZE = 250 -- maximum scripts per HTTP request.
+local MAX_CHUNK_BYTES = 8 * 1024 * 1024 -- also bound bytes; count alone is insufficient.
+local MAX_SCRIPT_BYTES = 16 * 1024 * 1024
 local USE_RAW = true -- false → base64-in-JSON batch (safe if raw bodies get mangled).
 
 -- Resolve the executor's HTTP request function (names differ per executor).
@@ -41,19 +42,24 @@ end
 
 local HttpService = game:GetService("HttpService")
 
--- The server queues requests while every decompile slot is busy and answers
--- 503 only when that queue is full; wait as long as it asks, then try again.
+-- Retry temporary admission, upload and transport failures with bounded attempts.
 local MAX_ATTEMPTS = 5
 
 local function post(options)
     local response
     for attempt = 1, MAX_ATTEMPTS do
-        response = httpRequest(options)
-        if response.StatusCode ~= 503 then
+        local ok, value = pcall(httpRequest, options)
+        response = if ok and type(value) == "table" then value else {
+            StatusCode = 599, Body = "request failed: " .. tostring(value), Headers = {},
+        }
+        local status = response.StatusCode
+        if status ~= 408 and status ~= 429 and status ~= 502 and status ~= 503 and status ~= 504 and status ~= 599 then
             break
         end
+        if attempt == MAX_ATTEMPTS then break end
         local headers = response.Headers or {}
-        task.wait(tonumber(headers["Retry-After"] or headers["retry-after"]) or attempt)
+        local delay = math.max(tonumber(headers["Retry-After"] or headers["retry-after"]) or 0, math.min(8, 2 ^ (attempt - 1)))
+        task.wait(delay + math.random() * 0.25)
     end
     return response
 end
@@ -82,18 +88,6 @@ local function collectScripts()
         end
     end
     return list
-end
-
--- 2) Read bytecode for each script (pcall-guarded; skip empty/nil/protected).
-local function readEntries(scripts)
-    local entries = {}
-    for _, inst in ipairs(scripts) do
-        local ok, bc = pcall(getscriptbytecode, inst)
-        if ok and type(bc) == "string" and #bc > 0 then
-            entries[#entries + 1] = { instance = inst, name = inst:GetFullName(), bytecode = bc }
-        end
-    end
-    return entries
 end
 
 -- 3a) Build a binary MDB1 batch body (raw bytecode, no base64).
@@ -133,6 +127,19 @@ local function sendChunk(chunk, cache)
     })
 
     if response.StatusCode and response.StatusCode >= 400 then
+        if response.StatusCode == 413 and #chunk > 1 then
+            -- A server can impose a smaller aggregate envelope. Split the
+            -- current bounded chunk; no input needs to be read a second time.
+            local middle = math.floor(#chunk / 2)
+            local left, right = {}, {}
+            for i, entry in ipairs(chunk) do
+                local destination = if i <= middle then left else right
+                destination[#destination + 1] = entry
+            end
+            local leftOk = sendChunk(left, cache)
+            local rightOk = sendChunk(right, cache)
+            return leftOk and rightOk
+        end
         -- A framing-level failure for the whole chunk; leave entries uncached so
         -- the per-script fallback retries them individually.
         warn(("[decompile-batch] chunk failed (HTTP %d): %s"):format(response.StatusCode, tostring(response.Body)))
@@ -153,9 +160,9 @@ local function sendChunk(chunk, cache)
         if entry then
             if result.ok and result.decompilation then
                 cache[entry.instance] = result.decompilation
-            else
-                cache[entry.instance] = "-- decompile failed: " .. tostring(result.error)
             end
+            -- Leave failed rows uncached: a temporary CPU admission failure
+            -- must be eligible for the existing single-script fallback.
         end
     end
     return true
@@ -192,23 +199,43 @@ local function singleDecompile(inst)
     if response.StatusCode and response.StatusCode >= 400 then
         return ("-- decompile failed (HTTP %d): %s"):format(response.StatusCode, tostring(response.Body))
     end
-    return response.Body
+    return response.Body, true
 end
 
--- Pre-walk, read, and decompile every script in chunked batches.
+-- Keep one byte-budgeted chunk of bytecode at a time. Completed source remains
+-- cached for SynSaveInstance, but the full game's bytecode is never retained.
 local cache = {}
-local entries = readEntries(collectScripts())
-for i = 1, #entries, CHUNK_SIZE do
-    local chunk = {}
-    for j = i, math.min(i + CHUNK_SIZE - 1, #entries) do
-        chunk[#chunk + 1] = entries[j]
-    end
+local chunk, chunkBytes = {}, 12
+local function flush()
+    if #chunk == 0 then return end
     sendChunk(chunk, cache)
+    chunk, chunkBytes = {}, 12
 end
+for _, inst in ipairs(collectScripts()) do
+    local ok, bc = pcall(getscriptbytecode, inst)
+    if ok and type(bc) == "string" and #bc > 0 then
+        if #bc > MAX_SCRIPT_BYTES then
+            cache[inst] = "-- decompile failed: bytecode exceeds the server's per-script limit"
+            continue
+        end
+        local name = inst:GetFullName()
+        local wireBytes = if USE_RAW then #bc + #name + 8 else math.ceil(#bc / 3) * 4 + #name * 6 + 64
+        if #chunk > 0 and (#chunk >= CHUNK_SIZE or chunkBytes + wireBytes > MAX_CHUNK_BYTES) then flush() end
+        chunk[#chunk + 1] = { instance = inst, name = name, bytecode = bc }
+        chunkBytes += wireBytes
+        if chunkBytes >= MAX_CHUNK_BYTES then flush() end
+    end
+end
+flush()
 
 -- The hook SynSaveInstance calls per script: answer from cache, else single POST.
 getgenv().decompile = function(script_instance)
-    return cache[script_instance] or singleDecompile(script_instance)
+    local source = cache[script_instance]
+    if source then return source end
+    local success
+    source, success = singleDecompile(script_instance)
+    if success then cache[script_instance] = source end
+    return source
 end
 
 -- SynSaveInstance walks the game and calls getgenv().decompile for each script.

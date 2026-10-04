@@ -85,6 +85,53 @@ use crate::{Block, Call, Function, LValue, LocalRw, RValue, RcLocal, Statement, 
 
 type FnPtr = *const Mutex<Function>;
 
+/// Lexical declaration order is retained for region matching. Membership is
+/// independent of priority and costs one bit lookup even with 256 helpers.
+#[derive(Clone, Default)]
+struct ActiveTargets {
+    order: Vec<usize>,
+    members: [u64; 4],
+}
+
+impl ActiveTargets {
+    fn push(&mut self, index: usize) {
+        self.members[index / 64] |= 1 << (index % 64);
+        self.order.push(index);
+    }
+
+    fn contains(&self, index: &usize) -> bool {
+        self.members[index / 64] & (1 << (index % 64)) != 0
+    }
+}
+
+impl std::ops::Deref for ActiveTargets {
+    type Target = [usize];
+    fn deref(&self) -> &Self::Target { &self.order }
+}
+
+/// Candidate priority depends only on the caller and the immutable root bucket,
+/// not on an expression or its lexical active set. Build each order on its first
+/// actual query: precomputing would force otherwise-unused deferred line hints.
+/// This session holds indices and identities only and ends before another pass
+/// can change the helper collection or reconstruction-search registrations.
+#[derive(Default)]
+struct CandidateOrders {
+    roots: FxHashMap<Discriminant<RValue>, Vec<usize>>,
+    ordered: FxHashMap<(Option<FnPtr>, Discriminant<RValue>), Vec<usize>>,
+}
+
+impl CandidateOrders {
+    fn get(&mut self, root: Discriminant<RValue>, caller: Option<FnPtr>, targets: &[ExprTarget]) -> Option<&[usize]> {
+        let candidates = self.roots.get(&root)?;
+        Some(self.ordered.entry((caller, root)).or_insert_with(|| {
+            crate::telemetry::count("expression_priority_builds", 1);
+            #[cfg(test)]
+            priority_tests::record_build();
+            crate::reconstruction_search::prioritize(candidates, caller.map(|p| p as usize), |i| targets[i].func_ptr as usize)
+        }))
+    }
+}
+
 /// Legacy expression-family cost gate — readability only. `E` must carry at least
 /// this many "anchors" (globals + string literals + method calls) so a trivial
 /// helper like `double(x) = x * 2` (0 anchors) is never replaced. The flagship
@@ -176,14 +223,14 @@ fn run(body: &mut Block, arithmetic_only: bool) {
     // candidate node to share `E`'s root variant (the root is always a compound
     // expression — a bare param/local/literal root is refused by the cost gate),
     // so this is a sound, false-negative-free prefilter.
-    let mut by_root: FxHashMap<Discriminant<RValue>, Vec<usize>> = FxHashMap::default();
+    let mut candidates = CandidateOrders::default();
     for (i, t) in targets.iter().enumerate() {
-        by_root
+        candidates.roots
             .entry(std::mem::discriminant(&t.expr))
             .or_default()
             .push(i);
         if t.arithmetic.is_some() && matches!(t.expr, RValue::IfExpression(_)) {
-            by_root
+            candidates.roots
                 .entry(std::mem::discriminant(&RValue::Binary(crate::Binary::new(
                     crate::Literal::Nil.into(),
                     crate::Literal::Nil.into(),
@@ -197,9 +244,9 @@ fn run(body: &mut Block, arithmetic_only: bool) {
     walk_block(
         &mut body.0,
         &targets,
-        &by_root,
+        &mut candidates,
         &decl_map,
-        &[],
+        &ActiveTargets::default(),
         None,
         &mut converted,
     );
@@ -454,9 +501,9 @@ pub(crate) fn write_counts_in_closures(rv: &RValue, out: &mut FxHashMap<RcLocal,
 fn walk_block(
     stmts: &mut Vec<Statement>,
     targets: &[ExprTarget],
-    by_root: &FxHashMap<Discriminant<RValue>, Vec<usize>>,
+    candidates: &mut CandidateOrders,
     decl_map: &FxHashMap<RcLocal, usize>,
-    outer_active: &[usize],
+    outer_active: &ActiveTargets,
     current_func: Option<FnPtr>,
     converted: &mut FxHashSet<RcLocal>,
 ) {
@@ -464,14 +511,14 @@ fn walk_block(
     // only sees targets whose declaration lexically precedes it, so `active` grows
     // as each declaration in THIS block is passed.
     {
-        let mut active: Vec<usize> = outer_active.to_vec();
+        let mut active = outer_active.clone();
         for s in stmts.iter_mut() {
             match s {
                 Statement::If(f) => {
                     walk_block(
                         &mut f.then_block.lock().0,
                         targets,
-                        by_root,
+                        candidates,
                         decl_map,
                         &active,
                         current_func,
@@ -480,7 +527,7 @@ fn walk_block(
                     walk_block(
                         &mut f.else_block.lock().0,
                         targets,
-                        by_root,
+                        candidates,
                         decl_map,
                         &active,
                         current_func,
@@ -490,7 +537,7 @@ fn walk_block(
                 Statement::While(w) => walk_block(
                     &mut w.block.lock().0,
                     targets,
-                    by_root,
+                    candidates,
                     decl_map,
                     &active,
                     current_func,
@@ -499,7 +546,7 @@ fn walk_block(
                 Statement::Repeat(r) => walk_block(
                     &mut r.block.lock().0,
                     targets,
-                    by_root,
+                    candidates,
                     decl_map,
                     &active,
                     current_func,
@@ -508,7 +555,7 @@ fn walk_block(
                 Statement::NumericFor(nf) => walk_block(
                     &mut nf.block.lock().0,
                     targets,
-                    by_root,
+                    candidates,
                     decl_map,
                     &active,
                     current_func,
@@ -517,7 +564,7 @@ fn walk_block(
                 Statement::GenericFor(gf) => walk_block(
                     &mut gf.block.lock().0,
                     targets,
-                    by_root,
+                    candidates,
                     decl_map,
                     &active,
                     current_func,
@@ -526,7 +573,7 @@ fn walk_block(
                 _ => {}
             }
             visit_stmt_rvalues_mut(s, &mut |rv| {
-                recurse_into_closures(rv, targets, by_root, decl_map, &active, converted);
+                recurse_into_closures(rv, targets, candidates, decl_map, &active, converted);
                 true
             });
             if let Some(idx) = target_decl_index(s, decl_map, targets) {
@@ -537,23 +584,25 @@ fn walk_block(
 
     // Phase 2: scan this block left to right, matching each statement's own
     // expressions, activating each target after its declaration.
-    let mut active: Vec<usize> = outer_active.to_vec();
+    let mut active = outer_active.clone();
+    let target_definition = current_func.is_some_and(|ptr| targets.iter().any(|t| t.func_ptr == ptr));
+    let protected_definition = target_definition && targets.iter().any(|t| t.protect_definition && Some(t.func_ptr) == current_func);
     let mut index = 0;
     while index < stmts.len() {
         // A bounded terminal scalar region has no live continuation. Normalize
         // its lets/guard returns before comparing with named helper patterns.
-        if try_rewrite_region(&mut stmts[index..], targets, &active, current_func, converted) {
+        if !target_definition && try_rewrite_region(&mut stmts[index..], targets, &active, current_func, converted) {
             stmts.truncate(index + 1);
             break;
         }
-        try_rewrite_select(stmts, index, targets, &active, current_func, converted);
+        if !target_definition { try_rewrite_select(stmts, index, targets, &active, current_func, converted); }
         let s = &mut stmts[index];
         index += 1;
         // Skip the per-statement rvalue scan (and its allocation) entirely until a
         // helper is in scope.
-        if !active.is_empty() {
+        if !active.is_empty() && !protected_definition {
             visit_stmt_rvalues_mut(s, &mut |rv| {
-                try_rewrite(rv, targets, by_root, &active, current_func, converted);
+                try_rewrite(rv, targets, candidates, &active, current_func, converted);
                 true
             });
         }
@@ -570,26 +619,30 @@ fn walk_block(
 fn recurse_into_closures(
     rv: &mut RValue,
     targets: &[ExprTarget],
-    by_root: &FxHashMap<Discriminant<RValue>, Vec<usize>>,
+    candidates: &mut CandidateOrders,
     decl_map: &FxHashMap<RcLocal, usize>,
-    active: &[usize],
+    active: &ActiveTargets,
     converted: &mut FxHashSet<RcLocal>,
 ) {
     if let RValue::Closure(c) = rv {
         let fp = Arc::as_ptr(&c.function.0);
+        // Keep only the active function stack's orders. A module with many
+        // unrelated closures must not retain O(functions * targets) indices.
+        let outer_orders = std::mem::take(&mut candidates.ordered);
         walk_block(
             &mut c.function.0.lock().body.0,
             targets,
-            by_root,
+            candidates,
             decl_map,
             active,
             Some(fp),
             converted,
         );
+        candidates.ordered = outer_orders;
         return;
     }
     rv.visit_rvalues_mut(&mut |child| {
-        recurse_into_closures(child, targets, by_root, decl_map, active, converted);
+        recurse_into_closures(child, targets, candidates, decl_map, active, converted);
         true
     });
 }
@@ -621,10 +674,10 @@ fn target_decl_index(
 // ===================================================================
 
 fn try_rewrite_select(
-    stmts: &mut Vec<Statement>, index: usize, targets: &[ExprTarget], active: &[usize],
+    stmts: &mut Vec<Statement>, index: usize, targets: &[ExprTarget], active: &ActiveTargets,
     current_func: Option<FnPtr>, converted: &mut FxHashSet<RcLocal>,
 ) {
-    if active.is_empty() || current_func.is_some_and(|p| targets.iter().any(|t| t.func_ptr == p)) { return; }
+    if active.is_empty() { return; }
     let [Statement::Assign(decl), Statement::If(_)] = &stmts[index..stmts.len().min(index + 2)] else { return; };
     if !decl.prefix || decl.parallel || decl.left.len() != 1 { return; }
     let LValue::Local(result) = &decl.left[0] else { return; };
@@ -658,17 +711,16 @@ fn try_rewrite_select(
 fn try_rewrite_region(
     stmts: &mut [Statement],
     targets: &[ExprTarget],
-    active: &[usize],
+    active: &ActiveTargets,
     current_func: Option<FnPtr>,
     converted: &mut FxHashSet<RcLocal>,
 ) -> bool {
     if active.is_empty() || stmts.len() > 8 || matches!(stmts, [Statement::Return(_)]) { return false; }
-    if current_func.is_some_and(|ptr| targets.iter().any(|t| t.func_ptr == ptr)) { return false; }
     let Some(value) = arithmetic::region(stmts, &targets[active[0]].captures) else { return false; };
     let mut declared = FxHashSet::default();
     crate::deinline::collect_declared_locals(stmts, &mut declared);
     let mut pick = Pick::default();
-    for &idx in active {
+    for &idx in active.iter() {
         let target = &targets[idx];
         let Some(safety) = &target.arithmetic else { continue; };
         if current_func == Some(target.func_ptr) { continue; }
@@ -691,8 +743,8 @@ fn try_rewrite_region(
 fn try_rewrite(
     rv: &mut RValue,
     targets: &[ExprTarget],
-    by_root: &FxHashMap<Discriminant<RValue>, Vec<usize>>,
-    active: &[usize],
+    candidates: &mut CandidateOrders,
+    active: &ActiveTargets,
     current_func: Option<FnPtr>,
     converted: &mut FxHashSet<RcLocal>,
 ) {
@@ -701,16 +753,15 @@ fn try_rewrite(
     // considers `active` targets). Prune the whole subtree — this skips the entire
     // pre-declaration region of every block. Mirrors the statement pass's
     // `if active.is_empty()` guard in `deinline::try_match_at`.
-    if active.is_empty() || current_func.is_some_and(|ptr| targets.iter().any(|t| t.protect_definition && t.func_ptr == ptr)) {
+    if active.is_empty() {
         return;
     }
     // Outermost-first: try to match the WHOLE node before descending, so the
     // largest equivalent subtree is collapsed into one call.
-    if let Some(cands) = by_root.get(&std::mem::discriminant(&*rv)) {
+    if let Some(ordered) = candidates.get(std::mem::discriminant(&*rv), current_func, targets) {
         let mut pick = Pick::default();
         let mut ambiguous = false;
-        let ordered = crate::reconstruction_search::prioritize(cands, current_func.map(|p| p as usize), |i| targets[i].func_ptr as usize);
-        for &idx in &ordered {
+        for &idx in ordered {
             if !active.contains(&idx) {
                 continue; // helper not yet in lexical scope here
             }
@@ -751,7 +802,7 @@ fn try_rewrite(
     // sibling, may still match). Closures yield no children here (handled in the
     // phase-1 closure recursion), so we never re-enter a closure body.
     rv.visit_rvalues_mut(&mut |child| {
-        try_rewrite(child, targets, by_root, active, current_func, converted);
+        try_rewrite(child, targets, candidates, active, current_func, converted);
         true
     });
 }
@@ -986,6 +1037,8 @@ fn node_count(rv: &RValue) -> usize {
 mod reference;
 #[cfg(test)]
 mod differential;
+#[cfg(test)]
+mod priority_tests;
 
 #[cfg(test)]
 mod tests {

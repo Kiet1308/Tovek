@@ -283,6 +283,11 @@ pub fn report() -> (Vec<Region>, bool) {
 }
 
 #[cfg(test)]
+pub(crate) fn hints_deferred_for_test() -> bool {
+    STATE.with(|state| state.borrow().pending_lines.is_some())
+}
+
+#[cfg(test)]
 mod differential;
 
 #[cfg(test)]

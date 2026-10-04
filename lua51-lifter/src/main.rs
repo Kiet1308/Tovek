@@ -55,13 +55,17 @@ fn main() -> anyhow::Result<()> {
 
     let args = Args::parse();
     let path = Path::new(&args.file);
-    let mut input = File::open(path)?;
-    let mut buffer = vec![0; input.metadata()?.len() as usize];
-    input.read_exact(&mut buffer)?;
+    let input = File::open(path)?;
+    const MAX_INPUT_BYTES: u64 = 64 * 1024 * 1024;
+    if input.metadata()?.len() > MAX_INPUT_BYTES { anyhow::bail!("Lua 5.1 input exceeds the 64 MiB byte budget"); }
+    let mut buffer = Vec::new();
+    input.take(MAX_INPUT_BYTES + 1).read_to_end(&mut buffer)?;
+    if buffer.len() as u64 > MAX_INPUT_BYTES { anyhow::bail!("Lua 5.1 input exceeds the 64 MiB byte budget"); }
 
     let start = Instant::now();
     let chunk = match Chunk::parse(&buffer) {
-        Ok((_, chunk)) => chunk,
+        Ok(([], chunk)) => chunk,
+        Ok((rest, _)) => anyhow::bail!("unexpected {} trailing bytes after Lua 5.1 chunk", rest.len()),
         Err(error) => anyhow::bail!(
             "not a supported Lua 5.1 chunk: {:?}",
             error.map(|error| (buffer.len() - error.input.len(), error.code))
@@ -79,6 +83,16 @@ fn main() -> anyhow::Result<()> {
 }
 
 fn decompile(prototype: &lua51_deserializer::Function<'_>, parallel: bool) -> anyhow::Result<String> {
+    lua51_deserializer::validate::validate(prototype)?;
+    std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| decompile_validated(prototype, parallel)))
+        .unwrap_or_else(|panic| {
+            let detail = panic.downcast_ref::<String>().map(String::as_str)
+                .or_else(|| panic.downcast_ref::<&str>().copied()).unwrap_or("internal invariant failed");
+            Err(anyhow::anyhow!("Lua 5.1 decompilation failed: {detail}"))
+        })
+}
+
+fn decompile_validated(prototype: &lua51_deserializer::Function<'_>, parallel: bool) -> anyhow::Result<String> {
     ast::reset_local_ids();
     let mut lifted = Vec::new();
     let (function, upvalues) = Lifter::lift(prototype, &mut lifted);
@@ -249,5 +263,20 @@ mod scheduling_tests {
                 }
             }
         }
+    }
+
+    #[test]
+    fn malformed_operands_and_expansion_budgets_return_errors_before_lifting() {
+        let bytes = prototype(vec![1 | (9 << 14), 30 | (1 << 23)], vec![], 0, 2);
+        let (_, function) = lua51_deserializer::Function::parse(&bytes).unwrap();
+        for parallel in [false, true] {
+            assert!(decompile(&function, parallel).unwrap_err().to_string().contains("constant index"));
+        }
+        let mut bytes = prototype(vec![30 | (1 << 23)], vec![], 0, 2);
+        for _ in 0..16 {
+            bytes = prototype(vec![36, 36 | (1 << 6), 30 | (1 << 23)], vec![bytes], 0, 2);
+        }
+        let (_, function) = lua51_deserializer::Function::parse(&bytes).unwrap();
+        assert!(decompile(&function, true).unwrap_err().to_string().contains("expanded function instance budget"));
     }
 }

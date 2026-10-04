@@ -37,6 +37,7 @@ fn compare_preparation(actual: &NamingPreparation, expected: &NamingPreparation)
     assert_eq!(actual.field_aliases, expected.field_aliases);
     assert_eq!(actual.callee_aliases, expected.callee_aliases);
     assert_eq!(counts(actual), counts(expected));
+    assert_eq!(actual.occurrences, expected.occurrences);
     assert_eq!(actual.identities, expected.identities);
     assert_eq!(actual.definitions, expected.definitions);
 }

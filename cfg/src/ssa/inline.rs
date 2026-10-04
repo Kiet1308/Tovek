@@ -4,9 +4,44 @@ use ast::FxIndexMap as IndexMap;
 use itertools::{Either, Itertools};
 use petgraph::visit::EdgeRef;
 use rustc_hash::{FxHashMap, FxHashSet};
+use super::value_index::{BlockValues, Definitions as ProducerIndex, eligible_reads};
 
 mod facts;
 mod schedule;
+
+/// Actual edits made by one SSA inliner invocation. The inliner never changes
+/// CFG adjacency. Block identities are stable until the caller next edits the
+/// graph; expression/operand caches must observe this report before reuse.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct InlineChanges {
+    first_block: Option<petgraph::stable_graph::NodeIndex>,
+    other_blocks: Vec<petgraph::stable_graph::NodeIndex>,
+    pub operands_changed: bool,
+    pub usage_counts_changed: bool,
+    pub statement_layout_changed: bool,
+}
+
+impl InlineChanges {
+    pub fn changed(&self) -> bool { self.first_block.is_some() }
+
+    pub fn edited_blocks(&self) -> impl Iterator<Item = petgraph::stable_graph::NodeIndex> + '_ {
+        self.first_block.into_iter().chain(self.other_blocks.iter().copied())
+    }
+
+    fn block_changed(&mut self, node: petgraph::stable_graph::NodeIndex) {
+        self.operands_changed = true;
+        match self.first_block {
+            None => self.first_block = Some(node),
+            Some(first) if first != node && self.other_blocks.last() != Some(&node) => self.other_blocks.push(node),
+            _ => {}
+        }
+    }
+
+    fn finish(&mut self) {
+        self.other_blocks.sort_unstable();
+        self.other_blocks.dedup();
+    }
+}
 
 /// How many times each local is read, in dense slots (see [`ast::dense`]).
 /// A local that is never read counts zero.
@@ -57,39 +92,12 @@ impl Usages {
     }
 }
 
-/// Candidate definitions cannot move during one block visit: successful
-/// substitution only empties a producer or rewrites a consumer's expressions.
-/// Remember the first assignment that could produce each local, including
-/// multi-destination result packs. An obsolete entry after emptying is merely
-/// conservative. This also preserves behavior for hand-built, non-SSA blocks
-/// containing more than one definition of the same local.
-struct ProducerIndex(FxHashMap<u64, usize>);
-
-impl ProducerIndex {
-    fn new(block: &ast::Block) -> Self {
-        let mut definitions = FxHashMap::default();
-        for (index, statement) in block.iter().enumerate() {
-            if let ast::Statement::Assign(assign) = statement
-                && assign.right.len() == 1
-            {
-                for local in assign.left.iter().filter_map(|left| left.as_local()) {
-                    definitions.entry(local.stable_id()).or_insert(index);
-                }
-            }
-        }
-        Self(definitions)
+fn first_producer(producers: &ProducerIndex, reads: &[Option<u64>], before: usize) -> Option<usize> {
+    #[cfg(test)]
+    if tests::REFERENCE_SCAN.with(std::cell::Cell::get) {
+        return (before != 0).then_some(0);
     }
-
-    fn first(&self, reads: &[Option<ast::RcLocal>], before: usize) -> Option<usize> {
-        #[cfg(test)]
-        if tests::REFERENCE_SCAN.with(std::cell::Cell::get) {
-            return (before != 0).then_some(0);
-        }
-        reads.iter().flatten()
-            .filter_map(|local| self.0.get(&local.stable_id()).copied())
-            .filter(|&index| index < before)
-            .min()
-    }
+    producers.first(reads, before)
 }
 
 /// Relational reversal changes both operand positions and the operator, leaving
@@ -509,16 +517,11 @@ impl<'a> Inliner<'a> {
             let block = self.function.block_mut(node).unwrap();
             let mut facts = facts::Cache::new(
                 block.len(), self.local_to_group, self.upvalue_to_group, self.readonly_capture_ids);
-            let producers = ProducerIndex::new(block);
-
-            // TODO: rename values_read to locals_read
-            let mut stat_to_values_read = Vec::with_capacity(block.len());
-            for stat in &block.0 {
-                stat_to_values_read.push(eligible_reads(stat, |local| {
+            let BlockValues { definitions: producers, reads: mut stat_to_values_read } =
+                BlockValues::new(block, |stat, local| {
                     self.local_usages.get(local) == 1 && !self.upvalue_to_group.contains_key(local)
                         && (!local.preserve_binding() || ast::assignment_preserves_function_name(stat, local))
-                }));
-            }
+                });
 
             // visit all statements that read at least one local with only one usage,
             // this is the statement we will inline into
@@ -528,7 +531,7 @@ impl<'a> Inliner<'a> {
             // TODO: push multiple use local assignments forward to their first use
             let mut index = 0;
             'w: while index < block.len() {
-                let Some(first_producer) = producers.first(&stat_to_values_read[index], index) else {
+                let Some(first_producer) = first_producer(&producers, &stat_to_values_read[index], index) else {
                     index += 1;
                     continue;
                 };
@@ -601,8 +604,9 @@ impl<'a> Inliner<'a> {
                                 })
                                 && let Some(read) = stat_to_values_read[index]
                                     .iter_mut()
-                                    .find(|l| l.as_ref() == Some(local))
+                                    .find(|l| **l == Some(local.stable_id()))
                             {
+                                let read_local = local.clone();
                                 let mut new_rvalue = Some(
                                     block[stat_index]
                                         .as_assign_mut()
@@ -617,7 +621,7 @@ impl<'a> Inliner<'a> {
                                 let late_callees = late_global_callees(&block[index]);
                                 if Self::try_inline(
                                     &mut block[index],
-                                    read.as_ref().unwrap(),
+                                    &read_local,
                                     &mut new_rvalue,
                                     new_rvalue_has_side_effects,
                                     self.upvalue_to_group,
@@ -642,7 +646,7 @@ impl<'a> Inliner<'a> {
                                     block[stat_index] = ast::Empty {}.into();
                                     if trace_origins && origin_events.len() < crate::provenance::RECORD_LIMIT {
                                         origin_events.push(crate::provenance::InlineEvent {
-                                            phase: "ssa_inline", producer: read.as_ref().unwrap().stable_id(),
+                                            phase: "ssa_inline", producer: read.unwrap(),
                                             consumer_bindings: block[index].values_written()
                                                 .into_iter().map(ast::RcLocal::stable_id).collect(),
                                             site_kind: "statement",
@@ -674,7 +678,7 @@ impl<'a> Inliner<'a> {
                                     l.as_local().is_some_and(|l| {
                                         stat_to_values_read[index]
                                             .iter_mut()
-                                            .any(|r| r.as_ref() == Some(l))
+                                            .any(|r| *r == Some(l.stable_id()))
                                     })
                                 })
                             {
@@ -707,7 +711,7 @@ impl<'a> Inliner<'a> {
                                         .0
                                         .right
                                         .drain(start_index..)
-                                        .map(|r| r.as_local().unwrap().clone())
+                                        .map(|r| r.as_local().unwrap().stable_id())
                                         .collect_vec();
                                     generic_for_init.0.right.push(new_rvalue);
 
@@ -723,13 +727,13 @@ impl<'a> Inliner<'a> {
                                     for old_local in old_locals {
                                         if trace_origins && origin_events.len() < crate::provenance::RECORD_LIMIT {
                                             origin_events.push(crate::provenance::InlineEvent {
-                                                phase: "ssa_inline", producer: old_local.stable_id(),
+                                                phase: "ssa_inline", producer: old_local,
                                                 consumer_bindings: Vec::new(), site_kind: "generic_for_pack",
                                             });
                                         } else if trace_origins { omitted_inline_events += 1; }
                                         *stat_to_values_read[index]
                                             .iter_mut()
-                                            .find(|l| l.as_ref() == Some(&old_local))
+                                            .find(|l| **l == Some(old_local))
                                             .unwrap() = None;
                                     }
                                     facts.invalidate(stat_index);
@@ -764,7 +768,7 @@ impl<'a> Inliner<'a> {
                 let mut index = 0;
                 'w: while index < arg_to_values_read.len() {
                     let end = self.function.block(node).unwrap().len();
-                    let Some(first_producer) = producers.first(&arg_to_values_read[index], end) else {
+                    let Some(first_producer) = first_producer(&producers, &arg_to_values_read[index], end) else {
                         index += 1;
                         continue;
                     };
@@ -813,8 +817,9 @@ impl<'a> Inliner<'a> {
                                 && !local.preserve_binding()
                                 && let Some(read) = arg_to_values_read[index]
                                     .iter_mut()
-                                    .find(|l| l.as_ref() == Some(local))
+                                    .find(|l| **l == Some(local.stable_id()))
                             {
+                                let read_local = local.clone();
                                 let mut new_rvalue = Some(
                                     block[stat_index]
                                         .as_assign_mut()
@@ -833,7 +838,7 @@ impl<'a> Inliner<'a> {
                                             .arguments[index]
                                             .1,
                                     ),
-                                    read.as_ref().unwrap(),
+                                    &read_local,
                                     &mut new_rvalue,
                                     new_rvalue_has_side_effects,
                                     self.upvalue_to_group,
@@ -857,7 +862,7 @@ impl<'a> Inliner<'a> {
                                     block[stat_index] = ast::Empty {}.into();
                                     if trace_origins && origin_events.len() < crate::provenance::RECORD_LIMIT {
                                         origin_events.push(crate::provenance::InlineEvent {
-                                            phase: "ssa_inline", producer: read.as_ref().unwrap().stable_id(),
+                                            phase: "ssa_inline", producer: read.unwrap(),
                                             consumer_bindings: vec![self.function.graph().edge_weight(edge).unwrap().arguments[index].0.stable_id()],
                                             site_kind: "phi_argument",
                                         });
@@ -906,21 +911,6 @@ fn reduce_statement_roots(statement: &mut ast::Statement) {
         *value = std::mem::replace(value, ast::Literal::Nil.into()).reduce();
         true
     });
-}
-
-/// Keep the old per-statement/edge eligibility snapshot and duplicate operand
-/// order, while collecting only the retained handles. The mutable inliner
-/// later marks consumed slots with None without admitting newly exposed reads.
-fn eligible_reads(value: &impl LocalRw, mut eligible: impl FnMut(&ast::RcLocal) -> bool) -> Vec<Option<ast::RcLocal>> {
-    let mut reads = Vec::new();
-    value.visit_local_reads(&mut |local| {
-        if eligible(local) { reads.push(Some(local.clone())); }
-        true
-    });
-    #[cfg(test)]
-    assert_eq!(reads, value.values_read().into_iter().filter(|local| eligible(local))
-        .cloned().map(Some).collect::<Vec<_>>());
-    reads
 }
 
 fn rvalue_reads_local(rvalue: &ast::RValue, local: &ast::RcLocal) -> bool {
@@ -1181,6 +1171,19 @@ pub fn inline_with_readonly_captures(
     readonly_capture_ids: &FxHashSet<u64>,
     incoming_upvalue_ids: Option<&FxHashSet<u64>>,
 ) {
+    inline_with_readonly_captures_report(function, local_to_group, upvalue_to_group,
+        readonly_capture_ids, incoming_upvalue_ids);
+}
+
+/// The report is collected at the existing mutation sites, without a before/
+/// after tree fingerprint or an extra graph/operand census.
+pub fn inline_with_readonly_captures_report(
+    function: &mut Function,
+    local_to_group: &FxHashMap<ast::RcLocal, usize>,
+    upvalue_to_group: &IndexMap<ast::RcLocal, ast::RcLocal>,
+    readonly_capture_ids: &FxHashSet<u64>,
+    incoming_upvalue_ids: Option<&FxHashSet<u64>>,
+) -> InlineChanges {
     let census_timer = ast::prof::Timer::new(&ast::prof::I_CENSUS);
     let mut local_usages = Usages::census(function);
     drop(census_timer);
@@ -1289,7 +1292,7 @@ pub fn inline_with_readonly_captures(
             // TODO: fix ^
             let old_len = block.len();
             block.retain(|s| s.as_empty().is_none());
-            if block.len() != old_len { schedule.changed(node); }
+            if block.len() != old_len { schedule.layout_changed(node); }
 
             // `t = {} t.a = 1` -> `t = { a = 1 }`
             let folded = fold_table_constructor_field_assignments(
@@ -1329,7 +1332,7 @@ pub fn inline_with_readonly_captures(
                         let decl = block.remove(decl_index);
                         block.insert(i - 1, decl);
                         changed = true;
-                        schedule.changed(node);
+                        schedule.layout_changed(node);
                     }
                     if let Some(assign) = block[i - 1].as_assign()
                         && assign.left == [object_local.into()]
@@ -1373,9 +1376,14 @@ pub fn inline_with_readonly_captures(
     tests::SCHEDULE_STATISTICS.with(|statistics| statistics.set(schedule.statistics));
     // we check block.ast.len() elsewhere and do `i - ` here and elsewhere so we need to get rid of empty statements
     // TODO: fix ^
-    for block in function.blocks_mut() {
+    for node_index in 0..schedule.nodes.len() {
+        let node = schedule.nodes[node_index];
+        let block = function.block_mut(node).unwrap();
+        let old_len = block.len();
         block.retain(|s| s.as_empty().is_none());
+        if block.len() != old_len { schedule.layout_changed(node); }
     }
+    schedule.into_changes()
 }
 
 #[cfg(test)]
@@ -1478,7 +1486,7 @@ mod tests {
     };
     use ast::FxIndexMap as IndexMap;
     use petgraph::visit::EdgeRef;
-    use rustc_hash::FxHashMap;
+    use rustc_hash::{FxHashMap, FxHashSet};
 
     fn local(name: &str) -> RcLocal {
         RcLocal::new(Local::new(Some(name.to_string())))
@@ -1546,6 +1554,48 @@ mod tests {
         inline(&mut function, &FxHashMap::default(), &IndexMap::default());
 
         function.block(entry).unwrap().clone()
+    }
+
+    #[test]
+    fn mutation_report_tracks_inline_compaction_and_has_no_edits_at_convergence() {
+        let mut function = Function::new(0);
+        let entry = function.new_block();
+        function.set_entry(entry);
+        let value = RcLocal::default();
+        function.block_mut(entry).unwrap().extend([
+            Assign::new(vec![value.clone().into()], vec![number(7.0)]).into(),
+            Return::new(vec![value.into()]).into(),
+        ]);
+        let report = super::inline_with_readonly_captures_report(&mut function,
+            &FxHashMap::default(), &IndexMap::default(), &FxHashSet::default(), None);
+        assert!(report.changed() && report.operands_changed && report.statement_layout_changed);
+        assert_eq!(report.edited_blocks().collect::<Vec<_>>(), [entry]);
+        assert!(report.other_blocks.is_empty(), "one edited block must not allocate a block list");
+        assert_eq!(function.block(entry).unwrap().len(), 1);
+        let second = super::inline_with_readonly_captures_report(&mut function,
+            &FxHashMap::default(), &IndexMap::default(), &FxHashSet::default(), None);
+        assert_eq!(second, super::InlineChanges::default());
+    }
+
+    #[test]
+    fn mutation_report_lists_each_edited_block_and_table_usage_changes() {
+        let mut function = Function::new(0);
+        let entry = function.new_block();
+        let stable = function.new_block();
+        let table_block = function.new_block();
+        function.set_entry(entry);
+        function.block_mut(entry).unwrap().push(ast::Empty {}.into());
+        function.block_mut(stable).unwrap().push(Return::new(vec![]).into());
+        let table = RcLocal::default();
+        function.block_mut(table_block).unwrap().extend([
+            table_decl(&table), field_assign(&table, string("field"), number(3.0)), return_local(&table),
+        ]);
+        let report = super::inline_with_readonly_captures_report(&mut function,
+            &FxHashMap::default(), &IndexMap::default(), &FxHashSet::default(), None);
+        let edited = report.edited_blocks().collect::<FxHashSet<_>>();
+        assert_eq!(edited, [entry, table_block].into_iter().collect());
+        assert_eq!(report.edited_blocks().count(), 2);
+        assert!(report.statement_layout_changed && report.usage_counts_changed);
     }
 
     #[test]
@@ -1783,7 +1833,7 @@ mod tests {
         let producers = super::ProducerIndex::new(&block);
         let scans: usize = reads.iter().enumerate().map(|(index, local)| {
             let consumer = 3 * index + 2;
-            consumer - producers.first(&[Some(local.clone())], consumer).unwrap()
+            consumer - producers.first(&[Some(local.stable_id())], consumer).unwrap()
         }).sum();
         assert_eq!(scans, 12_000, "two barriers per consumer, independent of prefix length");
         let output = inline_block(block);

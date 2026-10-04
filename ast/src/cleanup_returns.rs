@@ -147,34 +147,114 @@ fn strip_tail(block: &mut Block, may_empty: bool) {
 /// that `if` as the guard's `elseif`: the return merely skipped it
 /// (`if c then A elseif d then B end`). A value return stays a guard, and so
 /// does a guard with no other statement.
+#[cfg(test)]
+thread_local! { static TAIL_INDEX_VISITS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) }; }
+
 fn merge_tail_guards(block: &mut Block) {
+    // Retain original indices until all folds finish. Only the last two real
+    // statements matter; rebuilding this prefix after each fold was quadratic
+    // on long generated guard chains.
+    let mut real: Vec<usize> = (0..block.0.len())
+        .filter(|&i| {
+            #[cfg(test)]
+            TAIL_INDEX_VISITS.with(|visits| visits.set(visits.get() + 1));
+            !matches!(block.0[i], Statement::Empty(_))
+        })
+        .collect();
+    let mut removed = Vec::new();
     loop {
-        let real: Vec<usize> = (0..block.0.len())
-            .filter(|&i| !matches!(block.0[i], Statement::Empty(_)))
-            .collect();
-        let [.., guard_at, tail_at] = real[..] else { return };
+        let [.., guard_at, tail_at] = real[..] else { break };
         if !matches!(block.0[tail_at], Statement::If(_)) {
-            return;
+            break;
         }
-        let Statement::If(guard) = &block.0[guard_at] else { return };
+        let Statement::If(guard) = &block.0[guard_at] else { break };
         if !guard.else_block.lock().0.is_empty() {
-            return;
+            break;
         }
         let then = guard.then_block.lock().0.clone();
         let mut body = then.iter().filter(|s| !matches!(s, Statement::Empty(_)));
-        let (Some(_), Some(Statement::Return(r))) = (body.next(), body.last()) else { return };
+        let (Some(_), Some(Statement::Return(r))) = (body.next(), body.last()) else { break };
         if !r.values.is_empty() {
-            return;
+            break;
         }
         let condition = guard.condition.clone();
-        let tail = block.0.remove(tail_at);
+        let tail = std::mem::replace(&mut block.0[tail_at], crate::Empty {}.into());
         block.0[guard_at] = crate::If::new(condition, Block(then), Block(vec![tail])).into();
+        real.pop();
+        removed.push(tail_at);
+    }
+    if !removed.is_empty() {
+        let mut index = 0;
+        block.0.retain(|_| {
+            let keep = removed.last() != Some(&index);
+            if !keep { removed.pop(); }
+            index += 1;
+            keep
+        });
     }
 }
 
 fn strip_if_arms(r#if: &crate::If) {
     strip_tail(&mut r#if.then_block.lock(), false);
     strip_tail(&mut r#if.else_block.lock(), true);
+}
+
+#[cfg(test)]
+mod tail_worklist_tests {
+    use super::*;
+    use crate::{Call, Global, If, Return};
+    use parking_lot::Mutex;
+    use triomphe::Arc;
+
+    fn reference(block: &mut Block) {
+        loop {
+            let real: Vec<_> = (0..block.len()).filter(|&i| !matches!(block[i], Statement::Empty(_))).collect();
+            let [.., guard_at, tail_at] = real[..] else { return; };
+            if !matches!(block[tail_at], Statement::If(_)) { return; }
+            let Statement::If(guard) = &block[guard_at] else { return; };
+            if !guard.else_block.lock().is_empty() { return; }
+            let then = guard.then_block.lock().0.clone();
+            let mut body = then.iter().filter(|s| !matches!(s, Statement::Empty(_)));
+            let (Some(_), Some(Statement::Return(ret))) = (body.next(), body.last()) else { return; };
+            if !ret.values.is_empty() { return; }
+            let condition = guard.condition.clone();
+            let tail = block.remove(tail_at);
+            block[guard_at] = If::new(condition, Block(then), Block(vec![tail])).into();
+        }
+    }
+
+    fn chain(count: usize, holes: bool) -> (Block, Arc<Mutex<Block>>) {
+        let shared = Arc::new(Mutex::new(Block(vec![
+            Call::new(Global::from("work").into(), vec![]).into(), Return::new(vec![]).into()])));
+        let mut block = Block::default();
+        for _ in 0..count {
+            if holes { block.push(crate::Empty {}.into()); }
+            block.push(If { node_origin: Default::default(), condition: Global::from("flag").into(),
+                then_block: shared.clone(), else_block: Arc::new(Mutex::new(Block::default())) }.into());
+        }
+        if holes { block.push(crate::Empty {}.into()); }
+        (block, shared)
+    }
+
+    #[test]
+    fn tail_guard_cursor_matches_legacy_with_shared_bodies_and_empty_slots() {
+        for width in [1, 2, 8, 128] {
+            for holes in [false, true] {
+                let (mut actual, shared) = chain(width, holes);
+                let (mut expected, _) = chain(width, holes);
+                let original_len = actual.len();
+                TAIL_INDEX_VISITS.with(|visits| visits.set(0));
+                merge_tail_guards(&mut actual);
+                assert_eq!(TAIL_INDEX_VISITS.with(std::cell::Cell::get), original_len,
+                    "each original index is inspected once, independent of successful folds");
+                reference(&mut expected);
+                assert_eq!(actual.to_string(), expected.to_string());
+                assert_eq!(actual.len(), expected.len());
+                assert_eq!(shared.lock().len(), 2, "a shared source arm was consumed");
+                assert!(matches!(shared.lock()[1], Statement::Return(_)));
+            }
+        }
+    }
 }
 
 #[cfg(test)]

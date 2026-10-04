@@ -101,6 +101,7 @@ def check_case(args, case, root, work, opt, debug):
         raw = compile_source(args, original, opt, debug)
         bytecode = directory / "input.luaubc"
         bytecode.write_bytes(raw)
+        row["decoded_input_sha256"] = sha256(bytecode)
         command = [args.lifter, bytecode, "--strict-no-synthetic-control", *args.lifter_arg]
         output, elapsed = checked(command, timeout=args.timeout)
         row["decompile_seconds"] = elapsed

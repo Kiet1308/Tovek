@@ -8,12 +8,16 @@
 //!
 //! The single-script routes return the decompiled source as `text/plain`. The
 //! batch route returns a JSON array of per-item results — one bad script never
-//! fails the whole batch (that item carries `ok:false` + an `error`); only a
-//! malformed request framing is an HTTP 4xx.
+//! fails the whole batch (that item carries `ok:false` + an `error`). Malformed
+//! request framing and request-wide input limits are HTTP 4xx responses.
 //!
-//! At most `MAX_CONCURRENT_JOBS` requests run at once. Later requests wait in a
-//! bounded FIFO queue, with their bodies still unread, until a slot frees; only
-//! a full queue or an expired wait is answered with 503 and `Retry-After`.
+//! Upload/response reservations and CPU jobs have separate bounded capacity.
+//! Batch uploads cannot occupy every ingress slot, and batch CPU work yields
+//! between bounded quanta. CPU permits survive requester cancellation.
+mod service_cache;
+mod batch_response;
+mod batch_reuse;
+
 use std::io;
 use std::sync::Arc;
 use std::time::Duration;
@@ -25,7 +29,7 @@ use axum::{
     middleware::{self, Next},
     response::{IntoResponse, Response},
     routing::post,
-    Extension, Json, Router,
+    Extension, Router,
 };
 use base64::prelude::*;
 use http_body::Body as _;
@@ -62,9 +66,12 @@ const REJECT_BODY_TIMEOUT: Duration = Duration::from_secs(5);
 const DEFAULT_UPLOAD_TIMEOUT: Duration = Duration::from_secs(30);
 const UPLOAD_TIMEOUT_ENV: &str = "TOVEK_UPLOAD_TIMEOUT_SECS";
 
-/// Cap CPU jobs across every route before buffering their bodies. Single
-/// requests share capacity with batches instead of bypassing backpressure.
+/// CPU work is admitted after bounded input parsing and optional cache lookup.
 const MAX_CONCURRENT_JOBS: usize = 4;
+const MAX_INGRESS_JOBS: usize = 8;
+const MAX_BATCH_INGRESS: usize = 2;
+const BATCH_QUANTUM: usize = 8;
+const SOURCE_CACHE_ENV: &str = "TOVEK_SOURCE_CACHE_MIB";
 
 /// Requests that may wait for a job slot. A waiting request holds no body
 /// buffer: its upload stays in the socket until it is admitted.
@@ -76,8 +83,8 @@ const QUEUE_TIMEOUT_ENV: &str = "TOVEK_QUEUE_TIMEOUT_SECS";
 /// Seconds a client that was turned away should wait before retrying.
 const RETRY_AFTER_SECS: &str = "1";
 
-// `MDB1` binary-batch framing limits. The body limit above transitively bounds
-// total allocation; these are cheap early-outs and integrity checks.
+// Batch framing and payload limits. Parser and engine working allocations are
+// separate from these retained protocol-buffer bounds.
 const MDB1_MAGIC: &[u8; 4] = b"MDB1";
 const MDB1_VERSION: u8 = 1;
 const MDB1_FLAG_DONT_REUSE_VAR: u8 = luau_lifter::DONT_REUSE_VAR as u8;
@@ -87,6 +94,12 @@ const MDB1_SUPPORTED_FLAGS: u8 =
 const MAX_ENTRIES: usize = 50_000;
 const MAX_NAME_LEN: usize = 4 * 1024; // 4 KiB — a GetFullName() path.
 const MAX_CODE_LEN: usize = 16 * 1024 * 1024; // 16 MiB — one script's bytecode.
+const MAX_ID_LEN: usize = 1024;
+const MAX_DECODED_BATCH: usize = 64 * 1024 * 1024;
+const MAX_SOURCE_LEN: usize = 16 * 1024 * 1024;
+const MAX_RESPONSE_LEN: usize = 64 * 1024 * 1024;
+const MAX_RESPONSE_METADATA: usize = 16 * 1024 * 1024;
+const RESPONSE_BUDGET_ERROR: &str = "batch response budget exceeded";
 
 #[derive(Debug, thiserror::Error)]
 enum Error {
@@ -99,6 +112,21 @@ enum Error {
     /// per-item inside a 200 response.
     #[error("bad request: {0}")]
     BadRequest(String),
+    #[error("payload too large: {0}")]
+    TooLarge(String),
+    #[error("{0}")]
+    Unavailable(&'static str),
+}
+impl Clone for Error {
+    fn clone(&self) -> Self {
+        match self {
+            Self::Io(error) => Self::Io(io::Error::new(error.kind(), error.to_string())),
+            Self::Base64(error) => Self::Base64(error.clone()),
+            Self::BadRequest(error) => Self::BadRequest(error.clone()),
+            Self::TooLarge(error) => Self::TooLarge(error.clone()),
+            Self::Unavailable(error) => Self::Unavailable(error),
+        }
+    }
 }
 impl Error {
     fn status_code(&self) -> StatusCode {
@@ -106,13 +134,18 @@ impl Error {
             Error::Io(_) => StatusCode::INTERNAL_SERVER_ERROR,
             Error::Base64(_) => StatusCode::BAD_REQUEST,
             Error::BadRequest(_) => StatusCode::BAD_REQUEST,
+            Error::TooLarge(_) => StatusCode::PAYLOAD_TOO_LARGE,
+            Error::Unavailable(_) => StatusCode::SERVICE_UNAVAILABLE,
         }
     }
 }
 impl IntoResponse for Error {
     fn into_response(self) -> Response {
-        Response::builder()
-            .status(self.status_code())
+        let mut response = Response::builder().status(self.status_code());
+        if matches!(self, Self::Unavailable(_)) {
+            response = response.header(axum::http::header::RETRY_AFTER, RETRY_AFTER_SECS);
+        }
+        response
             .body(Body::from(format!("{self}")))
             .expect("failed to build body")
     }
@@ -123,31 +156,77 @@ impl IntoResponse for Error {
 struct AppState {
     /// Shared by legacy, raw and batch CPU jobs.
     cpu_semaphore: Arc<Semaphore>,
+    /// Reserve CPU admission for interactive requests even under batch load.
+    batch_cpu_semaphore: Arc<Semaphore>,
+    /// Holds input/response memory; an upload never occupies a CPU permit.
+    ingress_semaphore: Arc<Semaphore>,
+    batch_ingress_semaphore: Arc<Semaphore>,
+    /// Bound queued batches before they can consume shared queue places.
+    batch_queue_semaphore: Arc<Semaphore>,
     /// Running plus waiting requests: bounds the FIFO queue in front of
-    /// `cpu_semaphore`. Tokio semaphores hand out permits in request order.
+    /// `ingress_semaphore`. Tokio semaphores hand out permits in request order.
     queue_semaphore: Arc<Semaphore>,
     /// How long a request may wait for a job slot, its body still unread.
     queue_timeout: Duration,
     /// One deadline for the complete admitted upload, not for CPU execution.
     upload_timeout: Duration,
+    source_cache: service_cache::SourceCache,
 }
 
 impl AppState {
     fn new(jobs: usize, queue_limit: usize, queue_timeout: Duration, upload_timeout: Duration) -> Self {
         Self {
             cpu_semaphore: Arc::new(Semaphore::new(jobs)),
+            batch_cpu_semaphore: Arc::new(Semaphore::new(jobs.saturating_sub(1).max(1).min(2))),
+            ingress_semaphore: Arc::new(Semaphore::new(jobs)),
+            batch_ingress_semaphore: Arc::new(Semaphore::new(jobs.max(1))),
+            batch_queue_semaphore: Arc::new(Semaphore::new(jobs + queue_limit)),
             queue_semaphore: Arc::new(Semaphore::new(jobs + queue_limit)),
             queue_timeout,
             upload_timeout,
+            source_cache: service_cache::SourceCache::new(0),
         }
+    }
+
+    /// Configure only before the state is handed to a router.
+    fn with_ingress(mut self, slots: usize, batch_slots: usize) -> Self {
+        let queued = self.queue_semaphore.available_permits() - self.ingress_semaphore.available_permits();
+        let batch_slots = batch_slots.min(slots).max(1);
+        self.ingress_semaphore = Arc::new(Semaphore::new(slots));
+        self.batch_ingress_semaphore = Arc::new(Semaphore::new(batch_slots));
+        // Reserve both ingress and waiting capacity for interactive traffic.
+        // Otherwise batches waiting for their lane can fill the outer queue
+        // while every reserved interactive ingress slot is still idle.
+        let batch_places = if batch_slots < slots { batch_slots + queued / 2 } else { slots + queued };
+        self.batch_queue_semaphore = Arc::new(Semaphore::new(batch_places));
+        self.queue_semaphore = Arc::new(Semaphore::new(slots + queued));
+        self
     }
 }
 
-/// Held from admission until the blocking job releases its input: the job slot
-/// and the queue place that led to it.
+/// Retained through input processing, detached work and response body ownership.
 struct Admission {
     _job: OwnedSemaphorePermit,
     _place: OwnedSemaphorePermit,
+    _batch: Option<OwnedSemaphorePermit>,
+    _batch_place: Option<OwnedSemaphorePermit>,
+}
+
+/// Keep the ingress reservation until the response is consumed or dropped, so
+/// slow readers cannot accumulate completed response buffers without a limit.
+struct ReservedBody {
+    body: Body,
+    _admission: Arc<Admission>,
+}
+impl http_body::Body for ReservedBody {
+    type Data = Bytes;
+    type Error = axum::Error;
+    fn poll_frame(mut self: std::pin::Pin<&mut Self>, cx: &mut std::task::Context<'_>)
+        -> std::task::Poll<Option<Result<http_body::Frame<Bytes>, axum::Error>>> {
+        std::pin::Pin::new(&mut self.body).poll_frame(cx)
+    }
+    fn is_end_stream(&self) -> bool { self.body.is_end_stream() }
+    fn size_hint(&self) -> http_body::SizeHint { self.body.size_hint() }
 }
 
 fn parse_seconds(name: &str, value: &str) -> io::Result<Duration> {
@@ -221,7 +300,15 @@ async fn main() -> Result<(), io::Error> {
     let queue_timeout = env_setting(QUEUE_TIMEOUT_ENV, DEFAULT_QUEUE_TIMEOUT,
         |value| parse_seconds(QUEUE_TIMEOUT_ENV, value))?;
     let queue_limit = env_setting(QUEUE_LIMIT_ENV, DEFAULT_QUEUE_LIMIT, parse_queue_limit)?;
-    let state = AppState::new(MAX_CONCURRENT_JOBS, queue_limit, queue_timeout, upload_timeout);
+    let cache_bytes = env_setting(SOURCE_CACHE_ENV, 0usize, |value| {
+        value.parse::<usize>().ok().and_then(|mib| mib.checked_mul(1024 * 1024))
+            .filter(|bytes| *bytes <= 1024 * 1024 * 1024)
+            .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput,
+                format!("{SOURCE_CACHE_ENV} must be an integer from 0 to 1024 MiB")))
+    })?;
+    let mut state = AppState::new(MAX_CONCURRENT_JOBS, queue_limit, queue_timeout, upload_timeout)
+        .with_ingress(MAX_INGRESS_JOBS, MAX_BATCH_INGRESS);
+    state.source_cache = service_cache::SourceCache::new(cache_bytes);
 
     let app = app(state);
 
@@ -249,9 +336,9 @@ fn app(state: AppState) -> Router {
         .with_state(state)
 }
 
-/// Take a queue place, then wait (FIFO, bounded) for a job slot before
-/// AdmittedBody buffers the body with an upload deadline. Only a full queue or
-/// an expired wait is refused. On HTTP/1, dropping an unread upload can reset
+/// Take a queue place subject to the batch quota, then wait within the request's
+/// lane for ingress before AdmittedBody buffers the body with an upload deadline.
+/// A full queue/quota or an expired wait is refused. On HTTP/1, dropping an unread upload can reset
 /// the socket before the client sees 503, so a refused upload is discarded one
 /// frame at a time, within route/time limits.
 async fn admit_work(
@@ -259,14 +346,35 @@ async fn admit_work(
     mut request: axum::extract::Request,
     next: Next,
 ) -> Response {
-    let refusal = match Arc::clone(&state.queue_semaphore).try_acquire_owned() {
+    let is_batch = request.uri().path() == "/decompile/batch";
+    let batch_place = if is_batch {
+        state.batch_queue_semaphore.clone().try_acquire_owned().map(Some)
+    } else { Ok(None) };
+    let place = batch_place.and_then(|batch_place| {
+        state.queue_semaphore.clone().try_acquire_owned().map(|place| (place, batch_place))
+    });
+    let refusal = match place {
         Err(_) => "decompile queue full",
-        Ok(place) => {
-            let job = Arc::clone(&state.cpu_semaphore).acquire_owned();
+        Ok((place, batch_place)) => {
+            let job = async {
+                // Acquire the batch lane first: queued batches must not reserve
+                // every general ingress slot while waiting for their own lane.
+                let batch = if is_batch {
+                    Some(state.batch_ingress_semaphore.clone().acquire_owned().await?)
+                } else { None };
+                let job = state.ingress_semaphore.clone().acquire_owned().await?;
+                Ok::<_, tokio::sync::AcquireError>((job, batch))
+            };
             match tokio::time::timeout(state.queue_timeout, job).await {
-                Ok(Ok(job)) => {
-                    request.extensions_mut().insert(Arc::new(Admission { _job: job, _place: place }));
-                    return next.run(request).await;
+                Ok(Ok((job, batch))) => {
+                    let admission = Arc::new(Admission {
+                        _job: job, _place: place, _batch: batch, _batch_place: batch_place,
+                    });
+                    request.extensions_mut().insert(admission.clone());
+                    let response = next.run(request).await;
+                    return if response.status().is_success() && !response.body().is_end_stream() {
+                        response.map(|body| Body::new(ReservedBody { body, _admission: admission }))
+                    } else { response };
                 }
                 // The semaphore is never closed, so only the wait can fail.
                 _ => "timed out waiting for a decompile slot",
@@ -304,44 +412,43 @@ async fn discard_rejected_body(mut body: Body, limit: usize, timeout: Duration) 
 
 /// `POST /decompile` — retain the legacy base64 protocol and decode key.
 async fn decompile(
+    State(state): State<AppState>,
     Extension(admission): Extension<Arc<Admission>>,
     headers: HeaderMap,
     AdmittedBody(body): AdmittedBody,
-) -> Result<String, Error> {
-    run_admitted_work(admission, move || {
-        let bytecode = BASE64_STANDARD.decode(body)?;
-        let script_name = headers.get("x-script-name").and_then(|value| value.to_str().ok());
-        let options = parse_options_headers(&headers)?;
-        let source = luau_lifter::try_decompile_bytecode_with_options(&bytecode, 203, script_name, options)
-            .map_err(Error::BadRequest)?;
-        info!("Successfully decompiled bytecode.");
-        Ok(source)
-    }).await?
+) -> Result<Response, Error> {
+    let cache = state.source_cache.clone();
+    let script = run_admitted_work(admission.clone(), move || {
+        let bytecode = BASE64_STANDARD.decode(body)?.into();
+        PreparedScript::new(bytecode, DEFAULT_KEY, header_string(&headers, "x-script-name"),
+            parse_options_headers(&headers)?, &cache)
+    }).await??;
+    let source = decompile_prepared(state, admission, script).await?;
+    Ok(([(CONTENT_TYPE, "text/plain; charset=utf-8")], source).into_response())
 }
 
 /// `POST /decompile/raw` — one script, RAW bytecode body (no base64). The script
 /// name comes from `x-script-name`; an optional `x-encode-key` overrides the key.
 async fn decompile_raw(
+    State(state): State<AppState>,
     Extension(admission): Extension<Arc<Admission>>,
     headers: HeaderMap,
     AdmittedBody(body): AdmittedBody,
-) -> Result<String, Error> {
+) -> Result<Response, Error> {
     let script_name = header_string(&headers, "x-script-name");
     let key = parse_key_header(&headers)?;
     let options = parse_options_headers(&headers)?;
-    // `Bytes` is already `'static + Send`; move it straight into the blocking task
-    // (it derefs to `&[u8]`) so there's no extra copy of the bytecode. The try
-    // API catches parsing, lifting and formatting panics as per-item errors.
-    let result = run_admitted_work(admission, move || {
-        luau_lifter::try_decompile_bytecode_with_options(&body, key, script_name.as_deref(), options)
-    })
-    .await?;
-    // A decompile/deserialize failure on the single route has no per-item channel,
-    // so surface it as a 400 with the reason (matches the existing client, which
-    // turns any >=400 into a `-- decompile failed` comment).
-    let decompiled = result.map_err(Error::BadRequest)?;
-    info!("Successfully decompiled raw bytecode.");
-    Ok(decompiled)
+    // With the optional cache disabled, raw input still moves without a copy.
+    let cache = state.source_cache.clone();
+    let script = if !cache.enabled() {
+        PreparedScript::new(body, key, script_name, options, &cache)?
+    } else {
+        run_admitted_work(admission.clone(), move || {
+            PreparedScript::new(body, key, script_name, options, &cache)
+        }).await??
+    };
+    let source = decompile_prepared(state, admission, script).await?;
+    Ok(([(CONTENT_TYPE, "text/plain; charset=utf-8")], source).into_response())
 }
 
 /// `POST /decompile/batch` — many scripts in one request.
@@ -351,20 +458,255 @@ async fn decompile_raw(
 /// Admitted batches respond 200 with a JSON results array; malformed framing
 /// returns 4xx and the admission middleware returns 503 when the queue is full.
 async fn decompile_batch(
+    State(state): State<AppState>,
     Extension(admission): Extension<Arc<Admission>>,
     headers: HeaderMap,
     AdmittedBody(body): AdmittedBody,
 ) -> Result<Response, Error> {
-    run_admitted_work(admission, move || {
-        // Parsing/base64 and JSON response encoding can be large CPU jobs too;
-        // keep the complete job off Tokio's asynchronous executor.
+    let items = run_admitted_work(admission.clone(), move || {
         let items = parse_batch_request(&headers, &body)?;
-        let results = decompile_parsed_batch(items);
-        let ok_count = results.iter().filter(|r| r.ok).count();
-        info!("Batch decompiled {} scripts ({ok_count} ok).", results.len());
-        let response = BatchResponse { count: results.len(), ok_count, results };
-        Ok(Json(response).into_response())
+        batch_response::validate_metadata(&items)?;
+        Ok::<_, Error>(items)
+    }).await??;
+    serve_parsed_batch(state, admission, items).await
+}
+
+struct PreparedScript {
+    bytecode: Bytes,
+    key: u8,
+    script_name: Option<String>,
+    options: DecompileOptions,
+    cache_key: Option<service_cache::Key>,
+}
+impl PreparedScript {
+    /// Called only by a blocking parser task, including bytecode key hashing.
+    fn new(bytecode: Bytes, key: u8, script_name: Option<String>, options: DecompileOptions,
+           cache: &service_cache::SourceCache) -> Result<Self, Error> {
+        check_item_limits(bytecode.len(), script_name.as_deref(), None)?;
+        let cache_key = if cache.accepts_key(bytecode.len(), script_name.as_ref().map_or(0, String::len))
+            && !luau_lifter::requires_fresh_decompilation()
+        {
+            Some(service_cache::Key::new(&bytecode, key, options.bits(), script_name.as_deref(),
+                std::env::var_os("MEDAL_NO_SHARED_TAIL").is_some()))
+        } else { None };
+        Ok(Self { bytecode, key, script_name, options, cache_key })
+    }
+}
+
+async fn cpu_permits(state: &AppState, batch: bool)
+    -> Result<(OwnedSemaphorePermit, Option<OwnedSemaphorePermit>), Error> {
+    tokio::time::timeout(state.queue_timeout, async {
+        let batch = if batch { Some(state.batch_cpu_semaphore.clone().acquire_owned().await) }
+            else { None };
+        let batch = batch.transpose().map_err(|_| Error::Unavailable("CPU scheduler stopped"))?;
+        let cpu = state.cpu_semaphore.clone().acquire_owned().await
+            .map_err(|_| Error::Unavailable("CPU scheduler stopped"))?;
+        Ok((cpu, batch))
+    }).await.map_err(|_| Error::Unavailable("timed out waiting for CPU capacity"))?
+}
+
+fn source_bytes(source: String) -> Result<Bytes, Error> {
+    if source.len() > MAX_SOURCE_LEN {
+        return Err(Error::TooLarge(format!("decompiled source exceeds {MAX_SOURCE_LEN} bytes")));
+    }
+    // Trim spare String capacity before retaining it in a response or cache.
+    Ok(Bytes::from(source.into_bytes().into_boxed_slice()))
+}
+
+async fn compute_script(state: AppState, admission: Arc<Admission>, script: PreparedScript) -> service_cache::Outcome {
+    let permits = cpu_permits(&state, false).await?;
+    run_admitted_work((admission, permits), move || {
+        luau_lifter::try_decompile_bytecode_with_options(&script.bytecode, script.key,
+            script.script_name.as_deref(), script.options).map_err(Error::BadRequest).and_then(source_bytes)
     }).await?
+}
+
+async fn decompile_prepared(state: AppState, admission: Arc<Admission>, mut script: PreparedScript) -> service_cache::Outcome {
+    let lookup = script.cache_key.take().map(|key| state.source_cache.claim(key))
+        .unwrap_or(service_cache::Lookup::Bypass);
+    match lookup {
+        service_cache::Lookup::Ready(source) => Ok(source),
+        service_cache::Lookup::Wait(receiver) => service_cache::wait(receiver).await,
+        service_cache::Lookup::Lead(receiver, completion) => {
+            // The first caller may disappear while waiting for CPU. The owner
+            // task, completion guard and ingress reservation live independently.
+            tokio::spawn(async move { completion.finish(compute_script(state, admission, script).await); });
+            service_cache::wait(receiver).await
+        }
+        service_cache::Lookup::Bypass => compute_script(state, admission, script).await,
+    }
+}
+
+type PreparedRow = (BatchResultItem, Option<PreparedScript>);
+enum PendingResult {
+    Cached(service_cache::Receiver),
+    Direct(tokio::sync::oneshot::Receiver<service_cache::Outcome>),
+}
+struct BatchWork {
+    script: PreparedScript,
+    completion: Option<service_cache::Completion>,
+    direct: Option<tokio::sync::oneshot::Sender<service_cache::Outcome>>,
+}
+
+async fn compute_batch_quantum(state: AppState, admission: Arc<Admission>, work: Vec<BatchWork>) {
+    let (scripts, targets): (Vec<_>, Vec<_>) = work.into_iter()
+        .map(|work| (work.script, (work.completion, work.direct))).unzip();
+    let outcomes = match cpu_permits(&state, true).await {
+        Err(error) => Err(error),
+        Ok(permits) => run_admitted_work((admission, permits), move || {
+            let options = scripts.first().map_or_else(DecompileOptions::default, |script| script.options);
+            let inputs = scripts.iter().map(|script| BatchInput {
+                bytecode: &script.bytecode, encode_key: script.key, script_name: script.script_name.as_deref(),
+            }).collect::<Vec<_>>();
+            // Retain native outer Rayon parallelism and its exact-context dedup;
+            // no cache or async coordination runs inside Rayon.
+            lib_decompile_batch_with_options(&inputs, options).into_iter()
+                .map(|outcome| outcome.map_err(Error::BadRequest).and_then(source_bytes)).collect::<Vec<_>>()
+        }).await,
+    };
+    let outcomes = match outcomes {
+        Ok(outcomes) => outcomes,
+        Err(error) => (0..targets.len()).map(|_| Err(error.clone())).collect(),
+    };
+    for ((completion, direct), outcome) in targets.into_iter().zip(outcomes) {
+        if let Some(completion) = completion { completion.finish(outcome); }
+        else if let Some(direct) = direct { let _ = direct.send(outcome); }
+    }
+}
+
+async fn execute_quantum(state: AppState, admission: Arc<Admission>, rows: Vec<PreparedRow>)
+    -> (Vec<BatchResultItem>, Vec<bool>) {
+    let mut results = Vec::with_capacity(rows.len());
+    let mut reusable = vec![true; rows.len()];
+    let mut waiting = Vec::new();
+    let mut work = Vec::new();
+    for (position, (mut result, script)) in rows.into_iter().enumerate() {
+        if let Some(mut script) = script {
+            let lookup = script.cache_key.take().map(|key| state.source_cache.claim(key))
+                .unwrap_or(service_cache::Lookup::Bypass);
+            match lookup {
+                service_cache::Lookup::Ready(source) => {
+                    result.ok = true; result.decompilation = Some(source);
+                }
+                service_cache::Lookup::Wait(receiver) => waiting.push((position, PendingResult::Cached(receiver))),
+                service_cache::Lookup::Lead(receiver, completion) => {
+                    waiting.push((position, PendingResult::Cached(receiver)));
+                    work.push(BatchWork { script, completion: Some(completion), direct: None });
+                }
+                service_cache::Lookup::Bypass => {
+                    let (sender, receiver) = tokio::sync::oneshot::channel();
+                    waiting.push((position, PendingResult::Direct(receiver)));
+                    work.push(BatchWork { script, completion: None, direct: Some(sender) });
+                }
+            }
+        }
+        results.push(result);
+    }
+    if !work.is_empty() {
+        // Own all completion guards before a caller can cancel. They wake every
+        // follower even if this background task is dropped during shutdown.
+        tokio::spawn(compute_batch_quantum(state, admission, work));
+    }
+    for (position, receiver) in waiting {
+        let outcome = match receiver {
+            PendingResult::Cached(receiver) => service_cache::wait(receiver).await,
+            PendingResult::Direct(receiver) => receiver.await.unwrap_or_else(|_| {
+                Err(Error::Io(io::Error::other("batch worker stopped")))
+            }),
+        };
+        let row = &mut results[position];
+        match outcome {
+            Ok(source) => { row.ok = true; row.decompilation = Some(source); }
+            Err(error) => {
+                reusable[position] = !matches!(error, Error::Unavailable(_) | Error::Io(_));
+                row.error = Some(error.to_string());
+            }
+        }
+    }
+    (results, reusable)
+}
+
+fn prepare_quantum(quantum: Vec<ParsedItem>, offset: usize, cache: &service_cache::SourceCache,
+                   reuse: &batch_reuse::Plan) -> (Vec<PreparedRow>, Vec<Option<usize>>) {
+    let mut aliases = Vec::with_capacity(quantum.len());
+    let mut representatives: Vec<(usize, usize)> = Vec::new();
+    let rows = quantum.into_iter().enumerate().map(|(position, item)| {
+        let index = offset + position;
+        aliases.push(None);
+        match item {
+            ParsedItem::Failed { id, script_name, error } => (
+                BatchResultItem { index, id, script_name, ok: false, decompilation: None, error: Some(error) }, None,
+            ),
+            ParsedItem::Ready { bytecode, key, options, id, script_name } => {
+                let mut row = BatchResultItem { index, id, script_name: script_name.clone(),
+                    ok: false, decompilation: None, error: None };
+                if reuse.apply(&mut row) { return (row, None); }
+                if let Some(slot) = reuse.slot(index) {
+                    if let Some(&(_, representative)) = representatives.iter().find(|&&(seen, _)| seen == slot) {
+                        aliases[position] = Some(representative);
+                        return (row, None);
+                    }
+                    representatives.push((slot, position));
+                }
+                let script = match PreparedScript::new(bytecode, key, script_name, options, cache) {
+                    Ok(script) => Some(script),
+                    Err(error) => { row.error = Some(error.to_string()); None }
+                };
+                (row, script)
+            }
+        }
+    }).collect();
+    (rows, aliases)
+}
+
+fn finish_quantum(results: &mut [BatchResultItem], mut reusable: Vec<bool>, aliases: Vec<Option<usize>>,
+                  reuse: &mut batch_reuse::Plan) {
+    for (position, alias) in aliases.into_iter().enumerate() {
+        if let Some(representative) = alias {
+            results[position].ok = results[representative].ok;
+            results[position].decompilation = results[representative].decompilation.clone();
+            results[position].error = results[representative].error.clone();
+            reusable[position] = reusable[representative];
+        }
+        // Apply an existing request-wide result without changing this row's
+        // correlation metadata; memo exhaustion leaves current output intact.
+        reuse.apply(&mut results[position]);
+        reuse.finish_row(&mut results[position], reusable[position]);
+    }
+}
+
+async fn serve_parsed_batch(state: AppState, admission: Arc<Admission>, items: Vec<ParsedItem>) -> Result<Response, Error> {
+    let (items, mut writer, mut reuse) = run_admitted_work(admission.clone(), move || {
+        let writer = batch_response::Writer::new(&items)?;
+        let reuse = batch_reuse::Plan::new(&items);
+        Ok::<_, Error>((items, writer, reuse))
+    }).await??;
+    let mut items = items.into_iter();
+    let mut offset = 0;
+    loop {
+        let quantum = items.by_ref().take(BATCH_QUANTUM).collect::<Vec<_>>();
+        if quantum.is_empty() { break; }
+        let count = quantum.len();
+        let cache = state.source_cache.clone();
+        let (prepared, aliases, next_reuse) = run_admitted_work(admission.clone(), move || {
+            let (prepared, aliases) = prepare_quantum(quantum, offset, &cache, &reuse);
+            (prepared, aliases, reuse)
+        }).await?;
+        let (mut results, reusable) = execute_quantum(state.clone(), admission.clone(), prepared).await;
+        let (next_writer, next_reuse) = run_admitted_work(admission.clone(), move || {
+            let mut reuse = next_reuse;
+            finish_quantum(&mut results, reusable, aliases, &mut reuse);
+            writer.append(results)?;
+            Ok::<_, Error>((writer, reuse))
+        }).await??;
+        writer = next_writer;
+        reuse = next_reuse;
+        offset += count;
+        tokio::task::yield_now().await;
+    }
+    let bytes = run_admitted_work(admission, move || writer.finish()).await??;
+    info!("Batch completed {offset} scripts.");
+    Ok(([(CONTENT_TYPE, "application/json")], bytes).into_response())
 }
 
 async fn run_admitted_work<P, F, T>(permit: P, work: F) -> Result<T, Error>
@@ -428,13 +770,6 @@ struct JsonBatchItem {
 }
 
 #[derive(Serialize)]
-struct BatchResponse {
-    count: usize,
-    ok_count: usize,
-    results: Vec<BatchResultItem>,
-}
-
-#[derive(Serialize)]
 struct BatchResultItem {
     /// Zero-based position in the request — the universal correlation key.
     index: usize,
@@ -443,10 +778,29 @@ struct BatchResultItem {
     #[serde(skip_serializing_if = "Option::is_none")]
     script_name: Option<String>,
     ok: bool,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    decompilation: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none", serialize_with = "serialize_source")]
+    decompilation: Option<Bytes>,
     #[serde(skip_serializing_if = "Option::is_none")]
     error: Option<String>,
+}
+
+fn serialize_source<S: serde::Serializer>(source: &Option<Bytes>, serializer: S) -> Result<S::Ok, S::Error> {
+    match source {
+        Some(source) => serializer.serialize_str(std::str::from_utf8(source)
+            .map_err(serde::ser::Error::custom)?),
+        None => serializer.serialize_none(),
+    }
+}
+
+fn check_item_limits(code_len: usize, name: Option<&str>, id: Option<&str>) -> Result<(), Error> {
+    if code_len > MAX_CODE_LEN { return Err(Error::TooLarge(format!("bytecode exceeds {MAX_CODE_LEN} bytes"))); }
+    if name.is_some_and(|name| name.len() > MAX_NAME_LEN) {
+        return Err(Error::TooLarge(format!("script name exceeds {MAX_NAME_LEN} bytes")));
+    }
+    if id.is_some_and(|id| id.len() > MAX_ID_LEN) {
+        return Err(Error::TooLarge(format!("script id exceeds {MAX_ID_LEN} bytes")));
+    }
+    Ok(())
 }
 
 fn parse_batch_request(headers: &HeaderMap, body: &Bytes) -> Result<Vec<ParsedItem>, Error> {
@@ -490,17 +844,25 @@ fn parse_json_batch(
     let body_options = parse_json_options(req.flags.as_deref(), req.dont_reuse_var)?;
     let options = header_options.union(body_options);
     let mut out = Vec::with_capacity(req.scripts.len().min(1024));
+    let mut decoded_bytes = 0usize;
     for item in req.scripts {
+        check_item_limits(0, item.script_name.as_deref(), item.id.as_deref())?;
+        if item.bytecode.len() > MAX_CODE_LEN.div_ceil(3) * 4 {
+            return Err(Error::TooLarge(format!("encoded bytecode exceeds the {MAX_CODE_LEN}-byte decoded limit")));
+        }
         // A bad base64 payload is bad *data* for one script, not a malformed
         // request — defer it as a per-item failure so it can't sink the batch.
         match BASE64_STANDARD.decode(item.bytecode.as_bytes()) {
-            Ok(bytecode) => out.push(ParsedItem::Ready {
-                bytecode: bytecode.into(),
-                key,
-                options,
-                id: item.id,
-                script_name: item.script_name,
-            }),
+            Ok(bytecode) => {
+                check_item_limits(bytecode.len(), item.script_name.as_deref(), item.id.as_deref())?;
+                decoded_bytes = decoded_bytes.saturating_add(bytecode.len());
+                if decoded_bytes > MAX_DECODED_BATCH {
+                    return Err(Error::TooLarge(format!("decoded batch exceeds {MAX_DECODED_BATCH} bytes")));
+                }
+                out.push(ParsedItem::Ready {
+                    bytecode: bytecode.into(), key, options, id: item.id, script_name: item.script_name,
+                });
+            }
             Err(e) => out.push(ParsedItem::Failed {
                 id: item.id,
                 script_name: item.script_name,
@@ -563,12 +925,13 @@ fn parse_mdb1_batch(
     // `count` is attacker-influenced; use it only as a capped capacity hint, and
     // verify it against what we actually parse below.
     let mut out = Vec::with_capacity(count.min(1024));
+    let mut decoded_bytes = 0usize;
     for _ in 0..count {
         let name_len = read_u32(body, &mut pos)
             .ok_or_else(|| Error::BadRequest("MDB1: truncated (name length)".into()))?
             as usize;
         if name_len > MAX_NAME_LEN {
-            return Err(Error::BadRequest(format!(
+            return Err(Error::TooLarge(format!(
                 "MDB1: name too large {name_len} (max {MAX_NAME_LEN})"
             )));
         }
@@ -579,9 +942,13 @@ fn parse_mdb1_batch(
             .ok_or_else(|| Error::BadRequest("MDB1: truncated (code length)".into()))?
             as usize;
         if code_len > MAX_CODE_LEN {
-            return Err(Error::BadRequest(format!(
+            return Err(Error::TooLarge(format!(
                 "MDB1: code too large {code_len} (max {MAX_CODE_LEN})"
             )));
+        }
+        decoded_bytes = decoded_bytes.saturating_add(code_len);
+        if decoded_bytes > MAX_DECODED_BATCH {
+            return Err(Error::TooLarge(format!("decoded batch exceeds {MAX_DECODED_BATCH} bytes")));
         }
         let code_start = pos;
         take(body, &mut pos, code_len)
@@ -710,7 +1077,7 @@ fn decompile_parsed_batch(items: Vec<ParsedItem>) -> Vec<BatchResultItem> {
                 id: r.id,
                 script_name: r.script_name,
                 ok: true,
-                decompilation: Some(source),
+                    decompilation: Some(Bytes::from(source.into_bytes().into_boxed_slice())),
                 error: None,
             },
             Err(reason) => BatchResultItem {
@@ -1029,8 +1396,8 @@ mod admission_tests {
     /// Occupy one job slot the way a running request does: queue place and job.
     async fn hold_job(state: &AppState) -> Admission {
         let place = state.queue_semaphore.clone().try_acquire_owned().expect("no queue place free");
-        let job = state.cpu_semaphore.clone().acquire_owned().await.unwrap();
-        Admission { _job: job, _place: place }
+        let job = state.ingress_semaphore.clone().acquire_owned().await.unwrap();
+        Admission { _job: job, _place: place, _batch: None, _batch_place: None }
     }
 
     /// Resolve once exactly `free` queue places remain, i.e. requests have queued.
@@ -1059,7 +1426,7 @@ mod admission_tests {
                     assert!(!response.is_finished(), "admitted body was never polled");
                     tokio::task::yield_now().await;
                 }
-                assert_eq!(state.cpu_semaphore.available_permits(), 0);
+                assert_eq!(state.ingress_semaphore.available_permits(), 0);
 
                 for _ in 0..2 {
                     tokio::time::advance(Duration::from_secs(4)).await;
@@ -1072,7 +1439,7 @@ mod admission_tests {
                         }
                     }
                     assert!(!response.is_finished());
-                    assert_eq!(state.cpu_semaphore.available_permits(), 0);
+                    assert_eq!(state.ingress_semaphore.available_permits(), 0);
                 }
                 tokio::time::advance(Duration::from_secs(2)).await;
                 // Tokio's timer rounds to milliseconds. Bound the join so a
@@ -1086,7 +1453,7 @@ mod admission_tests {
                 assert_eq!(response.status(), StatusCode::REQUEST_TIMEOUT);
                 assert_eq!(response.headers()[axum::http::header::CONNECTION], "close");
                 assert!(dropped.load(Ordering::SeqCst));
-                assert_eq!(state.cpu_semaphore.available_permits(), 1);
+                assert_eq!(state.ingress_semaphore.available_permits(), 1);
                 drop(frames);
 
                 // A completed upload on the same route is admitted immediately.
@@ -1094,7 +1461,7 @@ mod admission_tests {
                 let request = axum::http::Request::post(path).header(CONTENT_TYPE, "application/json")
                     .body(Body::from(valid_body(path))).unwrap();
                 assert_eq!(app(state.clone()).oneshot(request).await.unwrap().status(), StatusCode::OK);
-                assert_eq!(state.cpu_semaphore.available_permits(), 1);
+                assert_eq!(state.ingress_semaphore.available_permits(), 1);
                 tokio::time::pause();
             }
         }
@@ -1118,7 +1485,7 @@ mod admission_tests {
         response.abort();
         assert!(response.await.unwrap_err().is_cancelled());
         assert!(dropped.load(Ordering::SeqCst));
-        assert_eq!(state.cpu_semaphore.available_permits(), 1);
+        assert_eq!(state.ingress_semaphore.available_permits(), 1);
     }
 
     #[tokio::test(start_paused = true)]
@@ -1145,7 +1512,7 @@ mod admission_tests {
             frames.send(body.slice(body.len() / 2..)).unwrap();
             drop(frames);
             assert_eq!(response.await.unwrap().unwrap().status(), StatusCode::OK);
-            assert_eq!(state.cpu_semaphore.available_permits(), 1);
+            assert_eq!(state.ingress_semaphore.available_permits(), 1);
             tokio::time::pause();
         }
     }
@@ -1169,7 +1536,7 @@ mod admission_tests {
             ] {
                 let request = axum::http::Request::post(path).body(body).unwrap();
                 assert_eq!(app(state.clone()).oneshot(request).await.unwrap().status(), expected);
-                assert_eq!(state.cpu_semaphore.available_permits(), 1);
+                assert_eq!(state.ingress_semaphore.available_permits(), 1);
             }
         }
     }
@@ -1198,11 +1565,11 @@ mod admission_tests {
         started_rx.await.unwrap();
         tokio::time::advance(Duration::from_secs(2)).await;
         assert!(!response.is_finished(), "the upload deadline must not wrap CPU execution");
-        assert_eq!(state.cpu_semaphore.available_permits(), 0);
+        assert_eq!(state.ingress_semaphore.available_permits(), 0);
         tokio::time::resume();
         release_tx.send(()).unwrap();
         assert_eq!(response.await.unwrap().unwrap().status(), StatusCode::OK);
-        assert_eq!(state.cpu_semaphore.available_permits(), 1);
+        assert_eq!(state.ingress_semaphore.available_permits(), 1);
     }
 
     #[tokio::test(flavor = "current_thread")]
@@ -1252,7 +1619,7 @@ mod admission_tests {
             assert_eq!(response.status(), StatusCode::SERVICE_UNAVAILABLE);
             assert_eq!(response.headers()[axum::http::header::RETRY_AFTER], RETRY_AFTER_SECS);
             assert_eq!(polled.load(std::sync::atomic::Ordering::Relaxed), 16);
-            assert_eq!(state.cpu_semaphore.available_permits(), 0);
+            assert_eq!(state.ingress_semaphore.available_permits(), 0);
         }
         drop(held);
         let request = axum::http::Request::post("/decompile/batch")
@@ -1261,7 +1628,8 @@ mod admission_tests {
             .unwrap();
         let response = app(state.clone()).oneshot(request).await.unwrap();
         assert_eq!(response.status(), StatusCode::OK);
-        assert_eq!(state.cpu_semaphore.available_permits(), 1);
+        drop(response);
+        assert_eq!(state.ingress_semaphore.available_permits(), 1);
     }
 
     #[tokio::test]
@@ -1366,7 +1734,7 @@ mod admission_tests {
             uploads.push(socket);
         }
         tokio::time::timeout(Duration::from_secs(1), async {
-            while state.cpu_semaphore.available_permits() != 0 { tokio::task::yield_now().await; }
+            while state.ingress_semaphore.available_permits() != 0 { tokio::task::yield_now().await; }
         }).await.expect("uploads did not acquire all shared permits");
 
         for path in ROUTES {
@@ -1383,14 +1751,14 @@ mod admission_tests {
             assert!(response.starts_with("HTTP/1.1 408"), "{response}");
             assert!(response.to_ascii_lowercase().contains("connection: close\r\n"));
         }
-        assert_eq!(state.cpu_semaphore.available_permits(), MAX_CONCURRENT_JOBS);
+        assert_eq!(state.ingress_semaphore.available_permits(), MAX_CONCURRENT_JOBS);
         for path in ROUTES {
             let (status, _) = tokio::task::spawn_blocking(move || {
                 socket_post(address, path, &valid_body(path))
             }).await.unwrap();
             assert_eq!(status, 200, "expired uploads must not starve {path}");
         }
-        assert_eq!(state.cpu_semaphore.available_permits(), MAX_CONCURRENT_JOBS);
+        assert_eq!(state.ingress_semaphore.available_permits(), MAX_CONCURRENT_JOBS);
         server.abort();
         assert!(server.await.unwrap_err().is_cancelled());
     }
@@ -1460,7 +1828,7 @@ mod admission_tests {
             assert_eq!(response.await.unwrap().unwrap().status(), StatusCode::OK);
         }
         assert_eq!(*order.lock().unwrap(), ["0", "1", "2", "3", "4"]);
-        assert_eq!(state.cpu_semaphore.available_permits(), 1);
+        assert_eq!(state.ingress_semaphore.available_permits(), 1);
         assert_eq!(state.queue_semaphore.available_permits(), 9);
     }
 
@@ -1482,6 +1850,7 @@ mod admission_tests {
         assert_eq!(queued.await.unwrap().unwrap().status(), StatusCode::OK);
         let retried = app(state.clone()).oneshot(request(valid_body("/decompile/raw"))).await.unwrap();
         assert_eq!(retried.status(), StatusCode::OK);
+        drop(retried);
         assert_eq!(state.queue_semaphore.available_permits(), 2);
     }
 
@@ -1506,7 +1875,7 @@ mod admission_tests {
             assert_eq!(state.queue_semaphore.available_permits(), 4);
         }
         drop(held);
-        assert_eq!(state.cpu_semaphore.available_permits(), 1);
+        assert_eq!(state.ingress_semaphore.available_permits(), 1);
         assert_eq!(state.queue_semaphore.available_permits(), 5);
     }
 
@@ -1530,5 +1899,246 @@ mod admission_tests {
         }
         server.abort();
         assert!(server.await.unwrap_err().is_cancelled());
+    }
+}
+
+#[cfg(test)]
+mod serving_tests {
+    use super::*;
+    use tower::ServiceExt;
+
+    fn state(cache_bytes: usize) -> AppState {
+        let mut state = AppState::new(2, 8, Duration::from_secs(5), DEFAULT_UPLOAD_TIMEOUT).with_ingress(4, 1);
+        state.source_cache = service_cache::SourceCache::new(cache_bytes);
+        state
+    }
+
+    fn raw(name: &str) -> axum::http::Request<Body> {
+        axum::http::Request::post("/decompile/raw").header("x-script-name", name)
+            .body(Body::from(super::tests::bytecode())).unwrap()
+    }
+
+    async fn until(mut condition: impl FnMut() -> bool) {
+        tokio::time::timeout(Duration::from_secs(5), async {
+            while !condition() { tokio::task::yield_now().await; }
+        }).await.expect("state did not become ready");
+    }
+
+    #[tokio::test]
+    async fn cached_response_bypasses_busy_cpu_but_cold_context_waits() {
+        let state = state(1024 * 1024);
+        let response = app(state.clone()).oneshot(raw("Widget")).await.unwrap();
+        let expected = axum::body::to_bytes(response.into_body(), MAX_SOURCE_LEN).await.unwrap();
+        assert_eq!(state.source_cache.counts(), (1, 0));
+        let cpu = state.cpu_semaphore.clone().acquire_many_owned(2).await.unwrap();
+        let hit = tokio::time::timeout(Duration::from_secs(1), app(state.clone()).oneshot(raw("Widget")))
+            .await.expect("cache hit waited for CPU").unwrap();
+        assert_eq!(axum::body::to_bytes(hit.into_body(), MAX_SOURCE_LEN).await.unwrap(), expected);
+        let cold = tokio::spawn(app(state.clone()).oneshot(raw("Gadget")));
+        until(|| state.source_cache.counts().1 == 1).await;
+        assert!(!cold.is_finished());
+        drop(cpu);
+        assert_eq!(cold.await.unwrap().unwrap().status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn cancelled_singleflight_leader_keeps_ingress_and_completes_for_its_follower() {
+        let state = state(1024 * 1024);
+        let cpu = state.cpu_semaphore.clone().acquire_many_owned(2).await.unwrap();
+        let first = tokio::spawn(app(state.clone()).oneshot(raw("Widget")));
+        until(|| state.source_cache.counts().1 == 1).await;
+        first.abort();
+        assert!(first.await.unwrap_err().is_cancelled());
+        assert_eq!(state.ingress_semaphore.available_permits(), 3, "detached owner retains input reservation");
+        let second = tokio::spawn(app(state.clone()).oneshot(raw("Widget")));
+        until(|| state.ingress_semaphore.available_permits() == 2).await;
+        assert_eq!(state.source_cache.counts(), (0, 1));
+        drop(cpu);
+        let response = second.await.unwrap().unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        let source = axum::body::to_bytes(response.into_body(), MAX_SOURCE_LEN).await.unwrap();
+        assert_eq!(std::str::from_utf8(&source).unwrap().trim(), "return 7");
+        assert_eq!(state.source_cache.counts(), (1, 0));
+        assert_eq!(state.ingress_semaphore.available_permits(), 4);
+    }
+
+    #[tokio::test]
+    async fn batch_and_single_routes_share_successful_contexts_and_preserve_request_ids() {
+        let state = state(1024 * 1024);
+        let encoded = BASE64_STANDARD.encode(super::tests::bytecode());
+        let body = serde_json::json!({"scripts": [
+            {"id":"first","script_name":"Widget","bytecode":encoded},
+            {"id":"second","script_name":"Widget","bytecode":encoded},
+        ]});
+        let response = app(state.clone()).oneshot(axum::http::Request::post("/decompile/batch")
+            .header(CONTENT_TYPE, "application/json").body(Body::from(body.to_string())).unwrap()).await.unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        let bytes = axum::body::to_bytes(response.into_body(), MAX_RESPONSE_LEN).await.unwrap();
+        let output: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+        assert_eq!(output["ok_count"], 2);
+        assert_eq!(output["results"][0]["id"], "first");
+        assert_eq!(output["results"][1]["id"], "second");
+        assert_eq!(state.source_cache.counts(), (1, 0));
+        let _cpu = state.cpu_semaphore.clone().acquire_many_owned(2).await.unwrap();
+        let response = tokio::time::timeout(Duration::from_secs(1), app(state.clone()).oneshot(raw("Widget")))
+            .await.expect("cross-route hit waited for CPU").unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn request_local_reuse_spans_quanta_with_process_cache_disabled() {
+        let state = state(0);
+        let admission = Arc::new(Admission {
+            _job: state.ingress_semaphore.clone().try_acquire_owned().unwrap(),
+            _place: state.queue_semaphore.clone().try_acquire_owned().unwrap(),
+            _batch: None, _batch_place: None,
+        });
+        let count = BATCH_QUANTUM * 2 + 1;
+        let items = (0..count).map(|index| ParsedItem::Ready {
+            bytecode: super::tests::bytecode().into(), key: DEFAULT_KEY,
+            options: DecompileOptions::default(), id: Some(index.to_string()),
+            script_name: Some(format!("parent{index}.Widget")),
+        }).collect::<Vec<_>>();
+        let mut reuse = batch_reuse::Plan::new(&items);
+        let mut writer = batch_response::Writer::new(&items).unwrap();
+        let mut inputs = items.into_iter();
+        let mut busy_cpu = None;
+        for offset in (0..count).step_by(BATCH_QUANTUM) {
+            let quantum = inputs.by_ref().take(BATCH_QUANTUM).collect();
+            let (prepared, aliases) = prepare_quantum(quantum, offset, &state.source_cache, &reuse);
+            assert_eq!(prepared.iter().filter(|(_, script)| script.is_some()).count(), usize::from(offset == 0));
+            let (mut results, reusable) = tokio::time::timeout(Duration::from_secs(1),
+                execute_quantum(state.clone(), admission.clone(), prepared))
+                .await.expect("a later duplicate quantum waited for CPU");
+            finish_quantum(&mut results, reusable, aliases, &mut reuse);
+            writer.append(results).unwrap();
+            if offset == 0 { busy_cpu = Some(state.cpu_semaphore.clone().acquire_many_owned(2).await.unwrap()); }
+        }
+        let response: serde_json::Value = serde_json::from_slice(&writer.finish().unwrap()).unwrap();
+        assert_eq!(response["ok_count"], count);
+        for index in 0..count {
+            let row = &response["results"][index];
+            assert_eq!(row["id"], index.to_string());
+            assert_eq!(row["script_name"], format!("parent{index}.Widget"));
+            assert_eq!(row["decompilation"].as_str().unwrap().trim(), "return 7");
+        }
+        assert_eq!(state.source_cache.counts(), (0, 0));
+        drop(busy_cpu);
+    }
+
+    #[tokio::test]
+    async fn failed_decompilations_do_not_fill_the_source_cache() {
+        let state = state(1024 * 1024);
+        for _ in 0..2 {
+            let response = app(state.clone()).oneshot(axum::http::Request::post("/decompile/raw")
+                .body(Body::from(vec![99u8])).unwrap()).await.unwrap();
+            assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+            assert_eq!(state.source_cache.counts(), (0, 0));
+        }
+    }
+
+    #[tokio::test]
+    async fn response_buffer_retains_ingress_capacity_until_dropped_but_releases_cpu() {
+        let state = AppState::new(1, 0, DEFAULT_QUEUE_TIMEOUT, DEFAULT_UPLOAD_TIMEOUT);
+        let response = app(state.clone()).oneshot(raw("Widget")).await.unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        assert_eq!(state.cpu_semaphore.available_permits(), 1);
+        assert_eq!(state.ingress_semaphore.available_permits(), 0);
+        let refused = app(state.clone()).oneshot(raw("Widget")).await.unwrap();
+        assert_eq!(refused.status(), StatusCode::SERVICE_UNAVAILABLE);
+        drop(response);
+        assert_eq!(state.ingress_semaphore.available_permits(), 1);
+        assert_eq!(app(state.clone()).oneshot(raw("Widget")).await.unwrap().status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn batch_cpu_lane_cannot_reserve_all_interactive_job_capacity() {
+        let state = state(0);
+        let first_batch = cpu_permits(&state, true).await.unwrap();
+        let next_state = state.clone();
+        let second_batch = tokio::spawn(async move { cpu_permits(&next_state, true).await });
+        tokio::task::yield_now().await;
+        assert!(!second_batch.is_finished());
+        let interactive = tokio::time::timeout(Duration::from_secs(1), cpu_permits(&state, false))
+            .await.expect("queued batch held the interactive reservation").unwrap();
+        drop(interactive);
+        drop(first_batch);
+        drop(second_batch.await.unwrap().unwrap());
+        assert_eq!(state.cpu_semaphore.available_permits(), 2);
+    }
+
+    #[tokio::test]
+    async fn stalled_batch_upload_does_not_reserve_cpu_or_block_an_interactive_upload() {
+        struct Stalled(Arc<std::sync::atomic::AtomicBool>);
+        impl http_body::Body for Stalled {
+            type Data = Bytes;
+            type Error = std::convert::Infallible;
+            fn poll_frame(self: std::pin::Pin<&mut Self>, _: &mut std::task::Context<'_>)
+                -> std::task::Poll<Option<Result<http_body::Frame<Bytes>, Self::Error>>> {
+                self.0.store(true, std::sync::atomic::Ordering::SeqCst);
+                std::task::Poll::Pending
+            }
+        }
+        let state = state(0);
+        let polled = Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let stalled = tokio::spawn(app(state.clone()).oneshot(axum::http::Request::post("/decompile/batch")
+            .body(Body::new(Stalled(polled.clone()))).unwrap()));
+        until(|| polled.load(std::sync::atomic::Ordering::SeqCst)).await;
+        assert_eq!(state.cpu_semaphore.available_permits(), 2);
+        let queued = tokio::spawn(app(state.clone()).oneshot(axum::http::Request::post("/decompile/batch")
+            .header(CONTENT_TYPE, "application/json").body(Body::from(r#"{"scripts":[]}"#)).unwrap()));
+        let response = tokio::time::timeout(Duration::from_secs(1), app(state.clone()).oneshot(raw("Widget")))
+            .await.expect("interactive request blocked behind batch upload").unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        drop(response);
+        assert!(!queued.is_finished());
+        stalled.abort();
+        assert!(stalled.await.unwrap_err().is_cancelled());
+        assert_eq!(queued.await.unwrap().unwrap().status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn a_full_batch_waiting_lane_leaves_interactive_queue_capacity() {
+        let state = AppState::new(2, 2, Duration::from_secs(5), DEFAULT_UPLOAD_TIMEOUT)
+            .with_ingress(4, 1);
+        let batch_lane = state.batch_ingress_semaphore.clone().acquire_owned().await.unwrap();
+        let batch_places = state.batch_queue_semaphore.available_permits();
+        assert_eq!(batch_places, 2);
+        let batch_request = || axum::http::Request::post("/decompile/batch")
+            .header(CONTENT_TYPE, "application/json")
+            .body(Body::from(r#"{"scripts":[]}"#)).unwrap();
+        let mut waiting = Vec::new();
+        for _ in 0..batch_places {
+            waiting.push(tokio::spawn(app(state.clone()).oneshot(batch_request())));
+        }
+        until(|| state.batch_queue_semaphore.available_permits() == 0).await;
+        assert_eq!(state.ingress_semaphore.available_permits(), 4);
+        assert_eq!(state.queue_semaphore.available_permits(), 4);
+        let excess = app(state.clone()).oneshot(batch_request()).await.unwrap();
+        assert_eq!(excess.status(), StatusCode::SERVICE_UNAVAILABLE);
+        let interactive = tokio::time::timeout(Duration::from_secs(1), app(state.clone()).oneshot(raw("Widget")))
+            .await.expect("batch waiters consumed the interactive queue reservation").unwrap();
+        assert_eq!(interactive.status(), StatusCode::OK);
+        drop(interactive);
+        for task in &waiting { task.abort(); }
+        for task in waiting { assert!(task.await.unwrap_err().is_cancelled()); }
+        assert_eq!(state.batch_queue_semaphore.available_permits(), batch_places);
+        assert_eq!(state.queue_semaphore.available_permits(), 6);
+        drop(batch_lane);
+        assert_eq!(app(state.clone()).oneshot(batch_request()).await.unwrap().status(), StatusCode::OK);
+    }
+
+    #[test]
+    fn json_and_binary_envelopes_enforce_the_same_script_name_limit() {
+        let name = "x".repeat(MAX_NAME_LEN + 1);
+        let body = serde_json::json!({"scripts":[{"script_name":name,"bytecode":"AQ=="}]}).to_string();
+        assert!(matches!(parse_json_batch(&Bytes::from(body), DecompileOptions::default()), Err(Error::TooLarge(_))));
+        let mut binary = b"MDB1".to_vec();
+        binary.extend([1, 203, 0, 0]);
+        binary.extend(1u32.to_le_bytes());
+        binary.extend(((MAX_NAME_LEN + 1) as u32).to_le_bytes());
+        assert!(matches!(parse_mdb1_batch(&Bytes::from(binary), DecompileOptions::default()), Err(Error::TooLarge(_))));
+        let body = serde_json::json!({"scripts":[{"id":"x".repeat(MAX_ID_LEN + 1),"bytecode":"AQ=="}]}).to_string();
+        assert!(matches!(parse_json_batch(&Bytes::from(body), DecompileOptions::default()), Err(Error::TooLarge(_))));
     }
 }

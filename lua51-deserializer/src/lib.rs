@@ -7,3 +7,4 @@ pub mod function;
 pub mod instruction;
 pub mod local;
 pub mod value;
+pub mod validate;

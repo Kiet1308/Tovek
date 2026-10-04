@@ -5,6 +5,7 @@
 #![feature(iter_order_by)]
 
 pub mod block;
+pub mod analysis;
 pub mod dominators;
 pub mod dot;
 pub mod function;

@@ -25,6 +25,7 @@ pub(super) struct Schedule {
     usage_revision: u64,
     enabled: bool,
     pub statistics: Statistics,
+    changes: super::InlineChanges,
 }
 
 impl Schedule {
@@ -38,6 +39,7 @@ impl Schedule {
             usage_revision: 1,
             enabled,
             statistics: Statistics::default(),
+            changes: super::InlineChanges::default(),
         }
     }
 
@@ -61,10 +63,22 @@ impl Schedule {
     }
 
     pub fn changed(&mut self, node: NodeIndex) {
+        self.changes.block_changed(node);
         if self.enabled { self.last_seen[node.index()] = 0; }
     }
 
+    pub fn layout_changed(&mut self, node: NodeIndex) {
+        self.changed(node);
+        self.changes.statement_layout_changed = true;
+    }
+
+    pub fn into_changes(mut self) -> super::InlineChanges {
+        self.changes.finish();
+        self.changes
+    }
+
     pub fn usage_changed(&mut self, _local: &RcLocal) {
+        self.changes.usage_counts_changed = true;
         if !self.enabled { return; }
         self.statistics.usage_invalidations += 1;
         // Later blocks observe this immediately. Earlier blocks are revisited

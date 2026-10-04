@@ -1156,13 +1156,7 @@ fn contains_global(value: &RValue) -> bool {
 }
 
 fn is_generated_temp(local: &RcLocal) -> bool {
-    let Some(name) = local.0 .0.lock().0.clone() else {
-        return false;
-    };
-    name == "v"
-        || name
-            .strip_prefix('v')
-            .is_some_and(|rest| !rest.is_empty() && rest.chars().all(|c| c.is_ascii_digit()))
+    local.is_inferred_temporary()
 }
 
 #[cfg(test)]

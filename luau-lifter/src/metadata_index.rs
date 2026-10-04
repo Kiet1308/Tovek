@@ -1,6 +1,41 @@
 //! Register/PC indexes for compiler metadata. Original ordinals are retained:
 //! overlapping ranges must keep the same ambiguity and first-hint semantics.
 
+/// Evidence is usable only when exactly one valid source record applies.
+/// Display-name equality does not make two source bindings identical.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum MetadataMatch<T> { Absent, Unique(T), Ambiguous }
+
+pub(crate) fn unique_match<T>(values: impl IntoIterator<Item = T>) -> MetadataMatch<T> {
+    let mut values = values.into_iter();
+    match (values.next(), values.next()) {
+        (None, _) => MetadataMatch::Absent,
+        (Some(value), None) => MetadataMatch::Unique(value),
+        _ => MetadataMatch::Ambiguous,
+    }
+}
+
+/// The same admission rule is used by source reconstruction and its audit.
+/// Invalid names/ranges are not promoted into source-binding evidence.
+pub(crate) fn debug_binding(
+    prototype: usize,
+    name_index: usize,
+    register: u8,
+    lifetime: std::ops::Range<usize>,
+    instruction_count: usize,
+    max_stack_size: u8,
+    strings: &[&[u8]],
+) -> Option<ast::SourceBinding> {
+    if lifetime.start >= lifetime.end || lifetime.end > instruction_count
+        || register >= max_stack_size { return None; }
+    let name = std::str::from_utf8(strings.get(name_index.checked_sub(1)?)?).ok()?;
+    ast::valid_source_name(name).then(|| ast::SourceBinding {
+        origin: ast::BindingOrigin::DebugLocal { prototype, register,
+            start_pc: lifetime.start, end_pc: lifetime.end },
+        name: name.to_owned(),
+    })
+}
+
 #[derive(Clone, Copy)]
 struct Range {
     start: usize,

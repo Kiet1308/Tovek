@@ -1012,6 +1012,12 @@ impl RawUpvalueAnalysis {
 
 fn analyze_prototype(chunk: &Chunk, proto_id: usize, function: &Function) -> PrototypeAnalysis {
     let source_lines = decode_source_lines(function);
+    let debug_ranges = crate::metadata_index::RegisterRanges::new(function.debug_locals.iter()
+        .map(|local| (local.register, local.start_pc, local.end_pc)));
+    let debug_bindings = function.debug_locals.iter().map(|local|
+        crate::metadata_index::debug_binding(proto_id, local.name_index, local.register,
+            local.start_pc..local.end_pc, function.instructions.len(),
+            function.max_stack_size, &chunk.string_table)).collect::<Vec<_>>();
     let debug_name = resolve_string(&chunk.string_table, function.function_name);
     let debug_upvalue_names = (0..function.num_upvalues as usize)
         .map(|slot| {
@@ -1070,6 +1076,8 @@ fn analyze_prototype(chunk: &Chunk, proto_id: usize, function: &Function) -> Pro
                 d,
                 ClosureConstructor::NewClosure,
                 &mut claimed_captures,
+                &debug_ranges,
+                &debug_bindings,
             )),
             Instruction::AD {
                 op_code: OpCode::LOP_DUPCLOSURE,
@@ -1083,6 +1091,8 @@ fn analyze_prototype(chunk: &Chunk, proto_id: usize, function: &Function) -> Pro
                 d,
                 ClosureConstructor::DupClosure,
                 &mut claimed_captures,
+                &debug_ranges,
+                &debug_bindings,
             )),
             _ => {}
         }
@@ -1167,6 +1177,8 @@ fn analyze_closure_site(
     operand: i16,
     constructor: ClosureConstructor,
     claimed_captures: &mut [bool],
+    debug_ranges: &crate::metadata_index::RegisterRanges,
+    debug_bindings: &[Option<ast::SourceBinding>],
 ) -> ClosureSiteAnalysis {
     let mut diagnostics = Vec::new();
     let child_proto_id = match resolve_child_proto(parent, operand, constructor) {
@@ -1275,8 +1287,16 @@ fn analyze_closure_site(
             _ => {}
         }
 
-        let (source_debug_name, source_local_lifetime) =
-            capture_source_debug_info(chunk, parent, pc, kind, source);
+        let (source_debug_name, source_local_lifetime, ambiguous) =
+            capture_source_debug_info(chunk, parent, pc, kind, source, debug_ranges, debug_bindings);
+        if ambiguous {
+            diagnostics.push(AnalysisDiagnostic {
+                code: "ambiguous_capture_source_debug".into(),
+                message: format!("multiple source bindings cover register {source} at constructor pc {pc}"),
+                proto_id: Some(parent_proto_id),
+                pc: Some(capture_pc),
+            });
+        }
         captures.push(RawCapture {
             target_slot_zero_based: target_slot,
             ordinal_one_based: target_slot + 1,
@@ -1423,27 +1443,26 @@ fn capture_source_debug_info(
     constructor_pc: usize,
     kind: CaptureKind,
     source: usize,
-) -> (Option<String>, Option<PcRange>) {
+    debug_ranges: &crate::metadata_index::RegisterRanges,
+    debug_bindings: &[Option<ast::SourceBinding>],
+) -> (Option<String>, Option<PcRange>, bool) {
     match kind {
         CaptureKind::Value | CaptureKind::Reference => {
-            let local = parent
-                .debug_locals
-                .iter()
-                .filter(|local| {
-                    local.register as usize == source
-                        && local.start_pc <= constructor_pc
-                        && constructor_pc < local.end_pc
-                })
-                .max_by_key(|local| local.start_pc);
-            match local {
-                Some(local) => (
-                    resolve_string(&chunk.string_table, local.name_index),
+            let Ok(register) = u8::try_from(source) else { return (None, None, false); };
+            let mut ranges = Vec::new();
+            debug_ranges.covering(register, constructor_pc, &mut ranges);
+            match crate::metadata_index::unique_match(ranges.into_iter().filter_map(|index|
+                debug_bindings[index].as_ref().map(|binding| (&parent.debug_locals[index], binding)))) {
+                crate::metadata_index::MetadataMatch::Unique((local, binding)) => (
+                    Some(binding.name.clone()),
                     Some(PcRange {
                         start_pc_inclusive: local.start_pc,
                         end_pc_exclusive: local.end_pc,
                     }),
+                    false,
                 ),
-                None => (None, None),
+                crate::metadata_index::MetadataMatch::Absent => (None, None, false),
+                crate::metadata_index::MetadataMatch::Ambiguous => (None, None, true),
             }
         }
         CaptureKind::ParentUpvalue => (
@@ -1452,8 +1471,9 @@ fn capture_source_debug_info(
                 .get(source)
                 .and_then(|&index| resolve_string(&chunk.string_table, index)),
             None,
+            false,
         ),
-        CaptureKind::Unknown => (None, None),
+        CaptureKind::Unknown => (None, None, false),
     }
 }
 
@@ -2103,5 +2123,49 @@ mod tests {
             RawUpvalueAnalysis::build(&chunk).prototypes[0].status,
             AnalysisStatus::Complete
         );
+    }
+
+    #[test]
+    fn overlapping_capture_debug_bindings_are_partial_and_never_named_by_recency() {
+        let mut parent = function(0, 2, vec![
+            Instruction::BC { op_code: OpCode::LOP_NOP, a: 0, b: 0, c: 0, aux: 0 },
+            Instruction::AD { op_code: OpCode::LOP_NEWCLOSURE, a: 0, d: 0, aux: 0 },
+            Instruction::BC { op_code: OpCode::LOP_CAPTURE, a: 0, b: 1, c: 0, aux: 0 },
+            Instruction::BC { op_code: OpCode::LOP_RETURN, a: 0, b: 2, c: 0, aux: 0 },
+        ]);
+        parent.functions.push(1);
+        parent.debug_locals.extend([
+            DebugLocal { name_index: 1, register: 1, start_pc: 0, end_pc: 4 },
+            DebugLocal { name_index: 2, register: 1, start_pc: 1, end_pc: 3 },
+        ]);
+        let child = function(1, 1, vec![
+            Instruction::BC { op_code: OpCode::LOP_GETUPVAL, a: 0, b: 0, c: 0, aux: 0 },
+            Instruction::BC { op_code: OpCode::LOP_RETURN, a: 0, b: 2, c: 0, aux: 0 },
+        ]);
+        let mut chunk = Chunk { version: 9, string_table: vec![b"outer", b"inner"],
+            functions: vec![parent, child], main: 0, userdata_type_names: Vec::new() };
+        let raw = RawUpvalueAnalysis::build(&chunk);
+        let site = &raw.prototypes[0].closure_sites[0];
+        assert_eq!(site.status, AnalysisStatus::Partial);
+        assert_eq!(site.captures[0].source_debug_name, None);
+        assert_eq!(site.captures[0].source_local_lifetime, None);
+        assert!(site.diagnostics.iter().any(|d| d.code == "ambiguous_capture_source_debug"));
+
+        // A unique valid binding still supplies the exact metadata lifetime.
+        chunk.functions[0].debug_locals.pop();
+        let raw = RawUpvalueAnalysis::build(&chunk);
+        let site = &raw.prototypes[0].closure_sites[0];
+        assert_eq!(site.status, AnalysisStatus::Complete);
+        assert_eq!(site.captures[0].source_debug_name.as_deref(), Some("outer"));
+        assert_eq!(site.captures[0].source_local_lifetime,
+            Some(PcRange { start_pc_inclusive: 0, end_pc_exclusive: 4 }));
+
+        // Invalid records are rejected by the shared source-binding rule,
+        // rather than overriding the valid record with a later start PC.
+        chunk.functions[0].debug_locals.push(DebugLocal {
+            name_index: 99, register: 1, start_pc: 1, end_pc: 3,
+        });
+        let raw = RawUpvalueAnalysis::build(&chunk);
+        assert_eq!(raw.prototypes[0].closure_sites[0].captures[0].source_debug_name.as_deref(), Some("outer"));
     }
 }

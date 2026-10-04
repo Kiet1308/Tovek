@@ -10,14 +10,15 @@
   }
  },
  "summary": {
+  "model": "compact-per-file-thresholds-v1",
   "inputs": 7,
-  "protos": 177,
-  "exact": 117,
-  "equiv": 31,
-  "differ": 29,
-  "missing": 0,
-  "extra": 0,
-  "equiv_ratio": 0.83616
+  "status": {
+   "ok": 7
+  },
+  "original_protos": 177,
+  "nonequiv": 29,
+  "files_fully_equiv": 1,
+  "contract": "Counts are derived from immutable per-file thresholds. original_protos counts original prototypes; nonequiv includes differing, missing and extra prototypes. Legacy exact/equiv/differ/missing/extra splits and their ratio cannot be reconstructed from this compact baseline."
  },
  "files": [
   {
