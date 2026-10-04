@@ -139,7 +139,8 @@
    "multiline_string_keys": "review 10-04 round 3 + PR #6",
    "nested_rejected_format_calls": "review 10-04 round 3 + PR #6",
    "reroll_within_register_limit": "review 10-04 round 3 + PR #6",
-   "signed_zero_key_kept_by_moved_entry": "review 10-04 round 3 + PR #6"
+   "signed_zero_key_kept_by_moved_entry": "review 10-04 round 3 + PR #6",
+   "flattened_do_blocks_register_limit": "flattened do blocks under the register limit"
   }
  },
  "summary": {
@@ -554,6 +555,12 @@
    "status": "ok",
    "nonequiv": 1,
    "protos": 7
+  },
+  {
+   "file": "flattened_do_blocks_register_limit",
+   "status": "ok",
+   "nonequiv": 0,
+   "protos": 3
   },
   {
    "file": "folded_constant_argument",

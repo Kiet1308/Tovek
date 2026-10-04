@@ -832,6 +832,18 @@
       "bytes": 1424,
       "lines": 64
     },
+    "semantic/flattened_do_blocks_register_limit__O0.luau": {
+      "bytes": 1381,
+      "lines": 142
+    },
+    "semantic/flattened_do_blocks_register_limit__O1.luau": {
+      "bytes": 1381,
+      "lines": 142
+    },
+    "semantic/flattened_do_blocks_register_limit__O2.luau": {
+      "bytes": 1381,
+      "lines": 142
+    },
     "semantic/folded_constant_argument__O0.luau": {
       "bytes": 1006,
       "lines": 57

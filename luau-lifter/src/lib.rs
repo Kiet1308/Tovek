@@ -999,11 +999,12 @@ fn decompile_bytecode_internal(
             ast::untruncate_arguments::untruncate_arguments(&mut body);
             drop(late_timer);
             // Temporaries left apart for the folding passes may, where some
-            // did not fold, push a huge function past the local limit, as may
-            // source locals of `do` blocks the output flattens: decompile again
-            // sharing more storage up front.
+            // did not fold, push a huge function past the local or register
+            // limit, as may source locals of `do` blocks the output flattens:
+            // decompile again sharing more storage up front.
             if let Some(next) = sharing.next()
-                && ast::coalesce_locals::declared_locals_exceed_limit(&body)
+                && (ast::coalesce_locals::declared_locals_exceed_limit(&body)
+                    || ast::coalesce_locals::registers_exceed_limit(&body))
             {
                 ast::telemetry::count("eager_coalescing_retries", 1);
                 return Ok(DecompileAttempt::Retry(next));
