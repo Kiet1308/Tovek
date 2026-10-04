@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "recorded_at_utc": "2026-10-04T08:49:31.410904+00:00",
+  "luau_revision": "c2ec0d4e5ca50796ba174a7565298f59aa572268",
+  "luau_worktree_status": "",
+  "benchmark_vm": {
+    "path": "/workspace/scratch/8b51247a47e6/tooling/benchmark-vm/benchmark-vm",
+    "sha256": "65699a7817b693b9d32aadb792e674448049226d567c708b1f57021b60daa78c"
+  },
+  "compiler": {
+    "path": "/workspace/scratch/8b51247a47e6/tooling/luau-build/luau-compile",
+    "sha256": "aba878910fa3767ceeca9d72fa586282a72c53866adfc9460c3d1cfdd0e6d177"
+  },
+  "luau_runner": {
+    "path": "/workspace/scratch/8b51247a47e6/tooling/luau-build/luau",
+    "sha256": "73350a2a987ae0de35d3b19be5b12bda807a939586a23670d8d3a36c8036c80b"
+  },
+  "control_command": [
+    "python3",
+    "scripts/check_benchmark_vm.py",
+    "--compiler",
+    "/workspace/scratch/8b51247a47e6/tooling/luau-build/luau-compile",
+    "--vm",
+    "/workspace/scratch/8b51247a47e6/tooling/benchmark-vm/benchmark-vm"
+  ],
+  "configure_exit_code": 0,
+  "build_exit_code": 0,
+  "controls_exit_code": 0,
+  "controls_stdout": "VM controls passed: v9/v12, nil arity, captures, methods, isolation, timeout, memory bound\n",
+  "logs": [
+    "benchmark-vm-configure.log",
+    "benchmark-vm-build.log",
+    "benchmark-vm-controls.log"
+  ]
+}

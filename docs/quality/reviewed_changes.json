@@ -1,4 +1,41 @@
 {
   "schema_version": 1,
-  "reviews": []
+  "reviews": [
+    {
+      "case_id": "[\"public-v9\",\"RbxUtil/modules/comm/Client/ClientComm.luau\",9,0,1]",
+      "check": "unproved_output_change",
+      "before": "unknown",
+      "after": "unknown",
+      "before_output_sha256": "40de2da4910562d6902f7ebd188d6172609eec171b6fde4517d02d5d3f651943",
+      "after_output_sha256": "93e91ec1e02a8e8106796bd89f190067c1d36df03e2e0e03a4c9f26052931f7a",
+      "reason": "Reviewed exact transition from base55c5bcd to engine4642b2c: the sole text edit renames an unread fixed parameter p3 to _. Fixed-parameter count and vararg forwarding are unchanged; the function has no reads of p3 or _. Binding-canonical AST and type syntax match. Pinned Luau recompilation produces identical bytecode at g0 and the actual g1; before-output versus after-output dataflow is proved at g0/g1/g2. Original-input versus output remains unknown. See transition_review.json; this approval matches only the recorded hashes."
+    },
+    {
+      "case_id": "[\"public-v9\",\"RbxUtil/modules/comm/Client/ClientComm.luau\",9,1,1]",
+      "check": "unproved_output_change",
+      "before": "unknown",
+      "after": "unknown",
+      "before_output_sha256": "40de2da4910562d6902f7ebd188d6172609eec171b6fde4517d02d5d3f651943",
+      "after_output_sha256": "93e91ec1e02a8e8106796bd89f190067c1d36df03e2e0e03a4c9f26052931f7a",
+      "reason": "Reviewed exact transition from base55c5bcd to engine4642b2c: the sole text edit renames an unread fixed parameter p3 to _. Fixed-parameter count and vararg forwarding are unchanged; the function has no reads of p3 or _. Binding-canonical AST and type syntax match. Pinned Luau recompilation produces identical bytecode at g0 and the actual g1; before-output versus after-output dataflow is proved at g0/g1/g2. Original-input versus output remains unknown. See transition_review.json; this approval matches only the recorded hashes."
+    },
+    {
+      "case_id": "[\"public-v9\",\"RbxUtil/modules/comm/Client/ClientComm.luau\",9,2,1]",
+      "check": "unproved_output_change",
+      "before": "unknown",
+      "after": "unknown",
+      "before_output_sha256": "c4567062fb2b739e1cfd7107a69912d2ffd6faa0acac2105ff2dbda8d0ca5e3d",
+      "after_output_sha256": "b51368fa01651bf0b77a26a849dcb5ec5b4179ff9d4c802ac2a5a0bbb65653a0",
+      "reason": "Reviewed exact transition from base55c5bcd to engine4642b2c: the sole text edit renames an unread fixed parameter p3 to _. Fixed-parameter count and vararg forwarding are unchanged; the function has no reads of p3 or _. Binding-canonical AST and type syntax match. Pinned Luau recompilation produces identical bytecode at g0 and the actual g1; before-output versus after-output dataflow is proved at g0/g1/g2. Original-input versus output remains unknown. See transition_review.json; this approval matches only the recorded hashes."
+    },
+    {
+      "case_id": "[\"public-v9\",\"RbxUtil/modules/input/Gamepad.luau\",9,2,1]",
+      "check": "unproved_output_change",
+      "before": "unknown",
+      "after": "unknown",
+      "before_output_sha256": "5b8a3796b429120d6ff56fb30b1c9061d6d583d6e71ee224cb28aa64dfd6dbc4",
+      "after_output_sha256": "21bebf0be66fcb8b9a954a0fac2122bdef69b5e36b6fec28c1e4d9622e36d7ec",
+      "reason": "Reviewed exact transition from base55c5bcd to engine4642b2c: PulseMotor moves its single-use, nonrecursive local callback fn directly into HeartbeatDelay(p3, function...). The callback body, captures, parameter arity and call order are unchanged. Only local reads of HeartbeatDelay and p3 precede closure creation at the new site, with no intervening write, call, yield or escape; fn has no other uses. Pinned g0/g1/g2 compilations succeed. O2g0 has the same opcode order, strings, prototype topology, arity and capture counts; PulseMotor temporary registers are reassigned. The bounded oracle remains unknown, so this is an explicit source/effect review, not a general proof. See transition_review.json; this approval matches only the recorded hashes."
+    }
+  ]
 }
