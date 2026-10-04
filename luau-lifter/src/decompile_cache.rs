@@ -54,6 +54,7 @@ struct Inventory {
 #[derive(Default)]
 struct Counters {
     hits: AtomicU64,
+    memory_hits: AtomicU64,
     misses: AtomicU64,
     writes: AtomicU64,
     corrupt: AtomicU64,
@@ -81,10 +82,16 @@ pub(crate) fn diagnostic_environment() -> bool {
 }
 
 impl Cache {
-    /// Scheduling hint from the inventory already loaded by `open`, not a hit
-    /// guarantee. Warm/mixed caches retain normal per-file parallel scheduling.
+    #[cfg(test)]
     pub fn is_empty(&self) -> bool {
         self.inventory.lock().records.is_empty()
+    }
+
+    /// A successful exact-byte reuse within this folder run. Count it among
+    /// hits while exposing the subset separately from persistent-cache reads.
+    pub fn record_memory_hit(&self) {
+        self.counters.hits.fetch_add(1, Ordering::Relaxed);
+        self.counters.memory_hits.fetch_add(1, Ordering::Relaxed);
     }
 
     pub fn open(path: &Path, max_bytes: u64, input: &Path, output: &Path) -> Result<Self, String> {
@@ -385,6 +392,7 @@ impl Cache {
         let inventory = self.inventory.lock();
         serde_json::json!({"schema_version": 1, "model": "executable-context-artifact-cache-v2",
             "executable_sha256": self.executable_sha256, "hits": read(&self.counters.hits),
+            "memory_hits": read(&self.counters.memory_hits),
             "misses": read(&self.counters.misses), "writes": read(&self.counters.writes),
             "corrupt": read(&self.counters.corrupt), "evictions": read(&self.counters.evictions),
             "bypasses": read(&self.counters.bypasses), "io_errors": read(&self.counters.io_errors),

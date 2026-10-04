@@ -35,3 +35,27 @@ fn locals_of_many_names_share_an_inferred_one() {
     // One slot holding every `itemN` takes none of their names.
     assert!(!source.contains("item1 "), "{source}");
 }
+
+#[test]
+fn retry_analysis_is_deterministic_and_does_not_leak_between_calls() {
+    let options = luau_lifter::DecompileOptions {
+        emit_binding_provenance: true,
+        ..Default::default()
+    };
+    for bytecode in [SAME_NAME, DISTINCT_NAMES] {
+        let first = luau_lifter::try_decompile_bytecode_artifact_with_options(
+            bytecode, 1, None, options,
+        ).expect("retry with provenance succeeds");
+        assert!(first.upvalue_analysis.is_some());
+        let plain = decompile(bytecode);
+        let second = luau_lifter::try_decompile_bytecode_artifact_with_options(
+            bytecode, 1, None, options,
+        ).expect("later retry with provenance succeeds");
+        assert_eq!(first.source, plain);
+        assert_eq!(first.source, second.source);
+        assert_eq!(
+            serde_json::to_value(first.upvalue_analysis).unwrap(),
+            serde_json::to_value(second.upvalue_analysis).unwrap(),
+        );
+    }
+}

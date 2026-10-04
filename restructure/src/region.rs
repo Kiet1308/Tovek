@@ -140,7 +140,8 @@ struct Analysis {
     reachable: FxHashSet<NodeIndex>,
     nodes: Vec<NodeIndex>,
     post_dominators: PostDominators,
-    liveness: Liveness,
+    // Whole-CFG fixed point is needed only for differing loop-export maps.
+    liveness: OnceCell<Liveness>,
     loops_by_init: FxHashMap<NodeIndex, LoopInfo>,
     loops_by_header: FxHashMap<NodeIndex, LoopInfo>,
     numeric_loops_by_init: FxHashMap<NodeIndex, LoopInfo>,
@@ -487,7 +488,7 @@ mod dominance_regressions {
                 }
             }
             let reachable = nodes.iter().copied().collect();
-            let liveness = Analysis::liveness(&function, &nodes, &reachable);
+            let liveness = Analysis::compute_liveness(&function, &nodes, &reachable);
             let (live_in, live_out) = Analysis::liveness_reference(&function, &nodes, &reachable);
             for &node in &nodes {
                 for local in &locals {
@@ -1263,7 +1264,6 @@ impl Analysis {
 
         let dominators = DominanceIndex::new(function, entry);
         let post_dominators = Self::post_dominators(function, &nodes, &reachable);
-        let liveness = Self::liveness(function, &nodes, &reachable);
         let (loops_by_init, loops_by_header) =
             Self::find_generic_loops(function, &nodes, &reachable, &dominators, &post_dominators)?;
         let (numeric_loops_by_init, numeric_loops_by_header) =
@@ -1275,7 +1275,7 @@ impl Analysis {
             reachable,
             nodes,
             post_dominators,
-            liveness,
+            liveness: OnceCell::new(),
             loops_by_init,
             loops_by_header,
             numeric_loops_by_init,
@@ -1285,6 +1285,12 @@ impl Analysis {
             proof_census: OnceCell::new(),
             dominators,
         })
+    }
+
+    fn liveness(&self, function: &Function) -> &Liveness {
+        // Only the immutable outer CFG's reads and writes are examined; nested
+        // block/closure bodies are deliberately opaque to LocalRw.
+        self.liveness.get_or_init(|| Self::compute_liveness(function, &self.nodes, &self.reachable))
     }
 
     fn proof_census(&self, function: &Function) -> &ProofCensus {
@@ -1369,7 +1375,7 @@ impl Analysis {
     /// on the edge and their right-hand sides are read after branch selection.
     /// The least fixed point is unique, so dense bit rows give exactly the
     /// sets of the former hashed worklist.
-    fn liveness(function: &Function, nodes: &[NodeIndex], reachable: &FxHashSet<NodeIndex>) -> Liveness {
+    fn compute_liveness(function: &Function, nodes: &[NodeIndex], reachable: &FxHashSet<NodeIndex>) -> Liveness {
         let mut ids = FxHashMap::<u64, u32>::default();
         let mut id = |local: &RcLocal| {
             let next = ids.len() as u32;
@@ -2011,15 +2017,8 @@ impl Analysis {
                 numeric: None,
             });
         }
-        for (index, left) in infos.iter().enumerate() {
-            for right in infos.iter().skip(index + 1) {
-                let overlap = left.nodes.intersection(&right.nodes).count();
-                if overlap != 0
-                    && !(left.nodes.is_subset(&right.nodes) || right.nodes.is_subset(&left.nodes))
-                {
-                    return None;
-                }
-            }
+        if !loop_regions_are_nested(infos.iter().map(|info| &info.nodes)) {
+            return None;
         }
         let mut by_init = FxHashMap::default();
         let mut by_header = FxHashMap::default();
@@ -2431,18 +2430,284 @@ impl Analysis {
         // regions cannot each be represented by one source `for`.  Reject the
         // whole analysis rather than allowing hash-map iteration order to pick
         // one candidate and silently consume the other's body.
-        let infos = by_header.values().collect_vec();
-        for (index, left) in infos.iter().enumerate() {
-            for right in infos.iter().skip(index + 1) {
-                let overlap = left.nodes.intersection(&right.nodes).count();
-                if overlap != 0
-                    && !(left.nodes.is_subset(&right.nodes) || right.nodes.is_subset(&left.nodes))
-                {
-                    return (FxHashMap::default(), FxHashMap::default());
+        if !loop_regions_are_nested(by_header.values().map(|info| &info.nodes)) {
+            return (FxHashMap::default(), FxHashMap::default());
+        }
+        (by_init, by_header)
+    }
+}
+
+/// Every overlapping pair of source loop regions must be nested. Indexing
+/// membership avoids comparing all pairs of disjoint sibling loops. A pair
+/// is checked once, on its first shared node; the same subset proof decides
+/// acceptance, independent of the hash iteration order.
+fn loop_regions_are_nested<'a>(regions: impl IntoIterator<Item = &'a FxHashSet<NodeIndex>>) -> bool {
+    let regions = regions.into_iter().collect_vec();
+    // A small number of loops needs no membership index, especially when one
+    // outer region is large and the inner regions have only a few nodes.
+    if regions.len() <= 8 {
+        return regions.iter().enumerate().all(|(index, left)| {
+            regions[index + 1..].iter().all(|right| {
+                left.is_disjoint(right) || left.is_subset(right) || right.is_subset(left)
+            })
+        });
+    }
+    let mut owners = FxHashMap::<NodeIndex, Vec<usize>>::default();
+    let mut checked_at = vec![usize::MAX; regions.len()];
+    for (index, nodes) in regions.iter().enumerate() {
+        for &node in *nodes {
+            #[cfg(test)]
+            LOOP_REGION_NODE_VISITS.with(|count| count.set(count.get() + 1));
+            let previous = owners.entry(node).or_default();
+            for &other in previous.iter() {
+                if checked_at[other] == index {
+                    continue;
+                }
+                checked_at[other] = index;
+                #[cfg(test)]
+                LOOP_REGION_PAIR_CHECKS.with(|count| count.set(count.get() + 1));
+                if !(nodes.is_subset(regions[other]) || regions[other].is_subset(nodes)) {
+                    return false;
+                }
+            }
+            previous.push(index);
+        }
+    }
+    true
+}
+
+#[cfg(test)]
+thread_local! {
+    static LOOP_REGION_NODE_VISITS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+    static LOOP_REGION_PAIR_CHECKS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
+
+#[cfg(test)]
+mod lazy_analysis_regressions {
+    use super::*;
+
+    #[test]
+    fn diamonds_without_loop_exports_skip_liveness_until_first_query() {
+        let mut function = Function::new(0);
+        let entry = function.new_block();
+        function.set_entry(entry);
+        let local = RcLocal::default();
+        let mut current = entry;
+        for _ in 0..64 {
+            let then_node = function.new_block();
+            let else_node = function.new_block();
+            let join = function.new_block();
+            function.block_mut(current).unwrap().push(
+                If::new(local.clone().into(), Block::default(), Block::default()).into());
+            function.set_edges(current, vec![
+                (then_node, BlockEdge::new(BranchType::Then)),
+                (else_node, BlockEdge::new(BranchType::Else)),
+            ]);
+            for (node, value) in [(then_node, true), (else_node, false)] {
+                function.block_mut(node).unwrap().push(
+                    Assign::new(vec![local.clone().into()], vec![Literal::Boolean(value).into()]).into());
+                function.set_edges(node, vec![(join, BlockEdge::default())]);
+            }
+            current = join;
+        }
+        function.block_mut(current).unwrap().push(Statement::Return(Default::default()));
+        let analysis = Analysis::new(&function).unwrap();
+        assert!(analysis.liveness.get().is_none());
+        for shared_tail in [true, false] {
+            assert!(matches!(structure_once(&function, &analysis, &FxHashSet::default(), shared_tail),
+                StructureAttempt::Structured(_)));
+            assert!(analysis.liveness.get().is_none());
+        }
+        let cached = analysis.liveness(&function);
+        assert!(cached.live_in(entry, &local));
+        assert!(std::ptr::eq(cached, analysis.liveness(&function)));
+        let (live_in, live_out) = Analysis::liveness_reference(&function, &analysis.nodes, &analysis.reachable);
+        for &node in &analysis.nodes {
+            assert_eq!(cached.live_in(node, &local), live_in[&node].contains(&local));
+            assert_eq!(cached.live_out(node, &local), live_out[&node].contains(&local));
+        }
+    }
+
+    #[test]
+    fn loop_overlap_index_matches_pairwise_reference() {
+        let reference = |regions: &[FxHashSet<NodeIndex>]| {
+            regions.iter().enumerate().all(|(index, left)| {
+                regions[index + 1..].iter().all(|right| {
+                    left.is_disjoint(right) || left.is_subset(right) || right.is_subset(left)
+                })
+            })
+        };
+        for seed in 1..=512u64 {
+            let mut state = seed;
+            let mut random = |limit: usize| {
+                state = state.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+                ((state >> 32) as usize) % limit
+            };
+            let regions: Vec<FxHashSet<_>> = (0..random(32)).map(|_| {
+                (0..random(16)).map(|_| NodeIndex::new(random(64))).collect()
+            }).collect();
+            let expected = reference(&regions);
+            assert_eq!(loop_regions_are_nested(&regions), expected, "seed={seed}");
+            assert_eq!(loop_regions_are_nested(regions.iter().rev()), expected, "reversed seed={seed}");
+        }
+        // Nested regions, sibling regions, duplicates and empty regions all
+        // remain valid; a partial overlap must still reject the entire set.
+        let mut regions: Vec<FxHashSet<_>> = (0..6).flat_map(|level| {
+            (0..64).step_by(1 << level).map(move |start| {
+                (start..start + (1 << level)).map(NodeIndex::new).collect()
+            })
+        }).collect();
+        regions.push(FxHashSet::default());
+        regions.push(regions[0].clone());
+        assert!(loop_regions_are_nested(&regions));
+        assert!(loop_regions_are_nested(regions.iter().rev()));
+        regions.push([NodeIndex::new(0), NodeIndex::new(2)].into_iter().collect());
+        assert!(!reference(&regions));
+        assert!(!loop_regions_are_nested(&regions));
+        assert!(!loop_regions_are_nested(regions.iter().rev()));
+    }
+
+    #[test]
+    fn disjoint_sibling_loop_work_grows_with_membership_count() {
+        for count in [256, 1024, 4096] {
+            let mut regions: Vec<FxHashSet<_>> = (0..count).map(|index| {
+                (4 * index..4 * index + 4).map(NodeIndex::new).collect()
+            }).collect();
+            LOOP_REGION_NODE_VISITS.with(|visits| visits.set(0));
+            LOOP_REGION_PAIR_CHECKS.with(|checks| checks.set(0));
+            assert!(loop_regions_are_nested(&regions));
+            assert_eq!(LOOP_REGION_NODE_VISITS.with(std::cell::Cell::get), 4 * count);
+            assert_eq!(LOOP_REGION_PAIR_CHECKS.with(std::cell::Cell::get), 0);
+
+            // An enclosing region introduces one subset check per sibling,
+            // even though each sibling shares several nodes with it.
+            regions.push((0..4 * count).map(NodeIndex::new).collect());
+            LOOP_REGION_NODE_VISITS.with(|visits| visits.set(0));
+            LOOP_REGION_PAIR_CHECKS.with(|checks| checks.set(0));
+            assert!(loop_regions_are_nested(&regions));
+            assert_eq!(LOOP_REGION_NODE_VISITS.with(std::cell::Cell::get), 8 * count);
+            assert_eq!(LOOP_REGION_PAIR_CHECKS.with(std::cell::Cell::get), count);
+        }
+    }
+}
+
+#[cfg(test)]
+thread_local! {
+    static REFERENCE_SHARED_TAIL: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+    static SHARED_TAIL_REACH_CALLS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+    static SHARED_TAIL_NODE_POPS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
+
+#[cfg(test)]
+mod shared_tail_regressions {
+    use super::*;
+
+    fn query(
+        builder: &Builder<'_>,
+        then_node: NodeIndex,
+        else_node: NodeIndex,
+        context: Option<&LoopContext<'_>>,
+        stop: Option<NodeIndex>,
+        reference: bool,
+    ) -> (Option<NodeIndex>, usize, usize) {
+        struct Restore(bool);
+        impl Drop for Restore {
+            fn drop(&mut self) { REFERENCE_SHARED_TAIL.with(|flag| flag.set(self.0)); }
+        }
+        let _restore = Restore(REFERENCE_SHARED_TAIL.with(|flag| flag.replace(reference)));
+        SHARED_TAIL_REACH_CALLS.with(|count| count.set(0));
+        SHARED_TAIL_NODE_POPS.with(|count| count.set(0));
+        let result = builder.shared_tail_join(then_node, else_node, context, stop);
+        (result, SHARED_TAIL_REACH_CALLS.with(std::cell::Cell::get),
+            SHARED_TAIL_NODE_POPS.with(std::cell::Cell::get))
+    }
+
+    #[test]
+    fn shared_tail_candidate_budget_and_linear_reach_work() {
+        for count in [1, 2, 8, 64, 255, 256, 257] {
+            let mut function = Function::new(0);
+            let entry = function.new_block();
+            let left = function.new_block();
+            let right = function.new_block();
+            let tail: Vec<_> = (0..count).map(|_| function.new_block()).collect();
+            function.set_entry(entry);
+            function.set_edges(entry, vec![(left, BlockEdge::default()), (right, BlockEdge::default())]);
+            for start in [left, right] {
+                function.set_edges(start, vec![(tail[0], BlockEdge::default())]);
+            }
+            for pair in tail.windows(2) {
+                function.set_edges(pair[0], vec![(pair[1], BlockEdge::default())]);
+            }
+            let analysis = Analysis::new(&function).unwrap();
+            let builder = Builder::new(&function, &analysis, FxHashSet::default());
+            let expected = query(&builder, left, right, None, None, true);
+            let actual = query(&builder, left, right, None, None, false);
+            assert_eq!(actual.0, expected.0);
+            if count <= 256 {
+                assert_eq!(actual.0, Some(tail[0]));
+                assert_eq!(expected.1, 2 + 2 * count);
+                assert_eq!(actual.1, 4);
+                assert_eq!(actual.2, 2 * count + 6);
+            } else {
+                assert_eq!(actual, expected);
+                assert_eq!(actual.0, None);
+                assert_eq!(actual.1, 2);
+            }
+        }
+    }
+
+    #[test]
+    fn shared_tail_pruning_matches_unpruned_search_with_cycles_and_contexts() {
+        for seed in 1..=512u64 {
+            let mut state = seed;
+            let mut random = |limit: usize| {
+                state = state.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+                ((state >> 32) as usize) % limit
+            };
+            let mut function = Function::new(0);
+            let nodes: Vec<_> = (0..16).map(|_| function.new_block()).collect();
+            function.set_entry(nodes[0]);
+            function.set_edges(nodes[0], nodes[1..].iter().map(|&node| (node, BlockEdge::default())).collect());
+            for &node in &nodes[1..] {
+                for _ in 0..random(4) {
+                    function.graph_mut().add_edge(node, nodes[random(nodes.len())], BlockEdge::default());
+                }
+            }
+            let mut analysis = Analysis::new(&function).unwrap();
+            let region = LoopInfo {
+                header: nodes[0], init: nodes[0], body_entry: nodes[1],
+                normal_exit: nodes[15], join: nodes[15],
+                nodes: nodes.iter().copied().filter(|_| random(4) != 0).collect(),
+                res_locals: Vec::new(), right: Vec::new(), origin: None,
+                while_condition: None, whole_header: true, numeric: None,
+            };
+            // Header exclusions and loop ownership are search constraints even
+            // when testing a graph that the emitter itself would decline.
+            for &node in &nodes[1..] {
+                if random(8) == 0 {
+                    analysis.while_loops_by_header.insert(node, region.clone());
+                }
+            }
+            let context = LoopContext {
+                info: &region, exports: &[], exhaustion_flag: None,
+                shared_adapters: &[], results: &[], adapter_entry: None,
+            };
+            let mut builder = Builder::new(&function, &analysis, FxHashSet::default());
+            for &node in &nodes {
+                if random(8) == 0 { builder.visited.insert(node); }
+            }
+            for _ in 0..8 {
+                let left = nodes[random(nodes.len())];
+                let right = nodes[random(nodes.len())];
+                let stop = (random(2) == 0).then(|| nodes[random(nodes.len())]);
+                for ctx in [None, Some(&context)] {
+                    let expected = query(&builder, left, right, ctx, stop, true);
+                    let actual = query(&builder, left, right, ctx, stop, false);
+                    assert_eq!(actual.0, expected.0, "seed={seed}, left={left:?}, right={right:?}, stop={stop:?}");
+                    assert!(actual.1 <= expected.1);
                 }
             }
         }
-        (by_init, by_header)
     }
 }
 
@@ -3171,7 +3436,7 @@ impl<'a> Builder<'a> {
     /// structured optimizer diamonds (including Pet's refresh path) to the
     /// synthetic dispatcher.  Keep common mappings, retain the incoming map
     /// for branch-local differences, and fail closed when a differing mapping
-    /// is live at the actual continuation.  `Analysis::live_in` is a complete
+    /// is live at the actual continuation.  `Analysis::liveness` is a complete
     /// CFG fixed point, so enclosing-loop backedges are included even when the
     /// corresponding block was already emitted by this recursive traversal.
     fn reconcile_rewrite(
@@ -3200,7 +3465,7 @@ impl<'a> Builder<'a> {
                 continue;
             }
             let used_after = continuation.is_some_and(|node| {
-                self.analysis.liveness.live_in(node, &key)
+                self.analysis.liveness(self.function).live_in(node, &key)
             });
             if used_after {
                 return self.reject_unsafe(UnsafeStructureReason::LiveBranchRewrite);
@@ -3259,7 +3524,7 @@ impl<'a> Builder<'a> {
             if !both_arms_reach_continuation {
                 return None;
             }
-            let used_after = self.analysis.liveness.live_in(join, &key);
+            let used_after = self.analysis.liveness(self.function).live_in(join, &key);
             if !used_after {
                 continue;
             }
@@ -7005,9 +7270,13 @@ impl<'a> Builder<'a> {
         // Forward reachability that records but never expands `stop` (the
         // enclosing walk's end) and `candidate` (the join under test).
         let reach = |start: NodeIndex, candidate: Option<NodeIndex>| {
+            #[cfg(test)]
+            SHARED_TAIL_REACH_CALLS.with(|count| count.set(count.get() + 1));
             let mut seen = FxHashSet::default();
             let mut work = vec![start];
             while let Some(node) = work.pop() {
+                #[cfg(test)]
+                SHARED_TAIL_NODE_POPS.with(|count| count.set(count.get() + 1));
                 if !allowed(node) || !seen.insert(node) {
                     continue;
                 }
@@ -7026,7 +7295,15 @@ impl<'a> Builder<'a> {
         }
         common.sort_by_key(|node| node.index());
         let mut best: Option<(usize, NodeIndex)> = None;
+        let mut viable: Option<FxHashSet<NodeIndex>> = None;
         for candidate in common {
+            #[cfg(test)]
+            let prune = !REFERENCE_SHARED_TAIL.with(std::cell::Cell::get);
+            #[cfg(not(test))]
+            let prune = true;
+            if prune && viable.as_ref().is_some_and(|nodes| !nodes.contains(&candidate)) {
+                continue;
+            }
             // The continuation walk must be able to start at the join: a
             // loop header (generic/numeric/while) is only enterable through
             // its own init/region machinery.
@@ -7047,6 +7324,13 @@ impl<'a> Builder<'a> {
             if best.is_none_or(|(best_size, _)| size < best_size) {
                 best = Some((size, candidate));
             }
+            // Once c passes the proof, any other valid join must occur in at
+            // least one arm's pre-c set. Otherwise both arms have a path to c
+            // avoiding that other join, so their prefixes still overlap at c.
+            // Keep the original node order and proof for every viable join;
+            // cycles may expose several valid candidates with different sizes.
+            pre_then.extend(pre_else);
+            viable = Some(pre_then);
         }
         best.map(|(_, join)| join)
     }
@@ -11158,8 +11442,8 @@ mod tests {
         );
 
         let analysis = Analysis::new(&function).expect("cyclic CFG is analyzable");
-        assert!(analysis.liveness.live_in(join, &last));
-        assert!(analysis.liveness.live_out(read, &last));
+        assert!(analysis.liveness(&function).live_in(join, &last));
+        assert!(analysis.liveness(&function).live_out(read, &last));
         let mut builder = Builder::new(&function, &analysis, FxHashSet::default());
         builder.visited.insert(read);
         let exported = RcLocal::new(Local::new(Some("exported".into())));
@@ -11196,7 +11480,7 @@ mod tests {
         );
 
         let analysis = Analysis::new(&function).expect("linear CFG is analyzable");
-        assert!(analysis.liveness.live_in(join, &raw));
+        assert!(analysis.liveness(&function).live_in(join, &raw));
         let builder = Builder::new(&function, &analysis, FxHashSet::default());
         let base = FxHashMap::default();
         let mut then_map = [(raw.clone(), export.clone())].into_iter().collect();
@@ -11312,7 +11596,7 @@ mod tests {
         );
         let nodes = vec![entry, exit];
         let reachable = nodes.iter().copied().collect::<FxHashSet<_>>();
-        let liveness = Analysis::liveness(&function, &nodes, &reachable);
+        let liveness = Analysis::compute_liveness(&function, &nodes, &reachable);
         assert!(liveness.live_in(entry, &source));
         assert!(liveness.live_out(entry, &source));
     }
@@ -11346,7 +11630,7 @@ mod tests {
         );
         let nodes = vec![entry, exit];
         let reachable = nodes.iter().copied().collect::<FxHashSet<_>>();
-        let liveness = Analysis::liveness(&function, &nodes, &reachable);
+        let liveness = Analysis::compute_liveness(&function, &nodes, &reachable);
         assert!(liveness.live_out(entry, &a));
         assert!(liveness.live_out(entry, &b), "parallel swap loses b");
     }

@@ -73,8 +73,16 @@ pub struct EmissionMap {
 impl EmissionMap {
     pub fn region(&mut self, kind: &'static str, bindings: Vec<u64>, span: SourceSpan,
                   origin: Option<&crate::node_origins::Origin>) {
+        self.region_with_bindings(kind, || bindings, span, origin);
+    }
+
+    /// Check admission before collecting bindings: walking an expression's
+    /// subtree can cost much more than storing its final region.
+    pub(crate) fn region_with_bindings(&mut self, kind: &'static str,
+                  bindings: impl FnOnce() -> Vec<u64>, span: SourceSpan,
+                  origin: Option<&crate::node_origins::Origin>) {
         if self.regions.len() < REGION_LIMIT {
-            self.regions.push(SyntaxRegion { kind, bindings, span, origin: origin.map(|o| o.snapshot()).unwrap_or_default() });
+            self.regions.push(SyntaxRegion { kind, bindings: bindings(), span, origin: origin.map(|o| o.snapshot()).unwrap_or_default() });
         } else { self.omitted_regions += 1; }
     }
     pub(crate) fn can_record(&self) -> bool {
@@ -140,5 +148,26 @@ mod tests {
         for id in 0..OCCURRENCE_LIMIT { map.binding(id as u64, "read", span); }
         assert_eq!(map.bindings.len() + map.annotations.len(), OCCURRENCE_LIMIT);
         assert_eq!(map.omitted_occurrences, 1);
+    }
+
+    #[test]
+    fn exhausted_region_limit_skips_binding_collection() {
+        let position = SourcePosition { byte_offset: 0, line_one_based: 1, column_one_based: 1 };
+        let span = SourceSpan { start: position, end: position };
+        let mut map = EmissionMap::default();
+        map.regions = vec![SyntaxRegion {
+            kind: "test", bindings: vec![], span, origin: Default::default(),
+        }; REGION_LIMIT - 1];
+        let mut collections = 0;
+        for _ in 0..3 {
+            map.region_with_bindings("local", || {
+                collections += 1;
+                vec![42]
+            }, span, None);
+        }
+        assert_eq!(collections, 1);
+        assert_eq!(map.regions.len(), REGION_LIMIT);
+        assert_eq!(map.regions.last().unwrap().bindings, [42]);
+        assert_eq!(map.omitted_regions, 2);
     }
 }
