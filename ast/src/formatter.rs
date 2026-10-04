@@ -646,6 +646,57 @@ mod tests {
     }
 
     #[test]
+    fn rejected_interpolation_does_not_render_any_arguments() {
+        let cases: &[(&[u8], usize)] = &[
+            (b"%*%d", 1),
+            (b"%*%", 1),
+            (b"%*%*", 1),
+            (b"%*", 2),
+            (b"%*\x07", 1),
+            ("%*\u{0085}".as_bytes(), 1),
+            (b"%*\xff", 1),
+        ];
+        for &(bytes, argument_count) in cases {
+            let arguments = vec![global("value"); argument_count];
+            let mut output = String::new();
+            let formatter = Formatter {
+                indentation_level: 0, indentation_mode: IndentationMode::Tab,
+                output: &mut output, colon_method_calls: Default::default(),
+                position_query: None, closure_observer: None, emission_map: None,
+                layout_budget: None, compact_annotations: false,
+            };
+            FORMAT_WORK.set(FormatWork::default());
+            assert!(formatter.try_format_interpolation(bytes, &arguments).is_none());
+            assert_eq!(FORMAT_WORK.get().rvalues, 0, "format: {bytes:?}");
+        }
+    }
+
+    #[test]
+    fn nested_rejected_interpolations_render_each_value_once() {
+        for format in ["%*%d", "%*%", "%*%*", "%*\u{0007}", "%*\u{0085}"] {
+            for depth in [8, 16, 32] {
+                let mut value = global("leaf");
+                let mut expected = String::from("leaf");
+                let escaped = Formatter::<String>::escape_string(format.as_bytes());
+                for level in 0..depth {
+                    value = RValue::Select(Select::MethodCall(MethodCall::new(
+                        string(format), "format".into(), vec![value],
+                    )));
+                    let argument = if level == 0 { expected } else { format!("({expected})") };
+                    expected = format!("(\"{escaped}\"):format({argument})");
+                }
+                let block = Block(vec![reassign(&local("result"), value)]);
+                FORMAT_WORK.set(FormatWork::default());
+                let output = block.to_string();
+                let work = FORMAT_WORK.get();
+                assert_eq!(output, format!("result = {expected}"));
+                assert_eq!(work.statements, 1);
+                assert_eq!(work.rvalues, depth * 2 + 1, "format: {format:?}, depth: {depth}");
+            }
+        }
+    }
+
+    #[test]
     fn format_interpolation_escapes_backtick_and_brace() {
         // Static `` ` ``, `{` must be escaped inside the backtick string; `"`, `'`,
         // and `}` stay bare.
@@ -1182,6 +1233,30 @@ end");
     }
 
     #[test]
+    fn nested_block_statement_tails_do_not_rerender_their_bodies() {
+        for depth in [8, 16, 32] {
+            let mut block = Block(vec![Call::new(global("sink"), vec![]).into()]);
+            let mut expected = String::from("sink()");
+            for _ in 0..depth {
+                block = Block(vec![
+                    If::new(global("condition"), block, Block::default()).into(),
+                    Call::new(binary(global("f"), global("g"), BinaryOperation::Or), vec![]).into(),
+                ]);
+                let body = expected.lines().map(|line| {
+                    if line.is_empty() { String::new() } else { format!("\t{line}") }
+                }).collect::<Vec<_>>().join("\n");
+                expected = format!("if condition then\n{body}\nend\n\n(f or g)()");
+            }
+            FORMAT_WORK.set(FormatWork::default());
+            let output = block.to_string();
+            let work = FORMAT_WORK.get();
+            assert_eq!(output, expected);
+            assert_eq!(work.statements, depth * 2 + 1);
+            assert_eq!(work.rvalues, depth * 4 + 1);
+        }
+    }
+
+    #[test]
     fn comment_runs_preserve_statement_disambiguation_and_attachment() {
         let mut block = Block(vec![Call::new(global("f"), vec![]).into()]);
         let mut expected = String::from("f();");
@@ -1556,6 +1631,22 @@ pub struct Formatter<'a, W: fmt::Write> {
     /// uses None; previews never recursively ask for another width preview.
     pub(crate) layout_budget: Option<usize>,
     pub(crate) compact_annotations: bool,
+}
+
+#[cfg(test)]
+#[derive(Clone, Copy, Default)]
+struct FormatWork {
+    statements: usize,
+    rvalues: usize,
+}
+
+#[cfg(test)]
+thread_local! {
+    // Count all renderers, including layout previews and interpolation scratch
+    // buffers, so a regression cannot hide repeated work in a sub-formatter.
+    static FORMAT_WORK: std::cell::Cell<FormatWork> = const {
+        std::cell::Cell::new(FormatWork { statements: 0, rvalues: 0 })
+    };
 }
 
 const PREFERRED_LINE_WIDTH: usize = 120;
@@ -2361,9 +2452,10 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
     ) {
         if let (Some(start), Some(end)) = (start, self.current_position()) {
             if let Some(map) = self.emission_map.as_mut() {
-                let bindings = closure.values_read().into_iter().map(RcLocal::stable_id)
-                    .collect::<std::collections::BTreeSet<_>>().into_iter().collect();
-                map.region("closure", bindings, SourceSpan { start, end }, Some(&closure.node_origin));
+                map.region_with_bindings("closure", || {
+                    closure.values_read().into_iter().map(RcLocal::stable_id)
+                        .collect::<std::collections::BTreeSet<_>>().into_iter().collect()
+                }, SourceSpan { start, end }, Some(&closure.node_origin));
             }
         }
         let (Some(start), Some(end), Some(observer)) = (
@@ -2589,10 +2681,10 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
         if result.is_ok() && !matches!(rvalue, RValue::Closure(_)) {
             if let (Some(start), Some(end)) = (start, self.current_position()) {
                 if let Some(map) = self.emission_map.as_mut() {
-                    let bindings = rvalue.values_read().into_iter().map(RcLocal::stable_id)
-                        .collect::<std::collections::BTreeSet<_>>().into_iter().collect();
-                    map.region(crate::emission_map::value_kind(rvalue), bindings, SourceSpan { start, end },
-                        crate::node_origins::value(rvalue));
+                    map.region_with_bindings(crate::emission_map::value_kind(rvalue), || {
+                        rvalue.values_read().into_iter().map(RcLocal::stable_id)
+                            .collect::<std::collections::BTreeSet<_>>().into_iter().collect()
+                    }, SourceSpan { start, end }, crate::node_origins::value(rvalue));
                 }
             }
         }
@@ -2600,6 +2692,12 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
     }
 
     fn format_rvalue_inner(&mut self, rvalue: &RValue) -> fmt::Result {
+        #[cfg(test)]
+        FORMAT_WORK.with(|work| {
+            let mut count = work.get();
+            count.rvalues += 1;
+            work.set(count);
+        });
         if let Some(budget) = self.layout_budget.as_mut() {
             if *budget == 0 { return Err(fmt::Error); }
             *budget -= 1;
@@ -2968,6 +3066,26 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
         // can reason about each character (invalid UTF-8 aborts).
         let text = std::str::from_utf8(bytes).ok()?;
 
+        // Reject the complete format before rendering any argument. A late
+        // rejection after `%*` would render that subtree again in the fallback;
+        // nesting scalar format calls then doubles the work at every level.
+        let mut placeholders = 0usize;
+        let mut chars = text.chars();
+        while let Some(c) = chars.next() {
+            if c == '%' {
+                match chars.next() {
+                    Some('%') => {}
+                    Some('*') => placeholders += 1,
+                    _ => return None,
+                }
+            } else if !Self::is_backtick_static_char(c) {
+                return None;
+            }
+        }
+        if placeholders != arguments.len() {
+            return None;
+        }
+
         let mut out = String::from("`");
         let mut arg_index = 0usize;
         let mut chars = text.chars().peekable();
@@ -3014,6 +3132,9 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
     /// `\` are escaped; `"`, `'`, and `}` stay bare; control chars use their
     /// named escapes. Anything else unrepresentable aborts.
     fn push_backtick_static_char(out: &mut String, c: char) -> Option<()> {
+        if !Self::is_backtick_static_char(c) {
+            return None;
+        }
         match c {
             '`' => out.push_str(r"\`"),
             '{' => out.push_str(r"\{"),
@@ -3022,11 +3143,13 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
             '\r' => out.push_str(r"\r"),
             '\t' => out.push_str(r"\t"),
             '\u{000C}' => out.push_str(r"\f"),
-            // Other control characters have no safe backtick form here — abort.
-            c if c.is_control() => return None,
             c => out.push(c),
         }
         Some(())
+    }
+
+    fn is_backtick_static_char(c: char) -> bool {
+        !c.is_control() || matches!(c, '\n' | '\r' | '\t' | '\u{000C}')
     }
 
     pub(crate) fn format_if(&mut self, r#if: &If) -> fmt::Result {
@@ -3312,10 +3435,10 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
         if result.is_ok() {
             if let (Some(start), Some(end)) = (start, self.current_position()) {
                 if let Some(map) = self.emission_map.as_mut() {
-                    let bindings = statement.values().into_iter().map(RcLocal::stable_id)
-                        .collect::<std::collections::BTreeSet<_>>().into_iter().collect();
-                    map.region("statement", bindings, SourceSpan { start, end },
-                        crate::node_origins::statement(statement));
+                    map.region_with_bindings("statement", || {
+                        statement.values().into_iter().map(RcLocal::stable_id)
+                            .collect::<std::collections::BTreeSet<_>>().into_iter().collect()
+                    }, SourceSpan { start, end }, crate::node_origins::statement(statement));
                 }
             }
         }
@@ -3323,6 +3446,12 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
     }
 
     fn format_statement_inner(&mut self, statement: &Statement) -> fmt::Result {
+        #[cfg(test)]
+        FORMAT_WORK.with(|work| {
+            let mut count = work.get();
+            count.statements += 1;
+            work.set(count);
+        });
         self.indent()?;
 
         match statement {
