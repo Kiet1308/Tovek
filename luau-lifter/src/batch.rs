@@ -365,10 +365,21 @@ const PRELOAD_BUDGET: usize = 64 << 20;
 /// before exact-byte memo lookup; invalid wrappers never reuse an artifact.
 fn payload_key(text: &[u8], compact: &mut Vec<u8>) -> (u64, usize) {
     use std::hash::Hasher;
-    crate::decompile_core::compact_wrapper_payload(text, compact);
+    // Most exporters write one already compact line. Borrow it rather than
+    // allocating/copying the complete payload merely to hash its bytes.
+    let line = text.strip_suffix(b"\r\n")
+        .or_else(|| text.strip_suffix(b"\n")).unwrap_or(text);
+    let payload = if !line.starts_with(b"--")
+        && !line.iter().any(|&byte| matches!(byte, b' ' | b'\t' | b'\r' | b'\n'))
+    {
+        line
+    } else {
+        crate::decompile_core::compact_wrapper_payload(text, compact);
+        compact.as_slice()
+    };
     let mut hasher = rustc_hash::FxHasher::default();
-    hasher.write(compact);
-    (hasher.finish(), compact.len())
+    hasher.write(payload);
+    (hasher.finish(), payload.len())
 }
 
 /// Work indices grouped by identical payload key and module hint, in input
@@ -740,6 +751,21 @@ fn write_analysis_manifest_with_audit(
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn payload_fingerprint_preserves_wrapper_normalization() {
+        let mut scratch = Vec::new();
+        let canonical = payload_key(b"YWJj", &mut scratch);
+        for wrapper in [b"YWJj\n".as_slice(), b"YWJj\r\n", b"YW\nJj", b"-- header\nYWJj\n", b"-- header\r\nYWJj\r\n", b" Y\tW\rJj \n"] {
+            assert_eq!(payload_key(wrapper, &mut scratch), canonical);
+        }
+        assert_ne!(payload_key(b" -- header\nYWJj", &mut scratch), canonical);
+        assert_eq!(payload_key(b"-- only a comment\r\n", &mut scratch), payload_key(b"", &mut scratch));
+        // Vertical/form-feed whitespace is intentionally not stripped by the
+        // wrapper protocol, and must still reach the decoder as invalid input.
+        assert_ne!(payload_key(b"YW\x0bJj", &mut scratch), canonical);
+        assert_ne!(payload_key(b"YW\x0cJj", &mut scratch), canonical);
+    }
+
     #[test]
     fn duplicate_schedule_separates_distinct_payloads_and_naming_contexts() {
         use crate::decompile_core::{Work, WorkKind};

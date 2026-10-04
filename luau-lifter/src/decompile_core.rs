@@ -1384,7 +1384,12 @@ pub(crate) fn compact_wrapper_payload(text: &[u8], b64: &mut Vec<u8>) {
     b64.clear();
     for line in text.split(|&b| b == b'\n') {
         if !line.starts_with(b"--") {
-            b64.extend(line.iter().copied().filter(|&b| b != b' ' && b != b'\t' && b != b'\r'));
+            let line = line.strip_suffix(b"\r").unwrap_or(line);
+            if line.iter().any(|&b| matches!(b, b' ' | b'\t' | b'\r')) {
+                b64.extend(line.iter().copied().filter(|&b| b != b' ' && b != b'\t' && b != b'\r'));
+            } else {
+                b64.extend_from_slice(line);
+            }
         }
     }
 }
