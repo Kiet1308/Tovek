@@ -173,6 +173,13 @@ calling one that reads past its caller's source (its caller's name, or a frame
 above): the caller it sees may become the helper, in the same script. Code in
 other scripts is assumed not to inspect this script's frames.
 
+The de-inline engine separates helper eligibility, scoped candidate discovery,
+canonicalization and exact structural proof. Candidate indexing preserves the
+exhaustive matcher's priority, ambiguity and search-budget rules; arithmetic
+selection matching also works beneath exact arithmetic and unary wrappers.
+See the [de-inline architecture and validation notes](docs/deinline_next.md) for
+the proof boundaries, performance methodology and reproducible workloads.
+
 Bytecode that no source spells is refused rather than approximated: a NAMECALL
 method that is no identifier, a FASTCALL whose fallback names another function
 than its builtin, a loop prepared for `next` or `ipairs` over another generator,

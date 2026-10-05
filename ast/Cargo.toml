@@ -7,6 +7,9 @@ authors.workspace = true
 [features]
 # Performance ablation: use the equivalent per-block usage census in temp inline.
 reference-temp-census = []
+# Performance ablation: preserve the exhaustive statement candidate scan.
+# This changes discovery cost only; every rewrite uses the same proof gates.
+reference-deinline-candidates = []
 # Opt-in de-inline rejection telemetry (P11-C). OFF by default: every trace site
 # compiles to nothing, so release output and the hot path are byte-for-byte
 # unaffected. Build with `--features ast/deinline_trace` to print, per de-inline

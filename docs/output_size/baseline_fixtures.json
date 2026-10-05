@@ -52,6 +52,18 @@
       "bytes": 160,
       "lines": 16
     },
+    "semantic/arithmetic_nested_selection__O0.luau": {
+      "bytes": 909,
+      "lines": 47
+    },
+    "semantic/arithmetic_nested_selection__O1.luau": {
+      "bytes": 911,
+      "lines": 47
+    },
+    "semantic/arithmetic_nested_selection__O2.luau": {
+      "bytes": 903,
+      "lines": 47
+    },
     "semantic/arithmetic_region_captured_operand__O0.luau": {
       "bytes": 271,
       "lines": 19

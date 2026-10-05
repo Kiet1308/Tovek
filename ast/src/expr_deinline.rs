@@ -1,5 +1,5 @@
 //! Expression-level de-inliner (proposal §7): reverses Luau `-O2` inlining of a
-//! small pure scalar helper whose body was copied into a caller as a
+//! small scalar helper whose body was copied into a caller as a
 //! *sub-expression* of a larger condition / RValue — the case the
 //! statement-region [`crate::deinline`] pass cannot see.
 //!
@@ -49,14 +49,17 @@
 //!   * **Single scalar result** — the helper returns exactly one scalar on every
 //!     path (`is_scalar_return_value` on `E`'s root), so `helper(args)` yields one
 //!     value in ANY expression slot, including a multi-value tail position.
-//!   * **Arg hoist-safety** — `helper(args)` evaluates each argument once, eagerly,
-//!     left-to-right, whereas `S` evaluates each parameter occurrence lazily at its
-//!     position. The only semantic delta is therefore arg-evaluation timing/count;
-//!     it vanishes iff every bound argument is **side-effect-free** (so an arg that
-//!     `E` never evaluates on some path, or evaluates several times, is neutral)
-//!     AND **value-stable** (reads no local written inside `S` — provably vacuous
-//!     here, since an eligible `E` is a closure-free RValue with no statement
-//!     writes, but kept as belt-and-suspenders).
+//!   * **Arg evaluation proof** — `helper(args)` evaluates each argument once,
+//!     eagerly, left-to-right, whereas `S` evaluates parameter occurrences at
+//!     their own possibly conditional positions. Every argument must be a
+//!     **stable snapshot** (a total literal or a local the capture census proves
+//!     stable), with one bounded exception: a single non-stable argument may
+//!     move when its parameter is read exactly once and that read is the
+//!     **first observable evaluation** of the helper's original statement body.
+//!     This proof accounts for register operands read at their operation,
+//!     upvalues fetched earlier, callee lookups and skipped branches. A call or
+//!     metamethod can mutate a captured cell without any assignment appearing
+//!     in `S`, so syntactic absence of writes alone never establishes safety.
 //!
 //! Everything is matched by the same exact unifier the statement pass uses
 //! ([`crate::deinline::unify_rvalue`]): parameters are bind-once holes, callee

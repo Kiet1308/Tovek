@@ -40,6 +40,9 @@ jobs:
       - name: Run workspace tests
         run: cargo +nightly-2026-06-15 test --workspace --all-targets
 
+      - name: Test exhaustive de-inline candidate ablation
+        run: cargo +nightly-2026-06-15 test --locked -p ast --features reference-deinline-candidates deinline
+
       - name: Check lifter
         run: cargo +nightly-2026-06-15 check -p luau-lifter
 
