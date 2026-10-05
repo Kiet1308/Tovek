@@ -60,6 +60,8 @@ Thumbs.db
 # Internal plans, reviews and generated acceptance evidence stay local.
 *.md
 !/README.md
+# Maintained architecture documentation for the de-inline engine.
+!/docs/deinline_next.md
 /docs/roadmap_v2_acceptance/
 /docs/roadmap_v2_research/
 /docs/structurer_inventory/
@@ -77,3 +79,5 @@ Thumbs.db
 !/docs/output_size/baseline_fixtures.json
 !/docs/bytecode_roundtrip/baseline_residual_control_flow.json
 !/docs/bytecode_roundtrip/baseline_semantic_roundtrip.json
+# Reviewed, reproducible measurements shipped with the de-inline architecture.
+!/docs/performance/deinline_next/evidence.json

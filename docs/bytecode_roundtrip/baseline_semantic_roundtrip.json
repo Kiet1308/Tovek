@@ -8,6 +8,7 @@
    "alias_iterators": "Historical output adds an implicit zero for the private sum field before its closure store. The same difference is present in current output; the fixture passes runtime round-trips at O0/O1/O2."
   },
   "added_fixtures": {
+   "arithmetic_nested_selection": "Nested arithmetic selection regression (2026-10-06): measured only this new fixture; c8425be and deinline-next emit identical default output at O0/O1/O2 and all runtime round-trips pass. The legacy bytecode comparison records one differing prototype with one fewer GETUPVAL. Existing fixture thresholds are unchanged.",
    "call_before_capture_read": "Regression fixture for a reported bug (2026-09-29); baselined from the fixing commit output.",
    "inner_loop_continues_outer": "Regression fixture for a reported bug (2026-09-29); baselined from the fixing commit output.",
    "nested_loop_exits_parent": "Regression fixture for a reported bug (2026-09-29); baselined from the fixing commit output.",
@@ -175,6 +176,12 @@
    "status": "ok",
    "nonequiv": 0,
    "protos": 4
+  },
+  {
+   "file": "arithmetic_nested_selection",
+   "status": "ok",
+   "nonequiv": 1,
+   "protos": 6
   },
   {
    "file": "arithmetic_region_captured_operand",
