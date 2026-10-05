@@ -1790,12 +1790,12 @@ impl<'a> Destructor<'a> {
     ///
     /// A transfer element stays after the marker only when it reads something
     /// the marker itself defines (a value that only exists after preparation,
-    /// e.g. the loop-carried counter/control phi) or touches an upvalue cell (a
-    /// generic preparation may invoke `__iter`/`__call` user code that observes
-    /// the cell).  A numeric preparation runs no code, so when its operands
-    /// cannot write a cell either, reading one before the marker reads the same
-    /// value.  Splitting the parallel copy is sound because every destination
-    /// is a fresh temporary that no element reads.
+    /// e.g. the loop-carried counter/control phi) or writes what the marker
+    /// reads, a version of the same cell included.  A cell's other copies run
+    /// before it: the bytecode wrote and read the cell there, so code the
+    /// preparation runs (`__iter`/`__call`, a call among the operands) sees
+    /// the same values.  Splitting the parallel copy is sound because every
+    /// destination is a fresh temporary that no element reads.
     ///
     /// Returns `(before_marker, after_marker)`; for a block that does not end
     /// in a prep marker everything is returned in `after_marker`.
@@ -1815,12 +1815,12 @@ impl<'a> Destructor<'a> {
         }
         let marker_outputs = marker.values_written();
         let marker_inputs = marker.values_read();
-        let cells_unchanged_by_prep = match marker {
-            ast::Statement::NumForInit(init) => [&init.counter.1, &init.limit.1, &init.step.1]
-                .into_iter()
-                .all(|operand| !ast::effects::may_write_capture(operand)),
-            _ => false,
-        };
+        // Every value on the edge was made before the preparation, a cell's
+        // included, so its copy runs there too: the code a preparation may
+        // run (`__iter`, a call among its operands) sees the cells as the
+        // bytecode left them. Only a cell the marker itself reads keeps its
+        // write after it.
+        let marker_cells = marker_inputs.iter().filter_map(|read| upvalue_to_group.get(*read)).collect::<Vec<_>>();
         let mut before = ast::Assign {
             node_origin: Default::default(),
             left: Vec::new(),
@@ -1830,13 +1830,12 @@ impl<'a> Destructor<'a> {
         };
         let mut after = before.clone();
         for (left, right) in transfer.left.into_iter().zip(transfer.right) {
-            let reads_marker_output_or_cell = right.values_read().into_iter().any(|read| {
-                marker_outputs.contains(&read) || (!cells_unchanged_by_prep && upvalue_to_group.contains_key(read))
+            let reads_marker_output = right.values_read().into_iter().any(|read| marker_outputs.contains(&read));
+            let writes_marker_input = left.values_written().into_iter().any(|written| {
+                marker_inputs.contains(&written)
+                    || upvalue_to_group.get(written).is_some_and(|cell| marker_cells.contains(&cell))
             });
-            let writes_marker_input_or_cell = left.values_written().into_iter().any(|written| {
-                marker_inputs.contains(&written) || upvalue_to_group.contains_key(written)
-            });
-            let target = if reads_marker_output_or_cell || writes_marker_input_or_cell {
+            let target = if reads_marker_output || writes_marker_input {
                 &mut after
             } else {
                 &mut before

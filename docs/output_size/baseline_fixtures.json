@@ -244,6 +244,18 @@
       "bytes": 687,
       "lines": 51
     },
+    "semantic/captured_swap_before_generic_loop__O0.luau": {
+      "bytes": 1362,
+      "lines": 117
+    },
+    "semantic/captured_swap_before_generic_loop__O1.luau": {
+      "bytes": 1362,
+      "lines": 117
+    },
+    "semantic/captured_swap_before_generic_loop__O2.luau": {
+      "bytes": 1561,
+      "lines": 134
+    },
     "semantic/captured_swap_cell_phi__O0.luau": {
       "bytes": 772,
       "lines": 57

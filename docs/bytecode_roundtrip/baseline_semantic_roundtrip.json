@@ -149,7 +149,8 @@
    "recursive_local_function_in_loop": "V2.6 fuzzer: a closure capturing its own register by value",
    "swap_around_generic_loop": "V2.6 fuzzer: phi copies at a for step move to its edges",
    "value_capture_written_after_closure": "V2.6 fuzzer: by-value capture of a local written later",
-   "reserved_list_slots_keep_keyed_entries": "V2.6 typed fuzzer seed 30585: reserved list slots keep keyed entries"
+   "reserved_list_slots_keep_keyed_entries": "V2.6 typed fuzzer seed 30585: reserved list slots keep keyed entries",
+   "captured_swap_before_generic_loop": "V2.7 typed fuzzer seeds 100381/101553: captured swap before a generic loop"
   }
  },
  "summary": {
@@ -270,6 +271,12 @@
    "status": "ok",
    "nonequiv": 0,
    "protos": 5
+  },
+  {
+   "file": "captured_swap_before_generic_loop",
+   "status": "ok",
+   "nonequiv": 3,
+   "protos": 10
   },
   {
    "file": "captured_swap_cell_phi",
