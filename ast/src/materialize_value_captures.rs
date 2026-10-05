@@ -215,7 +215,10 @@ fn snapshot_value_captures(statement: &mut Statement, mutated: &dyn Fn(&RcLocal)
             // this instance's declaration). Clone the entire function/closure tree,
             // including nested closure bodies, before applying the map. A memo preserves
             // recursive closure graphs without minting duplicate nodes indefinitely.
-            if !to_snapshot.is_empty() {
+            // A body only this closure holds is renamed in place: a clone would
+            // share its parameters with the dropped original, and a parameter
+            // nothing reads would no longer look unused.
+            if !to_snapshot.is_empty() && Arc::strong_count(&closure.function.0) > 1 {
                 let mut memo = FxHashMap::default();
                 closure.function = ByAddress(clone_function_tree(&closure.function.0, &mut memo));
             }
@@ -465,6 +468,40 @@ mod tests {
             closure.function.lock().body[0],
             Statement::Return(ref ret) if ret.values == vec![RValue::Local(snapshot_local.clone())]
         ));
+    }
+
+    /// A body only its closure holds is renamed where it is: a copy would
+    /// share the parameters with the dropped original, and an unused one would
+    /// no longer read as `_`.
+    #[test]
+    fn an_unshared_body_is_renamed_in_place() {
+        let counter = local("i");
+        let unused = local("unused");
+        let slot = local("slot");
+        let function = Arc::new(Mutex::new(Function {
+            parameters: vec![unused.clone()],
+            body: Block(vec![Return::new(vec![RValue::Local(counter.clone())]).into()]),
+            ..Function::default()
+        }));
+        let identity = Arc::as_ptr(&function) as usize;
+        let closure = RValue::Closure(Closure {
+            node_origin: Default::default(),
+            function: ByAddress(function),
+            upvalues: vec![Upvalue::Copy(counter.clone())],
+        });
+        let body = Block(vec![Assign::new(vec![LValue::Local(slot)], vec![closure]).into()]);
+        let loop_statement = NumericFor::new(number(1.0), number(2.0), number(1.0), counter, body);
+        let mut block = Block(vec![Statement::NumericFor(Box::new(loop_statement)).into()]);
+
+        materialize_value_captures(&mut block);
+
+        let outer = block[0].as_numeric_for().unwrap();
+        let body = outer.block.lock();
+        let RValue::Closure(closure) = &body[1].as_assign().unwrap().right[0] else {
+            panic!("expected the closure after its snapshot");
+        };
+        assert_eq!(Arc::as_ptr(&closure.function.0) as usize, identity);
+        assert_eq!(Arc::count(&unused.0 .0), 2);
     }
 
     #[test]

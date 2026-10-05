@@ -43,7 +43,8 @@ struct FrameReads {
     /// Some `debug.info` call may hand out a function (`f`), which can then
     /// run without its name.
     functions: bool,
-    /// The functions making such a call themselves, by identity.
+    /// The functions making such a call that one more frame below them may
+    /// change ([`reads_beyond_caller`]), by identity.
     callers: FxHashSet<usize>,
     /// The locals naming every function that reads call frames, itself or
     /// through another such call; `None` when one also runs otherwise.
@@ -410,6 +411,8 @@ impl CaptureSafety {
                     self.frames.info_calls += 1;
                     if reads_frame_identity(call) {
                         self.frames.read = true;
+                    }
+                    if reads_beyond_caller(call) {
                         self.frames.callers.extend(owner);
                     }
                     // The options come last: `debug.info(level, options)`,
@@ -501,6 +504,19 @@ fn reads_frame_identity(call: &crate::Call) -> bool {
         RValue::Literal(Literal::Number(level)),
         RValue::Literal(Literal::String(options)),
     ] if *level == 1.0 && options.iter().all(|option| matches!(option, b's' | b'l')))
+}
+
+/// Whether a `debug.info` call in a function that code in a helper calls may
+/// see the frame the helper adds, or one it shifts. The function's own frame
+/// (level 1) stays; its caller (level 2) becomes the helper, in the same
+/// script (`s`) and on no line the output keeps anyway (`l`). Its name (`n`),
+/// identity (`f`) or arity (`a`), or a frame above (level 3 or deeper), may
+/// change.
+fn reads_beyond_caller(call: &crate::Call) -> bool {
+    !matches!(call.arguments.as_slice(), [
+        RValue::Literal(Literal::Number(level)),
+        RValue::Literal(Literal::String(options)),
+    ] if *level == 1.0 || (*level == 2.0 && options.iter().all(|option| matches!(option, b's' | b'l'))))
 }
 
 /// Whether `value` calls `debug.info` reading which frames run, closure
@@ -779,5 +795,36 @@ mod tests {
         assert!(caller.reads_call_frames() && !caller.frames.functions);
         assert!(census(vec![info(vec![number(1.0), string("f")])]).frames.functions);
         assert!(census(vec![info(vec![number(1.0), global("options")])]).frames.functions);
+    }
+
+    /// `function Text:Render() local source = debug.info(2, "s") end`: called
+    /// from a helper, the method sees the helper, in the same script, where it
+    /// saw the helper's caller; its callers need no tracking, so a method may
+    /// read it. Its caller's name, or the frame above, still may change.
+    #[test]
+    fn a_method_reading_its_callers_source_keeps_the_module_open() {
+        let info = |arguments: Vec<RValue>| -> RValue {
+            crate::Call::new(member(global("debug"), "info"), arguments).into()
+        };
+        let number = |n: f64| RValue::Literal(Literal::Number(n));
+        let string = |s: &str| RValue::Literal(Literal::String(s.as_bytes().to_vec()));
+        let method = |reader: RValue| -> Block {
+            let function = crate::Function {
+                body: Block(vec![crate::Return::new(vec![reader]).into()]),
+                ..Default::default()
+            };
+            let closure = crate::Closure {
+                node_origin: Default::default(),
+                function: by_address::ByAddress(triomphe::Arc::new(parking_lot::Mutex::new(function))),
+                upvalues: vec![],
+            };
+            let render = crate::Index::new(global("Text"), string("Render"));
+            Block(vec![crate::Assign::new(vec![render.into()], vec![closure.into()]).into()])
+        };
+        assert!(!CaptureSafety::new(&method(info(vec![number(2.0), string("sl")]))).call_frames_untracked());
+        assert!(!CaptureSafety::new(&method(info(vec![number(1.0), string("n")]))).call_frames_untracked());
+        assert!(CaptureSafety::new(&method(info(vec![number(2.0), string("n")]))).call_frames_untracked());
+        assert!(CaptureSafety::new(&method(info(vec![number(3.0), string("s")]))).call_frames_untracked());
+        assert!(CaptureSafety::new(&method(info(vec![global("level"), string("s")]))).call_frames_untracked());
     }
 }

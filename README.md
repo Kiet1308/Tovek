@@ -168,8 +168,10 @@ to call them on it.
 A recovered helper (a function Luau's `-O2` inlined, or code found equal to one)
 runs in a call frame of its own where the bytecode ran the code inline, as Luau's
 inliner removed that frame. Code of the script that reads frames (`debug.info` of
-a caller, or of a function or its name) is never moved into a helper; code in other
-scripts is assumed not to inspect this script's frames.
+a caller, or of a function or its name) is never moved into a helper, nor code
+calling one that reads past its caller's source (its caller's name, or a frame
+above): the caller it sees may become the helper, in the same script. Code in
+other scripts is assumed not to inspect this script's frames.
 
 Bytecode that no source spells is refused rather than approximated: a NAMECALL
 method that is no identifier, a FASTCALL whose fallback names another function

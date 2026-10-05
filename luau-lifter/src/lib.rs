@@ -760,6 +760,9 @@ fn decompile_bytecode_internal(
                     collect_linked_upvalue_bindings(&mut body, &mut linked_upvalue_bindings);
                 }
             }
+            // Keyed by every function body: kept, it would make each body look
+            // shared to the passes that copy a shared one before changing it.
+            drop(upvalues);
             // Opt-in, read-only stage snapshots for output-quality investigation.
             // Formatting has no emission observer here and never assigns names.
             let dump_stages = std::env::var("MEDAL_DUMP_AST_STAGES").ok();

@@ -4178,7 +4178,7 @@ impl Namer {
         }
         // Numeric identities only: no `RcLocal` clone may outlive this pass.
         let mut arguments = FxHashMap::<usize, Option<(u64, Hint)>>::default();
-        visit_local_function_calls(block, definitions, &mut |call, _, parameters| {
+        visit_local_function_calls(block, definitions, &mut |call, _, parameters, _| {
             if !call.rebuilt {
                 return;
             }
@@ -5204,7 +5204,8 @@ fn record_local_function_call(
 
 /// The calls of a helper written in the source decide its parameters'
 /// names; the calls the de-inliner rebuilt (whose original call sites are
-/// unknown) only where it has none.
+/// unknown) only where it has none, and its calls of itself (passing values
+/// of its own making, `deepCopy(child)`) only where it has neither.
 fn collect_local_function_calls<P>(
     block: &Block,
     definitions: &FxHashMap<usize, Vec<P>>,
@@ -5212,39 +5213,80 @@ fn collect_local_function_calls<P>(
     consensus: &mut FxHashMap<usize, ParamConsensus>,
 ) {
     let mut rebuilt = FxHashMap::<usize, ParamConsensus>::default();
-    visit_local_function_calls(block, definitions, &mut |call, binder, parameters| {
-        let votes = if call.rebuilt { &mut rebuilt } else { &mut *consensus };
+    let mut recursive = FxHashMap::<usize, ParamConsensus>::default();
+    visit_local_function_calls(block, definitions, &mut |call, binder, parameters, own| {
+        let votes = if own {
+            &mut recursive
+        } else if call.rebuilt {
+            &mut rebuilt
+        } else {
+            &mut *consensus
+        };
         record_local_function_call(call, binder, parameters.len(), namer, votes);
     });
-    for (binder, state) in rebuilt {
+    for (binder, state) in rebuilt.into_iter().chain(recursive) {
         consensus.entry(binder).or_insert(state);
     }
 }
 
 /// Every call `f(...)` of a local function in `definitions`, in `block` and
-/// the closures inside it, with the callee's binder and parameters.
+/// the closures inside it, with the callee's binder and parameters, and
+/// whether the call is made inside that function's own body.
 fn visit_local_function_calls<P>(
     block: &Block,
     definitions: &FxHashMap<usize, Vec<P>>,
-    visit: &mut impl FnMut(&Call, usize, &[P]),
+    visit: &mut impl FnMut(&Call, usize, &[P], bool),
+) {
+    visit_calls_inside(block, definitions, &mut Vec::new(), visit);
+}
+
+/// [`visit_local_function_calls`] within the bodies of the binders `inside`.
+fn visit_calls_inside<P>(
+    block: &Block,
+    definitions: &FxHashMap<usize, Vec<P>>,
+    inside: &mut Vec<usize>,
+    visit: &mut impl FnMut(&Call, usize, &[P], bool),
 ) {
     for statement in &block.0 {
         if let Statement::Call(call) = statement {
-            visit_local_function_call(call, definitions, visit);
+            visit_local_function_call(call, definitions, inside, visit);
         }
-        crate::deinline::visit_stmt_rvalues(statement, &mut |value| {
-            visit_calls_in_rvalue(value, definitions, visit);
-            true
-        });
+        if let Statement::Assign(assign) = statement {
+            for (index, value) in assign.right.iter().enumerate() {
+                // `f = function ... end`: its body is inside `f`.
+                let binder = match (assign.left.get(index), value) {
+                    (Some(LValue::Local(binder)), RValue::Closure(_)) if definitions.contains_key(&local_ptr(binder)) => {
+                        Some(local_ptr(binder))
+                    }
+                    _ => None,
+                };
+                inside.extend(binder);
+                visit_calls_in_rvalue(value, definitions, inside, visit);
+                if binder.is_some() {
+                    inside.pop();
+                }
+            }
+            for left in &assign.left {
+                if let LValue::Index(index) = left {
+                    visit_calls_in_rvalue(&index.left, definitions, inside, visit);
+                    visit_calls_in_rvalue(&index.right, definitions, inside, visit);
+                }
+            }
+        } else {
+            crate::deinline::visit_stmt_rvalues(statement, &mut |value| {
+                visit_calls_in_rvalue(value, definitions, inside, visit);
+                true
+            });
+        }
         match statement {
             Statement::If(node) => {
-                visit_local_function_calls(&node.then_block.lock(), definitions, visit);
-                visit_local_function_calls(&node.else_block.lock(), definitions, visit);
+                visit_calls_inside(&node.then_block.lock(), definitions, inside, visit);
+                visit_calls_inside(&node.else_block.lock(), definitions, inside, visit);
             }
-            Statement::While(node) => visit_local_function_calls(&node.block.lock(), definitions, visit),
-            Statement::Repeat(node) => visit_local_function_calls(&node.block.lock(), definitions, visit),
-            Statement::NumericFor(node) => visit_local_function_calls(&node.block.lock(), definitions, visit),
-            Statement::GenericFor(node) => visit_local_function_calls(&node.block.lock(), definitions, visit),
+            Statement::While(node) => visit_calls_inside(&node.block.lock(), definitions, inside, visit),
+            Statement::Repeat(node) => visit_calls_inside(&node.block.lock(), definitions, inside, visit),
+            Statement::NumericFor(node) => visit_calls_inside(&node.block.lock(), definitions, inside, visit),
+            Statement::GenericFor(node) => visit_calls_inside(&node.block.lock(), definitions, inside, visit),
             _ => {}
         }
     }
@@ -5253,30 +5295,33 @@ fn visit_local_function_calls<P>(
 fn visit_local_function_call<P>(
     call: &Call,
     definitions: &FxHashMap<usize, Vec<P>>,
-    visit: &mut impl FnMut(&Call, usize, &[P]),
+    inside: &[usize],
+    visit: &mut impl FnMut(&Call, usize, &[P], bool),
 ) {
     if let RValue::Local(binder) = &*call.value
         && let Some(parameters) = definitions.get(&local_ptr(binder))
     {
-        visit(call, local_ptr(binder), parameters);
+        let ptr = local_ptr(binder);
+        visit(call, ptr, parameters, inside.contains(&ptr));
     }
 }
 
 fn visit_calls_in_rvalue<P>(
     value: &RValue,
     definitions: &FxHashMap<usize, Vec<P>>,
-    visit: &mut impl FnMut(&Call, usize, &[P]),
+    inside: &mut Vec<usize>,
+    visit: &mut impl FnMut(&Call, usize, &[P], bool),
 ) {
     match value {
-        RValue::Call(call) | RValue::Select(Select::Call(call)) => visit_local_function_call(call, definitions, visit),
+        RValue::Call(call) | RValue::Select(Select::Call(call)) => visit_local_function_call(call, definitions, inside, visit),
         RValue::Closure(closure) => {
-            visit_local_function_calls(&closure.function.lock().body, definitions, visit);
+            visit_calls_inside(&closure.function.lock().body, definitions, inside, visit);
             return;
         }
         _ => {}
     }
     value.visit_rvalues(&mut |child| {
-        visit_calls_in_rvalue(child, definitions, visit);
+        visit_calls_in_rvalue(child, definitions, inside, visit);
         true
     });
 }
@@ -8829,6 +8874,56 @@ mod tests {
         name_locals(&mut block, true);
 
         assert_eq!(name_of(&parameter), "p");
+    }
+
+    /// `local function copy(petData) ... copy(petData.child) end;
+    /// copy(record.PetData)`: the function's own call passes a value of its
+    /// own making, and vetoes no name another call gives.
+    #[test]
+    fn recursive_calls_do_not_veto_a_parameter_name() {
+        let parameter = RcLocal::default();
+        let child = RcLocal::default();
+        let binder = RcLocal::default();
+        let mut function = Function::default();
+        function.parameters = vec![parameter.clone()];
+        function.body = Block(vec![
+            use_local(&parameter),
+            declare(&child, RValue::Index(Index::new(RValue::Local(parameter.clone()), string("child")))),
+            Statement::Call(Call::new(RValue::Local(binder.clone()), vec![RValue::Local(child.clone())])),
+        ]);
+        let mut block = Block(vec![
+            declare(&binder, closure_of(function)),
+            Statement::Call(Call::new(
+                RValue::Local(binder.clone()),
+                vec![RValue::Index(Index::new(global("record"), string("PetData")))],
+            )),
+        ]);
+
+        name_locals(&mut block, true);
+
+        assert_eq!(name_of(&parameter), "petData");
+    }
+
+    /// With no other call, the function's own calls still name a parameter
+    /// (`render(scope, Utils.merge(...))` inside `render`).
+    #[test]
+    fn recursive_calls_name_a_parameter_no_other_call_names() {
+        let parameter = RcLocal::default();
+        let binder = RcLocal::default();
+        let mut function = Function::default();
+        function.parameters = vec![parameter.clone()];
+        function.body = Block(vec![
+            use_local(&parameter),
+            Statement::Call(Call::new(
+                RValue::Local(binder.clone()),
+                vec![RValue::Index(Index::new(global("record"), string("PetData")))],
+            )),
+        ]);
+        let mut block = Block(vec![declare(&binder, closure_of(function))]);
+
+        name_locals(&mut block, true);
+
+        assert_eq!(name_of(&parameter), "petData");
     }
 
     #[test]
