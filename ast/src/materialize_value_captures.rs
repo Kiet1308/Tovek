@@ -30,68 +30,123 @@ use crate::{
 /// left untouched. `local snap = L` is itself captured, so `inline_temps` /
 /// `copy_cleanup` (which refuse to touch a captured local) leave it intact.
 pub fn materialize_value_captures(block: &mut Block) {
-    materialize_in_block(block, &FxHashSet::default());
+    materialize_in_block(block, &FxHashSet::default(), &[]);
 }
 
-/// `loop_mutated` is the set of locals the CURRENT enclosing loop mutates (empty
-/// when not inside a loop). A `Copy` capture of one of those is the C6 bug.
-fn materialize_in_block(block: &mut Block, loop_mutated: &FxHashSet<RcLocal>) {
-    for statement in &mut block.0 {
+/// `loop_mutated`: the locals the enclosing loops write, which a closure made
+/// in one may outlive; `later`: for each enclosing block, the locals written
+/// after the statement holding this one ([`RcLocal::stable_id`]). A `Copy`
+/// capture of a local either holds is the C6 bug: the closure, by reference in
+/// source, would see the later write (a loop's next iteration, or a value
+/// coalescing put in the same local after the closure was made).
+///
+/// Statements run last to first, so the writes after each one are known when
+/// it runs, and a nested block hands its writes up instead of being walked
+/// again at every level. Returns the locals `block` writes, nested blocks
+/// included, closure bodies aside.
+fn materialize_in_block(
+    block: &mut Block,
+    loop_mutated: &FxHashSet<RcLocal>,
+    later: &[&FxHashSet<u64>],
+) -> FxHashSet<u64> {
+    let mut written_after = FxHashSet::default();
+    let mut index = block.0.len();
+    while index > 0 {
+        index -= 1;
+        let mutated = |local: &RcLocal| {
+            let id = local.stable_id();
+            loop_mutated.contains(local)
+                || written_after.contains(&id)
+                || later.iter().any(|writes| writes.contains(&id))
+        };
         // Closure bodies are a fresh scope: their own loops, not this one.
         let mut functions = Vec::new();
-        statement.post_traverse_rvalues(&mut |rvalue| -> Option<()> {
+        let mut captures_by_value = false;
+        let mut snapshots_needed = false;
+        block.0[index].post_traverse_rvalues(&mut |rvalue| -> Option<()> {
             if let RValue::Closure(closure) = rvalue {
+                for upvalue in &closure.upvalues {
+                    if let Upvalue::Copy(local) = upvalue {
+                        captures_by_value = true;
+                        snapshots_needed |= mutated(local);
+                    }
+                }
                 functions.push(closure.function.clone());
             }
             None
         });
         for function in functions {
-            materialize_in_block(&mut function.lock().body, &FxHashSet::default());
+            materialize_in_block(&mut function.lock().body, &FxHashSet::default(), &[]);
         }
         // Nested control flow: an `if` inherits the enclosing loop; a nested loop
         // adds its own mutated locals to the enclosing set. A closure in the
         // nested loop may capture an outer loop variable, so replacing the set
         // would lose the snapshot requirement for that variable.
-        match statement {
-            Statement::If(r#if) => {
-                materialize_in_block(&mut r#if.then_block.lock(), loop_mutated);
-                materialize_in_block(&mut r#if.else_block.lock(), loop_mutated);
+        let nested_loop = |block: &Block, variables: &[RcLocal]| {
+            let mut mutated = loop_mutated_set(block, variables);
+            mutated.extend(loop_mutated.iter().cloned());
+            mutated
+        };
+        let nested_writes = match &block.0[index] {
+            Statement::If(_) | Statement::While(_) | Statement::Repeat(_) | Statement::NumericFor(_)
+            | Statement::GenericFor(_) => {
+                let chain = later.iter().copied().chain([&written_after]).collect::<Vec<_>>();
+                match &block.0[index] {
+                    Statement::If(r#if) => {
+                        let mut writes = materialize_in_block(&mut r#if.then_block.lock(), loop_mutated, &chain);
+                        writes.extend(materialize_in_block(&mut r#if.else_block.lock(), loop_mutated, &chain));
+                        writes
+                    }
+                    Statement::While(r#while) => {
+                        let mutated = nested_loop(&r#while.block.lock(), &[]);
+                        materialize_in_block(&mut r#while.block.lock(), &mutated, &chain)
+                    }
+                    Statement::Repeat(repeat) => {
+                        let mutated = nested_loop(&repeat.block.lock(), &[]);
+                        materialize_in_block(&mut repeat.block.lock(), &mutated, &chain)
+                    }
+                    Statement::NumericFor(numeric_for) => {
+                        let mutated = nested_loop(&numeric_for.block.lock(), &[numeric_for.counter.clone()]);
+                        materialize_in_block(&mut numeric_for.block.lock(), &mutated, &chain)
+                    }
+                    Statement::GenericFor(generic_for) => {
+                        let mutated = nested_loop(&generic_for.block.lock(), &generic_for.res_locals);
+                        materialize_in_block(&mut generic_for.block.lock(), &mutated, &chain)
+                    }
+                    _ => unreachable!(),
+                }
             }
-            Statement::While(r#while) => {
-                let mut m = loop_mutated_set(&r#while.block.lock(), &[]);
-                m.extend(loop_mutated.iter().cloned());
-                materialize_in_block(&mut r#while.block.lock(), &m);
-            }
-            Statement::Repeat(repeat) => {
-                let mut m = loop_mutated_set(&repeat.block.lock(), &[]);
-                m.extend(loop_mutated.iter().cloned());
-                materialize_in_block(&mut repeat.block.lock(), &m);
-            }
-            Statement::NumericFor(numeric_for) => {
-                let mut m = loop_mutated_set(&numeric_for.block.lock(), &[numeric_for.counter.clone()]);
-                m.extend(loop_mutated.iter().cloned());
-                materialize_in_block(&mut numeric_for.block.lock(), &m);
-            }
-            Statement::GenericFor(generic_for) => {
-                let mut m = loop_mutated_set(&generic_for.block.lock(), &generic_for.res_locals);
-                m.extend(loop_mutated.iter().cloned());
-                materialize_in_block(&mut generic_for.block.lock(), &m);
-            }
-            _ => {}
-        }
-    }
+            _ => FxHashSet::default(),
+        };
 
-    // Snapshot mutated value-captures at this level, inserting the declarations
-    // immediately BEFORE the statement that creates the closure.
-    let mut index = 0;
-    while index < block.0.len() {
-        let snapshots = snapshot_value_captures(&mut block.0[index], loop_mutated);
-        let inserted = snapshots.len();
-        for (offset, snapshot) in snapshots.into_iter().enumerate() {
-            block.0.insert(index + offset, snapshot);
+        if captures_by_value && let Some(target) = captures_own_fresh_binding(&block.0, index) {
+            let Statement::Assign(assign) = &mut block.0[index] else { unreachable!() };
+            let RValue::Closure(closure) = &mut assign.right[0] else { unreachable!() };
+            for upvalue in &mut closure.upvalues {
+                if matches!(upvalue, Upvalue::Copy(local) if *local == target) {
+                    *upvalue = Upvalue::Ref(target.clone());
+                }
+            }
         }
-        index += inserted + 1;
+        // Snapshot mutated value-captures, declared right before the
+        // statement that creates the closure.
+        let snapshots = if snapshots_needed {
+            snapshot_value_captures(&mut block.0[index], &mutated)
+        } else {
+            Vec::new()
+        };
+        // Still a write of the same locals when a self capture moved its
+        // closure into the statements before it.
+        block.0[index].visit_local_writes(&mut |local| {
+            written_after.insert(local.stable_id());
+            true
+        });
+        written_after.extend(nested_writes);
+        for snapshot in snapshots.into_iter().rev() {
+            block.0.insert(index, snapshot);
+        }
     }
+    written_after
 }
 
 /// Loop variable(s) plus every local written in the loop body OUTSIDE a nested
@@ -130,14 +185,14 @@ fn collect_written_outside_closures(block: &Block, set: &mut FxHashSet<RcLocal>)
 }
 
 /// For every `Upvalue::Copy(L)` in a closure embedded in `statement`'s expressions
-/// where `L` is in `loop_mutated`, replace `L` with a fresh `snap` in the closure
-/// body and the upvalue, returning the `local snap = L` declarations to insert.
-fn snapshot_value_captures(
-    statement: &mut Statement,
-    loop_mutated: &FxHashSet<RcLocal>,
-) -> Vec<Statement> {
+/// where `L` is `mutated` (written again while the closure may run), replace
+/// `L` with a fresh `snap` in the closure body and the upvalue, returning the
+/// `local snap = L` declarations to insert.
+fn snapshot_value_captures(statement: &mut Statement, mutated: &dyn Fn(&RcLocal) -> bool) -> Vec<Statement> {
     let mut snapshots = Vec::new();
-    if loop_mutated.is_empty() {
+    if let Some(mut definition) = define_self_capture(statement, mutated) {
+        snapshots = snapshot_value_captures(&mut definition[1], mutated);
+        snapshots.extend(definition);
         return snapshots;
     }
     statement.post_traverse_rvalues(&mut |rvalue| -> Option<()> {
@@ -147,7 +202,7 @@ fn snapshot_value_captures(
                 .iter()
                 .enumerate()
                 .filter_map(|(i, upvalue)| match upvalue {
-                    Upvalue::Copy(local) if loop_mutated.contains(local) => {
+                    Upvalue::Copy(local) if mutated(local) => {
                         Some((i, local.clone()))
                     }
                     _ => None,
@@ -178,6 +233,79 @@ fn snapshot_value_captures(
         None
     });
     snapshots
+}
+
+/// `L = function() ... L ... end` capturing `L` by value, where `L` is declared
+/// in this block and assigned nowhere else: each run of the block has its own
+/// `L`, holding this closure, so capturing it by reference is the same.
+fn captures_own_fresh_binding(statements: &[Statement], index: usize) -> Option<RcLocal> {
+    let Statement::Assign(assign) = &statements[index] else { return None };
+    let [crate::LValue::Local(target)] = assign.left.as_slice() else { return None };
+    let [RValue::Closure(closure)] = assign.right.as_slice() else { return None };
+    if !closure.upvalues.iter().any(|upvalue| matches!(upvalue, Upvalue::Copy(local) if local == target)) {
+        return None;
+    }
+    let declares = |statement: &Statement| matches!(statement, Statement::Assign(declaration)
+        if declaration.prefix && declaration.right.is_empty()
+            && declaration.left.iter().any(|left| matches!(left, crate::LValue::Local(local) if local == target)));
+    if !assign.prefix && !statements[..index].iter().any(declares) {
+        return None;
+    }
+    let mut writes = 0;
+    count_writes(statements, target, &declares, &mut writes);
+    (writes == 1).then(|| target.clone())
+}
+
+/// Assignments to `local` in `statements` and their nested blocks, closure
+/// bodies aside, bare declarations (`declares`) not counted.
+fn count_writes(statements: &[Statement], local: &RcLocal, declares: &dyn Fn(&Statement) -> bool, writes: &mut usize) {
+    for statement in statements {
+        if !declares(statement) {
+            *writes += statement.values_written().into_iter().filter(|written| *written == local).count();
+        }
+        match statement {
+            Statement::If(node) => {
+                count_writes(&node.then_block.lock().0, local, declares, writes);
+                count_writes(&node.else_block.lock().0, local, declares, writes);
+            }
+            Statement::While(node) => count_writes(&node.block.lock().0, local, declares, writes),
+            Statement::Repeat(node) => count_writes(&node.block.lock().0, local, declares, writes),
+            Statement::NumericFor(node) => count_writes(&node.block.lock().0, local, declares, writes),
+            Statement::GenericFor(node) => count_writes(&node.block.lock().0, local, declares, writes),
+            _ => {}
+        }
+    }
+}
+
+/// `L = function() ... L ... end` capturing `L` by value captures itself: the
+/// VM stores the closure before it reads the captures, so no snapshot taken
+/// before the statement holds it. The closure gets a binding of its own that
+/// nothing else assigns, `local own; own = function() ... own ... end`, and
+/// the statement assigns that (`L = own`). Returns the two statements to put
+/// before it.
+fn define_self_capture(statement: &mut Statement, mutated: &dyn Fn(&RcLocal) -> bool) -> Option<[Statement; 2]> {
+    let Statement::Assign(assign) = statement else { return None };
+    let [crate::LValue::Local(target)] = assign.left.as_slice() else { return None };
+    let [RValue::Closure(closure)] = assign.right.as_mut_slice() else { return None };
+    if !mutated(target)
+        || !closure.upvalues.iter().any(|upvalue| matches!(upvalue, Upvalue::Copy(local) if local == target))
+    {
+        return None;
+    }
+    let target = target.clone();
+    let own = RcLocal::default();
+    // The body may be shared with de-inline duplicates (see below).
+    closure.function = ByAddress(clone_function_tree(&closure.function.0, &mut FxHashMap::default()));
+    replace_locals(&mut closure.function.lock().body, &FxHashMap::from_iter([(target.clone(), own.clone())]));
+    for upvalue in &mut closure.upvalues {
+        if matches!(upvalue, Upvalue::Copy(local) if *local == target) {
+            *upvalue = Upvalue::Ref(own.clone());
+        }
+    }
+    let closure = std::mem::replace(&mut assign.right[0], RValue::Local(own.clone()));
+    let mut declaration = Assign::new(vec![own.clone().into()], Vec::new());
+    declaration.prefix = true;
+    Some([declaration.into(), Assign::new(vec![own.into()], vec![closure]).into()])
 }
 
 /// Deep-clone a Function and every nested closure body while preserving RcLocal

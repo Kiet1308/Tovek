@@ -142,7 +142,14 @@
    "signed_zero_key_kept_by_moved_entry": "review 10-04 round 3 + PR #6",
    "flattened_do_blocks_register_limit": "flattened do blocks under the register limit",
    "one_variable_generic_loops_register_limit": "review v2 (2026-10-04) N02: generic loops hold room for two variables",
-   "signed_zero_key_after_nil_slot": "review v2 (2026-10-04) N01: a nil slot keeps no signed-zero key"
+   "signed_zero_key_after_nil_slot": "review v2 (2026-10-04) N01: a nil slot keeps no signed-zero key",
+   "constructor_split_keeps_list_slots": "V2.6 fuzzer: list items keep their constructor slots; SETLIST-run stores fold back",
+   "generic_loop_body_only_breaks": "V2.6 fuzzer: FORGLOOP threaded through a break body",
+   "locals_past_the_limit_take_if_expressions": "V2.6 register fuzzer: compact retry past the local limit",
+   "recursive_local_function_in_loop": "V2.6 fuzzer: a closure capturing its own register by value",
+   "swap_around_generic_loop": "V2.6 fuzzer: phi copies at a for step move to its edges",
+   "value_capture_written_after_closure": "V2.6 fuzzer: by-value capture of a local written later",
+   "reserved_list_slots_keep_keyed_entries": "V2.6 typed fuzzer seed 30585: reserved list slots keep keyed entries"
   }
  },
  "summary": {
@@ -397,6 +404,12 @@
    "protos": 3
   },
   {
+   "file": "constructor_split_keeps_list_slots",
+   "status": "ok",
+   "nonequiv": 1,
+   "protos": 3
+  },
+  {
    "file": "debug_info_frame_at_call_site",
    "status": "ok",
    "nonequiv": 0,
@@ -595,6 +608,12 @@
    "protos": 3
   },
   {
+   "file": "generic_loop_body_only_breaks",
+   "status": "ok",
+   "nonequiv": 4,
+   "protos": 5
+  },
+  {
    "file": "generic_loop_result_keeps_outer_value",
    "status": "ok",
    "nonequiv": 1,
@@ -657,8 +676,14 @@
   {
    "file": "local_tuple_helper",
    "status": "ok",
-   "nonequiv": 4,
+   "nonequiv": 3,
    "protos": 10
+  },
+  {
+   "file": "locals_past_the_limit_take_if_expressions",
+   "status": "ok",
+   "nonequiv": 0,
+   "protos": 11
   },
   {
    "file": "long_accumulation_chain",
@@ -835,6 +860,12 @@
    "protos": 4
   },
   {
+   "file": "recursive_local_function_in_loop",
+   "status": "ok",
+   "nonequiv": 2,
+   "protos": 7
+  },
+  {
    "file": "register_store_target_after_value_call",
    "status": "ok",
    "nonequiv": 0,
@@ -863,6 +894,12 @@
    "status": "ok",
    "nonequiv": 0,
    "protos": 3
+  },
+  {
+   "file": "reserved_list_slots_keep_keyed_entries",
+   "status": "ok",
+   "nonequiv": 1,
+   "protos": 5
   },
   {
    "file": "returned_local_helper",
@@ -961,6 +998,12 @@
    "protos": 2
   },
   {
+   "file": "swap_around_generic_loop",
+   "status": "ok",
+   "nonequiv": 1,
+   "protos": 3
+  },
+  {
    "file": "swap_of_two_captured_cells",
    "status": "ok",
    "nonequiv": 2,
@@ -1031,6 +1074,12 @@
    "status": "ok",
    "nonequiv": 0,
    "protos": 4
+  },
+  {
+   "file": "value_capture_written_after_closure",
+   "status": "ok",
+   "nonequiv": 3,
+   "protos": 8
   },
   {
    "file": "vector_constant_full_upvalues",

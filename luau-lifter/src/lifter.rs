@@ -1679,8 +1679,21 @@ impl<'a> Lifter<'a> {
                         next.origin = origin;
                         statements.push(next.into());
                         let instructions = &self.function_list[self.function.id].instructions;
-                        let body = loop_jump_target(instructions, block_start + index, d);
-                        edges.push((self.block_to_node(body), BlockEdge::new(BranchType::Then)));
+                        let body_pc = loop_jump_target(instructions, block_start + index, d);
+                        let mut body = self.block_to_node(body_pc);
+                        // The compiler threads the backedge of a loop whose body
+                        // only breaks through that `break` to the instruction
+                        // after FORGLOOP and its AUX: the next value leaves the
+                        // loop as exhaustion does. Give the body its own block
+                        // back, so the loop keeps its first trip.
+                        if body_pc == block_start + index + 2 {
+                            body = self.function.new_block();
+                            self.function.set_edges(body, vec![(
+                                self.block_to_node(body_pc),
+                                BlockEdge::new(BranchType::Unconditional),
+                            )]);
+                        }
+                        edges.push((body, BlockEdge::new(BranchType::Then)));
                         edges.push((
                             self.block_to_node(block_start + index + 1),
                             BlockEdge::new(BranchType::Else),

@@ -55,6 +55,27 @@ CASES = {
         r'return function(value) return ("界`{\\\n\t\r\f}%%:%*"):format(value) end',
         'for _,value in {"leaf","đ",false} do local s=f(value); print(#s,string.byte(s,1,#s)) end'),
     "conditional_captured_cell": ('return function(n,flag) local a=n; local read=function() return a end; if flag then a=false; if a then return "bad" end end; return a,read() end', 'for _,n in {1,0,false} do for _,flag in {false,true} do print(n,flag,f(n,flag)) end end'),
+    # Phi copies at the head of the empty loop's step block touch `b`, a cell
+    # `__iter` code may see: moved to the edge from the preparation they
+    # would follow it, which no source spells (typed fuzzer, -g2 names).
+    "step_copies_after_generic_preparation": (
+        'local function record(...) for index = 1, select("#", ...) do end return ... end '
+        'return function(input, flip, ...) local a, b = input, if flip then 1 else -1 '
+        'local function iterate(limit) local index = 0 return function() index += 1 end end '
+        'for w in iterate(0) do end '
+        'for i = 1, 3 do a, b = b, a for j = 1, 2, 0.5 do if (if flip then 0.5 else i) >= record(1e300) then end end end '
+        'if (not flip or flip) and record(not flip) then local function get() return b end cell = -1 end '
+        'return a, b, cell end',
+        'print(f(-3, true)); cell = nil; print(f(2, false))'),
+    # `b`'s first version enters as a phi and `a, b = b, a` writes it again:
+    # a copy taken before the write is no value of the cell's storage
+    # (typed fuzzer, -g2 names; the choice took the cell's register).
+    "cell_version_entering_as_phi": (
+        'return function(input, flip) local a, b = input, if flip then 1 else -1 '
+        'local function bump() return b end local guard = 0 '
+        'while guard < 1 do guard += 1 a, b = b, a print(`<{input}|{(not flip) and a or guard}>`, a) end '
+        'return a, b, bump() end',
+        'print(f(-3, true)); print(f(-3, false)); print(f(false, false))'),
     "dominator_parallel_loop": ('return function(n,flip) local a,b,c=n,n+1,n+2; for j=1,2 do a,c=b,b+c; if j==2 then a,c=c,a+b; continue end; if flip then a,b=c,a; break end; a=a+1 end; c=c+3; return a,b,c end', 'for _,n in {-2,0,1,2,3,5,9} do for _,flag in {false,true} do print(n,flag,f(n,flag)) end end'),
     # `debug.info(2, ...)` names the caller, which may be in another
     # script: code reading it never moves into a helper, whose frame the
@@ -255,6 +276,14 @@ def main():
          'a global name no identifier spells'),
         ('nan_payload', nan_payload, nan_driver, struct.pack('<d', 1.25),
          struct.pack('<Q', 0x7ff8000000001234), 1, 'a NaN constant whose payload'),
+        # From -O1 `type(x)` runs the builtin by id (FASTCALL); only the
+        # fallback names it, so another name has no source spelling.
+        ('fastcall_renamed_builtin', 'return function(x) return type(x) end', 'print(pcall(f, 1))',
+         b'type', b'typ ', 1, 'a builtin call names another function'),
+        # From -O1 `pairs(t)` prepares a loop that iterates the table itself
+        # with the standard environment, whatever the generator is called.
+        ('forgprep_renamed_pairs', 'return function(t) local n = 0 for _, v in pairs(t) do n += v end return n end',
+         'print(pcall(f, {1, 2}))', b'pairs', b'pai s', 1, 'a loop prepared for'),
     ]:
         for optimization in (0, 1, 2):
             directory = args.work / f'{name}.raw.O{optimization}'

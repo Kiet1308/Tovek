@@ -506,6 +506,18 @@ impl<'a> Destructor<'a> {
     /// `lift_params` adds transports, while phis are still edge arguments.
     fn find_unstable_cells(&self) -> FxHashSet<RcLocal> {
         let mut definitions = FxHashMap::<&RcLocal, usize>::default();
+        // A version entering as a parameter or a phi is a definition too
+        // (`local b = if c then 1 else -1`, then `b = a`): one per version,
+        // however many edges supply it.
+        let mut entering = FxHashSet::default();
+        let phis = self.function.graph().edge_weights().flat_map(|edge| edge.arguments.iter().map(|(param, _)| param));
+        for version in self.function.parameters.iter().chain(phis) {
+            if let Some(cell) = self.upvalue_to_group.get(version)
+                && entering.insert(version)
+            {
+                *definitions.entry(cell).or_default() += 1;
+            }
+        }
         for (_, block) in self.function.blocks() {
             for statement in block.iter() {
                 statement.visit_local_writes(&mut |local| {
@@ -575,8 +587,91 @@ impl<'a> Destructor<'a> {
 
         //crate::dot::render_to(self.function, &mut std::io::stdout()).unwrap();
 
+        self.sink_for_step_copies();
         let _phase = ast::telemetry::Span::new("SSA_SEQUENTIALIZE");
         self.sequentialize();
+    }
+
+    /// A `for` step opens its block: no source runs code between the end of
+    /// an iteration (or the preparation) and the step. Phi copies coalescing
+    /// left at the head of a step block run at the end of every edge into it
+    /// instead, before a preparation marker where an edge transfer may go,
+    /// in a block of their own on an edge out of a branch.
+    fn sink_for_step_copies(&mut self) {
+        for node in self.function.graph().node_indices().collect::<Vec<_>>() {
+            if !self.is_for_next(node) {
+                continue;
+            }
+            let block = self.function.block(node).unwrap();
+            let step = block.len() - 1;
+            let copies_only = block.0[..step].iter().all(|statement| match statement {
+                ast::Statement::Empty(_) => true,
+                ast::Statement::Assign(assign) => {
+                    assign.left.iter().all(|left| left.as_local().is_some())
+                        && assign.right.iter().all(|right| right.as_local().is_some())
+                }
+                _ => false,
+            });
+            if step == 0 || !copies_only {
+                continue;
+            }
+            // A copy the preparation of a loop entering here must run first
+            // (it touches a cell `__iter` code may see) would follow that
+            // preparation, which no source spells: the copies stay.
+            let head = &self.function.block(node).unwrap().0[..step];
+            let after_preparation = self.function.graph()
+                .neighbors_directed(node, petgraph::Direction::Incoming)
+                .filter(|&pred| self.function.edges(pred).count() == 1)
+                .any(|pred| {
+                    let block = self.function.block(pred).unwrap();
+                    matches!(block.last(), Some(ast::Statement::GenericForInit(_) | ast::Statement::NumForInit(_)))
+                        && head.iter().filter_map(ast::Statement::as_assign).any(|copy| {
+                            Self::split_edge_transfer_around_for_prep(block, copy.clone(), &self.upvalue_to_group)
+                                .1
+                                .is_some()
+                        })
+                });
+            if after_preparation {
+                continue;
+            }
+            let copies = self.function.block_mut(node).unwrap().0.drain(..step)
+                .filter_map(|statement| match statement {
+                    ast::Statement::Assign(assign) => Some(assign),
+                    _ => None,
+                })
+                .collect::<Vec<_>>();
+            let incoming = self.function.graph()
+                .edges_directed(node, petgraph::Direction::Incoming)
+                .map(|edge| edge.id())
+                .collect::<Vec<_>>();
+            for edge in incoming {
+                let (pred, _) = self.function.graph().edge_endpoints(edge).unwrap();
+                let target = if self.function.edges(pred).count() == 1 {
+                    pred
+                } else {
+                    let weight = self.function.graph_mut().remove_edge(edge).unwrap();
+                    let split = self.function.new_block();
+                    self.function.set_edges(split, vec![(
+                        node,
+                        BlockEdge { branch_type: BranchType::Unconditional, arguments: weight.arguments },
+                    )]);
+                    self.function.graph_mut().add_edge(pred, split, BlockEdge::new(weight.branch_type));
+                    split
+                };
+                for copy in &copies {
+                    let block = self.function.block_mut(target).unwrap();
+                    let (before_prep, after_prep) =
+                        Self::split_edge_transfer_around_for_prep(block, copy.clone(), &self.upvalue_to_group);
+                    if let Some(before_prep) = before_prep {
+                        let marker_index = block.len() - 1;
+                        block.insert(marker_index, before_prep.into());
+                    }
+                    if let Some(after_prep) = after_prep {
+                        block.push(after_prep.into());
+                    }
+                }
+            }
+        }
     }
 
     fn coalesce_upvalues(&mut self) {

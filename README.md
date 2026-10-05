@@ -172,9 +172,20 @@ a caller, or of a function or its name) is never moved into a helper; code in ot
 scripts is assumed not to inspect this script's frames.
 
 Bytecode that no source spells is refused rather than approximated: a NAMECALL
-method that is no identifier, a NaN constant with a payload `0 / 0` does not make,
-a global that is no identifier in a script naming getfenv or setfenv, and output
-that would need more locals or registers than Luau allows.
+method that is no identifier, a FASTCALL whose fallback names another function
+than its builtin, a loop prepared for `next` or `ipairs` over another generator,
+a NaN constant with a payload `0 / 0` does not make, a global
+that is no identifier in a script naming getfenv or setfenv, and output that would
+need more locals or registers than Luau allows.
+
+A table keeps its keys and values, and list items stay list items, but not always
+its internal layout: a constructor that takes later stores sizes the table
+differently. What depends only on the layout can differ, as the language leaves
+it open: the order `pairs` and `next` visit keys, `#` of a table with `nil` holes
+(any border), and the sign a zero key keeps when a store spelled with the other
+sign lands on its slot while the slot holds `nil` (`{[0] = nil}`, then `t[-0] = v`:
+the store keeps `[0]` if the slot is still there, and creates `[-0]` if a later key
+took the slot or a resize dropped it).
 
 Public regression fixtures, pinned corpus manifests and the CI workflow remain in
 this repository. Private bytecode, generated output and internal research reports
@@ -389,6 +400,28 @@ Kết quả mới được sinh vào `--work`, kèm bytecode và `result.json` t
 
 ```sh
 python scripts/check_deep_review.py --compiler /path/to/luau-compile --vm /path/to/benchmark-vm --lifter target/release/luau-lifter --work out/deep-review
+```
+
+### Fuzz có kiểu, đối chiếu với chính bytecode
+
+`scripts/fuzz_roundtrip.py` sinh chương trình ngẫu nhiên từ một grammar có kiểu,
+với các nhóm tính năng lấy từ những lớp lỗi các đợt review đã tìm (capture bị
+ghi giữa các toán hạng, metamethod, method call, nhiều giá trị trả về, constructor
+với key `±0` và `nil`, so sánh NaN, vòng lặp với `break`/`continue`, closure trong
+vòng lặp, helper cạnh bản sao inline, thư viện bị che, `debug.info`, áp lực
+register). Tham chiếu là bytecode đã biên dịch, chạy trên benchmark VM; output
+được biên dịch lại ở một mức ngẫu nhiên và chạy cùng driver. `--mutate` sửa
+bytecode theo cách chỉ chunk tự tạo mới có (string không phải identifier, NaN
+payload): decompiler phải từ chối hoặc giữ nguyên hành vi. Grammar tránh những
+gì chính Luau làm khác nhau giữa các mức tối ưu (từ -O1 POWK tính `^ 0.5` bằng
+`sqrt`; ở -O2 vòng `for i = -0, 1` được unroll và bắt đầu từ `0`; inliner -O2 bỏ
+frame) và những gì phụ thuộc layout bảng (thứ tự `pairs`, `#` khi có lỗ `nil`,
+dấu của key `0` trên slot đang giữ `nil`). CI chạy 80 seed cố định mỗi lần push;
+workflow `Nightly fuzz` chạy một dải seed mới mỗi đêm và giữ chương trình đã rút
+gọn của ca lỗi.
+
+```sh
+python scripts/fuzz_roundtrip.py --compiler /path/to/luau-compile --vm /path/to/benchmark-vm --lifter target/release/luau-lifter --seeds 500 --mutate --reduce --work out/fuzz --report out/fuzz.json
 ```
 
 Manifest phân tích batch dùng `corpus_hash_algorithm: ordered-content-sha256-v2`:

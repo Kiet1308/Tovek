@@ -2027,7 +2027,11 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
 
     fn format_block_no_indent(&mut self, block: &Block) -> fmt::Result {
         let mut next_non_comment = 0;
+        let mut defined = None;
         for (i, statement) in block.iter().enumerate() {
+            if defined == Some(i) {
+                continue;
+            }
             // A trailing comment is appended to the PRECEDING statement's line
             // (` -- text`): no leading newline, no indentation. Guarded on `i != 0`
             // so a comment with nothing before it falls back to its own line. The
@@ -2048,7 +2052,16 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
                     writeln!(self.output)?;
                 }
             }
-            self.format_statement(statement)?;
+            // `local f` then `f = function ... end` is what `local function f`
+            // is defined as.
+            let (i, statement) = if let Some(definition) = Self::local_function_definition(block, i) {
+                self.format_statement(&definition.into())?;
+                defined = Some(i + 1);
+                (i + 1, &block[i + 1])
+            } else {
+                self.format_statement(statement)?;
+                (i, statement)
+            };
             if statement.as_comment().is_some() {
                 continue;
             }
@@ -2068,6 +2081,26 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
             }
         }
         Ok(())
+    }
+
+    /// A bare `local f` and right after it `f = function ... end`, as the one
+    /// declaration `local function f` (whose body sees `f`).
+    fn local_function_definition(block: &Block, index: usize) -> Option<Assign> {
+        let Statement::Assign(declaration) = &block[index] else { return None };
+        let ([LValue::Local(local)], []) = (declaration.left.as_slice(), declaration.right.as_slice()) else {
+            return None;
+        };
+        let Some(Statement::Assign(definition)) = block.0.get(index + 1) else { return None };
+        let ([LValue::Local(target)], [RValue::Closure(_)]) = (definition.left.as_slice(), definition.right.as_slice())
+        else {
+            return None;
+        };
+        if !declaration.prefix || definition.prefix || target != local || Self::is_callback_property(&definition.left[0]) {
+            return None;
+        }
+        let mut definition = definition.clone();
+        definition.prefix = true;
+        Some(definition)
     }
 
     fn format_lvalue(&mut self, lvalue: &LValue) -> fmt::Result {

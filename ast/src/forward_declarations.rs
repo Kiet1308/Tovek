@@ -160,14 +160,24 @@ mod tests {
     #[test]
     fn forward_declared_function_uses_the_lua_idiom() {
         let mount = local("mount");
+        let call = || crate::Call::new(crate::Global::from("prepare").into(), vec![]).into();
         let mut block = Block(vec![
             declare_nil(&mount),
+            call(),
             Assign::new(vec![LValue::Local(mount.clone())], vec![closure()]).into(),
         ]);
         bare_forward_declarations(&mut block);
         let text = block.to_string();
         assert!(text.starts_with("local mount\n"), "{text}");
         assert!(!text.contains("= nil"), "{text}");
+        // Right after its declaration, the assignment is `local function`.
+        let mut block = Block(vec![
+            declare_nil(&mount),
+            Assign::new(vec![LValue::Local(mount.clone())], vec![closure()]).into(),
+        ]);
+        bare_forward_declarations(&mut block);
+        let text = block.to_string();
+        assert!(text.starts_with("local function mount()"), "{text}");
     }
 
     #[test]

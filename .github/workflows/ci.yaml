@@ -8,12 +8,12 @@ on:
 jobs:
   rust:
     name: Rust checks
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Install nightly Rust
         # Pin the compiler used by the native workspace checks.
@@ -51,11 +51,11 @@ jobs:
 
   worker:
     name: Worker panic recovery in workerd
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: nightly-2026-06-15
@@ -76,7 +76,7 @@ jobs:
           echo "$RUNNER_TEMP/cargo-shim" >> "$GITHUB_PATH"
           PATH="$RUNNER_TEMP/cargo-shim:$PATH" cargo +nightly --version
       - uses: Swatinem/rust-cache@v2
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: 24
       - run: cargo install worker-build --version 0.8.7 --locked
@@ -94,12 +94,12 @@ jobs:
   fixtures:
     name: Fixture and Luau audit
     needs: rust
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Install build tools
         run: sudo apt-get update && sudo apt-get install --yes cmake g++
@@ -143,6 +143,15 @@ jobs:
             --vm "$RUNNER_TEMP/benchmark-vm/benchmark-vm" \
             --lifter target/release/luau-lifter \
             --work "$RUNNER_TEMP/deep-review"
+
+      - name: Typed fuzz round-trips against their bytecode (fixed seeds)
+        run: |
+          python3 scripts/fuzz_roundtrip.py \
+            --compiler "$RUNNER_TEMP/luau-build/luau-compile" \
+            --vm "$RUNNER_TEMP/benchmark-vm/benchmark-vm" \
+            --lifter target/release/luau-lifter \
+            --seeds 80 --mutate --reduce \
+            --work "$RUNNER_TEMP/fuzz" --report "$RUNNER_TEMP/fuzz.json"
 
       - name: Run residual-control fixtures in strict modes
         run: |
@@ -468,7 +477,7 @@ jobs:
 
       - name: Upload fixture manifests and outputs
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: pr3-fixture-audit
           path: |

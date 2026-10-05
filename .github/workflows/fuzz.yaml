@@ -1,0 +1,72 @@
+name: Nightly fuzz
+
+# Typed random programs checked against their own bytecode, a new seed range
+# every night: the bug classes reviews found, searched for before a review
+# has to find them. A failure keeps its reduced program as an artifact.
+on:
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+    inputs:
+      seeds:
+        description: Seeds to run
+        default: "5000"
+
+jobs:
+  fuzz:
+    name: Typed fuzz round-trips
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Install build tools
+        run: sudo apt-get update && sudo apt-get install --yes cmake g++
+
+      - name: Install nightly Rust
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: nightly-2026-06-15
+
+      - name: Cache Cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: Build lifter
+        run: cargo +nightly-2026-06-15 build --release -p luau-lifter
+
+      - name: Build official Luau compiler (pinned) and benchmark VM
+        env:
+          # The same Luau release the acceptance job pins.
+          LUAU_COMMIT: c2ec0d4e5ca50796ba174a7565298f59aa572268
+        run: |
+          git clone https://github.com/luau-lang/luau.git "$RUNNER_TEMP/luau"
+          git -C "$RUNNER_TEMP/luau" checkout --quiet "$LUAU_COMMIT"
+          cmake -S "$RUNNER_TEMP/luau" -B "$RUNNER_TEMP/luau-build" -DCMAKE_BUILD_TYPE=Release
+          cmake --build "$RUNNER_TEMP/luau-build" --target Luau.Compile.CLI --parallel 4
+          cmake -S scripts/benchmark_vm -B "$RUNNER_TEMP/benchmark-vm" \
+            -DCMAKE_BUILD_TYPE=Release -DLUAU_SOURCE_DIR="$RUNNER_TEMP/luau"
+          cmake --build "$RUNNER_TEMP/benchmark-vm" --target benchmark-vm --parallel 4
+
+      - name: Fuzz a new seed range
+        env:
+          SEEDS: ${{ github.event.inputs.seeds || '5000' }}
+        run: |
+          python3 scripts/fuzz_roundtrip.py \
+            --compiler "$RUNNER_TEMP/luau-build/luau-compile" \
+            --vm "$RUNNER_TEMP/benchmark-vm/benchmark-vm" \
+            --lifter target/release/luau-lifter \
+            --seed-start "$(( 100000 + ${{ github.run_number }} * SEEDS ))" --seeds "$SEEDS" \
+            --mutate --reduce \
+            --work "$RUNNER_TEMP/fuzz" --report "$RUNNER_TEMP/fuzz.json"
+
+      - name: Upload failures and reduced programs
+        if: failure()
+        uses: actions/upload-artifact@v6
+        with:
+          name: fuzz-failures
+          path: |
+            ${{ runner.temp }}/fuzz.json
+            ${{ runner.temp }}/fuzz/seed*/**

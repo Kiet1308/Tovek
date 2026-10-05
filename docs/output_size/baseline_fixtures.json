@@ -508,6 +508,18 @@
       "bytes": 303,
       "lines": 27
     },
+    "semantic/constructor_split_keeps_list_slots__O0.luau": {
+      "bytes": 641,
+      "lines": 48
+    },
+    "semantic/constructor_split_keeps_list_slots__O1.luau": {
+      "bytes": 641,
+      "lines": 48
+    },
+    "semantic/constructor_split_keeps_list_slots__O2.luau": {
+      "bytes": 643,
+      "lines": 48
+    },
     "semantic/cps_copy_without_return__O0.luau": {
       "bytes": 268,
       "lines": 26
@@ -904,6 +916,18 @@
       "bytes": 311,
       "lines": 28
     },
+    "semantic/generic_loop_body_only_breaks__O0.luau": {
+      "bytes": 394,
+      "lines": 35
+    },
+    "semantic/generic_loop_body_only_breaks__O1.luau": {
+      "bytes": 367,
+      "lines": 33
+    },
+    "semantic/generic_loop_body_only_breaks__O2.luau": {
+      "bytes": 659,
+      "lines": 65
+    },
     "semantic/generic_loop_result_keeps_outer_value__O0.luau": {
       "bytes": 358,
       "lines": 22
@@ -1035,6 +1059,18 @@
     "semantic/local_tuple_helper__O2.luau": {
       "bytes": 2008,
       "lines": 140
+    },
+    "semantic/locals_past_the_limit_take_if_expressions__O0.luau": {
+      "bytes": 3783,
+      "lines": 189
+    },
+    "semantic/locals_past_the_limit_take_if_expressions__O1.luau": {
+      "bytes": 3739,
+      "lines": 187
+    },
+    "semantic/locals_past_the_limit_take_if_expressions__O2.luau": {
+      "bytes": 4048,
+      "lines": 210
     },
     "semantic/long_accumulation_chain__O0.luau": {
       "bytes": 12422,
@@ -1384,6 +1420,18 @@
       "bytes": 991,
       "lines": 30
     },
+    "semantic/recursive_local_function_in_loop__O0.luau": {
+      "bytes": 839,
+      "lines": 66
+    },
+    "semantic/recursive_local_function_in_loop__O1.luau": {
+      "bytes": 839,
+      "lines": 66
+    },
+    "semantic/recursive_local_function_in_loop__O2.luau": {
+      "bytes": 815,
+      "lines": 65
+    },
     "semantic/register_store_target_after_value_call__O0.luau": {
       "bytes": 462,
       "lines": 34
@@ -1443,6 +1491,18 @@
     "semantic/reroll_within_register_limit__O2.luau": {
       "bytes": 1571,
       "lines": 143
+    },
+    "semantic/reserved_list_slots_keep_keyed_entries__O0.luau": {
+      "bytes": 575,
+      "lines": 37
+    },
+    "semantic/reserved_list_slots_keep_keyed_entries__O1.luau": {
+      "bytes": 535,
+      "lines": 35
+    },
+    "semantic/reserved_list_slots_keep_keyed_entries__O2.luau": {
+      "bytes": 709,
+      "lines": 37
     },
     "semantic/returned_local_helper__O0.luau": {
       "bytes": 837,
@@ -1636,6 +1696,18 @@
       "bytes": 166,
       "lines": 13
     },
+    "semantic/swap_around_generic_loop__O0.luau": {
+      "bytes": 498,
+      "lines": 48
+    },
+    "semantic/swap_around_generic_loop__O1.luau": {
+      "bytes": 498,
+      "lines": 48
+    },
+    "semantic/swap_around_generic_loop__O2.luau": {
+      "bytes": 552,
+      "lines": 54
+    },
     "semantic/swap_of_two_captured_cells__O0.luau": {
       "bytes": 1295,
       "lines": 105
@@ -1779,6 +1851,18 @@
     "semantic/value_capture_of_cell_copy__O2.luau": {
       "bytes": 186,
       "lines": 19
+    },
+    "semantic/value_capture_written_after_closure__O0.luau": {
+      "bytes": 865,
+      "lines": 69
+    },
+    "semantic/value_capture_written_after_closure__O1.luau": {
+      "bytes": 865,
+      "lines": 69
+    },
+    "semantic/value_capture_written_after_closure__O2.luau": {
+      "bytes": 1173,
+      "lines": 111
     },
     "semantic/vector_constant_full_upvalues__O0.luau": {
       "bytes": 3384,

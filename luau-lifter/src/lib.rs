@@ -7,6 +7,7 @@ mod source_recovery;
 mod value_provenance;
 mod capture_effects;
 mod bytecode_validate;
+mod builtins;
 mod reconstruction_candidates;
 pub mod profile;
 pub mod upvalue_analysis;
@@ -210,6 +211,53 @@ fn code_names_environment_function(chunk: &deserializer::chunk::Chunk) -> bool {
     })
 }
 
+/// The import path a FASTCALL at `pc` calls when it falls back: the
+/// GETIMPORT that loads the function its CALL (`skip` past it) calls.
+fn fallback_import(instructions: &[instruction::Instruction], pc: usize, skip: usize) -> Option<u32> {
+    use crate::{instruction::Instruction, op_code::OpCode};
+    let call = pc + 1 + skip;
+    let Some(&Instruction::BC { op_code: OpCode::LOP_CALL | OpCode::LOP_CALLFB, a: base, .. }) = instructions.get(call)
+    else {
+        return None;
+    };
+    let mut at = pc + 1;
+    let mut import = None;
+    while at < call {
+        let instruction = instructions.get(at)?;
+        if let &Instruction::AD { op_code: OpCode::LOP_GETIMPORT, a, aux, .. } = instruction
+            && a == base
+        {
+            import = Some(aux);
+        }
+        let (Instruction::BC { op_code, .. } | Instruction::AD { op_code, .. } | Instruction::E { op_code, .. }) =
+            *instruction;
+        at += if op_code.has_aux() { 2 } else { 1 };
+    }
+    import
+}
+
+/// The names an import id (GETIMPORT's AUX) reads, outermost first: the
+/// first `count` of the array.
+fn import_names<'a>(aux: u32, string: &impl Fn(u32) -> Option<&'a [u8]>) -> Option<([&'a [u8]; 3], usize)> {
+    let ids = [(aux >> 20) & 1023, (aux >> 10) & 1023, aux & 1023];
+    let count = ((aux >> 30) as usize).min(3);
+    let mut names = [&[][..]; 3];
+    for (name, &id) in names.iter_mut().zip(&ids[..count]) {
+        *name = string(id)?;
+    }
+    Some((names, count))
+}
+
+/// Whether import `names` spell the dotted `path`.
+fn names_path(names: &[&[u8]], path: &str) -> bool {
+    path.split('.').map(str::as_bytes).eq(names.iter().copied())
+}
+
+/// Import `names` as the dotted path source writes.
+fn dotted(names: &[&[u8]]) -> String {
+    names.iter().map(|name| String::from_utf8_lossy(name)).collect::<Vec<_>>().join(".")
+}
+
 /// Libraries whose folded constants compile back unchanged from their library
 /// spelling: the chunk never writes the global and never names getfenv or
 /// setfenv, exactly the conditions under which the compiler folds them.
@@ -404,6 +452,7 @@ fn try_decompile_bytecode_internal(
     // lifting and final formatting. Worker builds must use panic=unwind too.
     std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         let mut sharing = Default::default();
+        let mut options = options;
         loop {
             // Returning from an attempt drops its AST, analyses and thread-local
             // scopes before the next one starts. Recursive retries kept all of
@@ -411,6 +460,7 @@ fn try_decompile_bytecode_internal(
             match decompile_bytecode_internal(bytecode, encode_key, script_name, options, emit_upvalue_analysis, sharing)? {
                 DecompileAttempt::Complete(artifact) => return Ok(artifact),
                 DecompileAttempt::Retry(next) => sharing = next,
+                DecompileAttempt::RetryCompact => options.compact_style = true,
             }
         }
     }))
@@ -422,6 +472,9 @@ fn try_decompile_bytecode_internal(
 enum DecompileAttempt {
     Complete(DecompileArtifact),
     Retry(ast::coalesce_locals::Sharing),
+    /// Locals sharing all the storage they may still need more than Luau
+    /// allows: write branches as `if` expressions, which declare none.
+    RetryCompact,
 }
 
 /// `sharing`: which locals share storage before the passes that fold them
@@ -1011,12 +1064,21 @@ fn decompile_bytecode_internal(
             ast::compound_bases::fold_compound_bases(&mut body);
             ast::fold_import_callees::fold_import_callees(&mut body);
             ast::untruncate_arguments::untruncate_arguments(&mut body);
+            // List stores come from SETLIST alone (an AUX word reading as one
+            // only costs the walk).
+            if chunk.functions.iter().any(|function| function.instructions.iter().any(|instruction| {
+                matches!(instruction, instruction::Instruction::BC { op_code: op_code::OpCode::LOP_SETLIST, .. })
+            })) {
+                let _span = ast::telemetry::Span::new("S_RESERVE_LIST_SLOTS");
+                ast::rebuild_table_literals::reserve_unfolded_list_slots(&mut body);
+            }
             drop(late_timer);
             // Temporaries left apart for the folding passes may, where some
             // did not fold, push a huge function past the local or register
             // limit, as may source locals of `do` blocks the output flattens:
-            // decompile again sharing more storage up front. A source Luau
-            // refuses is no output.
+            // decompile again sharing more storage up front, and last with
+            // branches written as `if` expressions. A source Luau refuses is
+            // no output.
             let over_limit = if ast::coalesce_locals::declared_locals_exceed_limit(&body) {
                 Some("more locals at once than Luau allows (200)")
             } else if ast::register_pressure::registers_exceed_limit(&body) {
@@ -1025,13 +1087,17 @@ fn decompile_bytecode_internal(
                 None
             };
             if let Some(limit) = over_limit {
-                let Some(next) = sharing.next() else {
-                    return Err(DecompileFailure::message(format!(
-                        "the output needs {limit}, even with locals sharing storage"
-                    )));
-                };
-                ast::telemetry::count("eager_coalescing_retries", 1);
-                return Ok(DecompileAttempt::Retry(next));
+                if let Some(next) = sharing.next() {
+                    ast::telemetry::count("eager_coalescing_retries", 1);
+                    return Ok(DecompileAttempt::Retry(next));
+                }
+                if !options.compact_style {
+                    ast::telemetry::count("compact_style_retries", 1);
+                    return Ok(DecompileAttempt::RetryCompact);
+                }
+                return Err(DecompileFailure::message(format!(
+                    "the output needs {limit}, even with locals sharing storage"
+                )));
             }
             // No expression/condition mutation is permitted after this point.
             let name_inference = {
@@ -1094,20 +1160,51 @@ fn compile_error_source(message: &str) -> String {
 
 /// Rejects, before lifting, what no source spells, instead of printing
 /// another program: CMPPROTO, a NAMECALL method no identifier names, a NaN
-/// constant with a payload neither `0 / 0` nor `-(0 / 0)` makes. Only the
-/// first comes from a compiler; the others from patched bytecode.
+/// constant with a payload neither `0 / 0` nor `-(0 / 0)` makes, a FASTCALL
+/// whose fallback call names another function than its builtin, a loop
+/// prepared for `next` or `ipairs` over another generator. Only the first
+/// comes from a compiler; the others from patched bytecode.
 fn validate_source_spellings(chunk: &deserializer::chunk::Chunk) -> Result<(), String> {
     use crate::{instruction::Instruction, op_code::OpCode};
     use deserializer::constant::Constant;
     let spelled_nan = |value: f64| !value.is_nan() || value.to_bits() << 1 == 0x7ff8_0000_0000_0000 << 1;
     let spelled_component = |value: f32| !value.is_nan() || value.to_bits() << 1 == 0x7fc0_0000 << 1;
+    // The import each register last received (a generic loop's generator),
+    // stamped with its prototype: one array for the chunk, never cleared.
+    let mut imported = [(usize::MAX, 0u32); 256];
     for (prototype, function) in chunk.functions.iter().enumerate() {
         let string = |constant: u32| match function.constants.get(constant as usize) {
             Some(Constant::String(index)) => index.checked_sub(1).and_then(|index| chunk.string_table.get(index)).copied(),
             _ => None,
         };
-        for (pc, instruction) in function.instructions.iter().enumerate() {
+        let mut pc = 0;
+        while let Some(instruction) = function.instructions.get(pc) {
+            let (Instruction::BC { op_code, .. } | Instruction::AD { op_code, .. } | Instruction::E { op_code, .. }) =
+                *instruction;
+            let at = pc;
+            pc += if op_code.has_aux() { 2 } else { 1 };
+            let pc = at;
             match *instruction {
+                Instruction::AD { op_code: OpCode::LOP_GETIMPORT, a, aux, .. } => imported[usize::from(a)] = (prototype, aux),
+                // With the standard environment a loop prepared for `next` or
+                // `ipairs` iterates the table itself, whatever the generator;
+                // otherwise it calls the generator. Source names one function
+                // for both.
+                Instruction::AD { op_code: op_code @ (OpCode::LOP_FORGPREP_NEXT | OpCode::LOP_FORGPREP_INEXT), a, .. } => {
+                    let paths: &[&str] =
+                        if op_code == OpCode::LOP_FORGPREP_NEXT { &["next", "pairs"] } else { &["ipairs"] };
+                    let (owner, aux) = imported[usize::from(a)];
+                    if owner == prototype
+                        && let Some((names, count)) = import_names(aux, &string)
+                        && !paths.iter().any(|path| names_path(&names[..count], path))
+                    {
+                        return Err(format!(
+                            "a loop prepared for {} iterates through another function ({}) at prototype {prototype}, pc {pc}",
+                            paths[0],
+                            dotted(&names[..count])
+                        ));
+                    }
+                }
                 // Runtime prototype identity cannot be reconstructed as a
                 // truthiness test. Reject before lifting, even in permissive
                 // mode, instead of silently changing which branch executes.
@@ -1123,6 +1220,42 @@ fn validate_source_spellings(chunk: &deserializer::chunk::Chunk) -> Result<(), S
                     if !string(key).is_some_and(|name| std::str::from_utf8(name).is_ok_and(ast::valid_source_name)) {
                         return Err(format!(
                             "a method name no identifier spells (NAMECALL) at prototype {prototype}, pc {pc}"
+                        ));
+                    }
+                }
+                // With the standard environment a FASTCALL runs the builtin of
+                // its id, otherwise the call after it: source names one function
+                // for both, the builtin's.
+                Instruction::BC {
+                    op_code:
+                        op_code @ (OpCode::LOP_FASTCALL
+                        | OpCode::LOP_FASTCALL1
+                        | OpCode::LOP_FASTCALL2
+                        | OpCode::LOP_FASTCALL2K
+                        | OpCode::LOP_FASTCALL3
+                        | OpCode::LOP_FASTPCALL),
+                    a,
+                    c,
+                    ..
+                } => {
+                    let paths = if op_code == OpCode::LOP_FASTPCALL {
+                        [&["pcall"][..], &["xpcall"][..]].get(usize::from(a)).copied()
+                    } else {
+                        builtins::builtin_paths(a)
+                    };
+                    // A builtin named by compile options (the vector constructor)
+                    // still needs a name source spells.
+                    if let Some((names, count)) = fallback_import(&function.instructions, pc, usize::from(c))
+                        .and_then(|aux| import_names(aux, &string))
+                        && let names = &names[..count]
+                        && !paths.map_or_else(
+                            || names.iter().all(|name| std::str::from_utf8(name).is_ok_and(ast::valid_source_name)),
+                            |paths| paths.iter().any(|path| names_path(names, path)),
+                        )
+                    {
+                        return Err(format!(
+                            "a builtin call names another function ({}) at prototype {prototype}, pc {pc}",
+                            dotted(names)
                         ));
                     }
                 }
@@ -2705,6 +2838,42 @@ mod v11_fixtures {
             assert!(decompile(&number(spelled), 1, None).unwrap().contains("(0 / 0)"));
         }
         assert!(decompile(&number(0x7ff8_0000_0000_1234), 1, None).unwrap_err().contains("NaN"));
+    }
+
+    /// A FASTCALL runs its builtin by id; only the call after it, run when
+    /// the environment is not the standard one, names it. A fallback naming
+    /// another function has no source spelling.
+    #[test]
+    fn fastcall_fallback_naming_another_function_is_refused() {
+        use crate::op_code::OpCode;
+        let (fastcall1, getimport, call, mov) = (
+            OpCode::LOP_FASTCALL1 as u8,
+            OpCode::LOP_GETIMPORT as u8,
+            OpCode::LOP_CALL as u8,
+            OpCode::LOP_MOVE as u8,
+        );
+        let chunk = |name: &str| {
+            let import = (1u32 << 30) | (0 << 20);
+            let mut import_constant = vec![4u8];
+            import_constant.extend(import.to_le_bytes());
+            let words = vec![
+                abc(fastcall1, 40, 0, 3), // LBF_TYPE on R0, CALL at pc 4
+                abc(mov, 2, 0, 0),
+                ad(getimport, 1, 1),
+                import,
+                abc(call, 1, 2, 2),
+                abc(RETURN, 1, 2, 0),
+            ];
+            let proto = Proto {
+                max_stack: 3, num_params: 1, words, constants: vec![const_string(1), import_constant],
+                ..Default::default()
+            };
+            build_chunk(6, 1, &[name], &[proto], 0)
+        };
+        assert!(decompile(&chunk("type"), 1, None).unwrap().contains("type("));
+        let error = decompile(&chunk("typ "), 1, None).unwrap_err();
+        assert!(error.contains("a builtin call names another function"), "{error}");
+        assert!(decompile(&chunk("typeof"), 1, None).is_err());
     }
 
     /// FORNPREP keeps limit and step in registers a source `for` has no name

@@ -278,7 +278,9 @@ fn rebuild_current_block(block: &mut Block, captured: &rustc_hash::FxHashSet<RcL
         let mut array_len = table.0.iter().filter(|(key, _)| key.is_none()).count();
         let mut entries = PlaceholderEntries::new(table);
         let mut listed = None;
-        for statement in remaining {
+        let mut appended_slot_keys = false;
+        for position in 0..remaining.len() {
+            let (statement, rest) = remaining[position..].split_first_mut().unwrap();
             if let Statement::SetList(set_list) = statement {
                 if let Some(entries) = entries.take() { entries.finish(table); }
                 if !can_append_set_list_at(table, array_len, set_list, &object_local) {
@@ -321,9 +323,19 @@ fn rebuild_current_block(block: &mut Block, captured: &rustc_hash::FxHashSet<RcL
             let placement = match &entries {
                 Some(entries) => entries.placement(table, key),
                 None => placement(table, initial_len, key,
-                    listed.get_or_insert_with(|| crate::ListedKeys::new(table))),
+                    listed.get_or_insert_with(|| crate::ListedKeys::new(table)), appended_slot_keys),
             };
-            let Some(placement) = placement else { break };
+            let placement = match placement {
+                Some(placement) => placement,
+                // Luau emits SETLIST for a constructor's list items only: a
+                // store before one was an entry of the constructor itself,
+                // listed key included (`{[0] = nil, [-0] = v, item}`).
+                None if set_list_follows(rest, &object_local) => {
+                    appended_slot_keys = true;
+                    Placement::Append
+                }
+                None => break,
+            };
 
             let field_assign = std::mem::replace(statement, crate::Empty {}.into()).into_assign().unwrap();
             let (key, value) = field_assignment_key_value(field_assign);
@@ -338,6 +350,110 @@ fn rebuild_current_block(block: &mut Block, captured: &rustc_hash::FxHashSet<RcL
     }
     block.0.truncate(write);
     changed
+}
+
+/// The slots a constructor allocates for list items no pass could fold into
+/// it (a branch or a call came first): Luau sizes the array part from the
+/// list items, and list items keep their place in it, first under `next`.
+/// `nil` items hold the slots until the list's own stores fill them. Runs
+/// once, on the finished tree, every closure included.
+pub fn reserve_unfolded_list_slots(block: &mut Block) {
+    for index in 0..block.0.len() {
+        let (head, rest) = block.0.split_at_mut(index + 1);
+        if let Some(object) = table_constructor_local(&head[index])
+            && let Statement::Assign(assign) = &mut head[index]
+            && let RValue::Table(table) = &mut assign.right[0]
+        {
+            reserve_list_slots(table, rest, &object);
+        }
+        let statement = &mut block.0[index];
+        statement.traverse_rvalues(&mut |value| {
+            if let RValue::Closure(closure) = value {
+                reserve_unfolded_list_slots(&mut closure.function.lock().body);
+            }
+        });
+        match statement {
+            Statement::If(node) => {
+                reserve_unfolded_list_slots(&mut node.then_block.lock());
+                reserve_unfolded_list_slots(&mut node.else_block.lock());
+            }
+            Statement::While(node) => reserve_unfolded_list_slots(&mut node.block.lock()),
+            Statement::Repeat(node) => reserve_unfolded_list_slots(&mut node.block.lock()),
+            Statement::NumericFor(node) => reserve_unfolded_list_slots(&mut node.block.lock()),
+            Statement::GenericFor(node) => reserve_unfolded_list_slots(&mut node.block.lock()),
+            _ => {}
+        }
+    }
+}
+
+fn reserve_list_slots(table: &mut Table, statements: &[Statement], object: &RcLocal) -> bool {
+    let mut slots = 0;
+    // The slots the stores write whatever a trailing call returns.
+    let mut written = 0;
+    for statement in statements {
+        if let Statement::SetList(list) = statement
+            && &list.object_local == object
+        {
+            // A trailing `...` takes no slot of its own; a call takes one.
+            let tail = list.tail.as_ref().is_some_and(|tail| !matches!(tail, RValue::VarArg(_)));
+            slots = slots.max(list.index - 1 + list.values.len() + usize::from(tail));
+            written = written.max(list.index - 1 + list.values.len());
+        }
+        // Assigned again, the local names another table.
+        if writes_local(statement, object) {
+            break;
+        }
+    }
+    // A `nil` item stores after every keyed entry: it must not clear one the
+    // stores may leave alone (`{[2] = x, f()}` keeps `x` when `f()` returns
+    // nothing).
+    for (key, _) in &table.0 {
+        match key {
+            None => {}
+            Some(RValue::Literal(crate::Literal::Number(index))) => {
+                if index.fract() == 0.0 && *index > written as f64 && *index <= slots as f64 {
+                    slots = *index as usize - 1;
+                }
+            }
+            Some(RValue::Literal(_)) => {}
+            Some(_) => slots = slots.min(written),
+        }
+    }
+    let listed = table.0.iter().filter(|(key, _)| key.is_none()).count();
+    if slots <= listed || table.0.last().is_some_and(|(key, value)| key.is_none() && expands(value)) {
+        return false;
+    }
+    table.0.extend(std::iter::repeat_with(|| (None, RValue::Literal(crate::Literal::Nil))).take(slots - listed));
+    true
+}
+
+/// Whether `statement`, its nested blocks included, assigns `local`.
+fn writes_local(statement: &Statement, local: &RcLocal) -> bool {
+    statement.values_written().contains(&local)
+        || match statement {
+            Statement::If(node) => {
+                node.then_block.lock().0.iter().any(|statement| writes_local(statement, local))
+                    || node.else_block.lock().0.iter().any(|statement| writes_local(statement, local))
+            }
+            Statement::While(node) => node.block.lock().0.iter().any(|statement| writes_local(statement, local)),
+            Statement::Repeat(node) => node.block.lock().0.iter().any(|statement| writes_local(statement, local)),
+            Statement::NumericFor(node) => node.block.lock().0.iter().any(|statement| writes_local(statement, local)),
+            Statement::GenericFor(node) => node.block.lock().0.iter().any(|statement| writes_local(statement, local)),
+            _ => false,
+        }
+}
+
+/// Whether the run of stores to `object` that `statements` starts with ends
+/// at a SETLIST of it.
+fn set_list_follows(statements: &[Statement], object: &RcLocal) -> bool {
+    for statement in statements {
+        match statement {
+            Statement::SetList(list) => return &list.object_local == object,
+            statement if statement.as_assign().and_then(|assign| field_assignment_parts(assign, object)).is_some() => {}
+            _ => return false,
+        }
+    }
+    false
 }
 
 fn lone_callback_field(statements: &[Statement], object: &RcLocal) -> bool {
@@ -919,8 +1035,18 @@ enum Placement {
 /// lists `key` and cannot absorb the store. The store then stays a statement:
 /// `{ value = a, value = b }` is never how a table is written, and the
 /// statement form evaluates in exactly the same order.
-fn placement(table: &Table, initial_len: usize, key: &RValue, listed: &crate::ListedKeys) -> Option<Placement> {
-    match last_entry_for(&table.0[..initial_len.min(table.0.len())], key) {
+/// `appended_slot_keys`: the run appended a key whose slot the constructor
+/// already lists; a store to such a slot lands after that entry.
+fn placement(
+    table: &Table,
+    initial_len: usize,
+    key: &RValue,
+    listed: &crate::ListedKeys,
+    appended_slot_keys: bool,
+) -> Option<Placement> {
+    let window = initial_len.min(table.0.len());
+    match last_entry_for(&table.0[..window], key) {
+        Some(_) if appended_slot_keys && last_entry_for(&table.0[window..], key).is_some() => None,
         Some(position) if !keeps_listed_key(table, position, key) => None,
         // The value takes the listed key's place, ahead of every entry after
         // it, appended stores included (`{a = 1, b = 2}; t.c = g(); t.a = h()`
@@ -1313,7 +1439,7 @@ mod tests {
     /// The general (scanning) placement, applied when it accepts the store.
     fn general_insert(table: &mut Table, initial_len: usize, key: RValue, value: RValue) -> bool {
         let mut listed = crate::ListedKeys::new(table);
-        match super::placement(table, initial_len, &key, &listed) {
+        match super::placement(table, initial_len, &key, &listed, false) {
             Some(placement) => {
                 super::insert_table_entry(table, placement, key, value, &mut listed);
                 true
