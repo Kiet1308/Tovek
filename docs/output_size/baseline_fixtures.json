@@ -700,6 +700,18 @@
       "bytes": 1453,
       "lines": 63
     },
+    "semantic/deinline_earlier_body_and_extents__O0.luau": {
+      "bytes": 1328,
+      "lines": 65
+    },
+    "semantic/deinline_earlier_body_and_extents__O1.luau": {
+      "bytes": 1285,
+      "lines": 64
+    },
+    "semantic/deinline_earlier_body_and_extents__O2.luau": {
+      "bytes": 1801,
+      "lines": 64
+    },
     "semantic/deinline_free_cell_read_late__O0.luau": {
       "bytes": 161,
       "lines": 13

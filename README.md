@@ -187,7 +187,10 @@ stored under its own name (`M.Copy = Copy`) keeps its `local function` beside
 that store where its calls are rebuilt, and prints as `function M.Copy`
 otherwise. An unnamed function literal capturing nothing that `-O2` inlined
 everywhere (`local scramble = function`) comes back as a local function
-before its first rebuilt call; without one it stays out, as before.
+before its first rebuilt call; without one it stays out, as before. Where
+copies of two helpers cover the same statements, the call standing for more
+code wins (a helper over another one inlined into it); two standing for the
+same code keep it inline.
 
 A function literal that Luau shares (one capturing only top-level locals or
 itself) is one closure object at every site `-O2` inlined it to, as all copies

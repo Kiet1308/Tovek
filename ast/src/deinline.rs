@@ -352,6 +352,10 @@ struct Target {
     /// kept-aside declaration belongs to (`None`: the chunk). Active in all
     /// of that body; its declaration goes back in once a call is rebuilt.
     orphan: Option<Option<FnPtr>>,
+    /// The helper's body as it was before a rewrite in it (dual-version
+    /// patterns, [`HelperCache::earlier`]): its copies at sites may still
+    /// hold the code a call of another helper now stands for there.
+    earlier_body: bool,
     captures: std::rc::Rc<crate::deinline_safety::CaptureSafety>,
     search: std::rc::Rc<crate::deinline_safety::SearchBudget>,
 }
@@ -712,7 +716,7 @@ pub fn deinline_orphans_in(body: &mut Block, chunk_orphans: &mut Vec<(RcLocal, C
                     crate::telemetry::count("accepted_targets", targets.len() as u64);
                     // The budget counts helpers: a value helper's discard
                     // variant shares its definition.
-                    if targets.iter().filter(|target| !target.discarded && target.inferred.is_none()).count() > 256 {
+                    if targets.iter().filter(|target| !target.discarded && target.inferred.is_none() && !target.earlier_body).count() > 256 {
                         crate::telemetry::count("target_budget_exhausted", 1);
                         break;
                     }
@@ -3690,6 +3694,11 @@ struct Hit {
     mode: &'static str,
     /// [`Target::single_valued`] of the helper called.
     single_valued: bool,
+    /// Where the last statement covered stays with the call in it
+    /// (`host`), the nodes of its code the helper's body stands for, the
+    /// arguments not counted; `None` where every statement covered goes
+    /// ([`Hit::extent`]).
+    partial: Option<usize>,
 }
 
 impl Hit {
@@ -3714,12 +3723,20 @@ impl Hit {
             placeholder: None,
             mode: "",
             single_valued: t.single_valued,
+            partial: None,
         }
     }
 
     /// The statements the call replaces, the absorbed ones included.
     fn covered(&self) -> usize {
         self.absorbed + self.consume
+    }
+
+    /// How much of the site the call stands for: the statements it covers,
+    /// then, where the last of them stays with the call in it, how much of
+    /// that statement (a whole one counting as more than any part).
+    fn extent(&self) -> (usize, usize) {
+        (self.covered(), self.partial.unwrap_or(usize::MAX))
     }
 }
 
@@ -3872,22 +3889,26 @@ fn try_match_at(
         let hit = hit.map(|hit| host_returned_cell(stmts, i, hit, t, current_func).unwrap_or_else(|hit| hit));
         Ok(hit.and_then(|hit| absorb_arguments(stmts, i, t, Hit { discarded: t.discarded, ..hit }, last_occ, is_func_body_top)))
     };
-    // Where several helpers match, the one covering the most statements wins:
-    // each rebuild is exact, and a shorter one would leave the rest pasted
-    // (`cancel()` matches only the first statement of `purchase(nil)`). Two
-    // that cover the same statements are ambiguous: refuse.
+    // Where several helpers match, the one standing for the most code wins
+    // ([`Hit::extent`]): each rebuild is exact, and a smaller one would leave
+    // the rest pasted (`cancel()` matches only the first statement of
+    // `purchase(nil)`; `flag(x)` only one operand of the `key(p, data)` a
+    // whole value is a copy of). Two of the same extent are ambiguous:
+    // refuse.
     fn offer(found: &mut Option<Hit>, tied: &mut Vec<RcLocal>, hit: Hit) {
         match found {
-            Some(best) if best.covered() > hit.covered() => {}
             // A value helper and its discard variant over the same
             // statements are one call either way, not rivals: the value
-            // form, which keeps a result the site reads, wins.
+            // form, which keeps a result the site reads, wins. Of two
+            // versions of one body ([`HelperCache::earlier`]), the one
+            // standing for more.
             Some(best) if best.covered() == hit.covered() && best.f_local == hit.f_local => {
-                if best.discarded && !hit.discarded {
+                if (best.discarded && !hit.discarded) || (best.discarded == hit.discarded && hit.extent() > best.extent()) {
                     *found = Some(hit);
                 }
             }
-            Some(best) if best.covered() == hit.covered() => tied.push(hit.f_local),
+            Some(best) if best.extent() > hit.extent() => {}
+            Some(best) if best.extent() == hit.extent() => tied.push(hit.f_local),
             _ => {
                 tied.clear();
                 *found = Some(hit);
@@ -4369,7 +4390,8 @@ fn match_short_circuit(
     let value = Binary::new(or.left.as_ref().clone(), hosted_call(t, u.args.clone(), false), BinaryOperation::Or);
     let mut declaration = Assign::new(vec![LValue::Local(r.clone())], vec![value.into()]);
     declaration.prefix = true;
-    Some(Hit { host: Some(declaration.into()), mode: "site_short_circuit", ..Hit::call(t, at + 1 - i, u, Vec::new()) })
+    let partial = Some(region.iter().map(dbg_stmt_node_count).sum::<usize>().saturating_sub(u.args.iter().map(value_nodes).sum()));
+    Some(Hit { host: Some(declaration.into()), partial, mode: "site_short_circuit", ..Hit::call(t, at + 1 - i, u, Vec::new()) })
 }
 
 /// Return mode: the copy of a single-valued helper returns its value from
@@ -5100,6 +5122,7 @@ fn match_embedded_value(
     }
     let mut host = stmts[d].clone();
     let mut found = None;
+    let mut replaced = 0;
     // The call runs the helper's statements after every value `S` evaluated
     // before its place, which the prefix ran before: none of those may see a
     // difference. A local the prefix writes, a cell a call in it may write,
@@ -5158,6 +5181,7 @@ fn match_embedded_value(
         let wrap = spread != Spread::One
             && !t.single_valued
             && matches!(value, RValue::Select(Select::Call(_) | Select::MethodCall(_)));
+        replaced = value_nodes(value).saturating_sub(u.args.iter().map(value_nodes).sum());
         *value = hosted_call(t, u.args.clone(), wrap);
         found = Some(u);
         true
@@ -5171,7 +5195,7 @@ fn match_embedded_value(
     if !host_locals.is_disjoint(&u.callee_locals) || tail_has_live(last_occ, stmts, i, d + 1, &u.callee_locals) {
         return None;
     }
-    Some(Hit { host: Some(host), ..Hit::call(t, d + 1 - i, u, Vec::new()) })
+    Some(Hit { host: Some(host), partial: Some(replaced), ..Hit::call(t, d + 1 - i, u, Vec::new()) })
 }
 
 /// [`Target::hosted`]: the `V` of a `return V` pattern, when it pins its
@@ -5260,7 +5284,7 @@ fn match_hosted_value(
         _ => None,
     };
     let placeholder = RcLocal::default();
-    let try_value = |value: &RValue, spread: Spread, whole: Option<*const RValue>| -> Option<(Unified, bool)> {
+    let try_value = |value: &RValue, spread: Spread, whole: Option<*const RValue>| -> Option<(Unified, bool, usize)> {
         if value_kind(value) != kind || (!t.assigns && whole == Some(value as *const RValue)) {
             return None;
         }
@@ -5272,17 +5296,18 @@ fn match_hosted_value(
         let window = [Statement::Assign(Assign::new(vec![LValue::Local(result.clone())], vec![value.clone()]))];
         let u = try_unify_site(t, &window, current_func)?;
         let argument_nodes: usize = u.args.iter().map(value_nodes).sum();
+        let nodes = value_nodes(value);
         if u.result.as_ref() != Some(&result)
             || !u.callee_locals.is_empty()
-            || value_nodes(value) < 1 + argument_nodes + crate::expr_deinline::NET_SAVING_FLOOR
+            || nodes < 1 + argument_nodes + crate::expr_deinline::NET_SAVING_FLOOR
         {
             return None;
         }
-        Some((u, wrap))
+        Some((u, wrap, nodes - argument_nodes))
     };
     // First the copy Lua evaluates first, which may take in the temps
     // before the statement.
-    let mut found: Option<(Unified, bool)> = None;
+    let mut found: Option<(Unified, bool, usize)> = None;
     let mut host = statement.clone();
     let whole = whole_store(&host);
     let (mut leading, mut absorbs) = (false, false);
@@ -5298,13 +5323,13 @@ fn match_hosted_value(
         host = statement.clone();
         let whole = whole_store(&host);
         visit_value_slots(&mut host, &mut |value, spread| {
-            let Some((u, wrap)) = try_value(value, spread, whole) else { return false };
+            let Some((u, wrap, nodes)) = try_value(value, spread, whole) else { return false };
             *value = hosted_call(t, u.args.clone(), wrap);
-            found = Some((u, wrap));
+            found = Some((u, wrap, nodes));
             true
         });
     }
-    let (u, wrap) = found?;
+    let (u, wrap, nodes) = found?;
     // Where a temp moved in could change what the statement read before
     // the copy, the call takes the arguments as they stand.
     if leading && !absorbs {
@@ -5312,7 +5337,7 @@ fn match_hosted_value(
     }
     let placeholder = (leading && absorbs).then_some((placeholder, wrap));
     let mode = if leading { "site_hosted_leading" } else { "site_hosted" };
-    Some(Hit { host: Some(host), placeholder, mode, ..Hit::call(t, anchor + 1 - i, u, Vec::new()) })
+    Some(Hit { host: Some(host), placeholder, mode, partial: Some(nodes), ..Hit::call(t, anchor + 1 - i, u, Vec::new()) })
 }
 
 /// The uniform-cell return: a helper every leaf of which returns the outer
@@ -5365,6 +5390,7 @@ fn host_returned_cell(stmts: &[Statement], i: usize, mut hit: Hit, t: &Target, c
     }
     hit.consume = at + 1 - i;
     hit.host = Some(host);
+    hit.partial = Some(1);
     hit.mode = "site_returned_cell";
     Ok(hit)
 }
@@ -8033,6 +8059,18 @@ fn helper_targets(
                 Ok(fresh) => (HelperAnalysis::Accepted, Some(fresh)),
                 Err(refusal) => (refusal, None),
             };
+            // An earlier version alike to the current one adds nothing, and
+            // one of a helper refused now stays out: its body became too
+            // little a copy to tell from the helpers it calls (a wrapper
+            // whose earlier body is another helper's).
+            if let Some(earlier) = cache.earlier.get(&key)
+                && fresh.as_ref().is_none_or(|fresh| {
+                    earlier.len() == fresh.len()
+                        && earlier.iter().zip(fresh).all(|(a, b)| crate::factor_common_tails::block_alpha_eq(&a.pat, &b.pat))
+                })
+            {
+                cache.earlier.remove(&key);
+            }
             found = fresh;
             let helper = CachedHelper { functions, analysis };
             match entry {
@@ -8055,7 +8093,8 @@ fn helper_targets(
         HelperAnalysis::Accepted => {
             crate::call_origins::register_callee(f_local.stable_id(), g.bytecode_proto_id);
             crate::reconstruction_stats::accept_helper(f_local.stable_id());
-            for mut target in found.unwrap_or_default() {
+            let earlier = cache.earlier.remove(&key).unwrap_or_default();
+            for mut target in found.unwrap_or_default().into_iter().chain(earlier) {
                 // What it read of the earlier capture facts is read anew.
                 target.captures = captures.clone();
                 target.leading = Default::default();
@@ -8078,6 +8117,13 @@ fn helper_targets(
 struct HelperCache {
     helpers: FxHashMap<(FnPtr, u64), CachedHelper>,
     targets: FxHashMap<(FnPtr, u64), Vec<Target>>,
+    /// Dual-version patterns: the targets a helper had before the first
+    /// rewrite in its body, matched beside its current ones. A rewrite
+    /// replaced an inlined copy of another helper by a call there; a copy
+    /// of this helper at a site may still hold that code, where the call
+    /// did not rebuild (another context, an ambiguous match). Both versions
+    /// describe the same function exactly: the rewrite was proven.
+    earlier: FxHashMap<(FnPtr, u64), Vec<Target>>,
 }
 
 struct CachedHelper {
@@ -8105,14 +8151,32 @@ impl HelperCache {
         self.helpers.retain(|_, helper| !helper.functions.iter().any(|function| bodies.contains(&Some(*function))));
     }
 
-    /// Takes back the targets of the collection before, for the helpers
-    /// still known.
+    /// Takes back the targets of the collection before: for the helpers
+    /// still known, and as their earlier version for those rewritten first
+    /// since (where it differs from what they are now).
     fn keep_targets(&mut self, targets: Vec<Target>) {
         self.targets.clear();
-        for target in targets {
+        let mut rewritten: FxHashMap<(FnPtr, u64), Vec<Target>> = FxHashMap::default();
+        for mut target in targets {
             let key = (target.func_ptr, target.f_local.stable_id());
-            if self.helpers.contains_key(&key) {
+            if target.earlier_body {
+                self.earlier.entry(key).or_default().push(target);
+            } else if self.helpers.contains_key(&key) {
                 self.targets.entry(key).or_default().push(target);
+            } else if !self.earlier.contains_key(&key) {
+                target.earlier_body = true;
+                rewritten.entry(key).or_default().push(target);
+            }
+        }
+        // Only a value helper whose whole body is `return V` keeps one: its
+        // copies in one statement rebuild one per round ([`match_hosted_value`]),
+        // so the later ones meet the rewritten body. Other helpers' copies
+        // rebuilt in the round that rewrote the body, inner copies and all,
+        // throughout the corpus: keeping theirs cost scans and changed no
+        // file.
+        for (key, targets) in rewritten {
+            if targets.first().is_some_and(|target| target.hosted.is_some()) && !self.earlier.contains_key(&key) {
+                self.earlier.insert(key, targets);
             }
         }
     }
@@ -8517,6 +8581,7 @@ impl TargetCommon<'_> {
             inferred: None,
             private_closures,
             orphan: None,
+            earlier_body: false,
             captures: self.captures.clone(),
             search: Default::default(),
         }
@@ -9678,6 +9743,7 @@ mod tests {
             inferred: None,
             private_closures: Default::default(),
             orphan: None,
+            earlier_body: false,
             captures: Default::default(),
             search: Default::default(),
         }
@@ -10472,6 +10538,7 @@ mod tests {
             inferred: None,
             private_closures: Default::default(),
             orphan: None,
+            earlier_body: false,
             captures: Default::default(),
             search: Default::default(),
         };
@@ -10562,6 +10629,7 @@ mod tests {
             inferred: None,
             private_closures: Default::default(),
             orphan: None,
+            earlier_body: false,
             captures: Default::default(),
             search: Default::default(),
         };
@@ -10642,6 +10710,7 @@ mod tests {
             inferred: None,
             private_closures: Default::default(),
             orphan: None,
+            earlier_body: false,
             captures: Default::default(),
             search: Default::default(),
         };
@@ -10737,6 +10806,7 @@ mod tests {
             inferred: None,
             private_closures: Default::default(),
             orphan: None,
+            earlier_body: false,
             captures: Default::default(),
             search: Default::default(),
         };
@@ -11090,6 +11160,7 @@ mod tests {
             inferred: None,
             private_closures: Default::default(),
             orphan: None,
+            earlier_body: false,
             captures: Default::default(),
             search: Default::default(),
         };
@@ -11193,6 +11264,7 @@ mod tests {
             inferred: None,
             private_closures: Default::default(),
             orphan: None,
+            earlier_body: false,
             captures: Default::default(),
             search: Default::default(),
         }
@@ -11358,6 +11430,7 @@ mod tests {
             inferred: None,
             private_closures: Default::default(),
             orphan: None,
+            earlier_body: false,
             captures: Default::default(),
             search: Default::default(),
         }
@@ -11418,6 +11491,7 @@ mod tests {
             inferred: None,
             private_closures: Default::default(),
             orphan: None,
+            earlier_body: false,
             captures: Default::default(),
             search: Default::default(),
         }
@@ -12595,6 +12669,7 @@ mod tests {
             inferred: None,
             private_closures: Default::default(),
             orphan: None,
+            earlier_body: false,
             captures: Default::default(),
             search: Default::default(),
         };
