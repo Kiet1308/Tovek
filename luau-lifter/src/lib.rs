@@ -10,6 +10,7 @@ mod bytecode_validate;
 mod builtins;
 mod reconstruction_candidates;
 pub mod profile;
+pub mod stats;
 pub mod upvalue_analysis;
 
 use ast::{
@@ -497,6 +498,7 @@ fn decompile_bytecode_internal(
         return Err(DecompileFailure::message("compact annotations require an artifact API with binding provenance"));
     }
     ast::reset_local_ids();
+    let stats_scope = ast::reconstruction_stats::enter(stats::enabled());
     let _total_timer = prof::Timer::new(&prof::TOTAL);
     let call_origins = ast::call_origins::enter(emit_upvalue_analysis && options.emit_binding_provenance);
     let profile_context = profile::context(script_name, bytecode);
@@ -555,6 +557,7 @@ fn decompile_bytecode_internal(
                 root.bytecode_function_id = Some(root_function_id.clone());
             }
             let mut stack = vec![(root_function, chunk.main, root_function_id)];
+            let mut loaded_constants = ast::closure_identity::LoadedConstants::default();
             while let Some((ast_func, func_id, static_function_id)) = stack.pop() {
                 ast::reconstruction_search::register_function(Arc::as_ptr(&ast_func) as usize, func_id);
                 let typed_locals = {
@@ -584,6 +587,7 @@ fn decompile_bytecode_internal(
                 );
                 function.lifted_ids = lifted_start..ast::current_local_id();
                 function.globals = globals.clone();
+                function.may_hold_closures = !child_functions.is_empty();
                 lifted.push((ast_func, function, upvalues));
                 // The whole-program decompile order determines the monotonic
                 // local-id assignment and thus the generated local names, so it
@@ -592,6 +596,7 @@ fn decompile_bytecode_internal(
                 // so PC order breaks any `func_index` ties — the same proto can be
                 // instantiated by several closure sites) for a fully reproducible
                 // order independent of heap addresses.
+                loaded_constants.record_prototype(child_functions.iter().map(|(function, _, _)| &function.0));
                 let mut children = child_functions
                     .into_iter()
                     .map(|(a, f, function_id)| (a.0, f, function_id))
@@ -838,10 +843,11 @@ fn decompile_bytecode_internal(
             //
             // First, inlined copies of one shared closure constant that
             // de-inline left behind become one binding wherever their identity
-            // can be compared (`closure_identity`).
+            // can be compared (`closure_identity`). The closures recorded while
+            // lifting tell when no copies exist, which skips the walk.
             {
                 ptime!(S_MATERIALIZE);
-                ast::closure_identity::share_closure_constants(&mut body);
+                loaded_constants.share(&mut body);
                 ast::materialize_value_captures::materialize_value_captures(&mut body);
             }
             {
@@ -1051,6 +1057,17 @@ fn decompile_bytecode_internal(
                 emit_upvalue_analysis.then(|| serde_json::to_value(report).expect("finite select report"))
             } else { None };
             let late_timer = prof::Timer::new(&prof::S_LATE);
+            // Repeating decimals as the fractions the compiler folded. Every
+            // pass before this one sees the raw literals, as the de-inliner's
+            // constant-folded argument recovery (E2) will need.
+            {
+                let _span = ast::telemetry::Span::new("S_SPELL_CONSTANTS");
+                let numbers = chunk.functions.iter().flat_map(|function| &function.constants).filter_map(|constant| match constant {
+                    deserializer::constant::Constant::Number(number) => Some(*number),
+                    _ => None,
+                });
+                ast::spell_constants::Fractions::of_constants(numbers).spell(&mut body);
+            }
             if options.assume_standard_libraries {
                 ast::library_constants::spell_library_constants(&mut body, pristine_libraries(&globals));
             }
@@ -1107,6 +1124,11 @@ fn decompile_bytecode_internal(
                     "the output needs {limit}, even with locals sharing storage"
                 )));
             }
+            // `--!native` compiled the module natively; the hot comment leads
+            // the source. A function's `@native` travels on its own node.
+            if chunk.functions[chunk.main].flags & deserializer::function::LPF_NATIVE_MODULE != 0 {
+                body.0.insert(0, ast::Comment::hot("native").into());
+            }
             // No expression/condition mutation is permitted after this point.
             let name_inference = {
                 ptime!(S_REFINE_NAMES);
@@ -1125,6 +1147,9 @@ fn decompile_bytecode_internal(
                     (body.to_string(), Vec::new(), Default::default())
                 }
             };
+            if stats::enabled() {
+                stats::record(script_name, stats_scope.finish(&body));
+            }
             let upvalue_analysis = raw_upvalue_analysis.map(|raw| {
                 let mut analysis = upvalue_analysis::reconcile_bindings(
                     raw,

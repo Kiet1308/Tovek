@@ -196,8 +196,9 @@ fn call_result_hint(value: &RValue) -> Option<String> {
         RValue::Select(Select::MethodCall(call)) => Some(call.method.clone()),
         _ => None,
     }?;
-    let noun = crate::name_locals::strip_verb_prefix(&raw);
-    sanitize_hint(noun.unwrap_or(&raw))
+    let raw = crate::name_spelling::strip_private(&raw);
+    let noun = crate::name_locals::strip_verb_prefix(raw);
+    sanitize_hint(noun.unwrap_or(raw))
 }
 
 fn callee_name(value: &RValue) -> Option<String> {
@@ -220,19 +221,18 @@ fn sanitize_hint(raw: &str) -> Option<String> {
         "and", "break", "do", "else", "elseif", "end", "false", "for", "function", "goto", "if",
         "in", "local", "nil", "not", "or", "repeat", "return", "then", "true", "until", "while",
     ];
-    let mut name = raw
+    let mut chars = raw
         .chars()
         .filter(|ch| ch.is_ascii_alphanumeric() || *ch == '_')
-        .collect::<String>();
-    if name.is_empty() {
+        .collect::<Vec<_>>();
+    if chars.is_empty() {
         return None;
     }
-    if name.as_bytes()[0].is_ascii_digit() {
-        name.insert(0, '_');
+    crate::name_spelling::lower_camel_in_place(&mut chars);
+    if chars[0].is_ascii_digit() {
+        chars.insert(0, '_');
     }
-    if let Some(first) = name.get_mut(0..1) {
-        first.make_ascii_lowercase();
-    }
+    let name: String = chars.into_iter().collect();
     if name == "_" || name == "self" || KEYWORDS.contains(&name.as_str()) {
         None
     } else {

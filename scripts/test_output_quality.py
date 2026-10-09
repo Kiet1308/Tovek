@@ -26,6 +26,9 @@ class OutputQualityTests(unittest.TestCase):
         self.assertEqual(compact['inferred_call_annotations'], 1)
         self.assertEqual(compact['compact_inferred_call_annotations'], 1)
         self.assertEqual(compact['full_inferred_call_annotations'], 0)
+        site = analyze_tree(block(), 'if p and f() then -- inferred equivalent call\n\tg() -- inferred equivalent call\nend\n')
+        self.assertEqual(site['full_inferred_call_annotations'], 2)
+        self.assertEqual(site['inferred_call_annotations'], 2)
 
     def test_shadowed_names_and_captured_sole_use_are_separate(self):
         outer, inner = local('v', '1,0'), local('v', '4,0')

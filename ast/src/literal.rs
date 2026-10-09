@@ -115,12 +115,11 @@ impl Traverse for Literal {}
 impl Literal {
     /// Long brackets normalize CR/LF and discard the first newline. Emit one
     /// framing LF (which the lexer discards), then the exact payload. Decline
-    /// CR, control bytes and invalid UTF-8 rather than changing constant bytes.
+    /// CR, control bytes and invalid UTF-8 rather than changing constant bytes,
+    /// and text that does not read as prose.
     fn long_string(value: &[u8]) -> Option<(&str, usize)> {
         let text = std::str::from_utf8(value).ok()?;
-        let newlines = value.iter().filter(|&&byte| byte == b'\n').count();
-        if newlines == 0 || (newlines < 2 && value.len() < 80)
-            || text.chars().any(|c| c.is_control() && c != '\n' && c != '\t') {
+        if !Self::reads_as_prose(text) || text.chars().any(|c| c.is_control() && c != '\n' && c != '\t') {
             return None;
         }
         // A delimiter ]=...=] is unavailable when it occurs in the payload,
@@ -143,6 +142,25 @@ impl Literal {
         let count = (!forbidden & ((1 << 17) - 1)).trailing_zeros() as usize;
         (count <= 16).then_some((text, count))
     }
+
+    /// Text that reads best between long brackets: three lines or more, two of
+    /// them at least 8 characters long, no newline at either end. A Lua
+    /// pattern or format string (a leading `^`, `%` before a letter, `(.-)`)
+    /// reads best quoted, its newlines escaped, like a message with a blank
+    /// line at an end (`"\nPromise created at:\n\n"`).
+    fn reads_as_prose(text: &str) -> bool {
+        if text.starts_with(['\n', '^']) || text.ends_with('\n') || text.contains("(.-)") {
+            return false;
+        }
+        let (mut lines, mut long_lines) = (0, 0);
+        for line in text.split('\n') {
+            lines += 1;
+            long_lines += usize::from(line.chars().nth(7).is_some());
+        }
+        lines >= 3 && long_lines >= 2
+            && !text.as_bytes().windows(2).any(|pair| pair[0] == b'%' && pair[1].is_ascii_alphabetic())
+    }
+
     pub(crate) fn format_number(value: f64) -> String {
         NumberText(value).to_string()
     }
@@ -252,13 +270,12 @@ mod tests {
 
     // The original allocating delimiter and escaping implementation is kept
     // independently: neither production streaming helper participates here.
+    // Only the choice of long brackets (prose) is shared.
     struct LegacyString;
     impl LegacyString {
         fn long_string(value: &[u8]) -> Option<String> {
             let text = std::str::from_utf8(value).ok()?;
-            let newlines = value.iter().filter(|&&byte| byte == b'\n').count();
-            if newlines == 0 || (newlines < 2 && value.len() < 80)
-                || text.chars().any(|c| c.is_control() && c != '\n' && c != '\t') {
+            if !Literal::reads_as_prose(text) || text.chars().any(|c| c.is_control() && c != '\n' && c != '\t') {
                 return None;
             }
             for count in 0..=16 {
@@ -434,9 +451,9 @@ mod tests {
 
     #[test]
     fn streaming_delimiter_matches_allocating_reference_exhaustively() {
-        for length in 0..=9u32 {
+        for length in 1..=9u32 {
             for mut code in 0..3usize.pow(length) {
-                let mut bytes = b"a\nb\n".to_vec();
+                let mut bytes = b"first line\nsecond line\n".to_vec();
                 for _ in 0..length {
                     bytes.push([b']', b'=', b'x'][code % 3]);
                     code /= 3;
@@ -447,7 +464,7 @@ mod tests {
                 assert_eq!(text.as_ptr(), bytes.as_ptr(), "payload remains borrowed");
             }
         }
-        let mut collisions = String::from("a\nb\n");
+        let mut collisions = String::from("first line\nsecond line\nthird");
         for count in 0..=17 {
             let chosen = Literal::long_string(collisions.as_bytes()).map(|(_, count)| count);
             assert_eq!(chosen, (count < 17).then_some(count));
@@ -530,7 +547,8 @@ mod tests {
         for length in [64, 256, 1024, 16384] {
             for multiline in [false, true] {
                 let mut bytes = vec![b'a'; length];
-                if multiline { bytes[1] = b'\n'; bytes[2] = b'\n'; }
+                // Prose: three lines, two of them 8 characters or more.
+                if multiline { bytes[9] = b'\n'; bytes[20] = b'\n'; }
                 let value = Literal::String(bytes);
                 let Literal::String(payload) = &value else { unreachable!() };
                 let mut probe = BorrowProbe { payload, seen: false, bytes: 0 };
@@ -621,10 +639,29 @@ mod tests {
     }
 
     #[test]
-    fn long_strings_keep_leading_newline_and_choose_delimiters() {
-        assert_eq!(Literal::String(b"\nfirst\nsecond\n".to_vec()).to_string(), "[[\n\nfirst\nsecond\n]]");
-        assert_eq!(Literal::String(b"a]]\nb]=]\nc".to_vec()).to_string(), "[==[\na]]\nb]=]\nc]==]");
-        assert_eq!(Literal::String(b"a\nb\nc]".to_vec()).to_string(), "[=[\na\nb\nc]]=]");
+    fn long_strings_choose_delimiters() {
+        assert_eq!(Literal::String(b"first a]]\nsecond b]=]\nc".to_vec()).to_string(),
+            "[==[\nfirst a]]\nsecond b]=]\nc]==]");
+        assert_eq!(Literal::String(b"first line\nsecond line\nc]".to_vec()).to_string(),
+            "[=[\nfirst line\nsecond line\nc]]=]");
+    }
+
+    /// Long brackets are for prose: patterns, format strings, short lines and
+    /// a newline at either end print quoted with escapes.
+    #[test]
+    fn long_strings_hold_prose_only() {
+        let message = "Something went wrong.\nPlease try again later,\nor contact support.";
+        assert_eq!(Literal::String(message.into()).to_string(), format!("[[\n{message}]]"));
+        for quoted in [
+            "\nPromise created at:\n\n",
+            "first line\nsecond line\nthird line\n",
+            "^.-\n(.-)\nsomething long",
+            "Value: %s\nanother long line\nend",
+            "short\nlines\nhere",
+            "a long first line\nonly two lines",
+        ] {
+            assert!(Literal::String(quoted.into()).to_string().starts_with('"'), "{quoted:?}");
+        }
     }
 
     #[test]

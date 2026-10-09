@@ -121,6 +121,11 @@ struct FolderArgs {
     /// Maximum cache contents in MiB; least recently used entries are evicted.
     #[arg(long, default_value_t = 512, requires = "cache_dir")]
     cache_max_mib: u64,
+    /// Write per-script reconstruction stats (rebuilt calls by kind, helpers,
+    /// de-inline refusals) to this JSON file. Every input is decompiled, so
+    /// no cache may stand in for one.
+    #[arg(long, conflicts_with = "cache_dir")]
+    stats_json: Option<PathBuf>,
 }
 
 #[derive(clap::Args, Debug)]
@@ -190,6 +195,9 @@ fn main() {
         Some("decompile-folder") => match Cli::parse().command {
             Command::DecompileFolder(a) => {
                 let key = if a.encoded { 203 } else { a.key };
+                if let Some(path) = a.stats_json.clone() {
+                    luau_lifter::stats::enable(path, String::new());
+                }
                 let options = luau_lifter::DecompileOptions {
                     dont_reuse_var: a.dont_reuse_var,
                     no_synth_helpers: a.no_synth_helpers,
@@ -363,6 +371,7 @@ fn run_single_file() {
     let file_name = args.next().expect("expected exactly one file");
     let mut key = 1;
     let mut script_name: Option<String> = None;
+    let mut stats_json = None;
     let mut options = luau_lifter::DecompileOptions::default();
 
     while let Some(arg) = args.next() {
@@ -384,6 +393,9 @@ fn run_single_file() {
             "--script-name" => {
                 script_name = Some(args.next().expect("--script-name requires a value"));
             }
+            "--stats-json" => {
+                stats_json = Some(PathBuf::from(args.next().expect("--stats-json requires a path")));
+            }
             "--style" | "--style=default" | "--style=compact" => {
                 let style = match arg.strip_prefix("--style=") {
                     Some(style) => style.to_owned(),
@@ -399,6 +411,9 @@ fn run_single_file() {
         }
     }
 
+    if let Some(path) = stats_json {
+        luau_lifter::stats::enable(path, file_name.clone());
+    }
     let bytecode = std::fs::read(&file_name).expect("failed to read file");
     match luau_lifter::try_decompile_bytecode_with_options(
         &bytecode,
@@ -418,6 +433,10 @@ fn run_single_file() {
 fn finish(code: i32) -> ! {
     if let Err(error) = luau_lifter::profile::write_json() {
         eprintln!("write pass profile: {error}");
+        std::process::exit(if code == 0 { 2 } else { code });
+    }
+    if let Err(error) = luau_lifter::stats::write_json() {
+        eprintln!("write stats: {error}");
         std::process::exit(if code == 0 { 2 } else { code });
     }
     std::process::exit(code);

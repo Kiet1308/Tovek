@@ -4,8 +4,9 @@
 //! the callee's body into each caller's bytecode at the call site. medal
 //! faithfully reproduces that, so the output shows the function inlined
 //! everywhere instead of called. This pass detects those inlined regions and
-//! rewrites them back into real calls `funcName(args)`, each marked
-//! equivalent-call inferences, and marks the candidate definition too.
+//! rewrites them back into real calls `funcName(args)`. Each rebuilt call
+//! carries its `rebuilt` attribute; the formatter prints the site comment and
+//! the definition's count from it, so no marker statement enters the tree.
 //!
 //! Correctness is paramount: the pass is verification-gated. It only converts a
 //! region when it can structurally *prove* the region is a context-specialised
@@ -28,15 +29,10 @@ use rustc_hash::{FxHashMap, FxHashSet};
 use triomphe::Arc;
 
 use crate::{
-    Assign, Binary, BinaryOperation, Block, Call, Closure, Comment, Function, GenericFor, If,
+    Assign, Binary, BinaryOperation, Block, Call, Closure, Function, GenericFor, If,
     LValue, Literal, LocalRw, MethodCall, NumericFor, RValue, RcLocal, Reduce, Repeat, Return,
     Select, SideEffects, Statement, Table, Traverse, Unary, UnaryOperation, Upvalue, While,
 };
-
-const DEF_MARKER: &str = "equivalent calls inferred from this helper; original call sites unknown";
-// Trailing (same-line) marker appended to a reconstructed call: `f(args) -- ...`.
-// No leading `^` caret (it no longer points up at a separate line above).
-const CALL_MARKER: &str = "equivalent call inferred; original call site unknown";
 
 type FnPtr = *const Mutex<Function>;
 
@@ -140,6 +136,11 @@ enum RejectReason {
 }
 
 impl RejectReason {
+    /// The reason's name in `--stats-json`.
+    fn name(self) -> &'static str {
+        self.counter().trim_start_matches("reject_")
+    }
+
     fn counter(self) -> &'static str {
         match self {
             Self::TargetStillReferenced => "reject_reassigned_binder",
@@ -154,12 +155,15 @@ impl RejectReason {
     }
 }
 
-/// Trace a de-inline target rejection. With the `deinline_trace` feature it prints
-/// the gate + function name to stderr. Optional JSON profiling records only
-/// a static reason counter; it never evaluates the function-name argument.
+/// Trace a de-inline target rejection of the helper bound to `$binder`. With
+/// the `deinline_trace` feature it prints the gate + function name to stderr.
+/// Optional JSON profiling records only a static reason counter, and
+/// `--stats-json` the reason per helper; neither evaluates the function-name
+/// argument.
 macro_rules! deinline_reject {
-    ($reason:expr, $name:expr) => {{
+    ($reason:expr, $binder:expr, $name:expr) => {{
         if crate::telemetry::enabled() { crate::telemetry::count($reason.counter(), 1); }
+        crate::reconstruction_stats::refuse_helper($binder.stable_id(), $reason.name());
         #[cfg(feature = "deinline_trace")]
         {
             let _r: RejectReason = $reason;
@@ -496,53 +500,38 @@ pub fn deinline(body: &mut Block) {
         previous = Some(newly);
         if search.exhausted() { break; }
     }
+    if search.exhausted() {
+        crate::reconstruction_stats::refuse_site("search_budget_exhausted");
+    }
     if !converted.is_empty() {
         {
             let _t = dprof::T::new(&dprof::COLLAPSE_US);
             let _span = crate::telemetry::Span::new("D_COLLAPSE_RESULTS");
             collapse_value_results(&mut body.0, &single_valued, &FxHashSet::default());
         }
-        insert_def_markers(&mut body.0, &converted);
     }
     dprof::dump();
 }
 
 // ===================================================================
 // Readability: collapse a single-use value de-inline
-//   local v = f(args) -- inlined ...   (CALL_MARKER, a trailing comment)
-//   if v then BODY end                 -- v used exactly once, as the whole condition
+//   local v = f(args)   (a rebuilt call)
+//   if v then BODY end  -- v used exactly once, as the whole condition
 // into
-//   -- [-O2 INLINED ...]
 //   if f(args) then BODY end
 // matching the original source. Only when `v` is read exactly once (in the
 // immediately-following statement, anywhere incl. closures) so single-evaluation
 // and ordering are preserved.
 // ===================================================================
 
-const COLLAPSE_MARKER: &str = "equivalent call inferred; original call site unknown";
-
-/// One of the comments THIS pass itself injects (a reconstructed-call/def/collapse
-/// marker). They are runtime no-ops. The fixed-point loop re-collects targets each
-/// iteration: an inner de-inline can splice a `CALL_MARKER` into a callee body that
-/// is ALSO a target, and a body carrying a (genuine source) comment is otherwise
-/// refused by `body_unsafe`. Treating our own markers as no-ops — exempt in
-/// `body_unsafe`, dropped symmetrically in `canon_top` — lets such a body stay a
-/// valid target so chained/nested inlines keep collapsing, without ever matching on
-/// the marker text. Genuine source comments still refuse the body.
-fn is_internal_marker(c: &Comment) -> bool {
-    c.text == CALL_MARKER || c.text == DEF_MARKER || c.text == COLLAPSE_MARKER
-}
-
-/// A statement that `canon_top` drops (an `Empty` placeholder or one of THIS
-/// pass's own reconstruction markers) — i.e. a runtime no-op that does not
-/// occupy a logical position in a candidate window. MUST stay in lock-step with
-/// the filter in `canon_top` (it strips exactly `Empty` + `is_internal_marker`
-/// comments): the candidate generator decides which raw index is the K-th
-/// *effective* statement, and canon decides what the unifier actually sees, so
-/// the two must agree on what counts as a no-op. A genuine SOURCE comment is NOT
-/// trivia (it refuses the body via `body_unsafe`) and must never be skipped here.
+/// A statement that `canon_top` drops: an `Empty` placeholder, a runtime no-op
+/// that does not occupy a logical position in a candidate window. MUST stay in
+/// lock-step with the filter in `canon_top`: the candidate generator decides
+/// which raw index is the K-th *effective* statement, and canon decides what
+/// the unifier actually sees, so the two must agree on what counts as a no-op.
+/// A comment is NOT trivia (it refuses the body via `body_unsafe`).
 fn is_match_trivia(s: &Statement) -> bool {
-    matches!(s, Statement::Empty(_)) || matches!(s, Statement::Comment(c) if is_internal_marker(c))
+    matches!(s, Statement::Empty(_))
 }
 
 /// `rest` (the statements following some statement) is exactly one unconditional
@@ -615,10 +604,9 @@ fn tail_spine_len(stmts: &[Statement]) -> usize {
 /// in `stmts`, or `None` if fewer than `n+1` effective statements remain.
 ///
 /// Used by the Value-prefix matchers (P1/P6) to locate the interposed init-less
-/// `local RESULT` declaration: an inner de-inline in an earlier fixed-point
-/// iteration can splice a trailing `CALL_MARKER` (or the structurer an `Empty`)
-/// between the callee-prefix statement(s) and that decl, so the fixed offset
-/// `i + prefix_len` would point at the marker and `result_decl` would bail —
+/// `local RESULT` declaration: the structurer can leave an `Empty` between the
+/// callee-prefix statement(s) and that decl, so the fixed offset
+/// `i + prefix_len` would point at it and `result_decl` would bail —
 /// silently killing chained / nested AtPrefix reconstruction. Counting only
 /// effective statements restores the match; the trivia is later removed by the
 /// splice (which spans the absolute window `i..i+consume`).
@@ -634,10 +622,9 @@ fn nth_effective_index(stmts: &[Statement], from: usize, n: usize) -> Option<usi
 
 /// The raw window width at/after `from` that spans up to `max_eff` EFFECTIVE
 /// (non-trivia) statements — the trivia-aware analogue of a flat `from + max_eff`
-/// ceiling. Interposed `Empty`s / internal markers (an inner de-inline can splice
-/// several of them into a nested candidate region across fixed-point iterations) do
-/// NOT consume the budget, so a window whose *effective* length already equals the
-/// pattern is never cut short by the raw ceiling (DeinlineReportNew §2 / F2). The
+/// ceiling. Interposed `Empty`s do NOT consume the budget, so a window whose
+/// *effective* length already equals the pattern is never cut short by the raw
+/// ceiling (DeinlineReportNew §2 / F2). The
 /// per-width matcher loops still gate each width by `canon_top_len == kc`, so the
 /// only effect of a wider ceiling is to KEEP trying widths that the old raw bound
 /// `pat_raw_len + 1` wrongly excluded once two or more trivia were interposed.
@@ -723,36 +710,22 @@ fn collapse_value_results(stmts: &mut Vec<Statement>, single_valued: &FxHashSet<
     let mut out: Vec<Statement> = Vec::with_capacity(n);
     let mut i = 0;
     while i < n {
-        if i + 2 < n
+        if i + 1 < n
             && let Statement::Assign(a) = &taken[i]
             && let Some((v, call)) = value_call_decl(a)
-            && let Statement::Comment(cm) = &taken[i + 1]
-            && cm.text == CALL_MARKER
-            && count_local_reads(&taken[i + 2..i + 3], &v) == 1
-            && last_read.get(&v).is_none_or(|&k| k < i + 3)
+            && count_local_reads(&taken[i + 1..i + 2], &v) == 1
+            && last_read.get(&v).is_none_or(|&k| k < i + 2)
             && !live_out.contains(&v)
             // `v`'s declaration is about to be removed, so `v` must not be
             // *written* anywhere we keep either — a later `v = ...` (e.g. inside
             // the collapsed `if`) would otherwise be left with no declaration.
-            && last_write.get(&v).is_none_or(|&k| k < i + 2)
-            && let Some(collapsed) = collapse_use(&taken[i + 2], &v, call, single_valued)
+            && last_write.get(&v).is_none_or(|&k| k < i + 1)
+            && let Some(collapsed) = collapse_use(&taken[i + 1], &v, call, single_valued)
         {
-            // The reconstructed call now lives inside `collapsed`. For a
-            // single-line `return f(args)` / `x = f(args)` the marker reads best
-            // appended to that line; for the multi-line `if f(args) then … end`
-            // shape it stays a leading header above the block.
-            if matches!(collapsed, Statement::If(_)) {
-                out.push(Statement::Comment(Comment::new(
-                    COLLAPSE_MARKER.to_string(),
-                )));
-                out.push(collapsed);
-            } else {
-                out.push(collapsed);
-                out.push(Statement::Comment(Comment::trailing(
-                    COLLAPSE_MARKER.to_string(),
-                )));
-            }
-            i += 3;
+            // The rebuilt call now lives inside `collapsed`, still carrying
+            // its `rebuilt` attribute for the formatter's site comment.
+            out.push(collapsed);
+            i += 2;
         } else {
             out.push(taken[i].clone());
             i += 1;
@@ -761,10 +734,12 @@ fn collapse_value_results(stmts: &mut Vec<Statement>, single_valued: &FxHashSet<
     *stmts = out;
 }
 
-/// `local v = <Call>` -> (v, the call rvalue).
+/// `local v = <rebuilt Call>` -> (v, the call rvalue).
 fn value_call_decl(a: &Assign) -> Option<(RcLocal, &RValue)> {
     if a.prefix && !a.parallel && a.left.len() == 1 && a.right.len() == 1 {
-        if let (LValue::Local(v), call @ RValue::Call(_)) = (&a.left[0], &a.right[0]) {
+        if let (LValue::Local(v), call @ RValue::Call(c)) = (&a.left[0], &a.right[0])
+            && c.rebuilt.is_some()
+        {
             return Some((v.clone(), call));
         }
     }
@@ -1339,19 +1314,9 @@ fn nest_value_return_guards(stmts: Vec<Statement>) -> Vec<Statement> {
 /// half is a 1:1 statement map). Callers use this to reject a candidate window by
 /// length *before* paying for the deep nested-block rebuild in `canon_recurse`.
 fn canon_top(stmts: &[Statement], tail: bool) -> Vec<Statement> {
-    // N2: drop Empty placeholders AND our own reconstruction markers (runtime
-    // no-ops). An inner de-inline may have spliced a CALL_MARKER into a shared
-    // callee body mid-fixed-point; dropping it here keeps a re-collected pattern
-    // length-aligned with its candidate windows (both stripped symmetrically), and
-    // a stripped marker contributes 0 anchors / does not perturb the length gates.
-    let mut s: Vec<Statement> = stmts
-        .iter()
-        .filter(|st| {
-            !matches!(st, Statement::Empty(_))
-                && !matches!(st, Statement::Comment(c) if is_internal_marker(c))
-        })
-        .cloned()
-        .collect();
+    // N2: drop Empty placeholders (runtime no-ops), symmetrically in pattern
+    // and candidate, so they never perturb the length gates.
+    let mut s: Vec<Statement> = stmts.iter().filter(|st| !is_match_trivia(st)).cloned().collect();
     if tail {
         // N1: drop a trailing void return at THIS (tail) level (implicit-return no-op).
         if matches!(s.last(), Some(Statement::Return(r)) if r.values.is_empty()) {
@@ -2529,10 +2494,6 @@ fn deinline_block(
             &mut last_occ,
             &mut canon_cache,
         ) {
-            // A call rebuilt inside another statement's value carries no site
-            // marker, as with the expression de-inliner: that statement may
-            // itself fold into its use later, which would strand the marker.
-            let embedded = hit.host.is_some();
             let call = Call::new(RValue::Local(hit.f_local.clone()), hit.args)
                 .reconstructed(crate::call_origins::Kind::StatementDeinline);
             let stmt = match hit.host {
@@ -2547,29 +2508,14 @@ fn deinline_block(
                     compound: false,
                 }),
             };
-            let marker = Statement::Comment(Comment::trailing(CALL_MARKER.to_string()));
-            // A chained reconstruction (F1/F2) can consume an INNER reconstructed call
-            // whose own trailing `CALL_MARKER` now sits just past the matched window
-            // (the matcher keeps the smallest `w`, which need not span that trailing
-            // marker). Orphaned, it would render as a duplicate ` -- inlined…` comment
-            // on the new call's line. Swallow any immediately-following internal marker
-            // — a runtime no-op that belonged to the consumed region's last statement —
-            // into the splice. Only CALL_MARKERs exist here (DEF/COLLAPSE markers are
-            // inserted after the loop); `Empty`s are deliberately left untouched so the
-            // non-chained majority of corpus output stays byte-identical.
-            let mut consume = hit.consume;
-            while !embedded
-                && i + consume < stmts.len()
-                && matches!(&stmts[i + consume], Statement::Comment(c) if is_internal_marker(c))
-            {
-                consume += 1;
-            }
-            let mut replacement = if embedded { vec![stmt] } else { vec![stmt, marker] };
+            // The call's `rebuilt` attribute is its marker: the formatter
+            // prints the site comment wherever the call ends up.
+            let mut replacement = vec![stmt];
             if let Some(ret) = hit.tail_ret {
                 replacement.push(Statement::Return(Return { node_origin: Default::default(), values: vec![ret] }));
             }
             let advance = replacement.len();
-            stmts.splice(i..i + consume, replacement);
+            stmts.splice(i..i + hit.consume, replacement);
             newly.binders.insert(hit.f_local);
             newly.bodies.insert(current_func);
             i += advance;
@@ -3026,13 +2972,6 @@ fn try_match_at(
     // existing `result_decl(stmts[i])` gate, and a Value pattern's `pat[0]` may be
     // a leaf `return X` unified against an `Assign`, so the variant check would be
     // unsound there.)
-    // Skip only leading `Empty` (NOT internal markers) for this O(1) variant
-    // prefilter. Skipping markers here was tried and reverted: it let `match_void`
-    // attempt windows that START at a reconstruction marker, and on a chained void
-    // site that silently dropped the trailing `-- inlined` marker from an already-
-    // reconstructed call (the call stayed correct, but lost its UNHOOKABLE
-    // annotation). Nothing legitimately begins a match at a marker position, so
-    // the canon-alignment was cosmetic-negative; keep the original predicate.
     let anchor_stmt = stmts.get(anchor);
     let anchor_disc = anchor_stmt.map(std::mem::discriminant);
     // Second prefilter dimension: the fixed-name anchor of that first statement
@@ -3142,7 +3081,7 @@ fn try_match_at(
     if !tied.is_empty() {
         contested.extend(tied);
         contested.extend(found.map(|best| best.f_local));
-        return None;
+        return refused("ambiguous");
     }
     // A width or target skipped for fuel may have been a competing match.
     if ordered.iter().chain(rivals).next().is_some_and(|&ti| targets[ti].search.exhausted()) {
@@ -3190,7 +3129,7 @@ fn match_void(
         }
     }
     // F2: an effective-count ceiling (trivia don't consume the budget) so a nested
-    // candidate region carrying 2+ interposed markers is still reachable. The
+    // candidate region carrying 2+ interposed `Empty`s is still reachable. The
     // ceiling is the pattern's tail-spine length (guard-form expansion of every
     // tail `if`, see `tail_spine_len`) plus one for a site-only trailing `return`.
     let max_w = raw_width_for_effective(stmts, start, t.pat_spine_len + 1);
@@ -3942,8 +3881,8 @@ fn match_value_prefixed(
 ) -> Option<Hit> {
     let p = t.prefix_len; // effective callee-prefix statement count (>= 1)
     // P1: the interposed init-less `local RESULT` decl is the p-th EFFECTIVE
-    // statement at/after i — `i + p` (the old fixed offset) would land on a
-    // CALL_MARKER/`Empty` an inner de-inline spliced between the prefix and the
+    // statement at/after i — `i + p` (the old fixed offset) would land on an
+    // `Empty` the structurer left between the prefix and the
     // decl, making `result_decl` bail and silently killing chained AtPrefix
     // reconstruction. Count only non-trivia statements instead.
     let d = nth_effective_index(stmts, i, p)?;
@@ -4022,7 +3961,7 @@ fn match_value_prefixed(
         f_local: t.f_local.clone(),
         // Absolute span from i: prefix + any interposed trivia + the RESULT decl
         // (at d) + the w-statement region. `(d - i)` counts the prefix and trivia
-        // so the splice removes the interposed marker along with the window.
+        // so the splice removes the interposed trivia along with the window.
         consume: (d - i) + 1 + w,
         args,
         results: vec![r],
@@ -4230,6 +4169,13 @@ fn try_unify_site(t: &Target, cwin: &[Statement], prefix: &Prefix, current_func:
     finish_unified(t, cwin, b, prefix, current_func)
 }
 
+/// Refuse a site whose region unified with a helper, counting why
+/// (`--stats-json`).
+fn refused<T>(reason: &'static str) -> Option<T> {
+    crate::reconstruction_stats::refuse_site(reason);
+    None
+}
+
 fn finish_unified(
     t: &Target,
     cwin: &[Statement],
@@ -4248,10 +4194,11 @@ fn finish_unified(
             // the argument is that copy's initialiser. Evaluated at the copy's own
             // position (= the call position), so any initialiser is order-safe; a
             // closure is still refused (identity). Never `nil`-supplied.
-            let l = b.locals.get(p)?;
-            let (_, arg) = prefix.iter().find(|(x, _)| x == l)?;
+            let Some((_, arg)) = b.locals.get(p).and_then(|l| prefix.iter().find(|(x, _)| x == l)) else {
+                return refused("written_parameter_unbound");
+            };
             if matches!(arg, RValue::Closure(_)) {
-                return None;
+                return refused("closure_argument");
             }
             prefix_used += 1;
             args.push(arg.clone());
@@ -4267,7 +4214,7 @@ fn finish_unified(
             // genuine mismatch and still refuses the whole site. (A write-only param
             // never reaches here: it fails `unify_local`'s identity branch first.)
             None if t.unread.contains(p) => args.push(RValue::Literal(Literal::Nil)),
-            None => return None,
+            None => return refused("parameter_unbound"),
         }
     }
     // Trim trailing `nil`s we supplied for unread params: `f(a, nil)` ≡ `f(a)` for a
@@ -4298,13 +4245,13 @@ fn finish_unified(
     // census protects reference-captured cells independently of upstream SSA
     // cleanup, so the proof holds even when matching a handwritten shape.
     if prefix_used != prefix.len() {
-        return None;
+        return refused("unused_parameter_copy");
     }
     if t.free_cells.iter().any(|local| {
         t.captures.register_of(local, current_func.map(|function| function as usize))
             && crate::evaluation_order::region_late_read_conflict(cwin, local, &t.captures.may_change(local))
     }) {
-        return None;
+        return refused("late_read_conflict");
     }
     let mut region_writes: FxHashSet<RcLocal> = FxHashSet::default();
     collect_written(cwin, &mut region_writes);
@@ -4317,21 +4264,20 @@ fn finish_unified(
     let mut moved = false;
     for (idx, a) in args.iter().enumerate() {
         if a.values_read().iter().any(|read| prefix.iter().any(|(l, _)| l == *read)) {
-            return None;
+            return refused("argument_reads_parameter_copy");
         }
         if t.written_params.contains(&t.param_order[idx]) {
-            if moved {
-                return None;
+            let bound = b.locals.get(&t.param_order[idx]);
+            if moved || bound.is_none() || prefix.get(prefix_index).map(|(l, _)| l) != bound {
+                return refused("written_parameter_order");
             }
-            let bound = b.locals.get(&t.param_order[idx])?;
-            if prefix.get(prefix_index).map(|(l, _)| l) != Some(bound) { return None; }
             prefix_index += 1;
             // A prefix-copy initialiser is not hoisted (see above); it only must not
             // read a local the region writes — the site evaluated it before the
             // region, and so does `f(args)`.
             for r in a.values_read() {
                 if region_writes.contains(r) {
-                    return None;
+                    return refused("argument_reads_region_write");
                 }
             }
             continue;
@@ -4339,19 +4285,21 @@ fn finish_unified(
         if !t.captures.stable_at(a, current_func.map(|function| function as usize)) {
             let first = if matches!(a, RValue::Local(_)) { &t.first_register_reads } else { &t.first_reads };
             if moved || !first.contains(&t.param_order[idx]) {
-                return None;
+                return refused("unstable_argument");
             }
             moved = true;
         }
         for r in a.values_read() {
             if region_writes.contains(r) {
-                return None;
+                return refused("argument_reads_region_write");
             }
         }
     }
     // Each returned local is declared by the pattern, so the site's matching
     // declaration bound it. The caller's local outlives the region.
-    let returned = t.returns.iter().map(|l| b.locals.get(l).cloned()).collect::<Option<Vec<_>>>()?;
+    let Some(returned) = t.returns.iter().map(|l| b.locals.get(l).cloned()).collect::<Option<Vec<_>>>() else {
+        return refused("returned_local_unbound");
+    };
     let mut callee_locals: FxHashSet<RcLocal> = b.locals.into_values().collect();
     for l in &returned {
         callee_locals.remove(l);
@@ -5791,7 +5739,7 @@ fn collect_targets(
         // gate: the binder is written exactly once (its declaration) — never
         // reassigned, so `f(args)` is unambiguous (see the census note above).
         if write_counts.get(&f_local).copied().unwrap_or(0) != 1 {
-            deinline_reject!(RejectReason::TargetStillReferenced, "<binder>");
+            deinline_reject!(RejectReason::TargetStillReferenced, f_local, "<binder>");
             continue;
         }
         let g = func.lock();
@@ -5804,8 +5752,7 @@ fn collect_targets(
         // unprovable from the inlined body, so it is left for `body_unsafe`-style
         // refusal here.) Every soundness gate downstream is unchanged.
         if g.is_variadic {
-            deinline_reject!(
-                RejectReason::Variadic,
+            deinline_reject!(RejectReason::Variadic, f_local,
                 g.name.as_deref().unwrap_or("<anon>")
             );
             continue;
@@ -5813,8 +5760,7 @@ fn collect_targets(
         // Its code runs a call frame deeper inside the helper, where reading
         // frames gives another answer.
         if body_unsafe(&g.body.0) || captures.reads_frames(&g.body.0) {
-            deinline_reject!(
-                RejectReason::UnsafeBody,
+            deinline_reject!(RejectReason::UnsafeBody, f_local,
                 g.name.as_deref().unwrap_or("<anon>")
             );
             continue;
@@ -5824,8 +5770,7 @@ fn collect_targets(
             Some(classified) => classified,
             None => {
                 // multi-return / mixed / bare-vararg leaf / non-terminal value return
-                deinline_reject!(
-                    RejectReason::UnsupportedReturnShape,
+                deinline_reject!(RejectReason::UnsupportedReturnShape, f_local,
                     g.name.as_deref().unwrap_or("<anon>")
                 );
                 continue;
@@ -5833,13 +5778,12 @@ fn collect_targets(
         };
         let shape = crate::deinline_safety::CaptureSafety::new(&g.body);
         if !shape.complete() || shape.nodes() > 2048 {
-            deinline_reject!(RejectReason::ShapeBudget, g.name.as_deref().unwrap_or("<anon>"));
+            deinline_reject!(RejectReason::ShapeBudget, f_local, g.name.as_deref().unwrap_or("<anon>"));
             continue;
         }
         let pat = if falls_off { canon(&returning_nil(&body)) } else { canon(&body) };
         if pat.is_empty() {
-            deinline_reject!(
-                RejectReason::EmptyPattern,
+            deinline_reject!(RejectReason::EmptyPattern, f_local,
                 g.name.as_deref().unwrap_or("<anon>")
             );
             continue;
@@ -5854,8 +5798,7 @@ fn collect_targets(
             // proving CPS matcher below.
             TKind::Void => {
                 if block_has_return(&pat) && !cps_loop_return {
-                    deinline_reject!(
-                        RejectReason::UnsupportedReturnShape,
+                    deinline_reject!(RejectReason::UnsupportedReturnShape, f_local,
                         g.name.as_deref().unwrap_or("<anon>")
                     );
                     continue;
@@ -5865,8 +5808,7 @@ fn collect_targets(
             // or a return from inside a loop (`loop_return_split`).
             TKind::Value => {
                 if !value_leaf_shape(&pat) && loop_exit_at.is_none() {
-                    deinline_reject!(
-                        RejectReason::UnsupportedReturnShape,
+                    deinline_reject!(RejectReason::UnsupportedReturnShape, f_local,
                         g.name.as_deref().unwrap_or("<anon>")
                     );
                     continue;
@@ -5892,8 +5834,7 @@ fn collect_targets(
             );
         }
         if anchor_score(&pat, &g.parameters) + LOOP_EXIT_ANCHORS * usize::from(loop_exit_at.is_some()) < 2 {
-            deinline_reject!(
-                RejectReason::LowAnchorScore,
+            deinline_reject!(RejectReason::LowAnchorScore, f_local,
                 g.name.as_deref().unwrap_or("<anon>")
             );
             continue;
@@ -5909,7 +5850,7 @@ fn collect_targets(
             .cloned()
             .collect();
         if kind == TKind::Value && !written_params.is_empty() {
-            deinline_reject!(RejectReason::WrittenValueParameter, g.name.as_deref().unwrap_or("<anon>"));
+            deinline_reject!(RejectReason::WrittenValueParameter, f_local, g.name.as_deref().unwrap_or("<anon>"));
             continue;
         }
         let params: FxHashSet<RcLocal> = g
@@ -6027,6 +5968,7 @@ fn collect_targets(
             )
         };
         crate::call_origins::register_callee(f_local.stable_id(), g.bytecode_proto_id);
+        crate::reconstruction_stats::accept_helper(f_local.stable_id());
         drop(g);
         let pat_nodes = pat.iter().map(dbg_stmt_node_count).sum();
         targets.push(Target {
@@ -6468,14 +6410,8 @@ pub(crate) fn body_unsafe(stmts: &[Statement]) -> bool {
             return true;
         }
         match s {
-            // Our own reconstruction markers are runtime no-ops. A shared callee
-            // body that gained one from an inner de-inline in an earlier
-            // fixed-point iteration must stay a valid target, else chained/nested
-            // inlines never re-collapse; `canon_top` drops them symmetrically from
-            // pattern and candidate, so matching is unaffected. A genuine source
-            // comment still refuses the body.
-            Statement::Comment(c) => !is_internal_marker(c),
-            Statement::Goto(_)
+            Statement::Comment(_)
+            | Statement::Goto(_)
             | Statement::Label(_)
             | Statement::Close(_)
             | Statement::NumForInit(_)
@@ -6916,122 +6852,11 @@ pub(crate) fn anchors_in_rvalue(rv: &RValue, n: &mut usize) {
     }
 }
 
-// ===================================================================
-// Definition markers
-// ===================================================================
-
-pub(crate) fn insert_def_markers(stmts: &mut Vec<Statement>, converted: &FxHashSet<RcLocal>) {
-    insert_def_markers_with_text(stmts, converted, DEF_MARKER);
-}
-
-pub(crate) fn insert_def_markers_with_text(
-    stmts: &mut Vec<Statement>,
-    converted: &FxHashSet<RcLocal>,
-    marker: &str,
-) {
-    if converted.is_empty() {
-        return;
-    }
-    for s in stmts.iter_mut() {
-        match s {
-            Statement::If(f) => {
-                insert_def_markers_with_text(&mut f.then_block.lock().0, converted, marker);
-                insert_def_markers_with_text(&mut f.else_block.lock().0, converted, marker);
-            }
-            Statement::While(w) => insert_def_markers_with_text(&mut w.block.lock().0, converted, marker),
-            Statement::Repeat(r) => insert_def_markers_with_text(&mut r.block.lock().0, converted, marker),
-            Statement::NumericFor(nf) => insert_def_markers_with_text(&mut nf.block.lock().0, converted, marker),
-            Statement::GenericFor(gf) => insert_def_markers_with_text(&mut gf.block.lock().0, converted, marker),
-            _ => {}
-        }
-        // recover definitions inside ANY closure body (call arguments, table
-        // values, ...), matching where `deinline_block` recovers the calls.
-        visit_stmt_rvalues_mut(s, &mut |rv| {
-            markers_in_closures(rv, converted, marker);
-            true
-        });
-    }
-
-    let mut out: Vec<Statement> = Vec::with_capacity(stmts.len());
-    for s in std::mem::take(stmts) {
-        if let Statement::Assign(a) = &s {
-            if a.prefix
-                && a.left.len() == 1
-                && a.right.len() == 1
-                && let LValue::Local(l) = &a.left[0]
-                && matches!(&a.right[0], RValue::Closure(_))
-                && converted.contains(l)
-                // Idempotent: if this decl already carries the marker (e.g. the
-                // statement de-inliner converted the same helper earlier, or this
-                // pass already ran), do not emit this marker a second time.
-                && !matches!(out.last(), Some(Statement::Comment(c)) if c.text == marker)
-            {
-                out.push(Statement::Comment(Comment::new(marker.to_string())));
-            }
-        }
-        out.push(s);
-    }
-    *stmts = out;
-}
-
-fn markers_in_closures(rv: &mut RValue, converted: &FxHashSet<RcLocal>, marker: &str) {
-    match rv {
-        RValue::Closure(c) => insert_def_markers_with_text(&mut c.function.0.lock().body.0, converted, marker),
-        RValue::Call(c) => {
-            markers_in_closures(c.value.as_mut(), converted, marker);
-            for a in &mut c.arguments {
-                markers_in_closures(a, converted, marker);
-            }
-        }
-        RValue::MethodCall(m) => {
-            markers_in_closures(m.value.as_mut(), converted, marker);
-            for a in &mut m.arguments {
-                markers_in_closures(a, converted, marker);
-            }
-        }
-        RValue::Index(ix) => {
-            markers_in_closures(ix.left.as_mut(), converted, marker);
-            markers_in_closures(ix.right.as_mut(), converted, marker);
-        }
-        RValue::Unary(u) => markers_in_closures(u.value.as_mut(), converted, marker),
-        RValue::Binary(b) => {
-            markers_in_closures(b.left.as_mut(), converted, marker);
-            markers_in_closures(b.right.as_mut(), converted, marker);
-        }
-        RValue::Table(t) => {
-            for (k, v) in &mut t.0 {
-                if let Some(k) = k {
-                    markers_in_closures(k, converted, marker);
-                }
-                markers_in_closures(v, converted, marker);
-            }
-        }
-        RValue::Select(Select::Call(c)) => {
-            markers_in_closures(c.value.as_mut(), converted, marker);
-            for a in &mut c.arguments {
-                markers_in_closures(a, converted, marker);
-            }
-        }
-        RValue::Select(Select::MethodCall(m)) => {
-            markers_in_closures(m.value.as_mut(), converted, marker);
-            for a in &mut m.arguments {
-                markers_in_closures(a, converted, marker);
-            }
-        }
-        RValue::IfExpression(e) => {
-            markers_in_closures(e.condition.as_mut(), converted, marker);
-            markers_in_closures(e.then_value.as_mut(), converted, marker);
-            markers_in_closures(e.else_value.as_mut(), converted, marker);
-        }
-        _ => {}
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::{
-        Break, Closure, Empty, ForOrigin, ForPrepKind, Function, Global, Index, Local,
+        Break, Closure, Comment, Empty, ForOrigin, ForPrepKind, Function, Global, Index, Local,
         VmProfileId,
     };
     use by_address::ByAddress;
@@ -8534,14 +8359,14 @@ mod tests {
         );
     }
 
-    /// F2: a candidate region carrying TWO interposed `CALL_MARKER`s (two inner
-    /// de-inlines in a chained reconstruction) must still match. The old raw ceiling
-    /// `pat_raw_len + 1` capped the window at 4 raw statements — one short of the 5
-    /// needed (3 calls + 2 markers) — silently missing the outer reconstruction; the
-    /// effective-count ceiling (trivia don't consume the budget) reaches it.
+    /// F2: a candidate region carrying TWO interposed `Empty`s must still match.
+    /// The old raw ceiling `pat_raw_len + 1` capped the window at 4 raw
+    /// statements — one short of the 5 needed (3 calls + 2 trivia) — silently
+    /// missing the reconstruction; the effective-count ceiling (trivia don't
+    /// consume the budget) reaches it.
     #[test]
-    fn void_region_with_two_interposed_markers_matches_f2() {
-        let mk = || Statement::Comment(Comment::trailing(CALL_MARKER.to_string()));
+    fn void_region_with_two_interposed_trivia_matches_f2() {
+        let mk = || Statement::Empty(Empty {});
         let call = |s: &str| Statement::Call(Call::new(global("print"), vec![string(s)]));
         let pat = vec![call("a"), call("b"), call("c")];
         let t = void_target(pat, FxHashSet::default());
@@ -8555,10 +8380,10 @@ mod tests {
         ];
         let mut canon_cache = CanonCache::default();
         let hit = match_void(&cand, 0, &t, false, false, &[], &mut None, &mut canon_cache, None)
-            .expect("two interposed markers must not exceed the effective window ceiling");
+            .expect("two interposed trivia must not exceed the effective window ceiling");
         assert_eq!(
             hit.consume, 5,
-            "window spans the 3 calls + 2 interior markers"
+            "window spans the 3 calls + 2 interior trivia"
         );
     }
 
@@ -8996,14 +8821,14 @@ mod tests {
         );
     }
 
-    /// P1 regression: a `CALL_MARKER` an inner de-inline spliced between the
-    /// callee-prefix statement and the interposed `local RESULT` decl must NOT
-    /// break the AtPrefix match. The old `d = i + p` offset pointed at the marker
-    /// (`result_decl` -> None -> bail), silently killing chained reconstruction;
-    /// `nth_effective_index` skips the marker and still finds the decl, and the
-    /// `consume` span removes the marker along with the window.
+    /// P1 regression: an `Empty` between the callee-prefix statement and the
+    /// interposed `local RESULT` decl must NOT break the AtPrefix match. The old
+    /// `d = i + p` offset pointed at it (`result_decl` -> None -> bail), silently
+    /// killing chained reconstruction; `nth_effective_index` skips the trivia
+    /// and still finds the decl, and the `consume` span removes it along with
+    /// the window.
     #[test]
-    fn value_prefix_marker_between_prefix_and_result_decl_still_matches() {
+    fn value_prefix_trivia_between_prefix_and_result_decl_still_matches() {
         let obj = local("obj");
         let k = local("k");
         let body = vec![
@@ -9018,10 +8843,9 @@ mod tests {
 
         let k2 = local("k2");
         let v = local("v");
-        let marker = Statement::Comment(Comment::trailing(CALL_MARKER.to_string()));
         let candidate = vec![
             assign_local(&k2, field(local_value(&obj), "Field"), true),
-            marker, // interposed by an inner de-inline of the prefix
+            Statement::Empty(Empty {}), // left by the structurer
             init_less_decl(&v),
             if_stmt(
                 bin(local_value(&k2), BinaryOperation::Equal, number(1.0)),
@@ -9032,8 +8856,8 @@ mod tests {
         ];
 
         let hit = match_value_prefixed(&candidate, 0, &t, None, false, &mut None)
-            .expect("interposed marker must not break the AtPrefix match");
-        // span = prefix(0) + marker(1) + decl(2) + region-if(3): removes 4 stmts,
+            .expect("interposed trivia must not break the AtPrefix match");
+        // span = prefix(0) + trivia(1) + decl(2) + region-if(3): removes 4 stmts,
         // leaving the trailing print.
         assert_eq!(hit.consume, 4);
         assert_eq!(hit.results, vec![v]);
@@ -9473,17 +9297,14 @@ mod tests {
         assert!(returns_exactly_one(&[return_one(number(1.0))]));
     }
 
-    /// F5: `body_unsafe` exempts our own reconstruction markers (so a callee body
-    /// that gained a CALL_MARKER from an inner de-inline stays a valid target),
-    /// while still refusing a genuine source comment; `canon_top` drops the marker
-    /// so a re-collected pattern stays length-aligned with its candidates.
+    /// The de-inliner puts no marker statement in the tree (a rebuilt call
+    /// carries its attribute), so any comment in a body refuses it, while
+    /// `canon_top` drops `Empty` trivia so a pattern stays length-aligned
+    /// with its candidates.
     #[test]
-    fn internal_markers_exempted_in_body_unsafe_and_canon() {
-        let marked = vec![
-            print_x(),
-            Statement::Comment(Comment::trailing(CALL_MARKER.to_string())),
-        ];
-        assert!(!body_unsafe(&marked));
+    fn comments_refuse_a_body_and_canon_drops_empty_trivia() {
+        let padded = vec![print_x(), Statement::Empty(Empty {})];
+        assert!(!body_unsafe(&padded));
 
         let real_comment = vec![
             print_x(),
@@ -9491,11 +9312,7 @@ mod tests {
         ];
         assert!(body_unsafe(&real_comment));
 
-        assert_eq!(
-            canon_top(&marked, true).len(),
-            1,
-            "marker dropped by canon_top"
-        );
+        assert_eq!(canon_top(&padded, true).len(), 1, "Empty dropped by canon_top");
     }
 
     #[test]
@@ -9688,8 +9505,8 @@ mod tests {
     }
 
     /// Exhaustive equivalence: `canon_top_len(stmts, tail) == canon_top(stmts, tail).len()`
-    /// over EVERY sequence of length 0..=4 from a canon-relevant alphabet (Empty /
-    /// internal-marker / source-comment trivia; plain / void-return / value-return
+    /// over EVERY sequence of length 0..=4 from a canon-relevant alphabet (Empty
+    /// trivia / source comment; plain / void-return / value-return
     /// statements; foldable + several non-foldable guard shapes; a 2-value return), for
     /// both tail values — ~41k cases. Computes the real length via `canon_top` directly
     /// (independent of the in-function debug_assert), pinning the non-allocating length
@@ -9699,7 +9516,7 @@ mod tests {
         let make = |sym: u8| -> Statement {
             match sym {
                 0 => Statement::Empty(Empty {}),
-                1 => Statement::Comment(Comment::trailing(CALL_MARKER.to_string())), // internal trivia
+                1 => Statement::Comment(Comment::trailing(" note".to_string())),     // NOT trivia
                 2 => Statement::Comment(Comment::new(" source".to_string())),        // NOT trivia
                 3 => print_x(),                                                      // plain stmt
                 4 => void_return(),                                                  // void return

@@ -71,6 +71,7 @@ impl fmt::Display for Index {
             emission_map: None,
             layout_budget: None,
             compact_annotations: false,
+            inferred_calls: Default::default(),
         }
         .format_index(self)
     }

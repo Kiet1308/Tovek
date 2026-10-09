@@ -2159,7 +2159,7 @@ mod tests {
         ]);
 
         assert!(super::rebuild_ui_expression_trees(&mut block));
-        assert_eq!(block.to_string(), "return {\n\tA = require(\"A\"),\n\tB = require(\"B\")\n}");
+        assert_eq!(block.to_string(), "return { A = require(\"A\"), B = require(\"B\") }");
     }
 
     #[test]
@@ -2468,7 +2468,7 @@ components.Component = component");
             Return::new(vec![local_value(&props)]).into(),
         ]);
         super::rebuild_ui_expression_trees(&mut block);
-        assert_eq!(block.to_string(), "return {\n\t[children] = 2\n}");
+        assert_eq!(block.to_string(), "return { [children] = 2 }");
     }
 
     #[test]
@@ -2510,7 +2510,7 @@ components.Component = component");
 
         assert_eq!(
             block.to_string(),
-            "print({\n\tName = \"ProgressBar\",\n\tLayoutOrder = 1\n})"
+            "print({ Name = \"ProgressBar\", LayoutOrder = 1 })"
         );
     }
 
@@ -2527,7 +2527,7 @@ components.Component = component");
 
         inline_single_use_temps(&mut block);
 
-        assert_eq!(block.to_string(), "return {\n\tName = \"Child\"\n}");
+        assert_eq!(block.to_string(), "return { Name = \"Child\" }");
     }
 
     #[test]
@@ -2569,7 +2569,7 @@ components.Component = component");
         assert_eq!(block.0.len(), 1);
         assert_eq!(
             block.to_string(),
-            "return createElement(\"Frame\", {\n\tChild = makeChild()\n})"
+            "return createElement(\"Frame\", { Child = makeChild() })"
         );
     }
 
@@ -2635,7 +2635,7 @@ components.Component = component");
 
         assert_eq!(
             function.lock().body.to_string(),
-            "return createElement(\"Frame\", {\n\tChild = makeChild()\n})"
+            "return createElement(\"Frame\", { Child = makeChild() })"
         );
     }
 

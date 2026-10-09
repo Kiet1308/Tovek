@@ -100,6 +100,10 @@ AUX_OPS = {
 _AD_OPS = set([4, 5, 12, 19] + list(range(23, 33)) + [54] + list(range(56, 60)) + [61, 64] + list(range(76, 81)) + [88])
 _E_OPS = {67, 69}
 
+# Comments that end a line holding a de-inlined call, in every wording the
+# lifter has printed (newest first); a file with one is tagged `deinline`.
+DEINLINE_SITE_MARKERS = ("-- inferred equivalent call", "-- equivalent call inferred;", "-- inlined by Luau -O2")
+
 
 class BytecodeError(Exception):
     pass
@@ -152,12 +156,13 @@ class Proto:
     __slots__ = (
         "id", "max_stack", "num_params", "num_upvalues", "is_vararg", "code",
         "constants", "children", "line_defined", "name", "insns", "stream", "sig",
-        "debug_locals", "debug_upvalue_names",
+        "debug_locals", "debug_upvalue_names", "lines",
         "flags", "cost", "extension_bytes",
     )
 
     def __init__(self):
         self.insns = []  # list of (pc, op, a, b, c, d, e, aux)
+        self.lines = None  # source line of each code word, when the chunk has line info
         self.debug_locals = []
         self.debug_upvalue_names = []
         self.flags = 0
@@ -226,10 +231,11 @@ def parse_chunk(data: bytes, key: int) -> Chunk:
         p.children = [r.varint() for _ in range(r.varint())]
         p.line_defined = r.varint()
         p.name = r.varint()
-        if r.u8():  # line info
+        if r.u8():  # line info: a byte delta per word, a 32-bit base per 2^gap words
             gap = r.u8()
-            r.bytes(ncode)
-            r.bytes(4 * (((ncode - 1) >> gap) + 1))
+            offsets = list(itertools.accumulate(r.bytes(ncode), lambda a, b: (a + b) & 255))
+            bases = list(itertools.accumulate(struct.unpack(f"<{((ncode - 1) >> gap) + 1}i", r.bytes(4 * (((ncode - 1) >> gap) + 1)))))
+            p.lines = [bases[pc >> gap] + offsets[pc] for pc in range(ncode)]
         if r.u8():  # debug info
             for _ in range(r.varint()):
                 p.debug_locals.append((r.varint(), r.varint(), r.varint(), r.u8()))
@@ -1074,7 +1080,6 @@ def classify_delta(delta) -> str:
 # a SETUPVAL in another prototype became a register write next to the closure.
 # Like every tier here, this is a proxy: a write made by another closure (a
 # SETUPVAL elsewhere) is not counted, on either side.
-
 _CLOSURE_OPS = {OP_INDEX["NEWCLOSURE"], OP_INDEX["DUPCLOSURE"]}
 _CAPTURE_OP, _CAPTURE_VAL, _CAPTURE_REF = OP_INDEX["CAPTURE"], 0, 1  # LCT_VAL, LCT_REF
 _CLOSEUPVALS_OP, _RETURN_OP = OP_INDEX["CLOSEUPVALS"], OP_INDEX["RETURN"]
@@ -1378,7 +1383,7 @@ def process_file(args, rel: str, orig_raw: bytes, key: int, decompiled: pathlib.
     res["missing"] = missing
     res["extra"] = extra
     tags = set()
-    if "-- inlined by Luau -O2" in text:
+    if any(marker in text for marker in DEINLINE_SITE_MARKERS):
         tags.add("deinline")
     if len(new.protos) != len(orig.protos):
         tags.add("proto-count")

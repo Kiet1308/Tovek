@@ -50,6 +50,7 @@ pub mod deinline;
 pub mod fold_import_callees;
 pub mod fold_tuple_copies;
 pub mod reconstruction_search;
+pub mod reconstruction_stats;
 mod deinline_safety;
 pub use deinline_safety::{library_import, ChunkGlobals};
 pub mod telemetry;
@@ -73,6 +74,7 @@ pub mod materialize_call_receivers;
 pub mod materialize_value_captures;
 pub mod materialize_vectors;
 pub mod name_locals;
+pub(crate) mod name_spelling;
 pub mod naming_evidence;
 pub mod naming_api;
 pub mod refine_names;
@@ -93,6 +95,7 @@ mod select_value;
 mod set_list;
 mod side_effects;
 pub mod simplify_gotos;
+pub mod spell_constants;
 pub mod synthesize_terminal_helpers;
 mod table;
 mod traverse;
@@ -384,6 +387,9 @@ pub struct Comment {
     /// comment that follows a single-line statement; a leading comment (the
     /// default) keeps its own line.
     pub trailing: bool,
+    /// A hot comment such as `--!native`, written with no space after `--`
+    /// (the compiler reads `-- !native` as an ordinary comment).
+    pub hot: bool,
 }
 
 impl Comment {
@@ -391,6 +397,16 @@ impl Comment {
         Self {
             text,
             trailing: false,
+            hot: false,
+        }
+    }
+
+    /// The hot comment `--!name`, which belongs before any statement.
+    pub fn hot(name: &str) -> Self {
+        Self {
+            text: format!("!{name}"),
+            trailing: false,
+            hot: true,
         }
     }
 
@@ -399,6 +415,7 @@ impl Comment {
         Self {
             text,
             trailing: true,
+            hot: false,
         }
     }
 }
@@ -452,7 +469,11 @@ impl fmt::Display for Empty {
 
 impl fmt::Display for Comment {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "-- {}", self.text)
+        if self.hot {
+            write!(f, "--{}", self.text)
+        } else {
+            write!(f, "-- {}", self.text)
+        }
     }
 }
 

@@ -5,6 +5,10 @@
 //! the same syntactic role (wait duration, magnitude threshold, or asset-id
 //! property). This is synthesis, not evidence of an original source constant
 //! or API purity. Only the literal moves; lookups, calls and stores stay put.
+//!
+//! A number that prints short (`0.2`, `1e-6`) or as an exact fraction
+//! (`7 / 60`, [`crate::spell_constants`]) reads as well as any name, so it
+//! stays where it is.
 
 use itertools::Either;
 use rustc_hash::{FxHashMap, FxHashSet};
@@ -15,6 +19,8 @@ use crate::{
 };
 
 const MIN_OCCURRENCES: usize = 3;
+/// The longest printed number left in place for its length alone.
+const SHORT_NUMBER: usize = 8;
 
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 enum Role {
@@ -40,7 +46,8 @@ struct CandidateKey {
 impl CandidateKey {
     fn new(role: Role, literal: &Literal) -> Option<Self> {
         let value = match literal {
-            Literal::Number(value) if value.is_finite() => ValueKey::Number(value.to_bits()),
+            Literal::Number(value) if value.is_finite() && Literal::format_number(*value).len() > SHORT_NUMBER
+                && crate::spell_constants::exact_fraction(*value).is_none() => ValueKey::Number(value.to_bits()),
             Literal::String(value) if value.len() >= 4 => ValueKey::String(value.clone()),
             _ => return None,
         };
@@ -495,6 +502,11 @@ mod tests {
         RValue::Literal(Literal::Number(value))
     }
 
+    /// Durations that print long and have no exact fraction: the only
+    /// numbers left to hoist.
+    const LONG: f64 = 0.123456789;
+    const OTHER: f64 = 2.123456789;
+
     fn wait(value: f64) -> Statement {
         Statement::Call(Call::new(
             RValue::Index(Index::new(global("task"), string("wait"))),
@@ -512,10 +524,10 @@ mod tests {
     #[test]
     fn hoists_three_wait_intervals_across_nested_blocks() {
         let mut body = Block(vec![
-            wait(10.0),
+            wait(LONG),
             Statement::If(If::new(
                 RValue::Literal(Literal::Boolean(true)),
-                Block(vec![wait(10.0), wait(10.0)]),
+                Block(vec![wait(LONG), wait(LONG)]),
                 Block::default(),
             )),
         ]);
@@ -527,9 +539,18 @@ mod tests {
                 if local.0.0.lock().0.as_deref() == Some("WAIT_INTERVAL"))));
     }
 
+    /// `task.wait(7 / 60)` and `task.wait(0.2)` read as well as any name.
+    #[test]
+    fn short_numbers_and_exact_fractions_stay_inline() {
+        for value in [7.0 / 60.0, 0.2, 1e-6, 10.0] {
+            let mut body = Block(vec![wait(value), wait(value), wait(value)]);
+            assert_eq!(rehoist_constants(&mut body), 0, "{value}");
+        }
+    }
+
     #[test]
     fn two_occurrences_stay_inline() {
-        let mut body = Block(vec![wait(10.0), wait(10.0)]);
+        let mut body = Block(vec![wait(LONG), wait(LONG)]);
         assert_eq!(rehoist_constants(&mut body), 0);
         assert!(matches!(body.0[0], Statement::Call(_)));
     }
@@ -538,12 +559,12 @@ mod tests {
     fn roles_do_not_cross_count() {
         let magnitude = || RValue::Index(Index::new(global("delta"), string("Magnitude")));
         let mut body = Block(vec![
-            wait(10.0),
-            wait(10.0),
+            wait(LONG),
+            wait(LONG),
             Statement::If(If::new(
                 RValue::Binary(Binary::new(
                     magnitude(),
-                    number(10.0),
+                    number(LONG),
                     BinaryOperation::LessThan,
                 )),
                 Block::default(),
@@ -555,7 +576,7 @@ mod tests {
 
     #[test]
     fn wait_and_delay_durations_do_not_cross_count() {
-        let mut body = Block(vec![wait(10.0), wait(10.0), delay(10.0)]);
+        let mut body = Block(vec![wait(LONG), wait(LONG), delay(LONG)]);
         assert_eq!(rehoist_constants(&mut body), 0);
     }
 
@@ -573,7 +594,7 @@ mod tests {
                 parallel: false, compound: false,
             }));
         }
-        statements.extend([wait(10.0), wait(10.0), wait(10.0)]);
+        statements.extend([wait(LONG), wait(LONG), wait(LONG)]);
         let mut body = Block(statements);
         assert_eq!(rehoist_constants(&mut body), 0);
         assert!(!body.to_string().contains("WAIT_INTERVAL"));
@@ -583,7 +604,7 @@ mod tests {
     fn unnamed_parameters_still_consume_local_headroom() {
         let function = triomphe::Arc::new(parking_lot::Mutex::new(crate::Function {
             parameters: (0..200).map(|_| RcLocal::default()).collect(),
-            body: Block(vec![wait(10.0), wait(10.0), wait(10.0)]),
+            body: Block(vec![wait(LONG), wait(LONG), wait(LONG)]),
             ..crate::Function::default()
         }));
         let closure = RValue::Closure(crate::Closure {
@@ -598,8 +619,8 @@ mod tests {
 
     #[test]
     fn call_arguments_consume_register_headroom_even_below_local_limit() {
-        let mut body = Block(vec![wait(1.0); 3]);
-        body.0.extend([delay(2.0), delay(2.0), delay(2.0)]);
+        let mut body = Block(vec![wait(LONG); 3]);
+        body.0.extend([delay(OTHER), delay(OTHER), delay(OTHER)]);
         body.0.push(Call::new(global("sink"), vec![global("argument"); 73]).into());
         let before = body.to_string();
         let parameters = (0..180).map(|_| RcLocal::default()).collect::<Vec<_>>();
@@ -613,7 +634,7 @@ mod tests {
         for _ in 0..140 {
             value = Index::new(value, string("field")).into();
         }
-        let mut body = Block(vec![wait(1.0), wait(1.0), wait(1.0),
+        let mut body = Block(vec![wait(LONG), wait(LONG), wait(LONG),
             Return::new(vec![value]).into()]);
         let before = body.to_string();
         assert_eq!(rehoist_constants(&mut body), 0);
@@ -625,7 +646,7 @@ mod tests {
         let comparison = || {
             RValue::Binary(Binary::new(
                 RValue::Index(Index::new(global("delta"), string("Magnitude"))),
-                number(25.0),
+                number(25.123456789),
                 BinaryOperation::LessThan,
             ))
         };
@@ -643,7 +664,7 @@ mod tests {
         let comparison = || {
             RValue::Binary(Binary::new(
                 RValue::Index(Index::new(global("delta"), string("Magnitude"))),
-                number(0.001),
+                number(0.000123456789),
                 BinaryOperation::LessThan,
             ))
         };
@@ -738,7 +759,7 @@ mod tests {
     #[test]
     fn closure_occurrences_form_their_own_scope() {
         let mut function = crate::Function::default();
-        function.body = Block(vec![wait(5.0), wait(5.0)]);
+        function.body = Block(vec![wait(LONG), wait(LONG)]);
         let closure = RValue::Closure(crate::Closure {
             node_origin: Default::default(),
             function: by_address::ByAddress(triomphe::Arc::new(parking_lot::Mutex::new(function))),
@@ -746,7 +767,7 @@ mod tests {
         });
         let local = RcLocal::default();
         let mut body = Block(vec![
-            wait(5.0),
+            wait(LONG),
             Statement::Assign(Assign {
                 node_origin: Default::default(),
                 left: vec![LValue::Local(local)],

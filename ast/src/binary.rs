@@ -389,9 +389,14 @@ impl Binary {
         )
     }
 
+    /// Whether the left operand prints parenthesized. A comparison inside a
+    /// comparison is, though left association needs none: `(a == b) == c`
+    /// says what `a == b == c` leaves the reader to work out.
     pub fn left_group(&self) -> bool {
         self.precedence() > self.left.precedence()
             || (self.precedence() == self.left.precedence() && self.right_associative())
+            || (self.operation.is_comparator()
+                && matches!(self.left.as_ref(), RValue::Binary(left) if left.operation.is_comparator()))
     }
 
     pub fn right_group(&self) -> bool {

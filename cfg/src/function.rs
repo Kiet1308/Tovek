@@ -66,6 +66,10 @@ pub struct Function {
     /// The chunk's globals, shared by all its functions: which library
     /// fetches run no script code (see [`ast::ChunkGlobals`]).
     pub globals: std::sync::Arc<ast::ChunkGlobals>,
+    /// Whether a statement may hold a closure. Only the lifter makes them,
+    /// one per closure instruction, and it clears this for a prototype that
+    /// has none.
+    pub may_hold_closures: bool,
 }
 
 impl Function {
@@ -93,6 +97,7 @@ impl Function {
             lifted_ids: 0..0,
             minted_ids: 0,
             globals: Default::default(),
+            may_hold_closures: true,
         }
     }
 
@@ -130,6 +135,7 @@ impl Function {
             lifted_ids: self.lifted_ids.clone(),
             minted_ids: self.minted_ids,
             globals: self.globals.clone(),
+            may_hold_closures: self.may_hold_closures,
         }
     }
 

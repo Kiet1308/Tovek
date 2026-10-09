@@ -25,6 +25,11 @@ pub struct BindingRoles {
     pub parameter: bool,
     pub conditional_result: bool,
     pub separate_from_parameter: bool,
+    /// When the namer had to count past a taken name, the byte length of the
+    /// base it counted from (`part` of `part2`, `bit32` of `bit32_2`); 0
+    /// otherwise. A later pass may rename the local, so the final namer reads
+    /// it only through [`Local::namer_stem`], which checks it still applies.
+    pub suffix_stem: u16,
 }
 
 /// Diagnostic ancestry of storage/SSA identities, not an equality or lifetime
@@ -168,6 +173,22 @@ impl Local {
     /// The bytecode-type naming hint, if any.
     pub fn type_hint(&self) -> Option<&str> {
         self.1.as_deref()
+    }
+
+    /// Record the name the namer gave this local, counted from `base` when
+    /// `base` itself was taken (see [`BindingRoles::suffix_stem`]).
+    pub fn set_counted_name(&mut self, name: String, base: &str) {
+        self.4.suffix_stem = if name != base && name.starts_with(base) { base.len().min(u16::MAX as usize) as u16 } else { 0 };
+        self.0 = Some(name);
+    }
+
+    /// The base the namer counted from to spell this local's current name, and
+    /// the counter: (`part`, 2) for `part2`. `None` once the name no longer has
+    /// that shape (a later pass renamed the local).
+    pub fn namer_stem(&self) -> Option<(&str, usize)> {
+        let name = self.0.as_deref()?;
+        let stem = name.get(..self.4.suffix_stem as usize).filter(|stem| !stem.is_empty())?;
+        Some((stem, crate::name_spelling::suffix_of(name, stem)?))
     }
 
     pub fn add_source_binding(&mut self, binding: SourceBinding) {

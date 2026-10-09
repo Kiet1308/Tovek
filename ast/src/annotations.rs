@@ -11,6 +11,11 @@ pub fn compact_text(text: &str) -> Option<&'static str> {
         | " [-O2 INLINED, UNHOOKABLE] reconstructed call" => Some("inferred call"),
         "equivalent arithmetic calls inferred from this bytecode helper; original call sites unknown"
         | " equivalent arithmetic calls inferred from this bytecode helper; original call sites unknown" => Some("inferred arithmetic helper"),
+        crate::formatter::SITE_COMMENT => Some("inferred call"),
+        _ if text.ends_with(" arithmetic call inferred from this helper")
+            || text.ends_with(" arithmetic calls inferred from this helper") => Some("inferred arithmetic helper"),
+        _ if text.ends_with(" call inferred from this helper")
+            || text.ends_with(" calls inferred from this helper") => Some("inferred helper"),
         _ if text.starts_with("[DEDUP] synthesized from ") => Some("synthesized helper"),
         _ if text == crate::reroll_arithmetic::MARKER => Some("synthesized arithmetic loop"),
         _ => None,

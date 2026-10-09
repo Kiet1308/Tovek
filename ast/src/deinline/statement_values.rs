@@ -96,7 +96,7 @@ mod tests {
             crate::Empty {}.into(), crate::Continue {}.into(), crate::Break {}.into(),
             crate::Close { locals: vec![local] }.into(),
             crate::Label::from("label").into(), crate::Goto::new(crate::Label::from("label")).into(),
-            crate::Comment { text: "comment".into(), trailing: false }.into(),
+            crate::Comment::new("comment".into()).into(),
         ]
     }
 

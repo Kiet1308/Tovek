@@ -1775,6 +1775,8 @@ impl<'a> Lifter<'a> {
                             lifted_function.bytecode_function_id = child_function_id;
                             lifted_function.retain_for_reconstruction =
                                 crate::reconstruction_candidates::retain(func, func_name.as_deref());
+                            lifted_function.native =
+                                func.flags & crate::deserializer::function::LPF_NATIVE_FUNCTION != 0;
                             lifted_function.name = func_name;
                         }
                         statements.push(
@@ -2025,7 +2027,7 @@ mod tests {
 
     fn prototype(parameters: u8, instructions: Vec<Instruction>) -> super::BytecodeFunction {
         super::BytecodeFunction { max_stack_size: 8, num_parameters: parameters, num_upvalues: 0,
-            is_vararg: false, instructions, constants: vec![], functions: vec![], line_defined: 0,
+            is_vararg: false, flags: 0, instructions, constants: vec![], functions: vec![], line_defined: 0,
             function_name: 0, line_gap_log2: None, line_info_delta: None, abs_line_info_delta: None,
             has_debug_info: false, debug_locals: vec![], debug_upvalue_name_indices: vec![], type_info: None }
     }

@@ -103,6 +103,7 @@ impl fmt::Display for IfExpression {
             emission_map: None,
             layout_budget: None,
             compact_annotations: false,
+            inferred_calls: Default::default(),
         }
         .format_if_expression(self)
     }

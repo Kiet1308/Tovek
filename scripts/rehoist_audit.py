@@ -84,8 +84,10 @@ def main():
 
     # This exact insertion was emitted by the old pass on the native witness.
     source = (root / 'register_pressure/source.luau').read_text(encoding='utf-8')
-    old = source.replace('\n', '\n\tlocal WAIT_INTERVAL = 1\n\tlocal DELAY_DURATION = 2\n', 1)
-    old = old.replace('task.wait(1)', 'task.wait(WAIT_INTERVAL)').replace('task.delay(2,', 'task.delay(DELAY_DURATION,')
+    old = source.replace('\n', '\n\tlocal WAIT_INTERVAL = 0.123456789\n\tlocal DELAY_DURATION = 2.123456789\n', 1)
+    old = old.replace('task.wait(0.123456789)', 'task.wait(WAIT_INTERVAL)').replace('task.delay(2.123456789,', 'task.delay(DELAY_DURATION,')
+    if old.count('WAIT_INTERVAL') != 4 or old.count('DELAY_DURATION') != 4:
+        raise ValueError('register control shape differs')
     register_control = root / 'register_pressure/old_budget.mutant.luau'
     register_control.write_text(old, encoding='utf-8', newline='\n')
     controls = []
@@ -102,8 +104,9 @@ def main():
         return text.replace('WAIT_INTERVAL_2', 'WAIT_INTERVAL')
 
     def zero(text):
-        if '= -0' not in text: raise ValueError('signed zero control shape differs')
-        return text.replace('= -0', '= 0')
+        # Signed zeros print short, so the pass leaves them at their uses.
+        if 'task.wait(-0)' not in text: raise ValueError('signed zero control shape differs')
+        return text.replace('task.wait(-0)', 'task.wait(0)')
 
     def early_lookup(text):
         if text.count('task.wait(') != 3: raise ValueError('lookup control shape differs')

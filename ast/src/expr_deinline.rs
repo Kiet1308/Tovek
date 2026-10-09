@@ -79,7 +79,7 @@ use triomphe::Arc;
 
 use crate::deinline::{
     Bindings, MatchCtx, anchors_in_rvalue, body_unsafe, canon, each_closure_decl,
-    insert_def_markers, is_scalar_return_value, visit_stmt_rvalues, visit_stmt_rvalues_mut, unify_rvalue,
+    is_scalar_return_value, visit_stmt_rvalues, visit_stmt_rvalues_mut, unify_rvalue,
 };
 use crate::{Block, Call, Function, LValue, LocalRw, RValue, RcLocal, Statement, Traverse};
 
@@ -193,26 +193,7 @@ fn run(body: &mut Block, arithmetic_only: bool) {
                 .push(i);
         }
     }
-    let mut converted: FxHashSet<RcLocal> = FxHashSet::default();
-    walk_block(
-        &mut body.0,
-        &targets,
-        &by_root,
-        &decl_map,
-        &[],
-        None,
-        &mut converted,
-    );
-    if !converted.is_empty() {
-        let inferred = targets
-            .iter()
-            .filter(|t| t.arithmetic.is_some())
-            .map(|t| t.f_local.clone())
-            .filter(|l| converted.remove(l))
-            .collect();
-        crate::deinline::insert_def_markers_with_text(&mut body.0, &inferred, arithmetic::MARKER);
-        insert_def_markers(&mut body.0, &converted);
-    }
+    walk_block(&mut body.0, &targets, &by_root, &decl_map, &[], None);
 }
 
 // ===================================================================
@@ -458,7 +439,6 @@ fn walk_block(
     decl_map: &FxHashMap<RcLocal, usize>,
     outer_active: &[usize],
     current_func: Option<FnPtr>,
-    converted: &mut FxHashSet<RcLocal>,
 ) {
     // Phase 1: recurse into nested statement blocks and closure bodies. A child
     // only sees targets whose declaration lexically precedes it, so `active` grows
@@ -475,7 +455,6 @@ fn walk_block(
                         decl_map,
                         &active,
                         current_func,
-                        converted,
                     );
                     walk_block(
                         &mut f.else_block.lock().0,
@@ -484,7 +463,6 @@ fn walk_block(
                         decl_map,
                         &active,
                         current_func,
-                        converted,
                     );
                 }
                 Statement::While(w) => walk_block(
@@ -494,7 +472,6 @@ fn walk_block(
                     decl_map,
                     &active,
                     current_func,
-                    converted,
                 ),
                 Statement::Repeat(r) => walk_block(
                     &mut r.block.lock().0,
@@ -503,7 +480,6 @@ fn walk_block(
                     decl_map,
                     &active,
                     current_func,
-                    converted,
                 ),
                 Statement::NumericFor(nf) => walk_block(
                     &mut nf.block.lock().0,
@@ -512,7 +488,6 @@ fn walk_block(
                     decl_map,
                     &active,
                     current_func,
-                    converted,
                 ),
                 Statement::GenericFor(gf) => walk_block(
                     &mut gf.block.lock().0,
@@ -521,12 +496,11 @@ fn walk_block(
                     decl_map,
                     &active,
                     current_func,
-                    converted,
                 ),
                 _ => {}
             }
             visit_stmt_rvalues_mut(s, &mut |rv| {
-                recurse_into_closures(rv, targets, by_root, decl_map, &active, converted);
+                recurse_into_closures(rv, targets, by_root, decl_map, &active);
                 true
             });
             if let Some(idx) = target_decl_index(s, decl_map, targets) {
@@ -542,18 +516,18 @@ fn walk_block(
     while index < stmts.len() {
         // A bounded terminal scalar region has no live continuation. Normalize
         // its lets/guard returns before comparing with named helper patterns.
-        if try_rewrite_region(&mut stmts[index..], targets, &active, current_func, converted) {
+        if try_rewrite_region(&mut stmts[index..], targets, &active, current_func) {
             stmts.truncate(index + 1);
             break;
         }
-        try_rewrite_select(stmts, index, targets, &active, current_func, converted);
+        try_rewrite_select(stmts, index, targets, &active, current_func);
         let s = &mut stmts[index];
         index += 1;
         // Skip the per-statement rvalue scan (and its allocation) entirely until a
         // helper is in scope.
         if !active.is_empty() {
             visit_stmt_rvalues_mut(s, &mut |rv| {
-                try_rewrite(rv, targets, by_root, &active, current_func, converted);
+                try_rewrite(rv, targets, by_root, &active, current_func);
                 true
             });
         }
@@ -573,7 +547,6 @@ fn recurse_into_closures(
     by_root: &FxHashMap<Discriminant<RValue>, Vec<usize>>,
     decl_map: &FxHashMap<RcLocal, usize>,
     active: &[usize],
-    converted: &mut FxHashSet<RcLocal>,
 ) {
     if let RValue::Closure(c) = rv {
         let fp = Arc::as_ptr(&c.function.0);
@@ -584,12 +557,11 @@ fn recurse_into_closures(
             decl_map,
             active,
             Some(fp),
-            converted,
         );
         return;
     }
     rv.visit_rvalues_mut(&mut |child| {
-        recurse_into_closures(child, targets, by_root, decl_map, active, converted);
+        recurse_into_closures(child, targets, by_root, decl_map, active);
         true
     });
 }
@@ -622,7 +594,7 @@ fn target_decl_index(
 
 fn try_rewrite_select(
     stmts: &mut Vec<Statement>, index: usize, targets: &[ExprTarget], active: &[usize],
-    current_func: Option<FnPtr>, converted: &mut FxHashSet<RcLocal>,
+    current_func: Option<FnPtr>,
 ) {
     if active.is_empty() || current_func.is_some_and(|p| targets.iter().any(|t| t.func_ptr == p)) { return; }
     let [Statement::Assign(decl), Statement::If(_)] = &stmts[index..stmts.len().min(index + 2)] else { return; };
@@ -652,7 +624,6 @@ fn try_rewrite_select(
     // later temp inlining can place it where the value is used.
     let value = RValue::Select(crate::Select::Call(call));
     stmts.splice(index..index + 2, [crate::Assign { node_origin: Default::default(), left: vec![result.into()], right: vec![value], prefix: true, parallel: false, compound: false}.into()]);
-    converted.insert(target.f_local.clone());
 }
 
 fn try_rewrite_region(
@@ -660,7 +631,6 @@ fn try_rewrite_region(
     targets: &[ExprTarget],
     active: &[usize],
     current_func: Option<FnPtr>,
-    converted: &mut FxHashSet<RcLocal>,
 ) -> bool {
     if active.is_empty() || stmts.len() > 8 || matches!(stmts, [Statement::Return(_)]) { return false; }
     if current_func.is_some_and(|ptr| targets.iter().any(|t| t.func_ptr == ptr)) { return false; }
@@ -684,7 +654,6 @@ fn try_rewrite_region(
     let call = Call::new(target.f_local.clone().into(), args)
         .reconstructed(crate::call_origins::Kind::ArithmeticDeinline);
     stmts[0] = crate::Return::new(vec![call.into()]).into();
-    converted.insert(target.f_local.clone());
     true
 }
 
@@ -694,7 +663,6 @@ fn try_rewrite(
     by_root: &FxHashMap<Discriminant<RValue>, Vec<usize>>,
     active: &[usize],
     current_func: Option<FnPtr>,
-    converted: &mut FxHashSet<RcLocal>,
 ) {
     // No helper is in lexical scope here, so no node in this subtree can match
     // (`active` is monotone-nondecreasing down the descent, and `try_match` only
@@ -739,7 +707,6 @@ fn try_rewrite(
                     if t.arithmetic.is_some() { crate::call_origins::Kind::ArithmeticDeinline }
                     else { crate::call_origins::Kind::ExpressionDeinline });
                 *rv = RValue::Call(call);
-                converted.insert(t.f_local.clone());
                 // Do NOT descend into the freshly-emitted args (idempotence +
                 // largest-match): the call root is never a pattern (scalar-root gate
                 // excludes Call), and the args are already-final caller expressions.
@@ -751,7 +718,7 @@ fn try_rewrite(
     // sibling, may still match). Closures yield no children here (handled in the
     // phase-1 closure recursion), so we never re-enter a closure body.
     rv.visit_rvalues_mut(&mut |child| {
-        try_rewrite(child, targets, by_root, active, current_func, converted);
+        try_rewrite(child, targets, by_root, active, current_func);
         true
     });
 }
@@ -959,7 +926,11 @@ impl Pick {
     }
 
     pub(super) fn take(self) -> Option<(usize, Vec<RValue>)> {
-        let (target, args, _) = self.best.filter(|_| !self.tied)?;
+        if self.tied {
+            crate::reconstruction_stats::refuse_site("ambiguous_expression");
+            return None;
+        }
+        let (target, args, _) = self.best?;
         Some((target, args))
     }
 }
@@ -1166,8 +1137,7 @@ mod tests {
             local_decl(&r, num_positive(&lv(&x))),
         ]);
         expr_deinline(&mut block);
-        // caller decl is now at index 2 (a DEF_MARKER comment was inserted before
-        // the helper decl), and its RHS is `isNumPositive(x)`.
+        // the caller decl's RHS is now `isNumPositive(x)`.
         let caller = block.0.last().unwrap();
         let rv = rhs_of(caller);
         assert!(is_call_to(rv, &f), "expected isNumPositive(x), got {rv:?}");
@@ -1599,12 +1569,14 @@ mod tests {
             local_decl(&b, adjust_copy(lv(&next), number(3.0))),
         ]);
         expr_deinline(&mut block);
-        assert!(matches!(&block.0[0], Statement::Comment(c) if c.text == arithmetic::MARKER));
-        for (index, argument) in [(2, &x), (4, &next)] {
+        // No marker statement: the rebuilt calls carry their own attribute.
+        assert!(block.0.iter().all(|statement| !matches!(statement, Statement::Comment(_))));
+        for (index, argument) in [(1, &x), (3, &next)] {
             let RValue::Call(call) = rhs_of(&block.0[index]) else {
                 panic!("missing call");
             };
             assert!(is_call_to(rhs_of(&block.0[index]), &f));
+            assert!(call.is_inferred());
             assert_eq!(call.arguments, vec![lv(argument), number(3.0)]);
         }
         let before = block.to_string();

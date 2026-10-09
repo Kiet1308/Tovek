@@ -2,7 +2,7 @@ import copy
 import hashlib
 import unittest
 
-from call_reconstruction import MODEL, occurrences_at, validate, validate_parser_calls
+from call_reconstruction import MODEL, compact_annotation, occurrences_at, validate, validate_parser_calls
 from call_reconstruction_audit import compact_comparison
 
 
@@ -61,6 +61,17 @@ class CallReconstructionTests(unittest.TestCase):
             with self.assertRaises(ValueError): compact_comparison(full, changed, original, output)
         compact['binding_provenance']['value_provenance']['source_sites']['site']['instruction_pcs'][0] -= 1
         with self.assertRaises(ValueError): compact_comparison(full, compact, original, output)
+
+    def test_compact_labels_cover_the_site_comment_and_counted_definitions(self):
+        # The labels must agree with ast/src/annotations.rs, which the lifter
+        # uses for `--compact-annotations`.
+        self.assertEqual(compact_annotation('inferred equivalent call'), 'inferred call')
+        self.assertEqual(compact_annotation('1 equivalent call inferred from this helper'), 'inferred helper')
+        self.assertEqual(compact_annotation('12 equivalent calls inferred from this helper'), 'inferred helper')
+        self.assertEqual(compact_annotation('3 equivalent arithmetic calls inferred from this helper'),
+                         'inferred arithmetic helper')
+        self.assertEqual(compact_annotation('equivalent call inferred; original call site unknown'), 'inferred call')
+        self.assertIsNone(compact_annotation('some equivalent calls inferred from this helper'))
 
     def test_inference_cannot_be_promoted_and_historical_events_stay_unclassified(self):
         trace, source, _ = fixture()

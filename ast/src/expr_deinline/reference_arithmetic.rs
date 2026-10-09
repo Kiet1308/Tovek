@@ -13,8 +13,6 @@ use crate::{
     UnaryOperation, Upvalue, LocalRw,
 };
 
-pub(in crate::expr_deinline) const MARKER: &str =
-    "equivalent arithmetic calls inferred from this bytecode helper; original call sites unknown";
 pub(in crate::expr_deinline) const MAX_TARGETS: usize = 32;
 const MAX_NODES: usize = 64;
 const MAX_ATTEMPTS: usize = 8192;

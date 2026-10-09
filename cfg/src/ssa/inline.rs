@@ -2034,7 +2034,7 @@ mod tests {
 
         assert_eq!(
             block.to_string(),
-            "local config = {\n\tEnabled = true,\n\tRange = 20\n}\nreturn config"
+            "local config = { Enabled = true, Range = 20 }\nreturn config"
         );
     }
 
@@ -2143,7 +2143,7 @@ mod tests {
             return_local(&config),
         ]));
 
-        assert_eq!(block.to_string(), "return {\n\tEnabled = true\n}");
+        assert_eq!(block.to_string(), "return { Enabled = true }");
     }
 
     #[test]

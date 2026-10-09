@@ -88,6 +88,7 @@ impl fmt::Display for If {
             emission_map: None,
             layout_budget: None,
             compact_annotations: false,
+            inferred_calls: Default::default(),
         }
         .format_if(self)
     }

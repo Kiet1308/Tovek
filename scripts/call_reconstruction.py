@@ -18,8 +18,17 @@ def compact_annotation(text):
         'equivalent arithmetic calls inferred from this bytecode helper; original call sites unknown': 'inferred arithmetic helper',
         ' equivalent arithmetic calls inferred from this bytecode helper; original call sites unknown': 'inferred arithmetic helper',
         'equivalent fixed-count loop synthesized; original loop unknown': 'synthesized arithmetic loop',
+        # The per-line site comment the formatter prints since M1.
+        'inferred equivalent call': 'inferred call',
     }
-    return 'synthesized helper' if text.startswith('[DEDUP] synthesized from ') else labels.get(text)
+    if text.startswith('[DEDUP] synthesized from '):
+        return 'synthesized helper'
+    # A helper's definition line counts its calls: `3 equivalent calls inferred
+    # from this helper` (mirrors ast/src/annotations.rs).
+    counted = re.fullmatch(r'\d+ equivalent (arithmetic )?calls? inferred from this helper', text)
+    if counted:
+        return 'inferred arithmetic helper' if counted.group(1) else 'inferred helper'
+    return labels.get(text)
 
 
 def validate(trace, source=None):

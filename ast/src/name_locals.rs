@@ -65,19 +65,10 @@ fn sanitize_with_case(raw: &str, case: IdentifierCase) -> Option<String> {
     if chars.is_empty() {
         return None;
     }
-    // SCREAMING_SNAKE_CASE is already a deliberate, readable source naming
-    // convention. Lowercasing only its first character would manufacture the
-    // malformed hybrid `dEFAULT_BRUSH`. This check is intentionally performed
-    // on the sanitized identifier so every character considered here is one we
-    // can actually emit.
-    let is_constant = chars.iter().any(|c| c.is_ascii_uppercase())
-        && chars
-            .iter()
-            .all(|c| c.is_ascii_uppercase() || c.is_ascii_digit() || *c == '_');
+    // Spelled on the sanitized identifier, so every character considered is
+    // one we can actually emit (see `name_spelling::lower_camel_in_place`).
     match case {
-        IdentifierCase::LowerCamel if chars[0].is_ascii_uppercase() && !is_constant => {
-            chars[0] = chars[0].to_ascii_lowercase();
-        }
+        IdentifierCase::LowerCamel => crate::name_spelling::lower_camel_in_place(&mut chars),
         IdentifierCase::Pascal if chars[0].is_ascii_lowercase() => {
             chars[0] = chars[0].to_ascii_uppercase();
         }
@@ -101,8 +92,22 @@ fn sanitize_with_case(raw: &str, case: IdentifierCase) -> Option<String> {
     Some(name)
 }
 
-/// Most locals are still lowerCamelCase.
+/// A name derived from evidence (a field key, a child, a callee's noun):
+/// lowerCamelCase, without the private `_` of the token it was read from, and
+/// never a builtin global's spelling (`type` reads as `kind`, `shared` as the
+/// `Shared` folder it names).
 fn sanitize(raw: &str) -> Option<String> {
+    let name = sanitize_with_case(crate::name_spelling::strip_private(raw), IdentifierCase::LowerCamel)?;
+    if crate::name_spelling::soft_reserved(&name) {
+        return crate::name_spelling::builtin_alternative(&name);
+    }
+    Some(name)
+}
+
+/// A local that aliases a global (`local type = type`) is spelled exactly as
+/// the global it holds, builtins included: the namers' reservations keep it
+/// from capturing any read of the global itself.
+fn sanitize_global(raw: &str) -> Option<String> {
     sanitize_with_case(raw, IdentifierCase::LowerCamel)
 }
 
@@ -131,7 +136,7 @@ pub(crate) fn param_name_from_field_key(key: &str) -> Option<String> {
     const GENERIC_FIELD_KEYS: &[&str] = &[
         "value", "val", "v", "data", "item", "key", "index", "self", "type", "result", "arg", "n",
     ];
-    let sanitized = sanitize(key.trim_start_matches('_'))?;
+    let sanitized = sanitize_with_case(key.trim_start_matches('_'), IdentifierCase::LowerCamel)?;
     // Strip a trailing type/index digit exactly as `constructor_type_name` does
     // (`BackgroundColor3` -> `backgroundColor`, `Part0` -> `part`): kept, the
     // digit chains into a misleading doubly-numeric `backgroundColor33` once the
@@ -145,6 +150,11 @@ pub(crate) fn param_name_from_field_key(key: &str) -> Option<String> {
     };
     if name.len() < 2 || GENERIC_FIELD_KEYS.contains(&name.as_str()) {
         return None;
+    }
+    // A key spelling a builtin (`.Shared`, `.Error`) names its value as any
+    // other derived name does.
+    if crate::name_spelling::soft_reserved(&name) {
+        return crate::name_spelling::builtin_alternative(&name);
     }
     Some(name)
 }
@@ -204,7 +214,7 @@ fn key_name(key: &str) -> Option<String> {
 /// or the global in `require(...)`.
 fn base_name_of(rvalue: &RValue) -> Option<String> {
     match rvalue {
-        RValue::Global(global) => std::str::from_utf8(&global.0).ok().and_then(sanitize),
+        RValue::Global(global) => std::str::from_utf8(&global.0).ok().and_then(sanitize_global),
         RValue::Index(index) => index_hint(index),
         // require(script.Parent:WaitForChild("Notification")) -> "notification":
         // the module name lives in the trailing :WaitForChild/:FindFirstChild arg.
@@ -875,15 +885,22 @@ pub(crate) fn is_state_reader(name: &str) -> bool {
 /// `deviceScale` -> `currentDeviceScale`. A generic state name (`value`,
 /// `computed`) says nothing about its value.
 pub(crate) fn state_value_name(state: &str) -> Option<String> {
-    let base = state.trim_end_matches(|c: char| c.is_ascii_digit());
+    let base = crate::name_spelling::strip_private(state.trim_end_matches(|c: char| c.is_ascii_digit()));
     if is_default_name(state)
         || is_generic_semantic_name(base)
         || matches!(base, "computed" | "fallback" | "output" | "object" | "child" | "length" | "update" | "state" | "scope")
     {
         return None;
     }
-    match base.strip_suffix("State") {
-        Some(stem) if !stem.is_empty() => sanitize(stem),
+    if let Some(stem) = base.strip_suffix("State")
+        && !stem.is_empty()
+    {
+        return sanitize(stem);
+    }
+    // A state already named for its current value (`currentServerTime`)
+    // reads as the quantity itself, never `currentCurrentServerTime`.
+    match base.strip_prefix("current") {
+        Some(rest) if rest.starts_with(|c: char| c.is_ascii_uppercase()) => sanitize(rest),
         _ => sanitize(&format!("current{}", capitalize_first(base))),
     }
 }
@@ -991,6 +1008,7 @@ fn verb_result_name(name: &str) -> Option<&'static str> {
         "decompress" => "decompressed",
         "normalize" => "normalized",
         "resolve" => "resolved",
+        "instantiate" => "instance",
         "wrap" => "wrapped",
         "unwrap" => "unwrapped",
         "hash" => "hash",
@@ -1111,7 +1129,7 @@ fn query_result_noun(name: &str) -> &str {
 /// -> `item`. `None` without such a verb: a helper name that is itself a verb
 /// (`fade`) names an action, not its result.
 pub(crate) fn helper_result_noun(callee: &str) -> Option<String> {
-    let lowered = lower_first(callee);
+    let lowered = lower_first(crate::name_spelling::strip_private(callee));
     let rest = strip_verb_prefix(&lowered).or_else(|| strip_method_verb_prefix(&lowered))?;
     let noun = if lowered.starts_with("get") || lowered.starts_with("find") { query_result_noun(rest) } else { rest };
     // An acronym left alone (`toCF` -> `CF`) would read as a constant.
@@ -1131,6 +1149,9 @@ pub(crate) fn helper_result_noun(callee: &str) -> Option<String> {
 /// refused too. The caller applies this only to a call RHS (non-movable, so
 /// naming never suppresses an inline) and only when nothing better exists.
 fn callee_noun_hint(name: &str) -> Option<String> {
+    // A private member (`self:_getLogStats()`) names its result as the public
+    // one would.
+    let name = crate::name_spelling::strip_private(name);
     if name.is_empty() {
         return None;
     }
@@ -1194,7 +1215,7 @@ pub(crate) fn rvalue_hint(rvalue: &RValue) -> Option<String> {
         RValue::MethodCall(method_call) | RValue::Select(Select::MethodCall(method_call)) => {
             method_call_hint(method_call)
         }
-        RValue::Global(global) => std::str::from_utf8(&global.0).ok().and_then(sanitize),
+        RValue::Global(global) => std::str::from_utf8(&global.0).ok().and_then(sanitize_global),
         // A short-circuit value expression is named after the operand it yields:
         // `A or B` -> A (primary), `A and B` -> B (guarded). So the nil-guard
         // `folder and folder:FindFirstChild("Client")` is named after its lookup,
@@ -3273,13 +3294,19 @@ fn rewind_scope_suffixes(cursors: &mut FxHashMap<String, usize>, released: &str)
     let mut split = bytes.len();
     while split > 0 && bytes[split - 1].is_ascii_digit() {
         split -= 1;
-        // `format!("{base}{suffix}")` never produces a leading zero.
+        // `name_spelling::suffixed` never produces a leading zero, and
+        // separates the counter of a base ending in a digit with `_`.
         if bytes[split] != b'0'
             && let Ok(suffix) = released[split..].parse::<usize>()
             && suffix >= 2
-            && let Some(cursor) = cursors.get_mut(&released[..split])
         {
-            *cursor = (*cursor).min(suffix);
+            let base = match released[..split].strip_suffix('_') {
+                Some(base) if base.ends_with(|c: char| c.is_ascii_digit()) => base,
+                _ => &released[..split],
+            };
+            if let Some(cursor) = cursors.get_mut(base) {
+                *cursor = (*cursor).min(suffix);
+            }
         }
     }
 }
@@ -3365,6 +3392,9 @@ struct Namer {
     /// collapses (`local v; if c then v=A else v=B end; use(v)` — adjacent).
     /// See `collect_collapse_candidates`.
     collapse_candidates: FxHashSet<usize>,
+    /// Chunk-root aliases of a handle's PascalCase member: the name the member
+    /// derives and its source spelling (see `root_alias_spelling`).
+    root_spellings: FxHashMap<usize, (String, String)>,
     /// Locals carrying an OOP "class" signal (`X.__index = ..`,
     /// `setmetatable(_, X)`, or a colon-call `X:m()`). Combined with an empty-
     /// table declaration `local X = {}` to name the class table `class`.
@@ -3382,6 +3412,20 @@ struct ParamConsensus {
 enum ReusePolicy {
     FileUnique,
     LoopReusable,
+}
+
+/// The spelling of a declared local nothing reads. Its value is still
+/// evaluated, so a name with strong evidence says what was read, as source
+/// does: `local _player = data.Player`, or for a chunk's header import
+/// exactly the source spelling (`local OnEvent = Fusion.OnEvent`, unused).
+#[derive(Clone, Copy, Eq, PartialEq)]
+enum UnusedSpelling {
+    /// `_`: parameters, loop variables, tuple slots, weak evidence.
+    Underscore,
+    /// `_` and the hint: `local _contentScale = merged.ContentScale or 1`.
+    Hinted,
+    /// The hint as is, for a chunk-root `require`, `GetService` or field alias.
+    SourceSpelled,
 }
 
 impl Namer {
@@ -3658,10 +3702,15 @@ impl Namer {
             .is_some_and(|name| name == "useState")
     }
 
+    /// `local success, result = pcall(f, ...)`, and the same for `xpcall`, whose
+    /// handler argument comes before the callee's own arguments.
     fn apply_pcall_tuple_hints(&mut self, assign: &crate::Assign, call: &Call, left_start: usize) {
-        if self.callable_name(&call.value).as_deref() != Some("pcall")
-            || assign.left.len() < left_start + 2
-        {
+        let first_argument = match self.callable_name(&call.value).as_deref() {
+            Some("pcall") => 1,
+            Some("xpcall") => 2,
+            _ => return,
+        };
+        if assign.left.len() < left_start + 2 {
             return;
         }
 
@@ -3674,7 +3723,7 @@ impl Namer {
             .first()
             .and_then(|callable| {
                 if global_name(callable) == Some("require") {
-                    call.arguments.get(1).and_then(base_name_of)
+                    call.arguments.get(first_argument).and_then(base_name_of)
                 } else {
                     protected_call_result_hint(callable)
                 }
@@ -3782,6 +3831,79 @@ impl Namer {
         }
     }
 
+    /// A chunk-root alias of a handle's PascalCase member keeps the member's
+    /// spelling, as source writes its header (`local Children =
+    /// Fusion.Children`, `local Shared = ReplicatedStorage:WaitForChild(
+    /// "Shared")`, `local KeyCode = Enum.KeyCode`). The base or receiver must
+    /// be a handle: a global, a PascalCase-named local (a module or service),
+    /// or a PascalCase path down from one. Values of ordinary locals and all
+    /// locals inside functions stay camelCase (`local humanoid =
+    /// character:WaitForChild("Humanoid")`).
+    ///
+    /// Returns the name the member alone derives (`children`) and its source
+    /// spelling (`Children`): only a local whose winning name is the derived
+    /// one is respelled, so stronger or conflicting evidence still decides.
+    fn root_alias_spelling(&self, value: &RValue) -> Option<(String, String)> {
+        let key = match value {
+            // `script.Parent.Parent` navigates and `.Value` reads a property:
+            // neither names a member.
+            RValue::Index(index) => index_key(index)
+                .filter(|&key| !matches!(key, "Parent" | "Value" | "Name" | "ClassName") && self.is_handle_path(&index.left, 0))?,
+            RValue::MethodCall(call) | RValue::Select(Select::MethodCall(call))
+                if matches!(call.method.as_str(), "WaitForChild" | "FindFirstChild" | "FindFirstAncestor")
+                    && self.is_handle_path(&call.value, 0) =>
+            {
+                call.arguments.first().and_then(string_literal)?
+            }
+            _ => return None,
+        };
+        // A PascalCase word, not SCREAMING_CASE, and never a builtin global
+        // (`local CFrame = Types.CFrame` would capture the library).
+        let word = key.starts_with(|c: char| c.is_ascii_uppercase())
+            && key.contains(|c: char| c.is_ascii_lowercase())
+            && key.chars().all(|c| c.is_ascii_alphanumeric() || c == '_');
+        if !word || crate::name_spelling::soft_reserved(key) {
+            return None;
+        }
+        Some((sanitize(key)?, sanitize_preserve(key)?))
+    }
+
+    /// The spelling of `base`, the winning name of the local at `ptr`: the
+    /// source spelling of a chunk-root alias (see `root_alias_spelling`),
+    /// unless that is taken or the module's own name (`local crab =
+    /// Mounts.Crab` in the module `Crab` reads better than `Crab2`).
+    fn spelled(&self, ptr: usize, base: String) -> String {
+        match self.root_spellings.get(&ptr) {
+            Some((derived, spelling))
+                if *derived == base
+                    && !self.reserved.contains(spelling)
+                    && self.module_hint.as_deref() != Some(spelling.as_str()) =>
+            {
+                spelling.clone()
+            }
+            _ => base,
+        }
+    }
+
+    fn is_handle_path(&self, value: &RValue, depth: usize) -> bool {
+        match value {
+            // Roblox's handle globals, or a PascalCase one (`Enum`).
+            RValue::Global(global) => matches!(global.0.as_slice(), b"game" | b"workspace" | b"script" | b"shared" | b"plugin" | b"_G")
+                || global.0.first().is_some_and(u8::is_ascii_uppercase),
+            RValue::Local(local) => {
+                let ptr = local_ptr(local);
+                current_name(local)
+                    .or_else(|| self.hints.get(&ptr).map(|hint| self.spelled(ptr, hint.name.clone())))
+                    .is_some_and(|name| name.starts_with(|c: char| c.is_ascii_uppercase()))
+            }
+            RValue::Index(index) if depth < 16 => {
+                index_key(index).is_some_and(|key| key.starts_with(|c: char| c.is_ascii_uppercase()))
+                    && self.is_handle_path(&index.left, depth + 1)
+            }
+            _ => false,
+        }
+    }
+
     /// Parent-qualified name for a *generic* guarded lookup
     /// (`folder and folder:FindFirstChild("Client")`, where `folder` is already
     /// named `plantedSeeds`, yields `plantedSeedsClient`). Returns the qualified
@@ -3828,7 +3950,7 @@ impl Namer {
             return None;
         };
         let name = self.callable_name(&call.value)?;
-        sanitize(strip_predicate_prefix(&name)?)
+        sanitize(strip_predicate_prefix(crate::name_spelling::strip_private(&name))?)
     }
 
     /// A local bound to a factory/getter call reads as the call's subject:
@@ -3844,7 +3966,7 @@ impl Namer {
             return None;
         };
         let name = self.callable_name(&call.value)?;
-        sanitize(strip_verb_prefix(&name)?)
+        sanitize(strip_verb_prefix(crate::name_spelling::strip_private(&name))?)
     }
 
     /// A call through a local alias of a library member (`local innerScope =
@@ -4179,7 +4301,7 @@ impl Namer {
         // Numeric identities only: no `RcLocal` clone may outlive this pass.
         let mut arguments = FxHashMap::<usize, Option<(u64, Hint)>>::default();
         visit_local_function_calls(block, definitions, &mut |call, _, parameters, _| {
-            if !call.rebuilt {
+            if call.rebuilt.is_none() {
                 return;
             }
             for (argument, parameter) in call.arguments.iter().zip(parameters) {
@@ -4619,7 +4741,7 @@ impl Namer {
         } else if self.dont_reuse_var && policy == ReusePolicy::FileUnique {
             let mut counter = self.next_file_suffix.get(base).copied().unwrap_or(2);
             loop {
-                let candidate = format!("{}{}", base, counter);
+                let candidate = crate::name_spelling::suffixed(base, counter);
                 counter += 1;
                 if !self.name_is_taken(&candidate, policy) {
                     self.next_file_suffix.insert(base.to_string(), counter);
@@ -4629,7 +4751,7 @@ impl Namer {
         } else {
             let mut counter = self.next_scope_suffix.get(base).copied().unwrap_or(2);
             loop {
-                let candidate = format!("{}{}", base, counter);
+                let candidate = crate::name_spelling::suffixed(base, counter);
                 counter += 1;
                 if !self.name_is_taken(&candidate, policy) {
                     self.next_scope_suffix.insert(base.to_string(), counter);
@@ -4654,12 +4776,58 @@ impl Namer {
         }
     }
 
+    /// How an unused declared local is spelled when it has strong evidence
+    /// (see [`UnusedSpelling`]). A tuple slot, a weak or type-only name, or a
+    /// generic one stays `_`.
+    fn unused_spelling(&self, assign: &crate::Assign, local: &RcLocal, is_root: bool) -> UnusedSpelling {
+        let ([_], [value]) = (assign.left.as_slice(), assign.right.as_slice()) else {
+            return UnusedSpelling::Underscore;
+        };
+        let Some(hint) = self.hints.get(&local_ptr(local)) else {
+            return UnusedSpelling::Underscore;
+        };
+        if hint.score < 50
+            || hint.role != NameRole::Noun
+            || is_generic_semantic_name(&hint.name)
+            || is_constructor_type_name(value, &hint.name)
+        {
+            return UnusedSpelling::Underscore;
+        }
+        // A chunk's header imports: `require`, services, children and field
+        // aliases.
+        let header = match value {
+            RValue::Call(call) | RValue::Select(Select::Call(call)) => {
+                global_name(&call.value) == Some("require") && call.arguments.len() == 1
+            }
+            RValue::MethodCall(call) | RValue::Select(Select::MethodCall(call)) => {
+                matches!(call.method.as_str(), "GetService" | "WaitForChild" | "FindFirstChild" | "FindFirstAncestor")
+                    && call.arguments.first().and_then(string_literal).is_some()
+            }
+            RValue::Index(index) => index_key(index).is_some(),
+            _ => false,
+        };
+        if is_root && header { UnusedSpelling::SourceSpelled } else { UnusedSpelling::Hinted }
+    }
+
+    fn unused_binding_name(&self, ptr: usize, unused: UnusedSpelling) -> Option<String> {
+        let hint = self.spelled(ptr, self.hints.get(&ptr)?.name.clone());
+        match unused {
+            UnusedSpelling::Underscore => None,
+            UnusedSpelling::SourceSpelled => Some(hint),
+            UnusedSpelling::Hinted => {
+                let name = format!("_{}", crate::name_spelling::strip_private(&hint));
+                (!matches!(name.as_str(), "_G" | "_VERSION" | "_ENV")).then_some(name)
+            }
+        }
+    }
+
     fn name_one(
         &mut self,
         local: &RcLocal,
         default_prefix: &str,
         scope: &mut Vec<String>,
         policy: ReusePolicy,
+        unused: UnusedSpelling,
     ) {
         #[cfg(test)]
         preparation_tests::note_name_owner(local);
@@ -4678,13 +4846,15 @@ impl Namer {
             return;
         }
         if let Some(name) = lock.source_name().map(str::to_string) {
-            lock.0 = Some(self.unique(&name, scope, policy));
+            let spelled = self.unique(&name, scope, policy);
+            lock.set_counted_name(spelled, &name);
             return;
         }
         if let Some(name) = lock.0.clone()
             && is_constant_identifier(&name)
         {
-            lock.0 = Some(self.unique(&name, scope, policy));
+            let spelled = self.unique(&name, scope, policy);
+            lock.set_counted_name(spelled, &name);
             return;
         }
         // Late irreducible-control-flow dispatchers deliberately carry semantic
@@ -4698,7 +4868,8 @@ impl Namer {
                 "controlFlowState" | "controlFlowJumped" | "controlFlowExit"
             )
         {
-            lock.0 = Some(self.unique(&name, scope, policy));
+            let spelled = self.unique(&name, scope, policy);
+            lock.set_counted_name(spelled, &name);
             return;
         }
         if !(self.rename || lock.0.is_none()) {
@@ -4707,25 +4878,39 @@ impl Namer {
         // An unused local (its only reference is the declaration itself) is named
         // `_`, which is idiomatic and needs no uniqueness handling — UNLESS it is
         // a recovered local function (closure-bound) whose calls were inlined away
-        // by the Luau -O2 compiler, which we keep named so it reads as itself.
+        // by the Luau -O2 compiler, which we keep named so it reads as itself,
+        // or a declaration with strong evidence (`local _player = data.Player`,
+        // a header `local OnEvent = Fusion.OnEvent`; see `UnusedSpelling`).
         // The script's own global `_` keeps its name: the local would shadow
         // it for every later read.
         if Arc::count(&local.0 .0) == 1 && !self.reserved.contains("_") {
-            if self.closure_locals.contains(&ptr)
-                && let Some(hint) = self.hints.get(&ptr).map(|hint| hint.name.clone())
-            {
-                lock.0 = Some(self.unique(&hint, scope, policy));
+            let base = if self.closure_locals.contains(&ptr) {
+                self.hints.get(&ptr).map(|hint| hint.name.clone())
             } else {
-                lock.0 = Some("_".to_string());
+                self.unused_binding_name(ptr, unused)
+            };
+            match base {
+                Some(base) => {
+                    let spelled = self.unique(&base, scope, policy);
+                    lock.set_counted_name(spelled, &base);
+                }
+                None => lock.0 = Some("_".to_string()),
             }
             return;
         }
-        let base = self
-            .hints
-            .get(&ptr)
-            .map(|hint| hint.name.clone())
-            .unwrap_or_else(|| default_prefix.to_string());
-        lock.0 = Some(self.unique(&base, scope, policy));
+        let mut base = match self.hints.get(&ptr) {
+            Some(hint) => self.spelled(ptr, hint.name.clone()),
+            None => default_prefix.to_string(),
+        };
+        // Nested loop counters read `i`, `j`, `k`, as source spells them.
+        if policy == ReusePolicy::LoopReusable
+            && base == "i"
+            && let Some(free) = ["i", "j", "k"].into_iter().find(|name| !self.name_is_taken(name, policy))
+        {
+            base = free.to_string();
+        }
+        let spelled = self.unique(&base, scope, policy);
+        lock.set_counted_name(spelled, &base);
     }
 
     /// First pass: gather reserved globals and per-local naming hints.
@@ -4993,6 +5178,16 @@ impl Namer {
                             {
                                 self.set_hint(local, name, score);
                             }
+                            // Chunk-root header aliases keep the member's
+                            // PascalCase spelling, if the member's name wins.
+                            if is_root
+                                && assign.prefix
+                                && assign.left.len() == 1
+                                && assign.right.len() == 1
+                                && let Some(spelling) = self.root_alias_spelling(rvalue)
+                            {
+                                self.root_spellings.insert(local_ptr(local), spelling);
+                            }
                         }
                     }
                 }
@@ -5072,7 +5267,7 @@ impl Namer {
     /// parameters are reserved only for their own body. Enclosing-scope names
     /// remain reserved while naming nested scopes, so an inner local can never
     /// collide with a still-visible outer local (including a captured upvalue).
-    fn apply(&mut self, block: &mut Block) {
+    fn apply(&mut self, block: &mut Block, is_root: bool) {
         // Names reserved by prefix-assign locals declared directly in this block.
         // They remain visible until the end of the block, so release them last.
         let mut block_scope: Vec<String> = Vec::new();
@@ -5085,7 +5280,13 @@ impl Namer {
             {
                 for lvalue in &assign.left {
                     if let Some(local) = lvalue.as_local() {
-                        self.name_one(local, "v", &mut block_scope, ReusePolicy::FileUnique);
+                        // Only an unused local (see `name_one`) needs it.
+                        let unused = if Arc::count(&local.0 .0) == 1 {
+                            self.unused_spelling(assign, local, is_root)
+                        } else {
+                            UnusedSpelling::Underscore
+                        };
+                        self.name_one(local, "v", &mut block_scope, ReusePolicy::FileUnique, unused);
                     }
                 }
             }
@@ -5127,9 +5328,9 @@ impl Namer {
                             *slot = Hint { name: hint, score: TYPE_HINT_SCORE, role: NameRole::Noun };
                         }
                     }
-                    self.name_one(param, "p", &mut param_scope, ReusePolicy::FileUnique);
+                    self.name_one(param, "p", &mut param_scope, ReusePolicy::FileUnique, UnusedSpelling::Underscore);
                 }
-                self.apply(&mut function.body);
+                self.apply(&mut function.body, false);
                 self.release(param_scope);
             }
 
@@ -5138,11 +5339,11 @@ impl Namer {
             // sibling loops reuse `i`/`k`/`v`.
             match &*statement {
                 Statement::If(r#if) => {
-                    self.apply(&mut r#if.then_block.lock());
-                    self.apply(&mut r#if.else_block.lock());
+                    self.apply(&mut r#if.then_block.lock(), false);
+                    self.apply(&mut r#if.else_block.lock(), false);
                 }
-                Statement::While(r#while) => self.apply(&mut r#while.block.lock()),
-                Statement::Repeat(repeat) => self.apply(&mut repeat.block.lock()),
+                Statement::While(r#while) => self.apply(&mut r#while.block.lock(), false),
+                Statement::Repeat(repeat) => self.apply(&mut repeat.block.lock(), false),
                 Statement::NumericFor(numeric_for) => {
                     let mut loop_scope: Vec<String> = Vec::new();
                     self.name_one(
@@ -5150,16 +5351,17 @@ impl Namer {
                         "v",
                         &mut loop_scope,
                         ReusePolicy::LoopReusable,
+                        UnusedSpelling::Underscore,
                     );
-                    self.apply(&mut numeric_for.block.lock());
+                    self.apply(&mut numeric_for.block.lock(), false);
                     self.release(loop_scope);
                 }
                 Statement::GenericFor(generic_for) => {
                     let mut loop_scope: Vec<String> = Vec::new();
                     for res_local in &generic_for.res_locals {
-                        self.name_one(res_local, "v", &mut loop_scope, ReusePolicy::LoopReusable);
+                        self.name_one(res_local, "v", &mut loop_scope, ReusePolicy::LoopReusable, UnusedSpelling::Underscore);
                     }
-                    self.apply(&mut generic_for.block.lock());
+                    self.apply(&mut generic_for.block.lock(), false);
                     self.release(loop_scope);
                 }
                 _ => {}
@@ -5187,7 +5389,7 @@ fn record_local_function_call(
         // the slot: Luau folded the argument into the copy, so the call
         // passes the constant the copy shows, or one inferred for it.
         let argument = call.arguments.get(index);
-        if call.rebuilt && argument.is_none_or(|argument| matches!(argument, RValue::Literal(_))) {
+        if call.rebuilt.is_some() && argument.is_none_or(|argument| matches!(argument, RValue::Literal(_))) {
             continue;
         }
         let Some(name) = argument.and_then(|argument| namer.callsite_argument_name(argument)) else {
@@ -5217,7 +5419,7 @@ fn collect_local_function_calls<P>(
     visit_local_function_calls(block, definitions, &mut |call, binder, parameters, own| {
         let votes = if own {
             &mut recursive
-        } else if call.rebuilt {
+        } else if call.rebuilt.is_some() {
             &mut rebuilt
         } else {
             &mut *consensus
@@ -5354,7 +5556,7 @@ fn unique_visible_name(base: &str, visible: &FxHashMap<String, usize>) -> String
     }
     let mut counter = 2;
     loop {
-        let candidate = format!("{}{}", base, counter);
+        let candidate = crate::name_spelling::suffixed(base, counter);
         if !visible.contains_key(&candidate) {
             return candidate;
         }
@@ -5377,12 +5579,13 @@ fn reserve_without_shadow(local: &RcLocal, visible: &mut FxHashMap<String, usize
     };
 
     if visible.get(&name).is_some_and(|&existing| existing != ptr) {
-        let base = shadow_safe_base(&name);
+        let mut lock = local.0 .0.lock();
+        let base = lock.namer_stem().map_or_else(|| shadow_safe_base(&name), |(stem, _)| stem.to_string());
         let mut counter = 2;
         loop {
-            let candidate = format!("{}{}", base, counter);
+            let candidate = crate::name_spelling::suffixed(&base, counter);
             if !visible.contains_key(&candidate) {
-                local.0 .0.lock().0 = Some(candidate.clone());
+                lock.set_counted_name(candidate.clone(), &base);
                 name = candidate;
                 break;
             }
@@ -5408,7 +5611,9 @@ fn split_reused_loop_local(
         .map(|name| shadow_safe_base(&name))
         .unwrap_or_else(|| "v".to_string());
     let name = unique_visible_name(&base, visible);
-    let new_local = RcLocal::new(Local::new(Some(name)));
+    let mut fresh = Local::new(None);
+    fresh.set_counted_name(name, &base);
+    let new_local = RcLocal::new(fresh);
     let mut map = std::collections::HashMap::new();
     map.insert(local.clone(), new_local.clone());
     crate::replace_locals::replace_locals(body, &map);
@@ -5581,6 +5786,7 @@ fn name_locals_impl<const REFERENCE: bool>(
         at_root: false,
         collapse_candidates,
         class_signal_locals,
+        root_spellings: FxHashMap::default(),
     };
     namer.collect(block, true);
     namer.usage_based_hints();
@@ -5598,7 +5804,7 @@ fn name_locals_impl<const REFERENCE: bool>(
     // numeric identities. No analysis owner reaches unused detection.
     drop(definitions);
     namer.evidence_rule = "declaration_and_type_hint";
-    namer.apply(block);
+    namer.apply(block, true);
     if rename {
         avoid_shadowing(block, &mut FxHashMap::default(), &mut Vec::new());
     }
@@ -8256,7 +8462,8 @@ mod tests {
 
         name_locals(&mut block, true);
 
-        assert_eq!(name_of(&world), "world");
+        // A chunk-root child of a handle keeps its source spelling.
+        assert_eq!(name_of(&world), "World");
         assert_eq!(name_of(&seeds), "plantedSeeds");
         assert_eq!(name_of(&pots), "placedPots");
         assert_eq!(name_of(&seeds_client), "plantedSeedsClient");
@@ -9339,8 +9546,7 @@ mod tests {
 
     /// Compound factory verb: `getOrCreateWorkspaceFolder(...)` -> `workspaceFolder`,
     /// never the garbage `orCreateWorkspaceFolder` a naive `get`-only strip yields.
-    /// (The `FX` acronym case `getOrCreateFXPart` -> `fXPart` is the standard
-    /// lowerCamel sanitize artifact, exercised by the assertion below.)
+    /// The `FX` acronym stays one word: `getOrCreateFXPart` -> `fxPart`.
     #[test]
     fn verb_call_compound_getorcreate() {
         let folder = RcLocal::default();
@@ -9359,7 +9565,7 @@ mod tests {
         ]);
         name_locals(&mut block, true);
         assert_eq!(name_of(&folder), "workspaceFolder");
-        assert_eq!(name_of(&fx), "fXPart");
+        assert_eq!(name_of(&fx), "fxPart");
     }
 
     /// `summarize*` is excluded (deny-list): `summarizeStatus(...)` would name
@@ -10935,5 +11141,116 @@ mod tests {
         assert_eq!(name_of(&tag), "tag");
         assert_eq!(name_of(&inst), "instance");
         assert_eq!(name_of(&tag2), "tag2");
+    }
+
+    fn require(module: &str) -> RValue {
+        call(global("require"), vec![RValue::Index(Index::new(global("script"), string(module)))])
+    }
+
+    fn member(base: RValue, key: &str) -> RValue {
+        RValue::Index(Index::new(base, string(key)))
+    }
+
+    /// A chunk-root alias of a handle's PascalCase member keeps its source
+    /// spelling; a lowercase key, a non-handle base and any alias inside a
+    /// function stay camelCase.
+    #[test]
+    fn root_aliases_of_handles_keep_their_source_spelling() {
+        let (fusion, children, scoped, character, humanoid, shared, inner) = (
+            RcLocal::default(), RcLocal::default(), RcLocal::default(), RcLocal::default(),
+            RcLocal::default(), RcLocal::default(), RcLocal::default(),
+        );
+        let mut function = Function::default();
+        function.body = Block(vec![declare(&inner, member(fusion.clone().into(), "Children")), use_local(&inner)]);
+        let mut block = Block(vec![
+            declare(&fusion, require("Fusion")),
+            declare(&children, member(fusion.clone().into(), "Children")),
+            declare(&scoped, member(fusion.clone().into(), "scoped")),
+            declare(&character, member(global("player"), "Character")),
+            declare(&humanoid, method_call(character.clone().into(), "WaitForChild", vec![string("Humanoid")])),
+            declare(&shared, method_call(global("game"), "WaitForChild", vec![string("Shared")])),
+            Statement::Call(Call::new(global("run"), vec![closure_of(function)])),
+        ]);
+        for local in [&fusion, &children, &scoped, &character, &humanoid, &shared] {
+            block.0.push(use_local(local));
+        }
+        name_locals(&mut block, true);
+        assert_eq!(name_of(&fusion), "Fusion");
+        assert_eq!(name_of(&children), "Children");
+        assert_eq!(name_of(&scoped), "scoped");
+        assert_eq!(name_of(&character), "character");
+        assert_eq!(name_of(&humanoid), "humanoid");
+        assert_eq!(name_of(&shared), "Shared");
+        assert_eq!(name_of(&inner), "children");
+    }
+
+    /// An unused declaration still evaluates its value, so strong evidence
+    /// names it: the source spelling for a chunk header import, `_` and the
+    /// hint inside a function. Tuple slots stay `_`.
+    #[test]
+    fn unused_declarations_are_named_for_what_they_read() {
+        // Only the block may hold an unused local, or it is not unused.
+        let (fusion, value, data) = (RcLocal::default(), RcLocal::default(), RcLocal::default());
+        let mut tuple = Assign::new(
+            vec![LValue::Local(RcLocal::default()), LValue::Local(value.clone())],
+            vec![call(global("pair"), vec![])],
+        );
+        tuple.prefix = true;
+        let mut function = Function::default();
+        function.parameters = vec![data.clone()];
+        function.body = Block(vec![
+            declare(&RcLocal::default(), member(data.clone().into(), "Player")),
+            declare(&RcLocal::default(), member(data.clone().into(), "G")),
+            tuple.into(),
+            use_local(&value),
+        ]);
+        let mut block = Block(vec![
+            declare(&fusion, require("Fusion")),
+            declare(&RcLocal::default(), member(fusion.clone().into(), "OnEvent")),
+            Statement::Call(Call::new(global("run"), vec![closure_of(function)])),
+        ]);
+        drop((fusion, value, data));
+        name_locals(&mut block, true);
+        let text = block.to_string();
+        assert!(text.contains("local OnEvent = Fusion.OnEvent"), "{text}");
+        assert!(text.contains("local _player = p.Player"), "{text}");
+        // `G` spells `g`: never the global `_G`.
+        assert!(text.contains("local _g = p.G"), "{text}");
+        assert!(text.contains("local _, v = pair()"), "{text}");
+    }
+
+    /// `xpcall`'s results read as `pcall`'s; nested loop counters as `i`, `j`,
+    /// `k`; builtin-spelled keys as their alternatives, while an alias of the
+    /// builtin keeps its spelling (counted here, while the global is read).
+    #[test]
+    fn xpcall_loops_and_builtin_spellings() {
+        let (ok, result, outer, middle, kind, alias) = (
+            RcLocal::default(), RcLocal::default(), RcLocal::default(), RcLocal::default(),
+            RcLocal::default(), RcLocal::default(),
+        );
+        let mut protected = Assign::new(
+            vec![LValue::Local(ok.clone()), LValue::Local(result.clone())],
+            vec![call(global("xpcall"), vec![global("work"), global("handler")])],
+        );
+        protected.prefix = true;
+        let inner_loop = Statement::NumericFor(Box::new(NumericFor::new(
+            number(1.0), number(2.0), number(1.0), middle.clone(),
+            Block(vec![Statement::Call(Call::new(global("print"), vec![outer.clone().into(), middle.clone().into()]))]),
+        )));
+        let mut block = Block(vec![
+            protected.into(),
+            Statement::NumericFor(Box::new(NumericFor::new(number(1.0), number(2.0), number(1.0), outer.clone(), Block(vec![inner_loop])))),
+            declare(&kind, member(global("data"), "Type")),
+            declare(&alias, global("type")),
+        ]);
+        for local in [&ok, &result, &kind, &alias] {
+            block.0.push(use_local(local));
+        }
+        name_locals(&mut block, true);
+        assert_eq!((name_of(&ok), name_of(&result)), ("success".into(), "result".into()));
+        assert_eq!((name_of(&outer), name_of(&middle)), ("i".into(), "j".into()));
+        assert_eq!(name_of(&kind), "kind");
+        assert_eq!(name_of(&alias), "type2");
+        assert_eq!(alias.0 .0.lock().namer_stem(), Some(("type", 2)));
     }
 }

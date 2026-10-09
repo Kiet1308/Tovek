@@ -16,7 +16,7 @@ const BYTECODE: &[u8] = include_bytes!("fixtures/deinline_local_tuple.luaubc");
 fn helpers_returning_their_locals_rebuild() {
     let source = luau_lifter::try_decompile_bytecode_with_options(BYTECODE, 1, None, Default::default())
         .expect("fixture decompiles");
-    assert!(source.contains("local set, key = makeTrack(currentCamera)"), "{source}");
+    assert!(source.contains("local set, key = makeTrack(CurrentCamera)"), "{source}");
     assert!(source.contains("= makeTrack(p)"), "{source}");
     assert!(source.contains("= makeTrack(instance)"), "{source}");
     assert!(!source.contains("= counter()"), "{source}");

@@ -66,6 +66,7 @@ impl fmt::Display for Return {
             emission_map: None,
             layout_budget: None,
             compact_annotations: false,
+            inferred_calls: Default::default(),
         }
         .format_return(self)
     }

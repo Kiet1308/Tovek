@@ -21,6 +21,12 @@ fn closure(parameters: Vec<RcLocal>, body: Block) -> RValue {
 }
 fn returning(value: RValue) -> Statement { Return::new(vec![value]).into() }
 
+// Durations that print long and have no exact fraction: the pass leaves a
+// short number (`1`, `-0`) or an exact fraction (`7 / 60`) in place, so only
+// numbers like these exercise its budget, role, scope and collision rules.
+const WAIT: f64 = 0.123456789;
+const DELAY: f64 = 2.123456789;
+
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let root = PathBuf::from(std::env::args_os().nth(1).ok_or("expected fresh output directory")?);
     fs::create_dir(&root)?;
@@ -42,16 +48,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     };
     // The arguments are globals to avoid constructing mismatched RcLocal IDs.
     // A global read costs no fewer registers than the identical local witness.
-    let durations = || Block(vec![wait(1.0), wait(1.0), wait(1.0),
-        Call::new(field(global("task"), "delay"), vec![number(2.0), global("callback")]).into(),
-        Call::new(field(global("task"), "delay"), vec![number(2.0), global("callback")]).into(),
-        Call::new(field(global("task"), "delay"), vec![number(2.0), global("callback")]).into()]);
+    let durations = || Block(vec![wait(WAIT), wait(WAIT), wait(WAIT),
+        Call::new(field(global("task"), "delay"), vec![number(DELAY), global("callback")]).into(),
+        Call::new(field(global("task"), "delay"), vec![number(DELAY), global("callback")]).into(),
+        Call::new(field(global("task"), "delay"), vec![number(DELAY), global("callback")]).into()]);
     let mut pressure = durations();
     pressure.0.push(Call::new(global("sink"), vec![global("argument"); 73]).into());
     add("register_pressure", 180, pressure, 0)?;
     add("ordinary_durations", 0, durations(), 2)?;
-    add("local_pressure", 200, Block(vec![wait(1.0); 3]), 0)?;
-    let mut loop_body = Block(vec![wait(1.0); 3]);
+    add("local_pressure", 200, Block(vec![wait(WAIT); 3]), 0)?;
+    let mut loop_body = Block(vec![wait(WAIT); 3]);
     for i in 0..15 {
         loop_body = Block(vec![NumericFor {
             counter: local(&format!("i{i}")), initial: number(1.0), limit: number(1.0),
@@ -59,17 +65,19 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         }.into()]);
     }
     add("hidden_loop_registers", 180, loop_body, 0)?;
-    add("branch_order", 0, Block(vec![wait(1.0), If::new(global("flag"),
-        Block(vec![wait(1.0), wait(1.0)]), Block(vec![wait(2.0)])).into()]), 1)?;
+    add("branch_order", 0, Block(vec![wait(WAIT), If::new(global("flag"),
+        Block(vec![wait(WAIT), wait(WAIT)]), Block(vec![wait(DELAY)])).into()]), 1)?;
+    // Signed zeros print short, so neither is hoisted; the runtime control
+    // still proves the driver tells `-0` from `0`.
     add("signed_zero", 0, Block(vec![wait(0.0), wait(-0.0), wait(0.0),
-        wait(-0.0), wait(0.0), wait(-0.0)]), 2)?;
-    add("different_roles", 0, Block(vec![wait(1.0), wait(1.0),
-        Call::new(field(global("task"), "delay"), vec![number(1.0)]).into()]), 0)?;
-    let mut collision = Block(vec![wait(1.0); 3]);
+        wait(-0.0), wait(0.0), wait(-0.0)]), 0)?;
+    add("different_roles", 0, Block(vec![wait(WAIT), wait(WAIT),
+        Call::new(field(global("task"), "delay"), vec![number(WAIT)]).into()]), 0)?;
+    let mut collision = Block(vec![wait(WAIT); 3]);
     collision.0.push(returning(closure(vec![], Block(vec![returning(global("WAIT_INTERVAL"))]))));
     add("descendant_global", 0, collision, 1)?;
-    add("separate_scopes", 0, Block(vec![wait(1.0),
-        returning(closure(vec![], Block(vec![wait(1.0), wait(1.0)])))]), 0)?;
+    add("separate_scopes", 0, Block(vec![wait(WAIT),
+        returning(closure(vec![], Block(vec![wait(WAIT), wait(WAIT)])))]), 0)?;
     let asset = || Assign::new(vec![LValue::Index(Index::new(global("object"), string("SoundId")))],
         vec![string("rbxassetid://123\0\r\n]=]")]).into();
     add("asset_property_order", 0, Block(vec![asset(), asset(), asset()]), 1)?;

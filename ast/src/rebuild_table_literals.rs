@@ -1706,7 +1706,7 @@ mod tests {
 
         assert_eq!(
             block.to_string(),
-            "local props = {\n\tName = \"TextButton\",\n\tLayoutOrder = layoutOrder\n}\nreturn props"
+            "local props = { Name = \"TextButton\", LayoutOrder = layoutOrder }\nreturn props"
         );
     }
 
@@ -1725,7 +1725,7 @@ mod tests {
 
         assert_eq!(
             block.to_string(),
-            "local table = {\n\t[key] = value\n}\nreturn table"
+            "local table = { [key] = value }\nreturn table"
         );
     }
 
@@ -1795,7 +1795,7 @@ mod tests {
         assert_eq!(block.0.len(), 1);
         assert_eq!(
             block.to_string(),
-            "return {\n\tMiddle = {\n\t\tLeaf = {\n\t\t\tName = \"Leaf\"\n\t\t}\n\t}\n}"
+            "return {\n\tMiddle = {\n\t\tLeaf = { Name = \"Leaf\" }\n\t}\n}"
         );
         assert!(!crate::inline_temps::rebuild_ui_expression_trees(
             &mut block
@@ -1841,7 +1841,7 @@ mod tests {
 
         assert_eq!(
             block.to_string(),
-            "return createElement(\"Frame\", {\n\tName = \"Panel\"\n}, {\n\tLabel = \"Child\"\n})"
+            "return createElement(\"Frame\", { Name = \"Panel\" }, { Label = \"Child\" })"
         );
     }
 
@@ -1870,7 +1870,7 @@ mod tests {
 
         assert_eq!(
             block.to_string(),
-            "local modelCenter = getModelCenter(spinModel) -- inlined helper\nreturn {\n\tModel = spinModel,\n\tCenter = modelCenter,\n\tParts = parts\n}"
+            "local modelCenter = getModelCenter(spinModel) -- inlined helper\nreturn { Model = spinModel, Center = modelCenter, Parts = parts }"
         );
     }
 
@@ -2023,7 +2023,7 @@ mod tests {
 
         assert_eq!(
             block.to_string(),
-            "local table = {\n\tName = \"First\"\n}\nprint(table)\ntable.AfterRead = \"Second\""
+            "local table = { Name = \"First\" }\nprint(table)\ntable.AfterRead = \"Second\""
         );
     }
 
@@ -2082,7 +2082,7 @@ mod tests {
 
         assert_eq!(
             block.to_string(),
-            "local table = {\n\tName = makeName(),\n\tOrder = 1\n}\nprint(table)"
+            "local table = { Name = makeName(), Order = 1 }\nprint(table)"
         );
     }
 
@@ -2103,7 +2103,7 @@ mod tests {
 
         assert_eq!(
             block.to_string(),
-            "local table = {\n\t[makeKey()] = \"Value\",\n\tName = \"After\"\n}"
+            "local table = { [makeKey()] = \"Value\", Name = \"After\" }"
         );
     }
 
@@ -2126,7 +2126,7 @@ mod tests {
 
         assert_eq!(
             block.to_string(),
-            "local props = {\n\tName = \"Button\",\n\tLayoutOrder = 1\n}"
+            "local props = { Name = \"Button\", LayoutOrder = 1 }"
         );
     }
 
@@ -2173,7 +2173,7 @@ mod tests {
 
         assert_eq!(
             block.to_string(),
-            "local props = {\n\tName = \"First\"\n}\nprops.Name = \"Second\""
+            "local props = { Name = \"First\" }\nprops.Name = \"Second\""
         );
     }
 
@@ -2197,7 +2197,7 @@ mod tests {
 
         assert_eq!(
             block.to_string(),
-            "local part = {\n\tSize = size(),\n\tAnchored = true,\n\tParent = workspace\n}\nreturn part"
+            "local part = { Size = size(), Anchored = true, Parent = workspace }\nreturn part"
         );
     }
 
@@ -2232,7 +2232,7 @@ mod tests {
         assert!(block.to_string().contains("Name = \"InsideIf\""));
         assert_eq!(
             function.lock().body.to_string(),
-            "local closureTable = {\n\tName = \"InsideClosure\"\n}"
+            "local closureTable = { Name = \"InsideClosure\" }"
         );
     }
 
@@ -2273,7 +2273,7 @@ mod tests {
 
         assert_eq!(
             block.to_string(),
-            "return createElement({\n\tName = \"Button\"\n})"
+            "return createElement({ Name = \"Button\" })"
         );
     }
 }

@@ -10,6 +10,14 @@ pub const CALLEE_LIMIT: usize = 50_000;
 #[serde(rename_all = "snake_case")]
 pub enum Kind { StatementDeinline, ExpressionDeinline, ArithmeticDeinline, TerminalSynthesis }
 
+impl Kind {
+    /// A de-inliner's equivalent call, as opposed to a call to a helper
+    /// Tovek synthesized from duplicated regions.
+    pub fn is_inference(self) -> bool {
+        self != Kind::TerminalSynthesis
+    }
+}
+
 #[derive(Clone, Debug, Serialize)]
 pub struct Event {
     pub event_id: u32,

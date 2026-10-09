@@ -79,7 +79,8 @@ def analyze_tree(tree, text=''):
     metrics['discard_locals'] = len(re.findall(r'(?m)^\s*local _ = ', text))
     # Keep uncertainty visible in the metric when presentation uses the short
     # label. Switching display mode must not look like removing inferred calls.
-    metrics['full_inferred_call_annotations'] = text.count('equivalent call inferred; original call site unknown')
+    metrics['full_inferred_call_annotations'] = (text.count('equivalent call inferred; original call site unknown')
+                                                 + len(re.findall(r'-- inferred equivalent call\r?$', text, re.M)))
     metrics['compact_inferred_call_annotations'] = len(re.findall(r'-- inferred call\r?$', text, re.M))
     metrics['inferred_call_annotations'] = metrics['full_inferred_call_annotations'] + metrics['compact_inferred_call_annotations']
     metrics['lines'] = len(text.splitlines())

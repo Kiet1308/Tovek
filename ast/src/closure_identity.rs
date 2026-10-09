@@ -28,13 +28,16 @@
 //! that capture different variables stay separate: in the bytecode they are
 //! one object only while the values happen to be equal, which no source
 //! spells without the helper (README, "Output and validation").
+//!
+//! Most chunks have no copies at all. [`LoadedConstants`], filled while
+//! lifting, tells so without walking the tree.
 
 use parking_lot::Mutex;
 use rustc_hash::{FxHashMap, FxHashSet};
 use triomphe::Arc;
 
 use crate::{
-    Assign, Block, Closure, LValue, LocalRw, RValue, RcLocal, Select, Statement, Traverse, Upvalue,
+    Assign, Block, Closure, Function, LValue, LocalRw, RValue, RcLocal, Select, Statement, Traverse, Upvalue,
     inline_temps::collect_closures_in_statement,
 };
 
@@ -45,6 +48,61 @@ type Key = (usize, usize);
 /// statement the path continues into (`None`: the statement's own values).
 type Step = (usize, Option<u8>);
 
+/// The closures the chunk's DUPCLOSURE instructions load, recorded while
+/// lifting. Two literals of one function body load one constant only when
+/// its prototype loads it at two instructions, or when a pass copied one
+/// literal: tail duplication shares the copied closure's function, and no
+/// pass before [`share_closure_constants`] builds a function with a constant
+/// slot of its own. With neither, the walk is skipped.
+#[derive(Default)]
+pub struct LoadedConstants {
+    /// Some prototype loads one closure constant at two instructions.
+    repeated: bool,
+    /// Every closure a DUPCLOSURE loads. Besides this list, only the tree
+    /// holds them once the lifter's own tables are gone.
+    functions: Vec<Arc<Mutex<Function>>>,
+}
+
+impl LoadedConstants {
+    /// Record the closures one prototype makes, one per closure instruction.
+    pub fn record_prototype<'a>(&mut self, closures: impl Iterator<Item = &'a Arc<Mutex<Function>>>) {
+        let mut slots = Vec::new();
+        for function in closures {
+            if let Some(slot) = function.lock().closure_constant {
+                slots.push(slot);
+                self.functions.push(function.clone());
+            }
+        }
+        slots.sort_unstable();
+        self.repeated |= slots.windows(2).any(|pair| pair[0] == pair[1]);
+    }
+
+    /// Whether two literals of one function body can load one constant: a
+    /// repeated load, or a function that two places of the tree share.
+    fn may_repeat(&self) -> bool {
+        if self.repeated {
+            crate::telemetry::count("closure_identity_repeated_loads", 1);
+            return true;
+        }
+        let copied = self.functions.iter().any(|function| Arc::strong_count(function) > 2);
+        crate::telemetry::count("closure_identity_copied_literals", u64::from(copied));
+        copied
+    }
+
+    /// [`share_closure_constants`], when some copies may exist. Consumes the
+    /// list, so the passes after it see the tree's own sharing again.
+    pub fn share(self, block: &mut Block) {
+        if self.may_repeat() {
+            drop(self);
+            share_closure_constants(block);
+        } else {
+            drop(self);
+            #[cfg(debug_assertions)]
+            assert!(!repeats_a_constant(block, &mut FxHashSet::default()), "a closure constant repeats unrecorded");
+        }
+    }
+}
+
 pub fn share_closure_constants(block: &mut Block) {
     share_in_function(block, &[], &mut FxHashSet::default());
 }
@@ -54,7 +112,9 @@ fn key(closure: &Closure) -> Option<Key> {
     Some((function.bytecode_proto_id?, function.closure_constant?))
 }
 
-fn share_in_function(body: &mut Block, parameters: &[RcLocal], visited: &mut FxHashSet<usize>) {
+/// The keyed closure literals of one function body (nested functions aside),
+/// and the functions nested in it.
+fn census(body: &Block) -> (FxHashMap<Key, usize>, Vec<by_address::ByAddress<Arc<Mutex<Function>>>>) {
     let mut nested = Vec::new();
     let mut counts = FxHashMap::<Key, usize>::default();
     walk(body, &mut Vec::new(), &mut |statement, _| {
@@ -65,6 +125,21 @@ fn share_in_function(body: &mut Block, parameters: &[RcLocal], visited: &mut FxH
             }
         });
     });
+    (counts, nested)
+}
+
+/// Whether some function body in `body` holds two literals of one constant.
+#[cfg(debug_assertions)]
+fn repeats_a_constant(body: &Block, visited: &mut FxHashSet<usize>) -> bool {
+    let (counts, nested) = census(body);
+    counts.values().any(|&count| count >= 2)
+        || nested.into_iter().any(|function| {
+            visited.insert(Arc::as_ptr(&function.0) as usize) && repeats_a_constant(&function.lock().body, visited)
+        })
+}
+
+fn share_in_function(body: &mut Block, parameters: &[RcLocal], visited: &mut FxHashSet<usize>) {
+    let (counts, nested) = census(body);
     // De-inline copies can share one body: each is shared once.
     for function in nested {
         if visited.insert(Arc::as_ptr(&function.0) as usize) {
@@ -562,6 +637,41 @@ mod tests {
             assert!(matches!(&block.0[copy + 1], Statement::Call(_)), "{text}");
             assert_eq!(block.0.len(), copy + 2, "{text}");
         }
+    }
+
+    /// The gate: a prototype loading one constant twice, or one literal two
+    /// places of the tree share (a pass copied it), lets the walk run; a
+    /// constant loaded once and held once skips it.
+    #[test]
+    fn loaded_constants_skip_the_walk_only_without_copies() {
+        let function = || Arc::new(Mutex::new(Function { bytecode_proto_id: Some(1), closure_constant: Some(3), ..Function::default() }));
+        let literal = |function: &Arc<Mutex<Function>>| -> RValue {
+            Closure { node_origin: Default::default(), function: ByAddress(function.clone()), upvalues: vec![] }.into()
+        };
+        let (first, second) = (function(), function());
+        let mut loaded = LoadedConstants::default();
+        loaded.record_prototype([&first, &second].into_iter());
+        assert!(loaded.may_repeat(), "one prototype loads slot 3 twice");
+
+        // The test's own handle is dropped: only the list and the tree hold
+        // a function, as in the pipeline.
+        let copied = function();
+        let mut loaded = LoadedConstants::default();
+        loaded.record_prototype(std::iter::once(&copied));
+        let mut block = Block(vec![print(vec![table(literal(&copied)), table(literal(&copied))])]);
+        drop(copied);
+        assert!(loaded.may_repeat(), "two places of the tree share one literal's function");
+        loaded.share(&mut block);
+        assert_eq!(block.to_string().matches("function").count(), 1, "{block}");
+
+        let once = function();
+        let mut loaded = LoadedConstants::default();
+        loaded.record_prototype(std::iter::once(&once));
+        let mut block = Block(vec![print(vec![table(literal(&once))])]);
+        drop(once);
+        assert!(!loaded.may_repeat());
+        loaded.share(&mut block);
+        assert_eq!(block.0.len(), 1);
     }
 
     /// A capture written after its declaration may differ between copies.

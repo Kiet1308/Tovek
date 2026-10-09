@@ -321,7 +321,7 @@ fn reference_captures_are_not_value_captures() {
         ]);
         let mut destructor = Destructor::new(&mut function, IndexMap::default(), FxHashSet::default(), 4);
         destructor.build_def_use();
-        assert_eq!(destructor.value_captures.contains(&(p, 0, 0)), by_value);
+        assert_eq!(destructor.value_captures.contains(&(p.stable_id(), 0, 0)), by_value);
         assert_eq!(destructor.value_captures.len(), usize::from(by_value));
     }
 }

@@ -112,6 +112,18 @@
       "bytes": 594,
       "lines": 38
     },
+    "semantic/call_argument_width__O0.luau": {
+      "bytes": 859,
+      "lines": 45
+    },
+    "semantic/call_argument_width__O1.luau": {
+      "bytes": 859,
+      "lines": 45
+    },
+    "semantic/call_argument_width__O2.luau": {
+      "bytes": 830,
+      "lines": 43
+    },
     "semantic/call_before_capture_read__O0.luau": {
       "bytes": 420,
       "lines": 33
@@ -460,6 +472,18 @@
       "bytes": 1325,
       "lines": 112
     },
+    "semantic/comparison_inside_comparison__O0.luau": {
+      "bytes": 243,
+      "lines": 8
+    },
+    "semantic/comparison_inside_comparison__O1.luau": {
+      "bytes": 243,
+      "lines": 8
+    },
+    "semantic/comparison_inside_comparison__O2.luau": {
+      "bytes": 243,
+      "lines": 8
+    },
     "semantic/compound_local_base__O0.luau": {
       "bytes": 444,
       "lines": 36
@@ -772,6 +796,18 @@
       "bytes": 406,
       "lines": 19
     },
+    "semantic/exact_fraction_constants__O0.luau": {
+      "bytes": 1239,
+      "lines": 49
+    },
+    "semantic/exact_fraction_constants__O1.luau": {
+      "bytes": 1236,
+      "lines": 49
+    },
+    "semantic/exact_fraction_constants__O2.luau": {
+      "bytes": 1972,
+      "lines": 49
+    },
     "semantic/fall_off_helper_arity__O0.luau": {
       "bytes": 511,
       "lines": 37
@@ -1036,6 +1072,18 @@
       "bytes": 364,
       "lines": 21
     },
+    "semantic/inferred_call_comments__O0.luau": {
+      "bytes": 1497,
+      "lines": 82
+    },
+    "semantic/inferred_call_comments__O1.luau": {
+      "bytes": 1497,
+      "lines": 82
+    },
+    "semantic/inferred_call_comments__O2.luau": {
+      "bytes": 1845,
+      "lines": 82
+    },
     "semantic/inner_loop_continues_outer__O0.luau": {
       "bytes": 460,
       "lines": 38
@@ -1047,6 +1095,18 @@
     "semantic/inner_loop_continues_outer__O2.luau": {
       "bytes": 647,
       "lines": 54
+    },
+    "semantic/interpolated_string_in_last_position__O0.luau": {
+      "bytes": 536,
+      "lines": 22
+    },
+    "semantic/interpolated_string_in_last_position__O1.luau": {
+      "bytes": 434,
+      "lines": 18
+    },
+    "semantic/interpolated_string_in_last_position__O2.luau": {
+      "bytes": 440,
+      "lines": 18
     },
     "semantic/iter_metamethod_order__O0.luau": {
       "bytes": 472,
@@ -1119,6 +1179,30 @@
     "semantic/long_accumulation_chain__O2.luau": {
       "bytes": 12424,
       "lines": 28
+    },
+    "semantic/long_bracket_prose_only__O0.luau": {
+      "bytes": 376,
+      "lines": 14
+    },
+    "semantic/long_bracket_prose_only__O1.luau": {
+      "bytes": 333,
+      "lines": 11
+    },
+    "semantic/long_bracket_prose_only__O2.luau": {
+      "bytes": 333,
+      "lines": 11
+    },
+    "semantic/long_condition_wrapping__O0.luau": {
+      "bytes": 1365,
+      "lines": 67
+    },
+    "semantic/long_condition_wrapping__O1.luau": {
+      "bytes": 1365,
+      "lines": 67
+    },
+    "semantic/long_condition_wrapping__O2.luau": {
+      "bytes": 1435,
+      "lines": 67
     },
     "semantic/loop_after_breaking_for__O0.luau": {
       "bytes": 254,
@@ -1240,6 +1324,18 @@
       "bytes": 661,
       "lines": 53
     },
+    "semantic/multi_line_elements_one_per_line__O0.luau": {
+      "bytes": 848,
+      "lines": 55
+    },
+    "semantic/multi_line_elements_one_per_line__O1.luau": {
+      "bytes": 848,
+      "lines": 55
+    },
+    "semantic/multi_line_elements_one_per_line__O2.luau": {
+      "bytes": 848,
+      "lines": 55
+    },
     "semantic/multiline_string_keys__O0.luau": {
       "bytes": 155,
       "lines": 20
@@ -1252,6 +1348,54 @@
       "bytes": 101,
       "lines": 12
     },
+    "semantic/naming_builtin_spellings_never_capture__O0.luau": {
+      "bytes": 627,
+      "lines": 30
+    },
+    "semantic/naming_builtin_spellings_never_capture__O1.luau": {
+      "bytes": 627,
+      "lines": 30
+    },
+    "semantic/naming_builtin_spellings_never_capture__O2.luau": {
+      "bytes": 624,
+      "lines": 30
+    },
+    "semantic/naming_counter_compaction_respects_captures__O0.luau": {
+      "bytes": 549,
+      "lines": 39
+    },
+    "semantic/naming_counter_compaction_respects_captures__O1.luau": {
+      "bytes": 549,
+      "lines": 39
+    },
+    "semantic/naming_counter_compaction_respects_captures__O2.luau": {
+      "bytes": 773,
+      "lines": 52
+    },
+    "semantic/naming_sequential_bindings_stay_distinct__O0.luau": {
+      "bytes": 376,
+      "lines": 24
+    },
+    "semantic/naming_sequential_bindings_stay_distinct__O1.luau": {
+      "bytes": 376,
+      "lines": 24
+    },
+    "semantic/naming_sequential_bindings_stay_distinct__O2.luau": {
+      "bytes": 429,
+      "lines": 29
+    },
+    "semantic/naming_unused_bindings_keep_their_reads__O0.luau": {
+      "bytes": 630,
+      "lines": 33
+    },
+    "semantic/naming_unused_bindings_keep_their_reads__O1.luau": {
+      "bytes": 630,
+      "lines": 33
+    },
+    "semantic/naming_unused_bindings_keep_their_reads__O2.luau": {
+      "bytes": 705,
+      "lines": 33
+    },
     "semantic/nan_sign_preserved__O0.luau": {
       "bytes": 339,
       "lines": 10
@@ -1263,6 +1407,30 @@
     "semantic/nan_sign_preserved__O2.luau": {
       "bytes": 303,
       "lines": 10
+    },
+    "semantic/native_function_attribute__O0.luau": {
+      "bytes": 356,
+      "lines": 26
+    },
+    "semantic/native_function_attribute__O1.luau": {
+      "bytes": 356,
+      "lines": 26
+    },
+    "semantic/native_function_attribute__O2.luau": {
+      "bytes": 356,
+      "lines": 26
+    },
+    "semantic/native_module_hot_comment__O0.luau": {
+      "bytes": 136,
+      "lines": 12
+    },
+    "semantic/native_module_hot_comment__O1.luau": {
+      "bytes": 136,
+      "lines": 12
+    },
+    "semantic/native_module_hot_comment__O2.luau": {
+      "bytes": 136,
+      "lines": 12
     },
     "semantic/nested_calls_after_blocks__O0.luau": {
       "bytes": 1696,
@@ -1623,6 +1791,18 @@
     "semantic/services_table_under_pressure__O2.luau": {
       "bytes": 3346,
       "lines": 216
+    },
+    "semantic/short_tables_one_line__O0.luau": {
+      "bytes": 718,
+      "lines": 34
+    },
+    "semantic/short_tables_one_line__O1.luau": {
+      "bytes": 718,
+      "lines": 34
+    },
+    "semantic/short_tables_one_line__O2.luau": {
+      "bytes": 693,
+      "lines": 33
     },
     "semantic/signed_zero_key_after_nil_slot__O0.luau": {
       "bytes": 806,

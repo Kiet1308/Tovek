@@ -1,9 +1,10 @@
 //! Bounded role inference on the final binding graph. This pass only changes
 //! Local.0: no expression, identity, capture mode, field, global or type changes.
 //! Candidate priorities rank evidence; they are not probabilities or effect facts.
-use std::collections::{BTreeMap, BTreeSet};
+use std::{borrow::Cow, collections::{BTreeMap, BTreeSet}, fmt::Write};
 
 use parking_lot::Mutex;
+use rustc_hash::{FxHashMap, FxHashSet};
 use triomphe::Arc;
 
 use crate::{Block, Call, Function, LValue, Literal, RValue, RcLocal, Select, Statement, Traverse, Upvalue};
@@ -76,6 +77,7 @@ struct Node {
     scope: Option<usize>,
     ambiguous_owner: bool,
     writes: usize,
+    reads: usize,
     ref_capture: bool,
     source_protected: bool,
     key_use: bool,
@@ -84,6 +86,20 @@ struct Node {
     type_evidence: Vec<TypeEvidence>,
     overflow: bool,
     changed_round: u8,
+    /// The byte length of the base a namer counted from to spell `before`, and
+    /// its counter (`part` and 2 for `part2`; `v` and 7 for `v7`): what suffix
+    /// compaction may return to.
+    stem: Option<(usize, usize)>,
+    /// Clock at which the binding becomes visible: the end of its declaring
+    /// statement, or the start of a parameter's or loop variable's body.
+    visible_from: Option<u32>,
+    /// `[visible_from, exit of its scope]` on the graph clock (`Graph::tick`).
+    region: Option<(u32, u32)>,
+    /// The clock of every reference (read, write or capture) and of the
+    /// declaration itself, in order.
+    references: Vec<u32>,
+    /// Where the binding was first met in the walk (its index in `order`).
+    position: usize,
 }
 
 enum ReturnRole {
@@ -111,7 +127,18 @@ struct Graph {
     nodes: BTreeMap<u64, Node>,
     order: Vec<u64>,
     scopes: Vec<Option<usize>>,
+    /// One preorder clock over statements, references and scope exits. Two
+    /// statements of one scope are ordered, and a binding's region is never
+    /// empty (it holds at least its scope's exit).
+    clock: u32,
+    /// The bindings each scope declares, closed into regions at its exit.
+    scope_declarations: Vec<Vec<u64>>,
+    /// Globals the output prints without a node for them (`table.pack` of an
+    /// open SETLIST, `vector.create` of a vector literal, ...): no binding may
+    /// take these names anywhere.
     globals: BTreeSet<String>,
+    /// The clocks at which the tree reads or writes each global.
+    global_references: FxHashMap<String, Vec<u32>>,
     copies: Vec<(u64, u64)>,
     functions: BTreeMap<u64, FunctionRoles>,
     results: Vec<ResultUse>,
@@ -144,11 +171,36 @@ fn generated(name: &str) -> bool {
     matches!(chars.next(), Some('p' | 'v')) && chars.all(|c| c.is_ascii_digit())
 }
 
+/// `v7` counts from `v`, `p3` from `p`.
+fn generated_stem(name: &str) -> Option<(usize, usize)> {
+    let stem = name.get(..1).filter(|_| generated(name))?;
+    Some((1, crate::name_spelling::suffix_of(name, stem)?))
+}
+
+/// `clone_2` counts from `clone`: the spelling later passes give a name
+/// already used anywhere in the function (`rehoist_constants::unique_name`).
+/// Only a camelCase stem counts so: in `LEVEL_2` or `stall_7` the number is
+/// part of the name.
+fn underscore_counted_stem(name: &str) -> Option<(usize, usize)> {
+    let (stem, digits) = name.rsplit_once('_')?;
+    let counter = digits.parse::<usize>().ok().filter(|&n| n >= 2 && !digits.starts_with('0'))?;
+    (digits.bytes().all(|b| b.is_ascii_digit())
+        && !stem.contains('_')
+        && stem.ends_with(|c: char| c.is_ascii_lowercase()))
+    .then_some((stem.len(), counter))
+}
+
 /// A local named only after the Fusion constructor that made it (`computed`
 /// for `scope:Computed(..)`, `value` for `scope:Value(..)`): strong role
 /// evidence, such as the property it is bound to, names it better.
 fn weak(node: &Node) -> bool {
     node.kind == "local" && matches!(node.before.trim_end_matches(|c: char| c.is_ascii_digit()), "computed" | "value")
+}
+
+/// The name `node` carries before any counter a namer added (`part` for
+/// `part2`): what its role is when another binding borrows it.
+fn base_name(node: &Node) -> &str {
+    node.stem.map_or(&node.before, |(stem, _)| &node.before[..stem])
 }
 
 /// The lowest priority that renames `node`'s current name.
@@ -341,6 +393,7 @@ impl Graph {
     fn new(options: Options) -> Self {
         Self {
             options, nodes: BTreeMap::new(), order: Vec::new(), scopes: vec![None],
+            clock: 0, scope_declarations: vec![Vec::new()], global_references: FxHashMap::default(),
             globals: BTreeSet::new(), copies: Vec::new(), functions: BTreeMap::new(),
             results: Vec::new(), reads: Vec::new(), joins: Vec::new(), calls: Vec::new(),
             state_reads: Vec::new(), tables: BTreeSet::new(), merge_bases: Vec::new(),
@@ -373,6 +426,13 @@ impl Graph {
             let data = local.0.lock();
             let before = data.0.clone().unwrap_or_default();
             let source_protected = !data.2.is_empty();
+            // A recorded source name only ever compacts back to itself.
+            let stem = data
+                .namer_stem()
+                .map(|(stem, counter)| (stem.len(), counter))
+                .or_else(|| generated_stem(&before))
+                .or_else(|| underscore_counted_stem(&before))
+                .filter(|&(stem, _)| !source_protected || data.source_name() == Some(&before[..stem]));
             let mut candidates = vec![Candidate {
                 name: before.clone(),
                 priority: 20,
@@ -410,6 +470,7 @@ impl Graph {
                     scope: None,
                     ambiguous_owner: false,
                     writes: 0,
+                    reads: 0,
                     ref_capture: false,
                     source_protected,
                     key_use: false,
@@ -418,6 +479,11 @@ impl Graph {
                     type_evidence,
                     overflow: false,
                     changed_round: 0,
+                    stem,
+                    visible_from: None,
+                    region: None,
+                    references: Vec::new(),
+                    position: self.order.len(),
                 },
             );
             self.order.push(id);
@@ -432,6 +498,64 @@ impl Graph {
             }
             node.scope = Some(scope);
             node.kind = kind;
+            self.scope_declarations[scope].push(local.stable_id());
+        }
+    }
+
+    fn tick(&mut self) -> u32 {
+        self.clock += 1;
+        self.clock
+    }
+
+    /// A read, write or capture of `local` at the current point.
+    fn reference(&mut self, local: &RcLocal) -> Option<&mut Node> {
+        let at = self.tick();
+        let node = self.node(local)?;
+        node.references.push(at);
+        Some(node)
+    }
+
+    fn global_reference(&mut self, name: &[u8]) {
+        let at = self.tick();
+        // A name no identifier spells prints as `getfenv(1)["name"]`.
+        if !crate::formatter::Formatter::<std::fmt::Formatter>::is_valid_name(name) {
+            self.globals.insert("getfenv".into());
+        }
+        let name = String::from_utf8_lossy(name);
+        match self.global_references.get_mut(name.as_ref()) {
+            Some(clocks) => clocks.push(at),
+            None => {
+                self.global_references.insert(name.into_owned(), vec![at]);
+            }
+        }
+    }
+
+    /// The bindings `locals` become visible at `at`. The declaration counts
+    /// as a reference too, so two bindings of one name never overlap, even
+    /// unread: no output shadows a binding.
+    fn make_visible<'b>(&mut self, locals: impl IntoIterator<Item = &'b RcLocal>, at: u32) {
+        for local in locals {
+            if let Some(node) = self.nodes.get_mut(&local.stable_id())
+                && node.visible_from.is_none()
+            {
+                node.visible_from = Some(at);
+                // A local function's body references it before its statement ends.
+                let position = node.references.partition_point(|&earlier| earlier < at);
+                node.references.insert(position, at);
+            }
+        }
+    }
+
+    /// Close the regions of the bindings `scope` declared.
+    fn exit_scope(&mut self, scope: usize) {
+        let exit = self.tick();
+        for id in std::mem::take(&mut self.scope_declarations[scope]) {
+            if let Some(node) = self.nodes.get_mut(&id)
+                && node.scope == Some(scope)
+                && let Some(start) = node.visible_from
+            {
+                node.region = Some((start, exit));
+            }
         }
     }
 
@@ -528,16 +652,19 @@ impl Graph {
         }
         match value {
             RValue::Local(local) => {
-                self.node(local);
+                if let Some(node) = self.reference(local) {
+                    node.reads += 1;
+                }
             }
-            RValue::Global(global) => {
-                self.globals
-                    .insert(String::from_utf8_lossy(&global.0).into());
+            RValue::Global(global) => self.global_reference(&global.0),
+            // Vector literals print through the `vector` library.
+            RValue::Literal(Literal::Vector(..) | Literal::VectorD(..)) => {
+                self.globals.insert("vector".into());
             }
             RValue::Closure(closure) => {
                 for upvalue in &closure.upvalues {
                     let (Upvalue::Copy(local) | Upvalue::Ref(local)) = upvalue;
-                    if let Some(node) = self.node(local) {
+                    if let Some(node) = self.reference(local) {
                         node.ref_capture |= matches!(upvalue, Upvalue::Ref(_));
                     }
                 }
@@ -556,7 +683,10 @@ impl Graph {
                         }
                     }
                 }
+                let body = self.tick();
+                self.make_visible(&function.parameters, body);
                 self.block(&function.body, child, depth + 1);
+                self.exit_scope(child);
                 return;
             }
             RValue::Table(table) => {
@@ -583,12 +713,14 @@ impl Graph {
     fn child_scope(&mut self, parent: usize) -> usize {
         let child = self.scopes.len();
         self.scopes.push(Some(parent));
+        self.scope_declarations.push(Vec::new());
         child
     }
 
     fn child_block(&mut self, block: &Block, parent: usize, depth: usize) {
         let child = self.child_scope(parent);
         self.block(block, child, depth + 1);
+        self.exit_scope(child);
     }
 
     fn block(&mut self, block: &Block, scope: usize, depth: usize) {
@@ -596,6 +728,7 @@ impl Graph {
             if !self.visit(depth) {
                 return;
             }
+            let start = self.tick();
             if let Statement::If(branch) = statement {
                 let arm = |body: &Block| -> Option<(u64, u64)> {
                     if body.len() != 1 { return None; }
@@ -621,17 +754,17 @@ impl Graph {
                     for left in &assign.left {
                         match left {
                             LValue::Local(local) => {
-                                if assign.prefix {
+                                let node = if assign.prefix {
                                     self.declare(local, scope, "local");
-                                }
-                                if let Some(node) = self.node(local) {
+                                    self.node(local)
+                                } else {
+                                    self.reference(local)
+                                };
+                                if let Some(node) = node {
                                     node.writes += 1;
                                 }
                             }
-                            LValue::Global(global) => {
-                                self.globals
-                                    .insert(String::from_utf8_lossy(&global.0).into());
-                            }
+                            LValue::Global(global) => self.global_reference(&global.0),
                             LValue::Index(index) => {
                                 self.key(&index.right);
                                 self.expression(&index.left, scope, depth + 1);
@@ -647,7 +780,7 @@ impl Graph {
                             self.results.push(ResultUse { callee: local_id(&call.value),
                                 arguments: call.arguments.last().is_none_or(|arg| !matches!(arg, RValue::Call(_) | RValue::MethodCall(_) | RValue::VarArg(_))).then_some(call.arguments.len()),
                                 destinations: assign.left.iter().map(|v| v.as_local().map(RcLocal::stable_id)).collect() });
-                            if call.rebuilt && assign.prefix && let Some(callee) = local_id(&call.value) {
+                            if call.rebuilt.is_some() && assign.prefix && let Some(callee) = local_id(&call.value) {
                                 self.rebuilt_results.push((callee, assign.left.iter().map(|v| v.as_local().map(RcLocal::stable_id)).collect()));
                             }
                         }
@@ -731,14 +864,18 @@ impl Graph {
                 Statement::Call(call) => self.call(call),
                 Statement::MethodCall(_) => self.report.unresolved_calls += 1,
                 Statement::SetList(list) => {
-                    self.node(&list.object_local);
+                    if let Some(node) = self.reference(&list.object_local) {
+                        node.reads += 1;
+                    }
                     if list.tail.is_some() {
                         self.globals.insert("table".into());
                     }
                 }
                 Statement::Close(close) => {
                     for local in &close.locals {
-                        self.node(local);
+                        if let Some(node) = self.reference(local) {
+                            node.reads += 1;
+                        }
                     }
                     self.globals.insert("__close_uv".into());
                 }
@@ -747,6 +884,7 @@ impl Graph {
                     let child = self.child_scope(scope);
                     self.block(&repeat.block.lock(), child, depth + 1);
                     self.expression(&repeat.condition, child, depth + 1);
+                    self.exit_scope(child);
                     continue;
                 }
                 _ => {}
@@ -764,16 +902,35 @@ impl Graph {
                 Statement::NumericFor(loop_) => {
                     let child = self.child_scope(scope);
                     self.declare(&loop_.counter, child, "iteration");
+                    let body = self.tick();
+                    self.make_visible([&loop_.counter], body);
                     self.block(&loop_.block.lock(), child, depth + 1);
+                    self.exit_scope(child);
                 }
                 Statement::GenericFor(loop_) => {
                     let child = self.child_scope(scope);
                     for local in &loop_.res_locals {
                         self.declare(local, child, "iteration");
                     }
+                    let body = self.tick();
+                    self.make_visible(&loop_.res_locals, body);
                     self.block(&loop_.block.lock(), child, depth + 1);
+                    self.exit_scope(child);
                 }
                 _ => {}
+            }
+            // A declared local is visible after its statement, except that
+            // `local f = function ... end` prints as `local function f`, whose
+            // body already sees `f`.
+            if let Statement::Assign(assign) = statement
+                && assign.prefix
+            {
+                let local_function = matches!(
+                    (assign.left.as_slice(), assign.right.as_slice()),
+                    ([LValue::Local(_)], [RValue::Closure(_)])
+                );
+                let visible = if local_function { start } else { self.tick() };
+                self.make_visible(assign.left.iter().filter_map(LValue::as_local), visible);
             }
         }
     }
@@ -954,7 +1111,7 @@ impl Graph {
                 let source = slots[slot];
                 let name = source
                     .and_then(|id| self.nodes.get(&id))
-                    .map(|node| node.before.clone())
+                    .map(|node| base_name(node).to_string())
                     .filter(|name| useful(name))
                     .or_else(|| {
                         let helper = &self.nodes.get(&callee)?.before;
@@ -966,6 +1123,143 @@ impl Graph {
                     witness: report_witness(self.options.emit_report, || format!("result of a rebuilt call of helper b{callee}; role only")),
                     from_binding: source,
                 });
+            }
+        }
+    }
+
+    /// Final spellings, each checked against declared regions (`NameIndex`):
+    /// - an unread generated local becomes `_`, as source spells a discarded
+    ///   value (`local _, value = f()`), unless another `_` overlaps it;
+    /// - a role proposal takes its name, or the first free counted spelling;
+    /// - a counted name returns to the lowest free spelling of its base:
+    ///   `part2` -> `part` once the binding that held `part` there is gone,
+    ///   `p2` -> `p` after the receiver became `self`, a nested `i2` -> `j`.
+    fn respell(&mut self, proposals: &BTreeMap<u64, String>, statuses: &mut BTreeMap<u64, &'static str>) {
+        // Every reference must lie in the binding's own region, or printing
+        // could resolve it elsewhere.
+        fn renamable(node: &Node) -> bool {
+            !node.ambiguous_owner
+                && node.scope.is_some()
+                && node.region.is_some_and(|region| {
+                    node.references.first().is_none_or(|&first| first >= region.0)
+                        && node.references.last().is_none_or(|&last| last <= region.1)
+                })
+        }
+        let emit = self.options.emit_report;
+        // The bases every query below spells from: only names counted from one
+        // of them are ever asked about, so only those are indexed.
+        let mut bases: FxHashSet<Cow<str>> = proposals.values().map(|base| Cow::Owned(proposal_base(base))).collect();
+        let mut underscore_unread = !self.global_references.contains_key("_");
+        let mut unread = Vec::new();
+        let mut compactions = Vec::new();
+        for (&id, node) in &self.nodes {
+            underscore_unread &= node.before != "_" || node.reads == 0;
+            if proposals.contains_key(&id) || !renamable(node) {
+                continue;
+            }
+            if node.kind == "local" && node.reads == 0 && !node.source_protected && generated(&node.before) {
+                unread.push((node.position, id));
+            } else if node.stem.is_some() && node.before != "self" {
+                compactions.push((node.position, id));
+            }
+        }
+        // Unread temps become `_` unless the script reads a `_`; one whose
+        // region another `_` overlaps keeps its counted name instead.
+        if !underscore_unread {
+            compactions.extend(unread.drain(..).filter(|(_, id)| self.nodes[id].stem.is_some()));
+        }
+        if proposals.is_empty() && unread.is_empty() && compactions.is_empty() {
+            return;
+        }
+        if !unread.is_empty() {
+            bases.insert(Cow::Borrowed("_"));
+        }
+        unread.sort_unstable();
+        for (_, id) in unread.iter().chain(&compactions) {
+            let node = &self.nodes[id];
+            let stem = &node.before[..node.stem.map_or(0, |(stem, _)| stem)];
+            if node.kind == "iteration" && stem == "i" {
+                bases.extend(["j", "k"].map(Cow::Borrowed));
+            }
+            bases.insert(Cow::Borrowed(stem));
+        }
+        // Every candidate is a base, or a base and a counter (`part2`,
+        // `bit32_2`, `clone_2`).
+        let relevant = |name: &str| {
+            let counted = name.trim_end_matches(|c: char| c.is_ascii_digit());
+            bases.contains(name) || bases.contains(counted) || counted.strip_suffix('_').is_some_and(|base| bases.contains(base))
+        };
+        let mut index = NameIndex::new(&self.nodes, &self.globals, &self.global_references, self.options.dont_reuse_var, relevant);
+        for (position, id) in unread {
+            let node = &self.nodes[&id];
+            if !index.free("_", node) {
+                if node.stem.is_some() {
+                    compactions.push((position, id));
+                }
+                continue;
+            }
+            index.remove(&node.before, node);
+            index.insert(Cow::Borrowed("_"), node);
+            node.local.0.lock().0 = Some("_".into());
+            if emit { statuses.insert(id, "discarded_unread"); }
+            self.report.renamed += 1;
+        }
+        // Earlier bindings take the lower counts.
+        compactions.sort_unstable();
+        let mut candidate = String::new();
+        let mut proposed: Vec<_> = proposals.iter().map(|(id, base)| (self.nodes[id].position, *id, base)).collect();
+        proposed.sort_unstable();
+        for (_, id, base) in proposed {
+            let node = &self.nodes[&id];
+            if !renamable(node) {
+                continue;
+            }
+            index.remove(&node.before, node);
+            let base = proposal_base(base);
+            let found = (1..=256).any(|counter| {
+                spell_counted(&mut candidate, &base, counter);
+                !crate::name_spelling::soft_reserved(&candidate) && index.free(&candidate, node)
+            });
+            if !found {
+                index.insert(Cow::Borrowed(node.before.as_str()), node);
+                continue;
+            }
+            index.insert(Cow::Owned(candidate.clone()), node);
+            node.local.0.lock().0 = Some(candidate.clone());
+            if emit { statuses.insert(id, "renamed"); }
+            self.report.renamed += 1;
+        }
+        for (_, id) in compactions {
+            let node = &self.nodes[&id];
+            let Some((stem, counter)) = node.stem else { continue };
+            let stem = &node.before[..stem];
+            // Nested loop counters read `i`, `j`, `k`, as source spells them.
+            let ladder: &[&str] = if node.kind == "iteration" && stem == "i" { &["i", "j", "k"] } else { &[stem] };
+            let attempts = ladder.len() + counter.saturating_sub(2);
+            for attempt in 0..attempts.min(32) {
+                match ladder.get(attempt) {
+                    Some(name) => {
+                        candidate.clear();
+                        candidate.push_str(name);
+                    }
+                    // A `clone_3` family stays spelled with `_`.
+                    None if node.before.as_bytes()[stem.len()] == b'_' && !stem.ends_with(|c: char| c.is_ascii_digit()) => {
+                        candidate.clear();
+                        let _ = write!(candidate, "{stem}_{}", attempt - ladder.len() + 2);
+                    }
+                    None => spell_counted(&mut candidate, stem, attempt - ladder.len() + 2),
+                }
+                if candidate == node.before {
+                    break;
+                }
+                if index.free(&candidate, node) {
+                    index.remove(&node.before, node);
+                    index.insert(Cow::Owned(candidate.clone()), node);
+                    node.local.0.lock().0 = Some(candidate.clone());
+                    if emit { statuses.insert(id, "compacted"); }
+                    self.report.renamed += 1;
+                    break;
+                }
             }
         }
     }
@@ -1001,7 +1295,7 @@ impl Graph {
                 let name = match self.best(state) {
                     Some((name, priority)) if (generated(&node.before) || weak(node)) && priority >= rename_floor(node) => Some(name),
                     _ if generated(&node.before) => None,
-                    _ => Some(node.before.clone()),
+                    _ => Some(base_name(node).to_string()),
                 };
                 if self.immutable(value)
                     && let Some(name) = name.as_deref().and_then(crate::name_locals::state_value_name)
@@ -1092,24 +1386,8 @@ impl Graph {
             };
             if self.options.emit_report { statuses.insert(id, status); }
         }
-        if !proposals.is_empty() {
-        // Reserve unchanged names first, including descendants and external
-        // bindings. New names can never capture an existing global or local.
-        let mut reserved = NameReservations::new(&self.scopes, &self.globals, self.options.dont_reuse_var);
-        for (&id, node) in &self.nodes {
-            if !proposals.contains_key(&id) {
-                reserved.reserve(node.before.clone(), node.scope);
-            }
-        }
-        for id in &self.order {
-            if let Some(base) = proposals.get(id) {
-                let node = &self.nodes[id];
-                let name = reserved.allocate(base, node.scope);
-                node.local.0.lock().0 = Some(name);
-                if self.options.emit_report { statuses.insert(*id, "renamed"); }
-                self.report.renamed += 1;
-            }
-        }
+        if !self.report.budget_exhausted {
+            self.respell(&proposals, &mut statuses);
         }
         if self.options.emit_report {
             for id in self.order {
@@ -1131,96 +1409,256 @@ impl Graph {
     }
 }
 
-/// Lexical scopes are laminar intervals in DFS order. A name's reservations
-/// are a union of disjoint maximal intervals, so both ancestor and descendant
-/// conflicts take logarithmic lookup without scanning siblings or parent links.
-#[derive(Default)]
-struct ReservedScopes {
-    universal: bool,
-    ranges: BTreeMap<usize, usize>,
-}
-
-impl ReservedScopes {
-    fn conflicts(&self, interval: (usize, usize)) -> bool {
-        self.universal
-            || self.ranges.range(..=interval.0).next_back().is_some_and(|(_, &end)| end > interval.0)
-            || self.ranges.range(interval.0..interval.1).next().is_some()
-    }
-
-    fn insert(&mut self, interval: (usize, usize)) {
-        if self.universal || self.ranges.range(..=interval.0).next_back().is_some_and(|(_, &end)| end >= interval.1) {
-            return;
-        }
-        while let Some((&start, _)) = self.ranges.range(interval.0..interval.1).next() {
-            self.ranges.remove(&start);
-        }
-        self.ranges.insert(interval.0, interval.1);
-    }
-}
-
-struct NameReservations<'a> {
-    globals: &'a BTreeSet<String>,
+/// Where every name is declared and referenced, on the graph clock
+/// (`Graph::tick`). Clocks run in preorder, so every scope spans one clock
+/// interval, and a binding's region (from where it becomes visible to its
+/// scope's exit) holds exactly the points it is visible at. A name is free for
+/// a binding exactly when no other entity of that name, binding or global, is
+/// referenced inside the binding's region (a declaration counts as a
+/// reference), and no reference of the binding lies inside another same-named
+/// binding's region: the new spelling neither captures a reference nor
+/// shadows a binding.
+///
+/// A binding indexed by region has every reference inside it (any other is
+/// reserved everywhere), so only bindings whose regions overlap can conflict:
+/// a name with few holders is checked holder by holder, and a crowded one
+/// (`p`, `v`) through sorted lists built on first use. A query costs one hash
+/// lookup and O(log n) per reference of the binding.
+struct NameIndex<'a> {
     file_unique: bool,
-    intervals: Vec<(usize, usize)>,
-    names: BTreeMap<String, ReservedScopes>,
-    next_suffix: BTreeMap<(String, Option<usize>), usize>,
+    names: FxHashMap<Cow<'a, str>, NameEntry<'a>>,
 }
 
-impl<'a> NameReservations<'a> {
-    fn new(parents: &[Option<usize>], globals: &'a BTreeSet<String>, file_unique: bool) -> Self {
-        let mut children = vec![Vec::new(); parents.len()];
-        let mut roots = Vec::new();
-        for (scope, parent) in parents.iter().enumerate() {
-            if let Some(parent) = parent { children[*parent].push(scope); }
-            else { roots.push(scope); }
+#[derive(Default)]
+struct NameEntry<'a> {
+    /// No binding may take the name anywhere: a global the output prints
+    /// without a node, or a holder without a region holding all its references.
+    universal: bool,
+    /// The sorted reference clocks of the global of this name.
+    global: &'a [u32],
+    holders: Holders<'a>,
+    occupancy: Option<Occupancy<'a>>,
+}
+
+/// The bindings holding one name; most names have one.
+enum Holders<'a> {
+    One(&'a Node),
+    Many(Vec<&'a Node>),
+}
+
+impl Default for Holders<'_> {
+    fn default() -> Self {
+        Holders::Many(Vec::new())
+    }
+}
+
+impl<'a> Holders<'a> {
+    fn nodes(&self) -> &[&'a Node] {
+        match self {
+            Holders::One(node) => std::slice::from_ref(node),
+            Holders::Many(nodes) => nodes,
         }
-        let mut intervals = vec![(0, 0); parents.len()];
-        let mut stack: Vec<_> = roots.into_iter().rev().map(|scope| (scope, false)).collect();
-        let mut clock = 0;
-        while let Some((scope, exiting)) = stack.pop() {
-            if exiting { intervals[scope].1 = clock; }
-            else {
-                intervals[scope].0 = clock;
-                clock += 1;
-                stack.push((scope, true));
-                stack.extend(children[scope].iter().rev().map(|&child| (child, false)));
-            }
+    }
+
+    fn push(&mut self, node: &'a Node) {
+        match self {
+            Holders::One(first) => *self = Holders::Many(vec![*first, node]),
+            Holders::Many(nodes) if nodes.is_empty() => *self = Holders::One(node),
+            Holders::Many(nodes) => nodes.push(node),
         }
-        Self { globals, file_unique, intervals, names: BTreeMap::new(), next_suffix: BTreeMap::new() }
     }
 
-    fn taken(&self, name: &str, scope: Option<usize>) -> bool {
-        self.globals.contains(name) || self.names.get(name).is_some_and(|reserved| {
-            self.file_unique || scope.is_none() || reserved.conflicts(self.intervals[scope.unwrap()])
-        })
-    }
-
-    fn reserve(&mut self, name: String, scope: Option<usize>) {
-        let reserved = self.names.entry(name).or_default();
-        if self.file_unique || scope.is_none() {
-            reserved.universal = true;
-            reserved.ranges.clear();
-        } else { reserved.insert(self.intervals[scope.unwrap()]); }
-    }
-
-    fn allocate(&mut self, base: &str, scope: Option<usize>) -> String {
-        let name = if !self.taken(base, scope) { base.to_string() }
-        else {
-            // Reservations only grow. Every smaller suffix previously tested
-            // for this exact scope remains unavailable, including global names.
-            let key = (base.to_string(), if self.file_unique { None } else { scope });
-            let mut suffix = self.next_suffix.get(&key).copied().unwrap_or(2);
-            loop {
-                let name = format!("{base}{suffix}");
-                suffix += 1;
-                if !self.taken(&name, scope) {
-                    self.next_suffix.insert(key, suffix);
-                    break name;
+    fn remove(&mut self, node: &Node) {
+        match self {
+            Holders::One(first) if std::ptr::eq(*first, node) => *self = Holders::Many(Vec::new()),
+            Holders::One(_) => {}
+            Holders::Many(nodes) => {
+                if let Some(position) = nodes.iter().position(|&holder| std::ptr::eq(holder, node)) {
+                    nodes.swap_remove(position);
                 }
             }
+        }
+    }
+}
+
+/// A name with more holders than this is checked through sorted lists.
+const CROWDED: usize = 16;
+
+/// One crowded name's references and regions, sorted for binary search.
+#[derive(Default)]
+struct Occupancy<'a> {
+    references: Vec<u32>,
+    /// Sorted by start, with `reach[i]` the latest end among the first `i + 1`:
+    /// some region holds `at` exactly when the last one starting at or before
+    /// `at` has `reach >= at`.
+    regions: Vec<(u32, u32)>,
+    reach: Vec<u32>,
+    /// Holders that took the name after the lists were built, checked one by one.
+    joined: Vec<&'a Node>,
+    /// Holders in the lists that have since left the name, discounted exactly.
+    left: Vec<&'a Node>,
+}
+
+impl<'a> Occupancy<'a> {
+    fn build(holders: &[&'a Node]) -> Self {
+        let mut occupancy = Self::default();
+        for node in holders {
+            occupancy.references.extend(&node.references);
+            occupancy.regions.extend(node.region);
+        }
+        occupancy.references.sort_unstable();
+        occupancy.regions.sort_unstable();
+        let mut reach = 0;
+        occupancy.reach = occupancy.regions.iter().map(|&(_, end)| { reach = reach.max(end); reach }).collect();
+        occupancy
+    }
+
+    /// Whether a reference of a current listed holder lies in `region`.
+    fn referenced_within(&self, region: (u32, u32)) -> bool {
+        let all = count_within(&self.references, region);
+        // The references of holders that left are a subset of the lists.
+        all > 0 && all > self.left.iter().map(|node| count_within(&node.references, region)).sum::<usize>()
+    }
+
+    /// Whether some listed region holds `at`, the regions of holders that left
+    /// included.
+    fn covers(&self, at: u32) -> bool {
+        let starting = self.regions.partition_point(|&(start, _)| start <= at);
+        starting > 0 && self.reach[starting - 1] >= at
+    }
+}
+
+/// How many references in the sorted `references` lie in `[start, end]`.
+fn count_within(references: &[u32], (start, end): (u32, u32)) -> usize {
+    references.partition_point(|&at| at <= end) - references.partition_point(|&at| at < start)
+}
+
+/// Whether some reference in the sorted `references` lies in `[start, end]`.
+fn referenced_within(references: &[u32], (start, end): (u32, u32)) -> bool {
+    let first = references.partition_point(|&at| at < start);
+    references.get(first).is_some_and(|&at| at <= end)
+}
+
+fn holds(region: Option<(u32, u32)>, at: u32) -> bool {
+    region.is_some_and(|(start, end)| start <= at && at <= end)
+}
+
+/// The base a role proposal spells from: a builtin's spelling reads as its
+/// alternative (`type` -> `kind`).
+fn proposal_base(base: &str) -> String {
+    match crate::name_spelling::soft_reserved(base) {
+        true => crate::name_spelling::builtin_alternative(base).unwrap_or_else(|| base.to_string()),
+        false => base.to_string(),
+    }
+}
+
+/// Spell the `counter`-th name counted from `base` into `out`, the base
+/// itself first.
+fn spell_counted(out: &mut String, base: &str, counter: usize) {
+    out.clear();
+    if counter < 2 {
+        out.push_str(base);
+    } else {
+        crate::name_spelling::push_suffixed(out, base, counter);
+    }
+}
+
+/// Whether two bindings may share a name: neither references a point inside
+/// the other's region.
+fn compatible(node: &Node, other: &Node) -> bool {
+    let (Some(region), Some(other_region)) = (node.region, other.region) else { return false };
+    other_region.1 < region.0
+        || region.1 < other_region.0
+        || (!referenced_within(&other.references, region) && !referenced_within(&node.references, other_region))
+}
+
+impl<'a> NameIndex<'a> {
+    /// Index the bindings and globals whose names are `relevant`: the only
+    /// names queries ask about.
+    fn new(
+        nodes: &'a BTreeMap<u64, Node>, globals: &'a BTreeSet<String>, references: &'a FxHashMap<String, Vec<u32>>,
+        file_unique: bool, relevant: impl Fn(&str) -> bool,
+    ) -> Self {
+        let mut index = Self { file_unique, names: FxHashMap::default() };
+        for name in globals {
+            index.names.entry(Cow::Borrowed(name.as_str())).or_default().universal = true;
+        }
+        for (name, clocks) in references {
+            if relevant(name) {
+                index.names.entry(Cow::Borrowed(name.as_str())).or_default().global = clocks;
+            }
+        }
+        for node in nodes.values() {
+            if relevant(&node.before) {
+                index.insert(Cow::Borrowed(node.before.as_str()), node);
+            }
+        }
+        index
+    }
+
+    fn insert(&mut self, name: Cow<'a, str>, node: &'a Node) {
+        if name.is_empty() {
+            return;
+        }
+        let enclosed = node.region.is_some_and(|region| {
+            node.references.first().is_none_or(|&first| first >= region.0)
+                && node.references.last().is_none_or(|&last| last <= region.1)
+        });
+        let entry = self.names.entry(name).or_default();
+        entry.universal |= !enclosed || node.ambiguous_owner;
+        entry.holders.push(node);
+        if let Some(occupancy) = &mut entry.occupancy {
+            // Rebuilt once enough holders joined to make one-by-one checks slow.
+            if occupancy.joined.len() < 64 {
+                occupancy.joined.push(node);
+            } else {
+                entry.occupancy = None;
+            }
+        }
+    }
+
+    fn remove(&mut self, name: &str, node: &'a Node) {
+        let Some(entry) = self.names.get_mut(name) else { return };
+        entry.holders.remove(node);
+        if let Some(occupancy) = &mut entry.occupancy {
+            match occupancy.joined.iter().position(|&joined| std::ptr::eq(joined, node)) {
+                Some(position) => {
+                    occupancy.joined.swap_remove(position);
+                }
+                // Rebuilt once enough holders left to make discounting slow.
+                None if occupancy.left.len() < 64 => occupancy.left.push(node),
+                None => entry.occupancy = None,
+            }
+        }
+    }
+
+    /// Whether `node` may be spelled `name`.
+    fn free(&mut self, name: &str, node: &Node) -> bool {
+        let Some(entry) = self.names.get_mut(name) else { return true };
+        if entry.universal {
+            return false;
+        }
+        let holders = entry.holders.nodes();
+        if self.file_unique {
+            return holders.is_empty() && entry.global.is_empty();
+        }
+        let Some(region) = node.region else { return false };
+        if referenced_within(entry.global, region) {
+            return false;
+        }
+        if holders.len() <= CROWDED {
+            return holders.iter().all(|other| compatible(node, other));
+        }
+        let occupancy = entry.occupancy.get_or_insert_with(|| Occupancy::build(holders));
+        let covered = |at: u32| {
+            occupancy.covers(at)
+                && (!occupancy.left.iter().any(|other| holds(other.region, at))
+                    // A region of a holder that left holds `at`: ask the holders.
+                    || holders.iter().any(|other| holds(other.region, at)))
         };
-        self.reserve(name.clone(), scope);
-        name
+        !occupancy.referenced_within(region)
+            && !node.references.iter().any(|&at| covered(at))
+            && occupancy.joined.iter().all(|other| compatible(node, other))
     }
 }
 
@@ -1284,6 +1722,7 @@ fn returned_locals(function: &Function, slots: usize, budget: usize) -> Vec<Opti
 pub fn refine_final_names(block: &Block, options: Options) -> Report {
     let mut graph = Graph::new(options);
     graph.block(block, 0, 0);
+    graph.exit_scope(0);
     graph.solve()
 }
 
@@ -1379,39 +1818,272 @@ mod tests {
         assert!(detailed_report.bindings.iter().flat_map(|b| &b.candidates).all(|c| !c.witness.is_empty()));
     }
 
+    fn store(target: &str, key: &str, value: &RcLocal) -> Statement {
+        Assign::new(vec![Index::new(global(target), text(key)).into()], vec![value.clone().into()]).into()
+    }
+
+    fn counted(name: &str, base: &str) -> RcLocal {
+        let mut local = Local::new(None);
+        local.set_counted_name(name.into(), base);
+        RcLocal::new(local)
+    }
+
+    fn numeric_for(counter: &RcLocal, body: Vec<Statement>) -> Statement {
+        Statement::NumericFor(Box::new(crate::NumericFor::new(
+            Literal::Number(1.0).into(), Literal::Number(9.0).into(), Literal::Number(1.0).into(),
+            counter.clone(), Block(body),
+        )))
+    }
+
     #[test]
-    fn indexed_scope_reservations_match_ancestor_scan_and_suffix_restart() {
-        for seed in 1..80u64 {
+    fn crowded_name_lists_answer_exactly_as_holder_by_holder_checks() {
+        for seed in 1..60u64 {
             let mut random = seed;
-            let mut next = || { random ^= random << 13; random ^= random >> 7; random ^= random << 17; random as usize };
-            let mut parents = vec![None];
-            for scope in 1..30 { parents.push(Some(next() % scope)); }
-            let ancestor = |a, mut b| loop {
-                if a == b { break true; }
-                match parents[b] { Some(parent) => b = parent, None => break false }
-            };
-            let globals: BTreeSet<_> = ["value2".to_string(), "item".to_string(), "x23".to_string()].into();
-            for file_unique in [false, true] {
-                let mut index = NameReservations::new(&parents, &globals, file_unique);
-                let mut legacy: BTreeMap<String, Vec<Option<usize>>> = BTreeMap::new();
-                for iteration in 0..500 {
-                    let scope = if next() % 23 == 0 { None } else { Some(next() % parents.len()) };
-                    let base = ["value", "item", "x", "x2"][next() % 4];
-                    let mut expected = base.to_string();
-                    if iteration % 7 != 0 {
-                        let mut suffix = 2;
-                        while globals.contains(&expected) || legacy.get(&expected).is_some_and(|scopes| scopes.iter().any(|&other| {
-                            file_unique || scope.is_none() || other.is_none()
-                                || ancestor(scope.unwrap(), other.unwrap()) || ancestor(other.unwrap(), scope.unwrap())
-                        })) {
-                            expected = format!("{base}{suffix}"); suffix += 1;
-                        }
-                        assert_eq!(index.allocate(base, scope), expected, "seed {seed}, iteration {iteration}, unique {file_unique}");
-                    } else { index.reserve(expected.clone(), scope); }
-                    legacy.entry(expected).or_default().push(scope);
+            let mut next = move || { random ^= random << 13; random ^= random >> 7; random ^= random << 17; random as u32 };
+            // Laminar scopes as preorder clock intervals, each binding visible
+            // from a point of its scope to the scope's exit.
+            let mut scopes = vec![(0u32, 100_000u32)];
+            while scopes.len() < 24 {
+                let (start, end) = scopes[next() as usize % scopes.len()];
+                if end - start < 8 { continue; }
+                let a = start + 1 + next() % (end - start - 2);
+                let b = a + 1 + next() % (end - a);
+                scopes.push((a, b.min(end - 1).max(a + 1)));
+            }
+            let mut graph = Graph::new(Options::default());
+            let locals: Vec<_> = (0..60).map(|i| local(if i < 50 { "x" } else { "y" })).collect();
+            for local in &locals {
+                let (start, end) = scopes[next() as usize % scopes.len()];
+                let visible = start + next() % (end - start + 1);
+                let mut references = vec![visible];
+                for _ in 0..next() % 4 {
+                    references.push(visible + next() % (end - visible + 1));
+                }
+                references.sort_unstable();
+                let node = graph.node(local).unwrap();
+                node.scope = Some(0);
+                node.region = Some((visible, end));
+                node.references = references;
+            }
+            let globals = BTreeSet::new();
+            let global_references = FxHashMap::default();
+            let mut index = NameIndex::new(&graph.nodes, &globals, &global_references, false, |_| true);
+            let mut holders: Vec<u64> = locals[..50].iter().map(RcLocal::stable_id).collect();
+            for step in 0..40 {
+                for query in &locals[50..] {
+                    let node = &graph.nodes[&query.stable_id()];
+                    let expected = holders.iter().all(|id| compatible(node, &graph.nodes[id]));
+                    assert_eq!(index.free("x", node), expected, "seed {seed}, step {step}");
+                }
+                // Holders leave and join the crowded name between queries.
+                let id = locals[next() as usize % 60].stable_id();
+                let node = &graph.nodes[&id];
+                if let Some(position) = holders.iter().position(|&holder| holder == id) {
+                    holders.remove(position);
+                    index.remove("x", node);
+                    index.insert(Cow::Borrowed("z"), node);
+                } else if !locals[50..].iter().any(|local| local.stable_id() == id) {
+                    holders.push(id);
+                    index.remove("z", node);
+                    index.insert(Cow::Borrowed("x"), node);
                 }
             }
         }
+    }
+
+    #[test]
+    fn sequential_bindings_of_one_scope_keep_distinct_names() {
+        // `local a = 1; local b = 2; return a + b`: a scope-entry clock gave
+        // both the empty region of a scope with no later child, and could
+        // spell them `x` and `x`.
+        let a = local("v");
+        let b = local("v2");
+        let block = Block(vec![
+            declare(&a, Literal::Number(1.0).into()),
+            declare(&b, Literal::Number(2.0).into()),
+            store("T", "size", &a),
+            store("T", "size", &b),
+            Return::new(vec![Binary::new(a.clone().into(), b.clone().into(), BinaryOperation::Add).into()]).into(),
+        ]);
+        run(&block);
+        assert_eq!(a.to_string(), "size");
+        assert_eq!(b.to_string(), "size2");
+    }
+
+    #[test]
+    fn a_name_used_only_before_a_declaration_is_free_after_it() {
+        // `if c then local part = ...; use(part) end; local part2 = ...`: the
+        // earlier binding's region ended, so the later one compacts to `part`.
+        let early = local("part");
+        let late = counted("part2", "part");
+        let block = Block(vec![
+            If::new(
+                global("c"),
+                Block(vec![declare(&early, global("x")), Return::new(vec![early.clone().into()]).into()]),
+                Block(vec![]),
+            )
+            .into(),
+            declare(&late, global("y")),
+            Return::new(vec![late.clone().into()]).into(),
+        ]);
+        run(&block);
+        assert_eq!(late.to_string(), "part");
+        // Still visible and read after the declaration: no compaction.
+        let outer = local("part");
+        let inner = counted("part2", "part");
+        let block = Block(vec![
+            declare(&outer, global("x")),
+            If::new(
+                global("c"),
+                Block(vec![declare(&inner, global("y")), Return::new(vec![inner.clone().into()]).into()]),
+                Block(vec![]),
+            )
+            .into(),
+            Return::new(vec![outer.clone().into()]).into(),
+        ]);
+        run(&block);
+        assert_eq!(inner.to_string(), "part2");
+        // Not read after the inner declaration, but visible there: compacting
+        // would shadow it, so it is refused too.
+        let outer = local("part");
+        let inner = counted("part2", "part");
+        let block = Block(vec![
+            declare(&outer, global("x")),
+            Call::new(global("use"), vec![outer.clone().into()]).into(),
+            If::new(
+                global("c"),
+                Block(vec![declare(&inner, global("y")), Return::new(vec![inner.clone().into()]).into()]),
+                Block(vec![]),
+            )
+            .into(),
+        ]);
+        run(&block);
+        assert_eq!(inner.to_string(), "part2");
+    }
+
+    #[test]
+    fn generated_counters_compact_and_unread_temps_become_underscore() {
+        let read = local("v3");
+        let unread = local("v5");
+        let block = Block(vec![
+            declare(&read, global("x")),
+            declare(&unread, Call::new(global("f"), vec![]).into()),
+            Assign::new(vec![unread.clone().into()], vec![Call::new(global("g"), vec![]).into()]).into(),
+            Return::new(vec![read.clone().into()]).into(),
+        ]);
+        run(&block);
+        assert_eq!(read.to_string(), "v");
+        assert_eq!(unread.to_string(), "_");
+        // Another `_` visible in its region keeps an unread temp off `_`: a
+        // write would land on whichever `_` is innermost.
+        let outer = local("v4");
+        let inner = local("_");
+        let block = Block(vec![
+            declare(&outer, Call::new(global("f"), vec![]).into()),
+            If::new(global("c"), Block(vec![
+                declare(&inner, Call::new(global("g"), vec![]).into()),
+                Assign::new(vec![outer.clone().into()], vec![global("x")]).into(),
+            ]), Block(vec![])).into(),
+        ]);
+        run(&block);
+        assert_eq!(outer.to_string(), "v");
+        // A script reading the global `_` keeps every binding off that name.
+        let unread = local("v5");
+        let block = Block(vec![
+            declare(&unread, Call::new(global("f"), vec![]).into()),
+            Assign::new(vec![unread.clone().into()], vec![Call::new(global("g"), vec![]).into()]).into(),
+            Return::new(vec![global("_")]).into(),
+        ]);
+        run(&block);
+        assert_eq!(unread.to_string(), "v");
+    }
+
+    #[test]
+    fn late_underscore_counters_compact_within_their_family() {
+        // `clone_3` from a late pass's `unique_name`: `clone` is held in its
+        // region, `clone_2` is not.
+        let held = local("clone");
+        let counted = local("clone_3");
+        let gone = local("clone_2");
+        let block = Block(vec![
+            If::new(global("c"), Block(vec![declare(&gone, global("x")), Return::new(vec![gone.clone().into()]).into()]), Block(vec![])).into(),
+            declare(&held, global("y")),
+            declare(&counted, global("z")),
+            Return::new(vec![held.clone().into(), counted.clone().into()]).into(),
+        ]);
+        run(&block);
+        assert_eq!((held.to_string(), counted.to_string()), ("clone".into(), "clone_2".into()));
+    }
+
+    #[test]
+    fn nested_loop_counters_read_i_j_k() {
+        let outer = local("i");
+        let middle = counted("i2", "i");
+        let inner = counted("i3", "i");
+        let use_all = Call::new(global("use"), vec![outer.clone().into(), middle.clone().into(), inner.clone().into()]);
+        let block = Block(vec![numeric_for(&outer, vec![numeric_for(&middle, vec![numeric_for(&inner, vec![use_all.into()])])])]);
+        run(&block);
+        assert_eq!((outer.to_string(), middle.to_string(), inner.to_string()), ("i".into(), "j".into(), "k".into()));
+    }
+
+    #[test]
+    fn a_global_blocks_a_name_only_inside_the_region_it_is_read_in() {
+        // `local type2 = type` becomes `local type = type`: the global is read
+        // only in the declaration, before the local is visible.
+        let alias = counted("type2", "type");
+        let block = Block(vec![
+            declare(&alias, global("type")),
+            Return::new(vec![Call::new(alias.clone().into(), vec![global("x")]).into()]).into(),
+        ]);
+        run(&block);
+        assert_eq!(alias.to_string(), "type");
+        // A later read of the global would be captured.
+        let alias = counted("type2", "type");
+        let block = Block(vec![
+            declare(&alias, global("type")),
+            Return::new(vec![Call::new(alias.clone().into(), vec![Call::new(global("type"), vec![]).into()]).into()]).into(),
+        ]);
+        run(&block);
+        assert_eq!(alias.to_string(), "type2");
+    }
+
+    #[test]
+    fn a_local_function_sees_its_own_name_in_its_body() {
+        // `local size2 = function() return size end` prints as `local function`,
+        // whose body would read the function itself as `size`.
+        let function_local = counted("size2", "size");
+        let block = Block(vec![
+            declare(&function_local, closure(vec![], Block(vec![Return::new(vec![global("size")]).into()]))),
+            Return::new(vec![function_local.clone().into()]).into(),
+        ]);
+        run(&block);
+        assert_eq!(function_local.to_string(), "size2");
+        // A plain value is visible only after its declaration.
+        let value = counted("size2", "size");
+        let block = Block(vec![declare(&value, global("size")), Return::new(vec![value.clone().into()]).into()]);
+        run(&block);
+        assert_eq!(value.to_string(), "size");
+    }
+
+    #[test]
+    fn method_parameters_compact_after_self_and_captures_block_compaction() {
+        let receiver = local("self");
+        let parameter = counted("p2", "p");
+        let block = function(vec![receiver.clone(), parameter.clone()], vec![
+            Return::new(vec![receiver.clone().into(), parameter.clone().into()]).into(),
+        ]);
+        run(&block);
+        assert_eq!(parameter.to_string(), "p");
+        // An outer `p` read inside the inner function keeps the inner `p2`.
+        let outer = local("p");
+        let inner = counted("p2", "p");
+        let block = function(vec![outer.clone()], vec![Return::new(vec![closure(
+            vec![inner.clone()],
+            Block(vec![Return::new(vec![outer.clone().into(), inner.clone().into()]).into()]),
+        )])
+        .into()]);
+        run(&block);
+        assert_eq!(inner.to_string(), "p2");
     }
 
     fn local(name: &str) -> RcLocal {
@@ -1437,13 +2109,15 @@ mod tests {
             Assign::new(vec![written.clone().into()], vec![Literal::Number(7.0).into()]).into(),
             declare(&sourced, half(size.clone().into())), declare(&generic, half(local("vector2").into())),
             Call::new(global("halfExtentsSize"), vec![first.clone().into(), middle.clone().into()]).into(),
+            Call::new(global("print"), vec![written.clone().into(), generic.clone().into()]).into(),
         ]);
         let report = refine_final_names(&block, Options { emit_report: true, ..Default::default() });
         assert_eq!(first.to_string(), "halfExtentsSize2");
         assert_eq!(middle.to_string(), "midpoint");
-        assert_eq!(written.to_string(), "v3");
+        // No role, so only their counters compact into the names given up.
+        assert_eq!(written.to_string(), "v");
         assert_eq!(sourced.to_string(), "v4");
-        assert_eq!(generic.to_string(), "v5");
+        assert_eq!(generic.to_string(), "v2");
         let candidates = &report.bindings.iter().find(|b| b.id == middle.stable_id()).unwrap().candidates;
         assert!(candidates.iter().any(|c| c.priority == 40 && c.reason == "retained_arithmetic_snapshot"));
     }
@@ -1530,7 +2204,8 @@ mod tests {
         assert_eq!(components.to_string(), "components");
         assert_eq!(modules.to_string(), "modules");
         assert_eq!(defaults.to_string(), "defaults");
-        assert_eq!(merged.to_string(), "v4");
+        // No role; its counter compacts into the names given up.
+        assert_eq!(merged.to_string(), "v");
     }
 
     #[test]
@@ -1574,7 +2249,7 @@ mod tests {
         assert_eq!(state.to_string(), "anchorPoint");
         assert_eq!(value.to_string(), "currentAnchorPoint");
         // A local written again holds more than the state's value.
-        assert_eq!(written.to_string(), "v3");
+        assert_eq!(written.to_string(), "v");
         let candidates = &report.bindings.iter().find(|b| b.id == value.stable_id()).unwrap().candidates;
         assert!(candidates.iter().any(|c| c.reason == "state_current_value" && c.from_binding == Some(state.stable_id())));
     }
@@ -1648,10 +2323,16 @@ mod tests {
             }
             statements.push(Assign { node_origin: Default::default(), left: vec![result.clone().into(), second.clone().into()],
                 right: vec![Call::new(helper.clone().into(), vec![]).into()], prefix: true, parallel: false, compound: false}.into());
+            statements.push(Return::new(vec![result.clone().into(), second.clone().into()]).into());
             let report = run(&Block(statements));
-            assert_eq!(result.to_string(), if refuse == 0 { "width2" } else { "v3" });
+            // The helper's own `width` is not visible where the result is.
             if refuse == 0 {
-                assert_eq!(second.to_string(), "height2");
+                assert_eq!(result.to_string(), "width");
+            } else {
+                assert!(generated(&result.to_string()), "refusal {refuse} named {result}");
+            }
+            if refuse == 0 {
+                assert_eq!(second.to_string(), "height");
                 let row = report.bindings.iter().find(|b| b.id == result.stable_id()).unwrap();
                 assert!(row.candidates.iter().any(|c| c.reason == "resolved_local_call_result" && c.from_binding == Some(width.stable_id())));
                 assert_ne!(width.stable_id(), result.stable_id());
@@ -1667,7 +2348,7 @@ mod tests {
     fn a_rebuilt_call_result_takes_the_name_the_helper_returns() {
         let call = |helper: &RcLocal, arguments: Vec<RValue>, rebuilt: bool| -> RValue {
             let mut call = Call::new(helper.clone().into(), arguments);
-            call.rebuilt = rebuilt;
+            call.rebuilt = rebuilt.then_some(crate::call_origins::Kind::StatementDeinline);
             call.into()
         };
         let make = || -> RValue { Call::new(global("make"), vec![]).into() };
@@ -1692,6 +2373,8 @@ mod tests {
             declare(&owned, call(&get, vec![make()], true)),
             declare(&faded, call(&fade, vec![make()], true)),
             declare(&recorded, call(&load, vec![], true)),
+            Call::new(global("print"), vec![first.clone().into(), second.clone().into(), plain.clone().into(),
+                owned.clone().into(), faded.clone().into()]).into(),
             record("Animation", &recorded),
         ]);
         run(&Block(vec![
@@ -1701,7 +2384,7 @@ mod tests {
             Return::new(vec![closure(vec![], caller)]).into(),
         ]));
         let names = [&first, &second, &plain, &owned, &faded, &recorded].map(|local| local.to_string());
-        assert_eq!(names, ["track", "track2", "v3", "ownPlot", "v5", "animation"]);
+        assert_eq!(names, ["track", "track2", "v", "ownPlot", "v2", "animation"]);
     }
 
     #[test]
@@ -1733,6 +2416,7 @@ mod tests {
             if rebound {
                 body.push(Assign::new(vec![helper.clone().into()], vec![global("unknown")]).into());
             }
+            body.push(Return::new(vec![width.clone().into(), height.clone().into()]).into());
             let mut returned = closure(vec![], Block(body));
             if let RValue::Closure(closure) = &mut returned { closure.upvalues.push(Upvalue::Ref(helper.clone())); }
             let block = Block(vec![declare(&helper, closure(vec![], Block(vec![Return::new(vec![
@@ -1961,7 +2645,9 @@ mod tests {
                 ],
             );
             let report = run(&block);
-            assert_eq!(argument.to_string(), if dynamic { "p2" } else { "props" });
+            // Unresolved, the argument only compacts once the helper's `p`
+            // became `props`.
+            assert_eq!(argument.to_string(), if dynamic { "p" } else { "props" });
             assert!(
                 dynamic
                     || report.bindings.iter().any(|b| b
@@ -2012,16 +2698,28 @@ mod tests {
     fn implicit_setlist_global_and_external_references_are_reserved() {
         let p = local("p");
         let target = local("target");
-        let external = local("table2");
+        let external = local("tbl");
         let block = function(
             vec![p.clone()],
             vec![
                 assertion(p.clone().into(), "Expected `table`"),
-                crate::SetList::new(target, 1, vec![], Some(crate::VarArg {}.into())).into(),
+                crate::SetList::new(target.clone(), 1, vec![], Some(crate::VarArg {}.into())).into(),
                 Return::new(vec![external.into()]).into(),
             ],
         );
         run(&block);
-        assert_eq!(p.to_string(), "table3");
+        // A builtin's spelling reads as its alternative, and the undeclared
+        // `tbl` is reserved everywhere.
+        assert_eq!(p.to_string(), "tbl2");
+        // The open SETLIST prints `table.pack`: an alias counted from `table`
+        // keeps its counter.
+        let alias = counted("table2", "table");
+        let block = Block(vec![
+            declare(&alias, global("table")),
+            crate::SetList::new(target, 1, vec![], Some(crate::VarArg {}.into())).into(),
+            Return::new(vec![alias.clone().into()]).into(),
+        ]);
+        run(&block);
+        assert_eq!(alias.to_string(), "table2");
     }
 }

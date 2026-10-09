@@ -77,6 +77,7 @@ impl fmt::Display for Repeat {
             emission_map: None,
             layout_budget: None,
             compact_annotations: false,
+            inferred_calls: Default::default(),
         }
         .format_repeat(self)
     }

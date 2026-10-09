@@ -189,7 +189,8 @@ pub fn run_with_cache(
         let groups = duplicate_groups(&work, &payloads);
         let grouped = groups.par_iter().map_init(Vec::<u8>::new, |b64, group| {
             let memo = crate::decompile_core::DuplicateMemo::default();
-            let memo = (group.len() > 1).then_some(&memo);
+            // Stats count each input: a shared artifact would carry none.
+            let memo = (group.len() > 1 && !luau_lifter::stats::enabled()).then_some(&memo);
             group.iter().map(|&index| {
                 let text = texts[index].lock().unwrap().take()
                     .unwrap_or_else(|| std::fs::read(&work[index].input));

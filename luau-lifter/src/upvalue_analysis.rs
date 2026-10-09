@@ -1677,6 +1677,7 @@ mod tests {
             num_parameters: 0,
             num_upvalues,
             is_vararg: false,
+            flags: 0,
             instructions,
             constants: Vec::new(),
             functions: Vec::new(),

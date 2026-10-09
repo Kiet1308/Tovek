@@ -19,9 +19,13 @@ pub struct Call {
     /// read after its arguments. Not part of equality; rebuilt calls start
     /// without it.
     pub callee_after_arguments: bool,
-    /// Rebuilt by a de-inliner from a copy Luau inlined: the uses that named
-    /// its arguments now sit in the callee. Not part of equality.
-    pub rebuilt: bool,
+    /// Rebuilt by a pass, and which kind: a de-inliner's equivalent call
+    /// inferred from a copy Luau inlined (the uses that named its arguments
+    /// now sit in the callee), or a call to a synthesized helper. The
+    /// formatter prints a de-inlined call's site comment and its helper's
+    /// call count from this attribute, and `--stats-json` counts calls by
+    /// kind from it. Not part of equality.
+    pub rebuilt: Option<crate::call_origins::Kind>,
 }
 
 impl PartialEq for Call {
@@ -44,12 +48,12 @@ impl Call {
             arguments,
             reconstruction_event: 0,
             callee_after_arguments: false,
-            rebuilt: false,
+            rebuilt: None,
         }
     }
 
     pub(crate) fn reconstructed(mut self, producer: crate::call_origins::Kind) -> Self {
-        self.rebuilt = true;
+        self.rebuilt = Some(producer);
         if crate::call_origins::enabled() {
             self.node_origin = crate::node_origins::Origin::synthesized(match producer {
             crate::call_origins::Kind::StatementDeinline => "statement_deinline",
@@ -62,6 +66,12 @@ impl Call {
             self.reconstruction_event = crate::call_origins::record(producer, local.stable_id());
         }
         self
+    }
+
+    /// An equivalent call a de-inliner inferred: what the formatter marks
+    /// with a site comment and counts on its helper's definition line.
+    pub fn is_inferred(&self) -> bool {
+        self.rebuilt.is_some_and(crate::call_origins::Kind::is_inference)
     }
 }
 
@@ -129,6 +139,7 @@ impl fmt::Display for Call {
             emission_map: None,
             layout_budget: None,
             compact_annotations: false,
+            inferred_calls: Default::default(),
         }
         .format_call(self)
     }
@@ -211,6 +222,7 @@ impl fmt::Display for MethodCall {
             emission_map: None,
             layout_budget: None,
             compact_annotations: false,
+            inferred_calls: Default::default(),
         }
         .format_method_call(self)
     }

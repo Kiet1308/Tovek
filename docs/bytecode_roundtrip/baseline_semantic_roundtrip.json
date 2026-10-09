@@ -157,7 +157,22 @@
    "promise_advancers_capture_their_handlers": "M0 correctness fixture (2026-10-06): a by-value capture kept apart from its closure's target, a self-capturing arm kept in its block, or one binding for inlined copies of a shared closure; baselined from the fixing output.",
    "recursive_local_function_in_value_branch": "M0 correctness fixture (2026-10-06): a by-value capture kept apart from its closure's target, a self-capturing arm kept in its block, or one binding for inlined copies of a shared closure; baselined from the fixing output.",
    "value_capture_into_its_own_target": "M0 correctness fixture (2026-10-06): a by-value capture kept apart from its closure's target, a self-capturing arm kept in its block, or one binding for inlined copies of a shared closure; baselined from the fixing output.",
-   "value_capture_through_call_argument": "M0 correctness fixture (2026-10-06): a by-value capture kept apart from its closure's target, a self-capturing arm kept in its block, or one binding for inlined copies of a shared closure; baselined from the fixing output."
+   "value_capture_through_call_argument": "M0 correctness fixture (2026-10-06): a by-value capture kept apart from its closure's target, a self-capturing arm kept in its block, or one binding for inlined copies of a shared closure; baselined from the fixing output.",
+   "call_argument_width": "M1 printing and layout fixture (2026-10-06): de-inline site comments, backtick strings, long brackets, native flags, nested comparisons and line layout; baselined from the M1 output, equivalent at every proto.",
+   "comparison_inside_comparison": "M1 printing and layout fixture (2026-10-06): de-inline site comments, backtick strings, long brackets, native flags, nested comparisons and line layout; baselined from the M1 output, equivalent at every proto.",
+   "exact_fraction_constants": "M1 constant fixture (2026-10-06): numbers that are exactly p/q (q <= 1000) print as fractions; baselined from the M1 output, equivalent at every proto (Luau folds the division back to the same constant).",
+   "inferred_call_comments": "M1 printing and layout fixture (2026-10-06): de-inline site comments, backtick strings, long brackets, native flags, nested comparisons and line layout; baselined from the M1 output, equivalent at every proto.",
+   "long_bracket_prose_only": "M1 printing and layout fixture (2026-10-06): de-inline site comments, backtick strings, long brackets, native flags, nested comparisons and line layout; baselined from the M1 output, equivalent at every proto.",
+   "long_condition_wrapping": "M1 printing and layout fixture (2026-10-06): de-inline site comments, backtick strings, long brackets, native flags, nested comparisons and line layout; baselined from the M1 output, equivalent at every proto.",
+   "multi_line_elements_one_per_line": "M1 printing and layout fixture (2026-10-06): de-inline site comments, backtick strings, long brackets, native flags, nested comparisons and line layout; baselined from the M1 output, equivalent at every proto.",
+   "naming_builtin_spellings_never_capture": "M1 naming fixture (2026-10-06): spellings, suffix compaction and reservations change names only; baselined from the M1 output, equivalent at every proto.",
+   "naming_counter_compaction_respects_captures": "M1 naming fixture (2026-10-06): counter compaction never merges a name an inner function reads from outside. Two non-equivalent protos, the same at M0: the original -O2 chunk inlines `curry` and unrolls the inlined `grid(2)` loops, which print as written, so the rebuilt main keeps the unrolled sums and one inlined closure; the fixture passes runtime round-trips at O0/O1/O2.",
+   "naming_sequential_bindings_stay_distinct": "M1 naming fixture (2026-10-06): spellings, suffix compaction and reservations change names only; baselined from the M1 output, equivalent at every proto.",
+   "naming_unused_bindings_keep_their_reads": "M1 naming fixture (2026-10-06): spellings, suffix compaction and reservations change names only; baselined from the M1 output, equivalent at every proto.",
+   "native_function_attribute": "M1 printing fixture (2026-10-06): `@native` printed from the prototype flag. One non-equivalent proto, the same at M0: `local M = {}; function M.offset` folds into the constructor `{ offset = function ... }`, and the pinned -O2 compiler inlines a constructor-literal function, so the rebuilt main adds `x + 1` where the original calls `M.offset`; the fixture passes runtime round-trips at O0/O1/O2.",
+   "native_module_hot_comment": "M1 printing and layout fixture (2026-10-06): de-inline site comments, backtick strings, long brackets, native flags, nested comparisons and line layout; baselined from the M1 output, equivalent at every proto.",
+   "short_tables_one_line": "M1 printing and layout fixture (2026-10-06): de-inline site comments, backtick strings, long brackets, native flags, nested comparisons and line layout; baselined from the M1 output, equivalent at every proto.",
+   "interpolated_string_in_last_position": "M1 printing fixture (2026-10-06): truncation parentheses dropped around backtick strings. One non-equivalent proto, the same at M0: `{ (\"item %*\"):format(p) }` prints as the one-value interpolation `{ `item {p}` }`, so the rebuilt constructor ends in SETLIST(1) where the original's open format call gives SETLIST(*); the fixture passes runtime round-trips at O0/O1/O2."
   }
  },
  "summary": {
@@ -212,6 +227,12 @@
    "status": "ok",
    "nonequiv": 6,
    "protos": 12
+  },
+  {
+   "file": "call_argument_width",
+   "status": "ok",
+   "nonequiv": 0,
+   "protos": 5
   },
   {
    "file": "call_moved_past_captured_store",
@@ -388,6 +409,12 @@
    "protos": 5
   },
   {
+   "file": "comparison_inside_comparison",
+   "status": "ok",
+   "nonequiv": 0,
+   "protos": 2
+  },
+  {
    "file": "compound_local_base",
    "status": "ok",
    "nonequiv": 0,
@@ -544,6 +571,12 @@
    "protos": 4
   },
   {
+   "file": "exact_fraction_constants",
+   "status": "ok",
+   "nonequiv": 0,
+   "protos": 3
+  },
+  {
    "file": "fall_off_helper_arity",
    "status": "ok",
    "nonequiv": 1,
@@ -676,9 +709,21 @@
    "protos": 3
   },
   {
+   "file": "inferred_call_comments",
+   "status": "ok",
+   "nonequiv": 0,
+   "protos": 9
+  },
+  {
    "file": "inner_loop_continues_outer",
    "status": "ok",
    "nonequiv": 0,
+   "protos": 3
+  },
+  {
+   "file": "interpolated_string_in_last_position",
+   "status": "ok",
+   "nonequiv": 1,
    "protos": 3
   },
   {
@@ -716,6 +761,18 @@
    "status": "ok",
    "nonequiv": 0,
    "protos": 2
+  },
+  {
+   "file": "long_bracket_prose_only",
+   "status": "ok",
+   "nonequiv": 0,
+   "protos": 1
+  },
+  {
+   "file": "long_condition_wrapping",
+   "status": "ok",
+   "nonequiv": 0,
+   "protos": 5
   },
   {
    "file": "loop_after_breaking_for",
@@ -778,16 +835,58 @@
    "protos": 6
   },
   {
+   "file": "multi_line_elements_one_per_line",
+   "status": "ok",
+   "nonequiv": 0,
+   "protos": 4
+  },
+  {
    "file": "multiline_string_keys",
    "status": "ok",
    "nonequiv": 0,
    "protos": 2
   },
   {
+   "file": "naming_builtin_spellings_never_capture",
+   "status": "ok",
+   "nonequiv": 0,
+   "protos": 4
+  },
+  {
+   "file": "naming_counter_compaction_respects_captures",
+   "status": "ok",
+   "nonequiv": 2,
+   "protos": 7
+  },
+  {
+   "file": "naming_sequential_bindings_stay_distinct",
+   "status": "ok",
+   "nonequiv": 0,
+   "protos": 3
+  },
+  {
+   "file": "naming_unused_bindings_keep_their_reads",
+   "status": "ok",
+   "nonequiv": 0,
+   "protos": 6
+  },
+  {
    "file": "nan_sign_preserved",
    "status": "ok",
    "nonequiv": 0,
    "protos": 1
+  },
+  {
+   "file": "native_function_attribute",
+   "status": "ok",
+   "nonequiv": 1,
+   "protos": 5
+  },
+  {
+   "file": "native_module_hot_comment",
+   "status": "ok",
+   "nonequiv": 0,
+   "protos": 2
   },
   {
    "file": "nested_calls_after_blocks",
@@ -968,6 +1067,12 @@
    "status": "ok",
    "nonequiv": 0,
    "protos": 3
+  },
+  {
+   "file": "short_tables_one_line",
+   "status": "ok",
+   "nonequiv": 0,
+   "protos": 2
   },
   {
    "file": "signed_zero_key_after_nil_slot",

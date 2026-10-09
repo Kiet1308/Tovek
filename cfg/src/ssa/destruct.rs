@@ -346,12 +346,12 @@ pub struct Destructor<'a> {
     /// Roots of the cells whose value may change after a copy of it is
     /// taken ([`Self::find_unstable_cells`]).
     unstable_cells: FxHashSet<RcLocal>,
-    /// `(value, dominator order, statement)` for every by-value capture made
-    /// by a statement that also writes a local. A closure reads its captures
-    /// whenever it runs, so after that statement has written its targets.
-    /// Recorded in [`Self::build_def_use`]: coalescing removes emptied
-    /// statements, so positions looked up later would be stale.
-    value_captures: FxHashSet<(RcLocal, usize, usize)>,
+    /// `(value's stable id, dominator order, statement)` for every by-value
+    /// capture made by a statement that also writes a local. A closure reads
+    /// its captures whenever it runs, so after that statement has written its
+    /// targets. Recorded in [`Self::build_def_use`]: coalescing removes
+    /// emptied statements, so positions looked up later would be stale.
+    value_captures: FxHashSet<(u64, usize, usize)>,
 }
 
 /// Terminal SSA still needs copy/capture coalescing and sequentialization,
@@ -384,6 +384,92 @@ mod terminal_tests;
 
 #[cfg(test)]
 mod capture_tests;
+
+/// Visit the by-value captures of the closures in `statement`, at any depth
+/// of its values (index targets included; nested function bodies aside).
+/// This runs on every assignment of a function that makes closures, and most
+/// hold none: an assignment's values are matched out by kind, so a leaf costs
+/// no call, where `Traverse` makes one per value.
+fn visit_value_captures(statement: &ast::Statement, visit: &mut impl FnMut(&RcLocal)) {
+    let ast::Statement::Assign(assign) = statement else {
+        statement.traverse_rvalues_ref(&mut |value| {
+            if let ast::RValue::Closure(closure) = value {
+                closure_captures(closure, visit);
+            }
+        });
+        return;
+    };
+    #[cfg(any(test, debug_assertions))]
+    let mut found = Vec::new();
+    let mut visit = |local: &RcLocal| {
+        #[cfg(any(test, debug_assertions))]
+        found.push(local.stable_id());
+        visit(local);
+    };
+    for left in &assign.left {
+        if let ast::LValue::Index(index) = left {
+            value_captures(&index.left, &mut visit);
+            value_captures(&index.right, &mut visit);
+        }
+    }
+    assign.right.iter().for_each(|value| value_captures(value, &mut visit));
+    #[cfg(any(test, debug_assertions))]
+    {
+        let mut expected = Vec::new();
+        statement.traverse_rvalues_ref(&mut |value| {
+            if let ast::RValue::Closure(closure) = value {
+                closure_captures(closure, &mut |local| expected.push(local.stable_id()));
+            }
+        });
+        assert_eq!(found, expected, "the by-value captures of {statement}");
+    }
+}
+
+fn closure_captures(closure: &ast::Closure, visit: &mut impl FnMut(&RcLocal)) {
+    for upvalue in &closure.upvalues {
+        if let ast::Upvalue::Copy(local) = upvalue {
+            visit(local);
+        }
+    }
+}
+
+fn value_captures(value: &ast::RValue, visit: &mut impl FnMut(&RcLocal)) {
+    use ast::{RValue, Select};
+    match value {
+        RValue::Closure(closure) => closure_captures(closure, visit),
+        RValue::Call(call) | RValue::Select(Select::Call(call)) => {
+            value_captures(&call.value, visit);
+            call.arguments.iter().for_each(|argument| value_captures(argument, visit));
+        }
+        RValue::MethodCall(call) | RValue::Select(Select::MethodCall(call)) => {
+            value_captures(&call.value, visit);
+            call.arguments.iter().for_each(|argument| value_captures(argument, visit));
+        }
+        RValue::Table(table) => {
+            for (key, value) in &table.0 {
+                if let Some(key) = key {
+                    value_captures(key, visit);
+                }
+                value_captures(value, visit);
+            }
+        }
+        RValue::Index(index) => {
+            value_captures(&index.left, visit);
+            value_captures(&index.right, visit);
+        }
+        RValue::Unary(unary) => value_captures(&unary.value, visit),
+        RValue::Binary(binary) => {
+            value_captures(&binary.left, visit);
+            value_captures(&binary.right, visit);
+        }
+        RValue::IfExpression(expression) => {
+            value_captures(&expression.condition, visit);
+            value_captures(&expression.then_value, visit);
+            value_captures(&expression.else_value, visit);
+        }
+        RValue::Local(_) | RValue::Global(_) | RValue::Literal(_) | RValue::VarArg(_) | RValue::Select(Select::VarArg(_)) => {}
+    }
+}
 
 impl<'a> Destructor<'a> {
     pub fn new(
@@ -979,15 +1065,9 @@ impl<'a> Destructor<'a> {
                 // A closure at any depth counts: `x = keep(function() ... end)`
                 // stores the closure before it can run, as `x = function() ...
                 // end` does.
-                if writes_local {
-                    stat.traverse_rvalues_ref(&mut |value| {
-                        if let ast::RValue::Closure(closure) = value {
-                            for upvalue in &closure.upvalues {
-                                if let ast::Upvalue::Copy(local) = upvalue {
-                                    self.value_captures.insert((local.clone(), dominator_index, stat_index));
-                                }
-                            }
-                        }
+                if writes_local && self.function.may_hold_closures {
+                    visit_value_captures(stat, &mut |local| {
+                        self.value_captures.insert((local.stable_id(), dominator_index, stat_index));
                     });
                 }
 
@@ -1396,7 +1476,7 @@ impl<'a> Destructor<'a> {
                 // a variable of its own. (The self capture `a = function() ...
                 // a ... end` is the closure's own value and never asked.)
                 || last_use_position == def_stat_index
-                    && self.value_captures.contains(&(local_b.clone(), def_dom_index, last_use))
+                    && self.value_captures.contains(&(local_b.stable_id(), def_dom_index, last_use))
         } else {
             false
         }

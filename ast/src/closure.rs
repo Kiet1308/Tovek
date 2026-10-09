@@ -42,6 +42,9 @@ pub struct Function {
     /// the module reconstruction pass can inspect it after child bodies exist.
     /// This is only an inlining refusal, never a semantic equivalence proof.
     pub retain_for_reconstruction: bool,
+    /// The source gave the function the `@native` attribute (the prototype's
+    /// `LPF_NATIVE_FUNCTION` flag); printed back before its `function`.
+    pub native: bool,
     pub name: Option<String>,
     pub parameters: Vec<RcLocal>,
     /// Source-recoverable Luau type annotation per parameter (aligned with
@@ -99,6 +102,7 @@ impl fmt::Display for Closure {
             emission_map: None,
             layout_budget: None,
             compact_annotations: false,
+            inferred_calls: Default::default(),
         }
         .format_closure(self)
     }

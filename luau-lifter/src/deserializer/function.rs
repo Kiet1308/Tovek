@@ -22,6 +22,10 @@ pub struct DebugLocal {
     pub register: u8,
 }
 
+/// The main prototype of a module with the `--!native` hot comment.
+pub(crate) const LPF_NATIVE_MODULE: u8 = 1 << 0;
+/// A function with the `@native` attribute.
+pub(crate) const LPF_NATIVE_FUNCTION: u8 = 1 << 2;
 const LPF_INLINABLE: u8 = 1 << 3;
 
 /// Bytecode type tags (`LuauBytecodeType` in Luau's `Bytecode.h`).
@@ -132,6 +136,8 @@ pub struct Function {
     pub num_parameters: u8,
     pub num_upvalues: u8,
     pub is_vararg: bool,
+    /// `LuauProtoFlag` bits (`LPF_*`).
+    pub flags: u8,
     //pub instructions: Vec<u32>,
     pub instructions: Vec<Instruction>,
     pub constants: Vec<Constant>,
@@ -352,6 +358,7 @@ impl Function {
                 num_parameters,
                 num_upvalues,
                 is_vararg: is_vararg != 0u8,
+                flags,
                 instructions,
                 constants,
                 functions,

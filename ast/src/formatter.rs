@@ -13,6 +13,11 @@ use crate::{
     Statement, Table, Traverse, Unary, While,
 };
 
+mod layout;
+mod site_comments;
+use layout::Arguments;
+pub(crate) use site_comments::{InferredCalls, SITE_COMMENT};
+
 /// The Luau compound-assignment operator for a binary operation, or `None` for
 /// operations that have no compound form (the comparisons and `and`/`or`).
 fn compound_assignment_operator(operation: BinaryOperation) -> Option<&'static str> {
@@ -663,7 +668,7 @@ mod tests {
                 indentation_level: 0, indentation_mode: IndentationMode::Tab,
                 output: &mut output, colon_method_calls: Default::default(),
                 position_query: None, closure_observer: None, emission_map: None,
-                layout_budget: None, compact_annotations: false,
+                layout_budget: None, compact_annotations: false, inferred_calls: Default::default(),
             };
             FORMAT_WORK.set(FormatWork::default());
             assert!(formatter.try_format_interpolation(bytes, &arguments).is_none());
@@ -1119,7 +1124,7 @@ mod tests {
 
         assert_eq!(
             block.to_string(),
-            "return {\n\t[\"\"] = \"empty\",\n\tfield = \"value\"\n}\nreturn t[\"\"]"
+            "return { [\"\"] = \"empty\", field = \"value\" }\nreturn t[\"\"]"
         );
     }
 
@@ -1434,9 +1439,26 @@ end");
         }; crate::emission_map::OCCURRENCE_LIMIT];
         let mut formatter = super::Formatter { indentation_level: 0, indentation_mode: IndentationMode::Tab,
             output: &mut output, colon_method_calls: Default::default(), position_query: None, closure_observer: None,
-            emission_map: Some(&mut exhausted), layout_budget: None, compact_annotations: true };
+            emission_map: Some(&mut exhausted), layout_budget: None, compact_annotations: true,
+            inferred_calls: Default::default() };
         formatter.format_comment(&crate::Comment::new(known.into())).unwrap();
         assert!(output.contains(known));
+    }
+
+    /// `--!native` restores the module's native flag: source text, so the
+    /// emission map records it as no emitter annotation (whose text follows
+    /// `-- `), while the site comment after it is one.
+    #[test]
+    fn hot_comments_are_not_emitter_annotations() {
+        let block = Block(vec![crate::Comment::hot("native").into(),
+            crate::Comment::new(super::SITE_COMMENT.into()).into()]);
+        for compact in [false, true] {
+            let (source, _, map) = super::format_with_emission_map_options(&block, IndentationMode::Tab, true, compact).unwrap();
+            assert!(source.starts_with("--!native\n"), "{source}");
+            assert_eq!(map.annotations.len(), 1);
+            let span = &map.annotations[0].span;
+            assert!(source[span.start.byte_offset..span.end.byte_offset].starts_with("-- "));
+        }
     }
 
     #[test]
@@ -1497,7 +1519,12 @@ end");
         let result = local(&"r".repeat(90));
         let block = Block(vec![Assign::new(
             vec![result.into()],
-            vec![Call::new(global("collect"), vec![string("argument_one"), string("argument_two")]).into()],
+            // 69 columns: past the 60 a call always gets, so the 93-column
+            // prefix decides that it breaks.
+            vec![Call::new(global("collect"), vec![
+                string("argument_number_one_is_long"),
+                string("argument_number_two_is_long"),
+            ]).into()],
         ).into()]);
         let plain = block.to_string();
         let (mapped, _) = format_with_source_map(&block, IndentationMode::Tab).unwrap();
@@ -1510,7 +1537,7 @@ end");
     fn short_calls_and_single_constructor_arguments_stay_compact() {
         assert_eq!(Call::new(global("f"), vec![number(1.0), number(2.0)]).to_string(), "f(1, 2)");
         let table = Table::new(vec![(Some(string("field")), number(1.0))]);
-        assert_eq!(Call::new(global("f"), vec![table.into()]).to_string(), "f({\n\tfield = 1\n})");
+        assert_eq!(Call::new(global("f"), vec![table.into()]).to_string(), "f({ field = 1 })");
     }
 
     #[test]
@@ -1633,6 +1660,8 @@ pub struct Formatter<'a, W: fmt::Write> {
     /// uses None; previews never recursively ask for another width preview.
     pub(crate) layout_budget: Option<usize>,
     pub(crate) compact_annotations: bool,
+    /// Inferred calls per helper, for the definition lines; empty in previews.
+    pub(crate) inferred_calls: InferredCalls,
 }
 
 #[cfg(test)]
@@ -1796,6 +1825,7 @@ pub fn format_with_emission_map_options(
             emission_map: detailed.then_some(&mut emission_map),
             layout_budget: None,
             compact_annotations,
+            inferred_calls: InferredCalls::count(main),
         };
         formatter.format_block_no_indent(main)?;
     }
@@ -1888,44 +1918,9 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
             emission_map: None,
             layout_budget: None,
             compact_annotations: false,
+            inferred_calls: InferredCalls::count(main),
         };
         formatter.format_block_no_indent(main)
-    }
-
-    fn fits_flat(&self, render: impl FnOnce(&mut Formatter<'_, FlatWidth>) -> fmt::Result) -> bool {
-        let indentation_width = match self.indentation_mode {
-            IndentationMode::Spaces(n) => usize::from(n),
-            IndentationMode::Tab => 4,
-        };
-        let column = self.position_query.map_or(self.indentation_level * indentation_width, |query| {
-            let column = query(self.output).column_one_based.saturating_sub(1);
-            // Source positions count a tab as one character; the layout budget
-            // treats indentation tabs as four display columns.
-            column + if matches!(self.indentation_mode, IndentationMode::Tab) { self.indentation_level * 3 } else { 0 }
-        });
-        let mut width = FlatWidth {
-            remaining: PREFERRED_LINE_WIDTH.saturating_sub(column),
-            already_multiline: false,
-        };
-        let mut preview = Formatter {
-            indentation_level: self.indentation_level,
-            indentation_mode: match self.indentation_mode {
-                IndentationMode::Spaces(n) => IndentationMode::Spaces(n),
-                IndentationMode::Tab => IndentationMode::Tab,
-            },
-            output: &mut width,
-            colon_method_calls: Default::default(),
-            position_query: None,
-            closure_observer: None,
-            emission_map: None,
-            layout_budget: Some(256),
-            compact_annotations: self.compact_annotations,
-        };
-        let fits = render(&mut preview).is_ok();
-        // Existing constructor/callback layouts already break the group. Keep
-        // their shape when its opening line fits; nested calls get their own
-        // budgets during real emission. Literal payload lines stay untouched.
-        fits || width.already_multiline
     }
 
     fn indent(&mut self) -> fmt::Result {
@@ -2079,6 +2074,33 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
             {
                 write!(self.output, ";")?;
             }
+            // A block statement's header line carries its comment instead.
+            if !Self::has_header_line(statement) && self.inferred_calls.holds(statement) {
+                self.site_comment()?;
+            }
+        }
+        Ok(())
+    }
+
+    /// A statement whose own values print on a header line (`if ... then`,
+    /// `while ... do`, `for ... do`) ahead of its block.
+    fn has_header_line(statement: &Statement) -> bool {
+        matches!(
+            statement,
+            Statement::If(_) | Statement::While(_) | Statement::NumericFor(_) | Statement::GenericFor(_)
+        )
+    }
+
+    /// ` -- inferred equivalent call`, ending the current line.
+    fn site_comment(&mut self) -> fmt::Result {
+        write!(self.output, " ")?;
+        self.format_comment(&crate::Comment::new(SITE_COMMENT.to_string()))
+    }
+
+    /// The site comment for a header whose values hold an inferred call.
+    fn header_site_comment<T>(&mut self, header: &T) -> fmt::Result {
+        if self.inferred_calls.header_holds(header) {
+            self.site_comment()?;
         }
         Ok(())
     }
@@ -2123,6 +2145,11 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
     }
 
     fn format_comment(&mut self, comment: &crate::Comment) -> fmt::Result {
+        // A hot comment (`--!native`) restores a compiler directive the
+        // prototype's flags prove; it is source, not an emitter annotation.
+        if comment.hot {
+            return write!(self.output, "{}", comment);
+        }
         let start = self.current_position();
         // Only shorten text when the complete original can be retained. Opaque
         // subrenders and exhausted maps keep the full source diagnostic.
@@ -2196,24 +2223,24 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
     }
 
     /// An expression that yields multiple values when in a tail/spreading
-    /// position (a function/method call, `...`, or a `Select` over one). In a
-    /// table that is NOT the open positional tail (i.e. a keyed entry) it must be
-    /// parenthesized to truncate to a single value.
+    /// position (a function/method call, `...`, or a `Select` over one that
+    /// does not print as a backtick string). In a table that is NOT the open
+    /// positional tail (i.e. a keyed entry) it must be parenthesized to
+    /// truncate to a single value.
     fn is_multret_expression(value: &RValue) -> bool {
-        matches!(
-            value,
-            RValue::Call(_) | RValue::MethodCall(_) | RValue::VarArg(_) | RValue::Select(_)
-        )
+        matches!(value, RValue::Call(_) | RValue::MethodCall(_) | RValue::VarArg(_))
+            || Self::needs_truncation_parens(value)
     }
 
     pub(crate) fn format_table(&mut self, table: &Table) -> fmt::Result {
         let sequential_keys = Self::are_table_keys_sequential(table);
+        let should_format = self.table_spans_lines(table, sequential_keys);
+        self.format_table_as(table, sequential_keys, should_format)
+    }
+
+    /// `should_format`: one entry per line.
+    fn format_table_as(&mut self, table: &Table, sequential_keys: bool, should_format: bool) -> fmt::Result {
         let should_space = !table.0.is_empty();
-        let mut should_format = !table.0.is_empty() && (!sequential_keys || table.0.len() > 3)
-            || Self::contains_table(table);
-        if !should_format && table.0.len() > 1 && self.layout_budget.is_none() {
-            should_format = !self.fits_flat(|preview| preview.format_table(table));
-        }
         write!(self.output, "{{")?;
         if should_format {
             writeln!(self.output)?;
@@ -2227,7 +2254,7 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
             }
             let is_last = index + 1 == table.0.len();
             if is_last && key.is_none() {
-                let wrap = matches!(value, RValue::Select(_));
+                let wrap = Self::needs_truncation_parens(value);
                 if wrap {
                     write!(self.output, "(")?;
                 }
@@ -2406,6 +2433,9 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
         display_name: Option<String>,
     ) -> fmt::Result {
         let start = self.current_position();
+        if closure.function.lock().native {
+            write!(self.output, "@native ")?;
+        }
         write!(self.output, "function(")?;
         self.format_closure_parameters(closure)?;
         write!(self.output, ")")?;
@@ -2453,16 +2483,28 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
 
         let display_name = self.closure_observer.is_some().then(|| name.to_string());
         write!(self.output, "function ")?;
+        let mut definition_comment = None;
         if local_declaration && let LValue::Local(local) = name {
             self.format_local(local, "function_declaration")?;
+            definition_comment = self.inferred_calls.definition_comment(local.stable_id());
         } else {
             self.format_lvalue(name)?;
         }
         write!(self.output, "(")?;
         self.format_closure_parameters(closure)?;
         write!(self.output, ")")?;
+        // The count ends the header line, or the line of an empty body's `end`.
+        let empty = closure.function.lock().body.is_empty();
+        if let Some(text) = definition_comment.as_ref().filter(|_| !empty) {
+            write!(self.output, " ")?;
+            self.format_comment(&crate::Comment::new(text.clone()))?;
+        }
         self.format_closure_body(closure)?;
         write!(self.output, "end")?;
+        if let Some(text) = definition_comment.filter(|_| empty) {
+            write!(self.output, " ")?;
+            self.format_comment(&crate::Comment::new(text))?;
+        }
         Ok((
             if local_declaration {
                 ClosureSyntaxKind::LocalFunction
@@ -2711,8 +2753,13 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
     }
 
     fn format_rvalue(&mut self, rvalue: &RValue) -> fmt::Result {
+        self.format_rvalue_with(rvalue, |formatter| formatter.format_rvalue_inner(rvalue))
+    }
+
+    /// Prints `rvalue` with `render`, recording its region like any value.
+    fn format_rvalue_with(&mut self, rvalue: &RValue, render: impl FnOnce(&mut Self) -> fmt::Result) -> fmt::Result {
         let start = self.emission_map.as_ref().and_then(|_| self.current_position());
-        let result = self.format_rvalue_inner(rvalue);
+        let result = render(self);
         if result.is_ok() && !matches!(rvalue, RValue::Closure(_)) {
             if let (Some(start), Some(end)) = (start, self.current_position()) {
                 if let Some(map) = self.emission_map.as_mut() {
@@ -2753,15 +2800,20 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
         }
     }
 
-    fn format_arg_list(&mut self, list: &[RValue], multiline: bool) -> fmt::Result {
+    fn format_arg_list(&mut self, list: &[RValue], layout: Arguments) -> fmt::Result {
+        let multiline = layout == Arguments::Lines;
         if multiline {
             writeln!(self.output)?;
             self.indentation_level += 1;
         }
         for (index, rvalue) in list.iter().enumerate() {
             if multiline { self.indent()?; }
-            if index + 1 == list.len() {
-                let wrap = matches!(rvalue, RValue::Select(_));
+            if index + 1 == list.len() && layout == Arguments::Hug && let RValue::Table(table) = rvalue {
+                // The constructor breaks after its `{`; the call around it does not.
+                let sequential_keys = Self::are_table_keys_sequential(table);
+                self.format_rvalue_with(rvalue, |formatter| formatter.format_table_as(table, sequential_keys, true))?;
+            } else if index + 1 == list.len() {
+                let wrap = Self::needs_truncation_parens(rvalue);
                 if wrap {
                     write!(self.output, "(")?;
                 }
@@ -2983,8 +3035,11 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
     }
 
     pub(crate) fn format_call(&mut self, call: &Call) -> fmt::Result {
-        let multiline = self.layout_budget.is_none() && call.arguments.len() > 1
-            && !self.fits_flat(|preview| preview.format_call(call));
+        let layout = self.argument_layout(&call.arguments, |preview, layout| preview.format_call_as(call, layout));
+        self.format_call_as(call, layout)
+    }
+
+    fn format_call_as(&mut self, call: &Call, layout: Arguments) -> fmt::Result {
         let start = self.current_position();
         let wrap = Self::should_wrap_left_rvalue(&call.value);
         if wrap {
@@ -2996,7 +3051,7 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
         }
 
         write!(self.output, "(")?;
-        self.format_arg_list(&call.arguments, multiline)?;
+        self.format_arg_list(&call.arguments, layout)?;
         write!(self.output, ")")?;
         if call.reconstruction_event != 0 {
             if let (Some(start), Some(end), Some(map)) =
@@ -3034,8 +3089,14 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
             return Ok(());
         }
 
-        let multiline = self.layout_budget.is_none() && method_call.arguments.len() > 1
-            && !self.fits_flat(|preview| preview.format_method_call_as(method_call, interpolate));
+        let layout = self.argument_layout(&method_call.arguments, |preview, layout| {
+            preview.format_method_call_arguments(method_call, layout)
+        });
+        self.format_method_call_arguments(method_call, layout)
+    }
+
+    /// `receiver:method(arguments)`, the arguments laid out as given.
+    fn format_method_call_arguments(&mut self, method_call: &MethodCall, layout: Arguments) -> fmt::Result {
         let wrap = Self::should_wrap_left_rvalue(&method_call.value);
         if wrap {
             write!(self.output, "(")?;
@@ -3048,7 +3109,7 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
         write!(self.output, ":{}", method_call.method)?;
 
         write!(self.output, "(")?;
-        self.format_arg_list(&method_call.arguments, multiline)?;
+        self.format_arg_list(&method_call.arguments, layout)?;
         write!(self.output, ")")
     }
 
@@ -3069,6 +3130,7 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
             emission_map: None,
             layout_budget: self.layout_budget,
             compact_annotations: self.compact_annotations,
+            inferred_calls: self.inferred_calls.clone(),
         };
         sub.format_rvalue(rvalue).ok()?;
         Some(buffer)
@@ -3104,11 +3166,12 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
         }
     }
 
-    /// Try to convert `("<fmt>"):format(<args>)` into a backtick interpolated
-    /// string. Returns `None` (abort to `:format`) on any specifier other than
-    /// `%*`/`%%`, on an arity mismatch, or on a static byte that cannot be safely
-    /// represented inside backticks.
-    fn try_format_interpolation(&self, bytes: &[u8], arguments: &[RValue]) -> Option<String> {
+    /// The escaped static text of `("<fmt>"):format(<args>)` as a backtick
+    /// interpolated string: the piece before each argument, then the tail.
+    /// `None` (keep `:format`) on any specifier other than `%*`/`%%`, on an
+    /// arity mismatch, or on a static byte that cannot be safely represented
+    /// inside backticks. Static checks only: no argument is rendered.
+    fn interpolation_plan(bytes: &[u8], arguments: &[RValue]) -> Option<(Vec<String>, String)> {
         // An open tail may supply zero values. A placeholder would scalarize
         // it to nil and suppress format's missing-argument error.
         if matches!(arguments.last(), Some(RValue::Call(_) | RValue::MethodCall(_) | RValue::VarArg(_))) {
@@ -3117,11 +3180,6 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
         // Static text re-lexes inside backticks; bytes must be valid UTF-8 so we
         // can reason about each character (invalid UTF-8 aborts).
         let text = std::str::from_utf8(bytes).ok()?;
-
-        // Escape the static text and find the placeholders before rendering
-        // any argument: a format rejected after a rendered `%*` argument would
-        // render that subtree again in the fallback, doubling the work at
-        // every level of nested format calls.
         let mut pieces = Vec::new();
         let mut piece = String::new();
         let mut chars = text.chars();
@@ -3138,10 +3196,37 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
             }
         }
         // Require exactly one `%*` per argument.
-        if pieces.len() != arguments.len() {
-            return None;
-        }
+        (pieces.len() == arguments.len()).then_some((pieces, piece))
+    }
 
+    /// Whether this call prints as a backtick string (an expression context
+    /// assumed): one value, which a last position never spreads.
+    fn prints_as_interpolation(method_call: &MethodCall) -> bool {
+        method_call.method == "format"
+            && matches!(method_call.value.as_ref(), RValue::Literal(Literal::String(bytes))
+                if Self::interpolation_plan(bytes, &method_call.arguments).is_some())
+    }
+
+    /// Whether a value in a last, spreading position (a call's last argument,
+    /// a constructor's positional tail, `return`'s last value) needs `(...)`
+    /// to keep one result: an adjust-to-one `Select`, unless it prints as a
+    /// backtick string.
+    fn needs_truncation_parens(value: &RValue) -> bool {
+        match value {
+            RValue::Select(Select::MethodCall(method_call)) => !Self::prints_as_interpolation(method_call),
+            RValue::Select(_) => true,
+            _ => false,
+        }
+    }
+
+    /// Try to convert `("<fmt>"):format(<args>)` into a backtick interpolated
+    /// string (see [`Self::interpolation_plan`]).
+    fn try_format_interpolation(&self, bytes: &[u8], arguments: &[RValue]) -> Option<String> {
+        // Escape the static text and find the placeholders before rendering
+        // any argument: a format rejected after a rendered `%*` argument would
+        // render that subtree again in the fallback, doubling the work at
+        // every level of nested format calls.
+        let (pieces, piece) = Self::interpolation_plan(bytes, arguments)?;
         let mut out = String::from("`");
         for (text, argument) in pieces.iter().zip(arguments) {
             out.push_str(text);
@@ -3185,11 +3270,9 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
     }
 
     pub(crate) fn format_if(&mut self, r#if: &If) -> fmt::Result {
-        write!(self.output, "if ")?;
-
-        self.format_rvalue(&r#if.condition)?;
-
-        writeln!(self.output, " then")?;
+        self.format_condition_header("if", &r#if.condition, Some("then"))?;
+        self.header_site_comment(r#if)?;
+        writeln!(self.output)?;
 
         let then_block = r#if.then_block.lock();
         if !then_block.is_empty() {
@@ -3217,10 +3300,6 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
     }
 
     pub(crate) fn format_assign(&mut self, assign: &Assign) -> fmt::Result {
-        if assign.prefix {
-            write!(self.output, "local ")?;
-        }
-
         if assign.left.len() == 1
             && assign.right.len() == 1
             && let RValue::Closure(closure) = &assign.right[0]
@@ -3257,8 +3336,19 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
                     false
                 }
             } {
+                // An attribute precedes `local function f`.
+                if closure.function.lock().native {
+                    write!(self.output, "@native ")?;
+                }
+                if assign.prefix {
+                    write!(self.output, "local ")?;
+                }
                 return self.format_named_function(left, closure, assign.prefix);
             }
+        }
+
+        if assign.prefix {
+            write!(self.output, "local ")?;
         }
 
         // Compound assignment: render `x = x <op> rhs` as `x <op>= rhs`, matching
@@ -3324,6 +3414,8 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
             }
             if let (RValue::Closure(closure), Some(target)) = (rvalue, assign.left.get(i)) {
                 self.format_assigned_closure(closure, target)?;
+            } else if assign.left.len() == 1 && assign.right.len() == 1 {
+                self.format_hanging_value(rvalue)?;
             } else {
                 self.format_rvalue(rvalue)?;
             }
@@ -3351,11 +3443,9 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
     }
 
     pub(crate) fn format_while(&mut self, r#while: &While) -> fmt::Result {
-        write!(self.output, "while ")?;
-
-        self.format_rvalue(&r#while.condition)?;
-
-        writeln!(self.output, " do")?;
+        self.format_condition_header("while", &r#while.condition, Some("do"))?;
+        self.header_site_comment(r#while)?;
+        writeln!(self.output)?;
 
         self.format_block(&r#while.block.lock())?;
         writeln!(self.output)?;
@@ -3368,10 +3458,7 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
         self.format_block(&repeat.block.lock())?;
         writeln!(self.output)?;
         self.indent()?;
-
-        write!(self.output, "until ")?;
-
-        self.format_rvalue(&repeat.condition)
+        self.format_condition_header("until", &repeat.condition, None)
     }
 
     pub(crate) fn format_numeric_for(&mut self, numeric_for: &NumericFor) -> fmt::Result {
@@ -3390,7 +3477,9 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
             write!(self.output, ", ")?;
             self.format_rvalue(&numeric_for.step)?;
         }
-        writeln!(self.output, " do")?;
+        write!(self.output, " do")?;
+        self.header_site_comment(numeric_for)?;
+        writeln!(self.output)?;
         self.format_block(&numeric_for.block.lock())?;
         writeln!(self.output)?;
         self.indent()?;
@@ -3422,7 +3511,9 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
             }
             self.format_rvalue(rvalue)?;
         }
-        writeln!(self.output, " do")?;
+        write!(self.output, " do")?;
+        self.header_site_comment(generic_for)?;
+        writeln!(self.output)?;
         self.format_block(&generic_for.block.lock())?;
         writeln!(self.output)?;
         self.indent()?;
@@ -3451,13 +3542,15 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
             // mirror `format_arg_list`. Non-last values are already arity-truncated
             // by the trailing comma, so they need no wrap. A bare `RValue::Call`/
             // `VarArg` (genuine multret) is not a `Select`, so it stays paren-free.
-            let wrap = i + 1 == r#return.values.len() && matches!(rvalue, RValue::Select(_));
+            let wrap = i + 1 == r#return.values.len() && Self::needs_truncation_parens(rvalue);
             if wrap {
                 write!(self.output, "(")?;
-            }
-            self.format_rvalue(rvalue)?;
-            if wrap {
+                self.format_rvalue(rvalue)?;
                 write!(self.output, ")")?;
+            } else if r#return.values.len() == 1 {
+                self.format_hanging_value(rvalue)?;
+            } else {
+                self.format_rvalue(rvalue)?;
             }
         }
 
