@@ -336,6 +336,18 @@ struct Target {
     /// returns (`return ignoreList`). Its copy leaves the value there, which
     /// the statement after it may read first ([`host_returned_cell`]).
     returns_cell: Option<RcLocal>,
+    /// A specialization variant ([`specialization_variants`]): the truth
+    /// parameter its pattern was specialized for, and the constant its
+    /// calls pass there.
+    inferred: Option<(RcLocal, InferredTruth)>,
+    /// The helper's own locals declared once as a function literal that
+    /// DUPCLOSURE shares, and only ever called, there and in its own body
+    /// (`local function DeepCopy(t) ... DeepCopy(v) ... end; return
+    /// DeepCopy(t)`): no code can see whether the helper's object or the
+    /// copy's runs, so such a literal may match ([`unify_closure`]). The
+    /// site's local is the region's own, dead after it, and unifies with
+    /// these reads one for one.
+    private_closures: FxHashSet<RcLocal>,
     captures: std::rc::Rc<crate::deinline_safety::CaptureSafety>,
     search: std::rc::Rc<crate::deinline_safety::SearchBudget>,
 }
@@ -408,6 +420,15 @@ impl Target {
             let unwritten: Vec<RcLocal> = self.param_order.iter().filter(|p| self.params.contains(*p)).cloned().collect();
             crate::evaluation_order::LeadingReads::new(&self.pat, &unwritten, |p| count_local_reads(&self.pat, p) == 1, &facts)
         })
+    }
+
+    /// A specialization variant ([`Target::inferred`]) is tried only once
+    /// the other targets are stable, with the assignment phase: a copy for
+    /// a non-constant argument (`f(x, p >= 50)`, an `if` around both
+    /// specialized bodies) holds a variant's copy in each arm, and the
+    /// whole copy must be rebuilt before its arms are.
+    fn late(&self) -> bool {
+        self.inferred.is_some()
     }
 
     /// [`Target::free_cells`].
@@ -543,8 +564,9 @@ pub fn deinline(body: &mut Block) {
             let _span = crate::telemetry::Span::new("D_COLLECT_TARGETS");
             let mut targets = match unchanged_targets.take() {
                 Some(targets) => {
-                    // What the previous scan of this tree tried and found.
-                    let tried = targets.iter().map(|target| target.focused).collect();
+                    // What the previous scan of this tree tried and found;
+                    // the late targets wait for the assignment phase.
+                    let tried = targets.iter().map(|target| target.focused && (!target.late() || target.assigns)).collect();
                     let with_closure = targets.iter().map(|target| block_has_closure(&target.pat)).collect();
                     rescan = previous.as_mut().map(|previous| Rescan {
                         tried,
@@ -562,7 +584,7 @@ pub fn deinline(body: &mut Block) {
                     crate::telemetry::count("accepted_targets", targets.len() as u64);
                     // The budget counts helpers: a value helper's discard
                     // variant shares its definition.
-                    if targets.iter().filter(|target| !target.discarded).count() > 256 {
+                    if targets.iter().filter(|target| !target.discarded && target.inferred.is_none()).count() > 256 {
                         crate::telemetry::count("target_budget_exhausted", 1);
                         break;
                     }
@@ -573,8 +595,9 @@ pub fn deinline(body: &mut Block) {
                 target.search = search.clone();
                 target.assigns = assign_phase;
                 if entering_assign_phase {
-                    // Only a value helper can match anew, through a store.
-                    target.focused = target.kind == TKind::Value;
+                    // Only a value helper can match anew, through a store,
+                    // or a late target ([`Target::late`]).
+                    target.focused = target.kind == TKind::Value || target.late();
                 } else if let Some(previous) = &previous {
                     target.focused = target.cps_loop_return
                         || previous.contested.contains(&target.f_local)
@@ -638,7 +661,7 @@ pub fn deinline(body: &mut Block) {
         // is bounded by the initial AST size.
         entering_assign_phase = false;
         if newly.binders.is_empty() {
-            if assign_phase || !targets.iter().any(|target| target.kind == TKind::Value) {
+            if assign_phase || !targets.iter().any(|target| target.kind == TKind::Value || target.late()) {
                 break;
             }
             assign_phase = true;
@@ -2338,6 +2361,14 @@ fn unify_assignment(t: &Target, ctx: &MatchCtx, p: &Statement, ca: &Assign, pref
             for (pl, cl) in pa.left.iter().zip(&ca.left) {
                 unify_lvalue(ctx, pl, cl, b)?;
             }
+            // A local function of the helper called and nothing else: a
+            // shared closure there is no object any code sees.
+            if let ([LValue::Local(binder)], [RValue::Closure(pattern)], [RValue::Closure(site)]) =
+                (pa.left.as_slice(), pa.right.as_slice(), ca.right.as_slice())
+                && t.private_closures.contains(binder)
+            {
+                return unify_closure(ctx, pattern, site, true, b);
+            }
             for (pr, cr) in pa.right.iter().zip(&ca.right) {
                 unify_rvalue(ctx, pr, cr, b)?;
             }
@@ -2515,7 +2546,7 @@ pub(crate) fn unify_rvalue(
         (RValue::Call(a), RValue::Call(d)) => unify_call(ctx, a, d, b),
         (RValue::MethodCall(a), RValue::MethodCall(d)) => unify_method(ctx, a, d, b),
         (RValue::Table(a), RValue::Table(d)) => unify_table(ctx, a, d, b),
-        (RValue::Closure(a), RValue::Closure(d)) => unify_closure(ctx, a, d, b),
+        (RValue::Closure(a), RValue::Closure(d)) => unify_closure(ctx, a, d, false, b),
         (RValue::VarArg(_), RValue::VarArg(_)) => Ok(()),
         (RValue::Select(a), RValue::Select(d)) => unify_select(ctx, a, d, b),
         _ => Err(()),
@@ -2535,6 +2566,9 @@ fn unify_closure(
     ctx: &MatchCtx,
     pattern: &Closure,
     candidate: &Closure,
+    // Both are bound to a local only ever called ([`Target::private_closures`]):
+    // their identity is seen by no code.
+    private: bool,
     bindings: &mut Bindings,
 ) -> Result<(), ()> {
     let same_function = Arc::ptr_eq(&pattern.function.0, &candidate.function.0);
@@ -2553,7 +2587,7 @@ fn unify_closure(
         let function = candidate.function.0.lock();
         (function.bytecode_proto_id, function.closure_constant.is_some())
     };
-    if pattern_shared || candidate_shared {
+    if (pattern_shared || candidate_shared) && !private {
         return Err(());
     }
     if !same_function && (pattern_proto.is_none() || pattern_proto != candidate_proto) {
@@ -3613,10 +3647,15 @@ fn try_match_at(
         // canon/unify work is charged where it happens (`charge_unify`).
         if !t.search.spend(t.pat_spine_len.saturating_add(2)) { return Err(()); }
         let seen_without_site = rescan.is_some_and(|rescan| {
-            (rescan.tried[ti] || tried_everywhere)
+            // A late target was not tried before the assignment phase.
+            (rescan.tried[ti] || (tried_everywhere && !t.late()))
                 && !rescan.with_closure[ti]
                 && !rescan.found.contains(&(block, i, ti))
         });
+        // A late target waits for the assignment phase.
+        if t.late() && !t.assigns {
+            return Ok(None);
+        }
         let mut hit = if seen_without_site { None } else { match (t.kind, t.value_anchor) {
             (TKind::Void, _) => match_void(
                 stmts,
@@ -4749,7 +4788,13 @@ fn match_embedded_value(
         if u.result.as_ref() != Some(&result) || u.callee_locals.contains(&result) {
             return false;
         }
-        *value = hosted_call(t, u.args.clone(), false);
+        // A site keeping one result where all are taken keeps it so: the
+        // copy gave one value, and a helper not proven single-valued
+        // (`return table.clone(t)` on another path) may give more.
+        let wrap = spread != Spread::One
+            && !t.single_valued
+            && matches!(value, RValue::Select(Select::Call(_) | Select::MethodCall(_)));
+        *value = hosted_call(t, u.args.clone(), wrap);
         found = Some(u);
         true
     });
@@ -5686,10 +5731,19 @@ fn refused<T>(reason: &'static str) -> Option<T> {
 fn finish_unified(
     t: &Target,
     cwin: &[Statement],
-    b: Bindings,
+    mut b: Bindings,
     // The function the site is in: its registers read alike across calls.
     current_func: Option<FnPtr>,
 ) -> Option<Unified> {
+    // A specialization variant passes its constant, where nothing the
+    // specialization kept (a function literal's capture) read the argument
+    // the site passed instead.
+    if let Some((param, truth)) = &t.inferred {
+        if b.params.contains_key(param) {
+            return refused("constant_parameter_still_read");
+        }
+        b.params.insert(param.clone(), RValue::Literal(truth.literal()));
+    }
     let mut args = Vec::with_capacity(t.param_order.len());
     let mut written = Vec::new();
     for (idx, p) in t.param_order.iter().enumerate() {
@@ -5805,6 +5859,15 @@ fn finish_unified(
     for l in &returned {
         callee_locals.remove(l);
     }
+    let mut inferred = None;
+    if let Some((param, _)) = &t.inferred {
+        // A `nil` stays written: Luau's inliner weighs a constant argument,
+        // not one left out, and the copy has another shape only for one.
+        if !specialization_is_honest(t, cwin, &args) {
+            return refused("specialization_no_larger_than_call");
+        }
+        inferred = Some(param.clone());
+    }
     Some(Unified {
         // Every target is non-variadic, so a trailing call's extra results
         // fill no parameter the body reads: `helper(f())` needs no `(f())`,
@@ -5813,7 +5876,7 @@ fn finish_unified(
         result: b.result,
         callee_locals,
         returned,
-        inferred: None,
+        inferred,
         written,
         first_moved,
     })
@@ -6255,6 +6318,9 @@ fn specialization_is_honest(t: &Target, cwin: &[Statement], args: &[RValue]) -> 
         if is_import_path(value) {
             return 1;
         }
+        if let RValue::Closure(closure) = value {
+            return 1 + closure.function.0.lock().body.0.iter().map(statement_nodes).sum::<usize>();
+        }
         let mut count = 1;
         value.visit_rvalues(&mut |child| {
             count += nodes(child);
@@ -6367,6 +6433,11 @@ fn try_truth(
     }
     let mut bindings = Bindings::default();
     unify_block(t, &specialized, cwin, &mut bindings).ok()?;
+    // A read the specialization kept (a function literal's capture) holds
+    // the argument the site passed, which the constant is not.
+    if bindings.params.contains_key(param) {
+        return refused("constant_parameter_still_read");
+    }
     bindings.params.insert(param.clone(), RValue::Literal(truth.literal()));
     let mut unified = finish_unified(t, cwin, bindings, current_func)?;
     unified.inferred = Some(param.clone());
@@ -6463,6 +6534,15 @@ fn truth_tested_params(
                 truth(&select.condition, params, found);
                 operands(&select.then_value, params, found);
                 operands(&select.else_value, params, found);
+            }
+            // A function literal holds the value it captures.
+            RValue::Closure(closure) => {
+                for upvalue in &closure.upvalues {
+                    let (Upvalue::Copy(local) | Upvalue::Ref(local)) = upvalue;
+                    if params.contains(local) {
+                        found.valued.insert(local.clone());
+                    }
+                }
             }
             other => {
                 other.visit_rvalues(&mut |child| {
@@ -7507,24 +7587,7 @@ fn collect_targets(
         // liveness) runs over `prefix ++ region`, so K>1 cannot smuggle anything
         // past the gates the K==1 path already enforces. MAX_PREFIX bounds the
         // per-position work (the matcher's single per-width loop is unchanged).
-        const MAX_PREFIX: usize = 4;
-        let (value_anchor, prefix_len) = if kind == TKind::Value && pat.len() >= 2 && loop_exit_at.is_none() {
-            let k = pat.len() - 1;
-            if (1..=MAX_PREFIX).contains(&k)
-                && pat[..k].iter().all(|s| {
-                    matches!(
-                        s,
-                        Statement::Assign(_) | Statement::Call(_) | Statement::MethodCall(_)
-                    )
-                })
-            {
-                (ValueAnchor::AtPrefix, k)
-            } else {
-                (ValueAnchor::AtResultDecl, 0)
-            }
-        } else {
-            (ValueAnchor::AtResultDecl, 0)
-        };
+        let (value_anchor, prefix_len) = value_anchor_of(kind, &pat, loop_exit_at);
         // The parameters a value leaf hands back as they are, and the one
         // every leaf does, if any.
         let mut leaves = Vec::new();
@@ -7588,10 +7651,88 @@ fn collect_targets(
             single_valued: target.single_valued,
             ..common.target(TKind::Void, pattern, &raw)
         });
+        let variants = specialization_variants(&target, &common, &body);
         targets.push(target);
         targets.extend(discard_target);
+        targets.extend(variants);
     }
     targets
+}
+
+/// Where a value pattern's result sits at its sites ([`ValueAnchor`]), and
+/// the number of statements before its value branch.
+fn value_anchor_of(kind: TKind, pat: &[Statement], loop_exit_at: Option<usize>) -> (ValueAnchor, usize) {
+    const MAX_PREFIX: usize = 4;
+    if kind == TKind::Value && pat.len() >= 2 && loop_exit_at.is_none() {
+        let k = pat.len() - 1;
+        if (1..=MAX_PREFIX).contains(&k)
+            && pat[..k].iter().all(|s| matches!(s, Statement::Assign(_) | Statement::Call(_) | Statement::MethodCall(_)))
+        {
+            return (ValueAnchor::AtPrefix, k);
+        }
+    }
+    (ValueAnchor::AtResultDecl, 0)
+}
+
+/// Specialization variants of `t`: a copy Luau made for a constant argument
+/// that it folded away may have another shape than the body (`Copy(v,
+/// true)` drops the `if not deep` around the rest: `local function DeepCopy
+/// ... end; r = DeepCopy(v)`). For each truth parameter ([`Target::truth_params`])
+/// and each constant giving another statement count, the specialized body
+/// is matched as a target of its own, through every site shape its kind
+/// has, the constant passed for the parameter ([`Target::inferred`]). A void
+/// copy shorter than its body is the base target's own Tier B already
+/// ([`match_void`]); only a longer one gets a variant. Where both constants
+/// give one shape, the copy says nothing of the argument: no variant. A
+/// variant stands only where the copy is larger than its call
+/// ([`specialization_is_honest`]). Built once per helper.
+fn specialization_variants(t: &Target, common: &TargetCommon, raw: &[Statement]) -> Vec<Target> {
+    if t.truth_params.is_empty()
+        || t.truth_params.len() > MAX_TRUTH_PARAMS
+        || t.loop_exit_at.is_some()
+        || t.cps_loop_return
+        || !t.returns.is_empty()
+    {
+        return Vec::new();
+    }
+    let mut variants = Vec::new();
+    for param in &t.truth_params {
+        let falsy = if t.optional_params.contains(param) { InferredTruth::Nil } else { InferredTruth::False };
+        let mut shapes: Vec<(InferredTruth, Vec<Statement>)> = Vec::new();
+        for truth in [InferredTruth::True, falsy] {
+            // `canon` deep-copies every block-bearing statement, avoiding
+            // mutation of the recovered function body's shared Arcs.
+            let mut specialized = canon(&t.pat);
+            specialize_block(&mut specialized, &FxHashMap::from_iter([(param.clone(), RValue::Literal(truth.literal()))]));
+            let specialized = canon(&specialized);
+            let changed = match t.kind {
+                TKind::Value => specialized.len() != t.pat.len() && value_leaf_shape(&specialized),
+                TKind::Void => specialized.len() > t.pat.len() && !block_has_return(&specialized),
+            };
+            if changed && anchor_score(&specialized, &t.param_order) >= 2 {
+                shapes.push((truth, specialized));
+            }
+        }
+        if let [(_, a), (_, b)] = shapes.as_slice()
+            && crate::factor_common_tails::block_alpha_eq(a, b)
+        {
+            continue;
+        }
+        for (truth, pattern) in shapes {
+            let (value_anchor, prefix_len) = value_anchor_of(t.kind, &pattern, None);
+            let mut variant = common.target(t.kind, pattern, raw);
+            variant.value_anchor = value_anchor;
+            variant.prefix_len = prefix_len;
+            variant.falls_off = t.falls_off;
+            variant.single_valued = t.single_valued;
+            variant.specializable = false;
+            variant.truth_params = Vec::new();
+            variant.optional_params = Vec::new();
+            variant.inferred = Some((param.clone(), truth));
+            variants.push(variant);
+        }
+    }
+    variants
 }
 
 /// The facts a helper's targets share, whatever pattern each matches.
@@ -7624,6 +7765,7 @@ impl TargetCommon<'_> {
         let pat0_kind = std::mem::discriminant(&pat[0]);
         let pat0_anchor_key = stmt_anchor_key(&pat[0]);
         let pat_nodes = pat.iter().map(dbg_stmt_node_count).sum();
+        let pat_for_private = pat.clone();
         Target {
             f_local: self.f_local.clone(),
             func_ptr: self.func_ptr,
@@ -7659,8 +7801,117 @@ impl TargetCommon<'_> {
             single_valued: false,
             hosted: None,
             returns_cell: None,
+            inferred: None,
+            private_closures: private_closures(&pat_for_private),
             captures: self.captures.clone(),
             search: Default::default(),
+        }
+    }
+}
+
+/// [`Target::private_closures`] of `pattern`: a local assigned one shared
+/// function literal (`local function f`, or `local f; f = function` where
+/// the literal reads `f`) and nothing else, read only as a callee and by
+/// the one capture of its own literal.
+fn private_closures(pattern: &[Statement]) -> FxHashSet<RcLocal> {
+    // Each local assigned a shared literal, with how many times; and each
+    // init-less declaration.
+    fn walk(stmts: &[Statement], literals: &mut FxHashMap<RcLocal, usize>, declared: &mut FxHashMap<RcLocal, usize>) {
+        for statement in stmts {
+            if let Statement::Assign(assign) = statement
+                && let [LValue::Local(local)] = assign.left.as_slice()
+            {
+                match assign.right.as_slice() {
+                    [RValue::Closure(closure)] if closure.function.0.lock().closure_constant.is_some() => {
+                        *literals.entry(local.clone()).or_default() += 1;
+                    }
+                    [] if assign.prefix => *declared.entry(local.clone()).or_default() += 1,
+                    _ => {}
+                }
+            }
+            match statement {
+                Statement::If(branch) => {
+                    walk(&branch.then_block.lock().0, literals, declared);
+                    walk(&branch.else_block.lock().0, literals, declared);
+                }
+                Statement::While(node) => walk(&node.block.lock().0, literals, declared),
+                Statement::Repeat(node) => walk(&node.block.lock().0, literals, declared),
+                Statement::NumericFor(node) => walk(&node.block.lock().0, literals, declared),
+                Statement::GenericFor(node) => walk(&node.block.lock().0, literals, declared),
+                _ => {}
+            }
+        }
+    }
+    let mut found = FxHashSet::default();
+    let (mut literals, mut declared) = (FxHashMap::default(), FxHashMap::default());
+    walk(pattern, &mut literals, &mut declared);
+    if literals.is_empty() {
+        return found;
+    }
+    let mut writes = FxHashMap::default();
+    crate::expr_deinline::collect_write_counts(pattern, &mut writes);
+    for (binder, assigned) in literals {
+        let declarations = declared.get(&binder).copied().unwrap_or(0);
+        if assigned != 1 || declarations > 1 || writes.get(&binder).copied() != Some(1 + declarations) {
+            continue;
+        }
+        // Every read a callee, but the one capture its own literal makes.
+        let (mut calls, mut captures) = (0, 0);
+        count_callee_reads(pattern, &binder, &mut calls, &mut captures);
+        if captures <= 1 && count_local_reads(pattern, &binder) == calls + captures {
+            found.insert(binder);
+        }
+    }
+    found
+}
+
+/// The reads of `local` in `stmts` as the callee of a call, and its
+/// captures by function literals, at any depth, function bodies included.
+fn count_callee_reads(stmts: &[Statement], local: &RcLocal, calls: &mut usize, captures: &mut usize) {
+    fn value(value: &RValue, local: &RcLocal, calls: &mut usize, captures: &mut usize) {
+        match value {
+            RValue::Call(call) | RValue::Select(Select::Call(call))
+                if matches!(call.value.as_ref(), RValue::Local(callee) if callee == local) =>
+            {
+                *calls += 1;
+            }
+            RValue::Closure(closure) => {
+                *captures += closure.upvalues.iter().filter(|upvalue| matches!(upvalue, Upvalue::Copy(l) | Upvalue::Ref(l) if l == local)).count();
+                count_callee_reads(&closure.function.0.lock().body.0, local, calls, captures);
+            }
+            _ => {}
+        }
+        value_children(value, local, calls, captures);
+    }
+    fn value_children(parent: &RValue, local: &RcLocal, calls: &mut usize, captures: &mut usize) {
+        if matches!(parent, RValue::Closure(_)) {
+            return;
+        }
+        parent.visit_rvalues(&mut |child| {
+            value(child, local, calls, captures);
+            true
+        });
+    }
+    for statement in stmts {
+        if let Statement::Call(call) = statement
+            && matches!(call.value.as_ref(), RValue::Local(callee) if callee == local)
+        {
+            *calls += 1;
+        }
+        visit_stmt_rvalues(statement, &mut |v| {
+            value(v, local, calls, captures);
+            true
+        });
+        match statement {
+            Statement::If(branch) => {
+                count_callee_reads(&branch.then_block.lock().0, local, calls, captures);
+                count_callee_reads(&branch.else_block.lock().0, local, calls, captures);
+            }
+            Statement::While(node) => count_callee_reads(&node.block.lock().0, local, calls, captures),
+            Statement::Repeat(node) => count_callee_reads(&node.block.lock().0, local, calls, captures),
+            Statement::NumericFor(node) => count_callee_reads(&node.block.lock().0, local, calls, captures),
+            Statement::GenericFor(node) => count_callee_reads(&node.block.lock().0, local, calls, captures),
+            _ => {}
         }
     }
 }
@@ -8710,6 +8961,8 @@ mod tests {
             single_valued: false,
             hosted: None,
             returns_cell: None,
+            inferred: None,
+            private_closures: FxHashSet::default(),
             captures: Default::default(),
             search: Default::default(),
         }
@@ -9501,6 +9754,8 @@ mod tests {
             single_valued: false,
             hosted: None,
             returns_cell: None,
+            inferred: None,
+            private_closures: FxHashSet::default(),
             captures: Default::default(),
             search: Default::default(),
         };
@@ -9588,6 +9843,8 @@ mod tests {
             single_valued: false,
             hosted: None,
             returns_cell: None,
+            inferred: None,
+            private_closures: FxHashSet::default(),
             captures: Default::default(),
             search: Default::default(),
         };
@@ -9665,6 +9922,8 @@ mod tests {
             single_valued: false,
             hosted: None,
             returns_cell: None,
+            inferred: None,
+            private_closures: FxHashSet::default(),
             captures: Default::default(),
             search: Default::default(),
         };
@@ -9757,6 +10016,8 @@ mod tests {
             single_valued: false,
             hosted: None,
             returns_cell: None,
+            inferred: None,
+            private_closures: FxHashSet::default(),
             captures: Default::default(),
             search: Default::default(),
         };
@@ -10107,6 +10368,8 @@ mod tests {
             single_valued: false,
             hosted: None,
             returns_cell: None,
+            inferred: None,
+            private_closures: FxHashSet::default(),
             captures: Default::default(),
             search: Default::default(),
         };
@@ -10207,6 +10470,8 @@ mod tests {
             single_valued: false,
             hosted: None,
             returns_cell: None,
+            inferred: None,
+            private_closures: FxHashSet::default(),
             captures: Default::default(),
             search: Default::default(),
         }
@@ -10369,6 +10634,8 @@ mod tests {
             single_valued: false,
             hosted: None,
             returns_cell: None,
+            inferred: None,
+            private_closures: FxHashSet::default(),
             captures: Default::default(),
             search: Default::default(),
         }
@@ -10426,6 +10693,8 @@ mod tests {
             single_valued: false,
             hosted: None,
             returns_cell: None,
+            inferred: None,
+            private_closures: FxHashSet::default(),
             captures: Default::default(),
             search: Default::default(),
         }
@@ -11600,6 +11869,8 @@ mod tests {
             single_valued: false,
             hosted: None,
             returns_cell: None,
+            inferred: None,
+            private_closures: FxHashSet::default(),
             captures: Default::default(),
             search: Default::default(),
         };
@@ -11940,6 +12211,121 @@ mod tests {
         assert!(output.contains("print(1, rep(x.name, 2, \"!\"))"), "{output}");
     }
 
+    fn helper_with_params(name: &RcLocal, parameters: Vec<RcLocal>, body: Vec<Statement>) -> Statement {
+        let declaration = helper_decl(name, body);
+        if let Statement::Assign(assign) = &declaration
+            && let RValue::Closure(closure) = &assign.right[0]
+        {
+            closure.function.lock().parameters = parameters;
+        }
+        declaration
+    }
+
+    fn closure_of(proto: usize, shared: bool, upvalues: Vec<Upvalue>, body: Vec<Statement>) -> RValue {
+        RValue::Closure(Closure {
+            node_origin: Default::default(),
+            function: ByAddress(Arc::new(Mutex::new(Function {
+                bytecode_proto_id: Some(proto),
+                closure_constant: shared.then_some(0),
+                body: Block(body),
+                ..Function::default()
+            }))),
+            upvalues,
+        })
+    }
+
+    #[test]
+    fn a_copy_for_a_constant_with_another_shape_matches_its_specialization() {
+        // local function f(t, deep) if not deep then return clone(t) end
+        //     local out = copyAll(t); out.deep = true; return out end
+        let (f, t, deep, out, v, out2) = (local("f"), local("t"), local("deep"), local("out"), local("v"), local("out2"));
+        let body = vec![
+            Statement::If(If::new(not_rv(local_value(&deep)), Block(vec![return_one(call1(global("clone"), local_value(&t)))]), Block::default())),
+            assign_local(&out, call1(global("copyAll"), local_value(&t)), true),
+            Statement::Assign(Assign::new(vec![LValue::Index(crate::Index::new(local_value(&out), string("deep")))], vec![boolean(true)])),
+            return_one(local_value(&out)),
+        ];
+        let mut block = Block(vec![
+            helper_with_params(&f, vec![t.clone(), deep.clone()], body),
+            assign_local(&v, global("input"), true),
+            assign_local(&out2, call1(global("copyAll"), local_value(&v)), true),
+            Statement::Assign(Assign::new(vec![LValue::Index(crate::Index::new(local_value(&out2), string("deep")))], vec![boolean(true)])),
+            Statement::Call(global_call("print", vec![local_value(&out2)])),
+        ]);
+        deinline(&mut block);
+        let output = block.to_string();
+        assert!(output.contains("print(f(v, true))"), "{output}");
+    }
+
+    #[test]
+    fn a_copy_holding_both_specializations_in_its_arms_is_rebuilt_whole() {
+        // local function paint(b, on) if on then b.Auto = true; b.Alpha = 0
+        //     else b.Auto = false; b.Alpha = 0.5 end end
+        let (paint, b, on, button, n) = (local("paint"), local("b"), local("on"), local("button"), local("n"));
+        let arm = |object: &RcLocal, auto: bool, alpha: f64| {
+            vec![
+                Statement::Assign(Assign::new(vec![LValue::Index(crate::Index::new(local_value(object), string("Auto")))], vec![boolean(auto)])),
+                Statement::Assign(Assign::new(vec![LValue::Index(crate::Index::new(local_value(object), string("Alpha")))], vec![number(alpha)])),
+            ]
+        };
+        let body = vec![Statement::If(If::new(local_value(&on), Block(arm(&b, true, 0.0)), Block(arm(&b, false, 0.5))))];
+        let condition = bin(local_value(&n), BinaryOperation::GreaterThanOrEqual, number(50.0));
+        let mut block = Block(vec![
+            helper_with_params(&paint, vec![b.clone(), on.clone()], body),
+            assign_local(&button, global("input"), true),
+            assign_local(&n, global("count"), true),
+            Statement::If(If::new(condition, Block(arm(&button, true, 0.0)), Block(arm(&button, false, 0.5)))),
+        ]);
+        deinline(&mut block);
+        let output = block.to_string();
+        assert!(output.contains("paint(button, n >= 50)") && !output.contains("paint(button, true)"), "{output}");
+    }
+
+    #[test]
+    fn a_constant_is_never_inferred_for_a_parameter_a_literal_still_captures() {
+        // local function play(cb, m) if not m then return end; run(function() cb(m) end) end
+        // copied under the caller's own `if child then`: only the literal is
+        // left, capturing `child`, which `true` is not.
+        let (play, cb, m, act, child) = (local("play"), local("cb"), local("m"), local("act"), local("child"));
+        let literal = |callback: &RcLocal, model: &RcLocal| {
+            closure_of(7, false, vec![Upvalue::Copy(callback.clone()), Upvalue::Copy(model.clone())],
+                vec![Statement::Call(Call::new(local_value(callback), vec![local_value(model)]))])
+        };
+        let body = vec![
+            Statement::If(If::new(not_rv(local_value(&m)), Block(vec![void_return()]), Block::default())),
+            Statement::Call(global_call("run", vec![literal(&cb, &m)])),
+        ];
+        let mut block = Block(vec![
+            helper_with_params(&play, vec![cb.clone(), m.clone()], body),
+            assign_local(&act, global("act"), true),
+            assign_local(&child, global("input"), true),
+            Statement::If(If::new(local_value(&child), Block(vec![Statement::Call(global_call("run", vec![literal(&act, &child)]))]), Block::default())),
+        ]);
+        deinline(&mut block);
+        let output = block.to_string();
+        assert!(!output.contains("play(act, true)"), "{output}");
+    }
+
+    #[test]
+    fn a_shared_literal_only_ever_called_is_private() {
+        // local function deepCopy(t) ... deepCopy(v) ... end; return deepCopy(t)
+        let (binder, t, v) = (local("deepCopy"), local("t"), local("v"));
+        let body = vec![Statement::Call(Call::new(local_value(&binder), vec![local_value(&v)]))];
+        let declared = |escapes: bool| {
+            let mut pattern = vec![
+                assign_local(&binder, closure_of(3, true, vec![Upvalue::Ref(binder.clone())], body.clone()), true),
+                return_one(RValue::Select(crate::Select::Call(Call::new(local_value(&binder), vec![local_value(&t)])))),
+            ];
+            if escapes {
+                pattern.insert(1, Statement::Call(global_call("store", vec![local_value(&binder)])));
+            }
+            pattern
+        };
+        assert!(private_closures(&declared(false)).contains(&binder));
+        // Passed on, its identity can be seen.
+        assert!(!private_closures(&declared(true)).contains(&binder));
+    }
+
     #[test]
     fn a_call_the_helper_truncates_matches_a_site_call_taking_one_value() {
         let (helper, s, x) = (local("first"), local("s"), local("x"));
@@ -11976,7 +12362,7 @@ mod tests {
         let (params, locals) = (FxHashSet::default(), FxHashSet::default());
         let unify = |captures: &crate::deinline_safety::CaptureSafety, pattern: Upvalue, site: Upvalue| {
             let ctx = MatchCtx { params: &params, locals: &locals, captures: Some(captures) };
-            unify_closure(&ctx, &closure(pattern), &closure(site), &mut Bindings::default()).is_ok()
+            unify_closure(&ctx, &closure(pattern), &closure(site), false, &mut Bindings::default()).is_ok()
         };
         // The helper's closure reaches it through its own upvalue, the copy
         // straight from the caller's local.

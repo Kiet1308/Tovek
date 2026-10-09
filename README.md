@@ -180,7 +180,9 @@ other scripts is assumed not to inspect this script's frames.
 
 A rebuilt call that names a constant the copy folded away (`fade(part, true)`)
 stands only where the copy is larger than the call: a copy reduced to one call
-of its own size (`table.clone(t)` for `Copy(t)`) keeps its code. A helper
+of its own size (`table.clone(t)` for `Copy(t)`) keeps its code. Such a constant
+is never inferred where the copy still reads the argument the caller passed (a
+function literal capturing it). A helper
 stored under its own name (`M.Copy = Copy`) keeps its `local function` beside
 that store where its calls are rebuilt, and prints as `function M.Copy`
 otherwise.
@@ -193,7 +195,9 @@ variables the output cannot show to hold one value stay separate literals, and
 compare unequal where the bytecode may compare equal. Code holding such a
 literal is never rebuilt into a helper call: the call would load the helper's
 own constant, one object for every caller, where each calling function's copy
-loaded a constant of its own.
+loaded a constant of its own. A literal bound to a local of the helper that is
+only ever called (a local recursive function such as `deepCopy`) is the
+exception: no code can tell those objects apart.
 
 Bytecode that no source spells is refused rather than approximated: a NAMECALL
 method that is no identifier, a FASTCALL whose fallback names another function

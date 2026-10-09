@@ -676,6 +676,18 @@
       "bytes": 3140,
       "lines": 157
     },
+    "semantic/deinline_constant_parameter_still_captured__O0.luau": {
+      "bytes": 418,
+      "lines": 31
+    },
+    "semantic/deinline_constant_parameter_still_captured__O1.luau": {
+      "bytes": 418,
+      "lines": 31
+    },
+    "semantic/deinline_constant_parameter_still_captured__O2.luau": {
+      "bytes": 614,
+      "lines": 41
+    },
     "semantic/deinline_discarded_result__O0.luau": {
       "bytes": 1021,
       "lines": 64
@@ -795,6 +807,18 @@
     "semantic/deinline_returns_distributed_and_short_circuit__O2.luau": {
       "bytes": 1818,
       "lines": 72
+    },
+    "semantic/deinline_specialized_copies__O0.luau": {
+      "bytes": 1197,
+      "lines": 77
+    },
+    "semantic/deinline_specialized_copies__O1.luau": {
+      "bytes": 1197,
+      "lines": 77
+    },
+    "semantic/deinline_specialized_copies__O2.luau": {
+      "bytes": 1515,
+      "lines": 84
     },
     "semantic/deinline_store_rebuilt_below_its_caller_copy__O0.luau": {
       "bytes": 2011,
