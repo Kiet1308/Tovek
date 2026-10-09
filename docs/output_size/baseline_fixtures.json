@@ -688,6 +688,18 @@
       "bytes": 175,
       "lines": 16
     },
+    "semantic/deinline_late_register_read_of_a_cell__O0.luau": {
+      "bytes": 707,
+      "lines": 42
+    },
+    "semantic/deinline_late_register_read_of_a_cell__O1.luau": {
+      "bytes": 707,
+      "lines": 42
+    },
+    "semantic/deinline_late_register_read_of_a_cell__O2.luau": {
+      "bytes": 746,
+      "lines": 47
+    },
     "semantic/deinline_method_receiver_read_late__O0.luau": {
       "bytes": 301,
       "lines": 22
@@ -1012,6 +1024,18 @@
       "bytes": 145,
       "lines": 7
     },
+    "semantic/fractions_over_source_denominators__O0.luau": {
+      "bytes": 578,
+      "lines": 37
+    },
+    "semantic/fractions_over_source_denominators__O1.luau": {
+      "bytes": 572,
+      "lines": 37
+    },
+    "semantic/fractions_over_source_denominators__O2.luau": {
+      "bytes": 548,
+      "lines": 37
+    },
     "semantic/function_from_debug_info_writes_cell__O0.luau": {
       "bytes": 221,
       "lines": 19
@@ -1131,6 +1155,18 @@
     "semantic/import_lookup_may_raise__O2.luau": {
       "bytes": 364,
       "lines": 21
+    },
+    "semantic/inferred_call_comment_on_its_first_line__O0.luau": {
+      "bytes": 878,
+      "lines": 56
+    },
+    "semantic/inferred_call_comment_on_its_first_line__O1.luau": {
+      "bytes": 878,
+      "lines": 56
+    },
+    "semantic/inferred_call_comment_on_its_first_line__O2.luau": {
+      "bytes": 1051,
+      "lines": 57
     },
     "semantic/inferred_call_comments__O0.luau": {
       "bytes": 1497,
@@ -1432,6 +1468,18 @@
       "bytes": 773,
       "lines": 52
     },
+    "semantic/naming_mixed_screaming_and_builtin_plurals__O0.luau": {
+      "bytes": 779,
+      "lines": 36
+    },
+    "semantic/naming_mixed_screaming_and_builtin_plurals__O1.luau": {
+      "bytes": 779,
+      "lines": 36
+    },
+    "semantic/naming_mixed_screaming_and_builtin_plurals__O2.luau": {
+      "bytes": 929,
+      "lines": 42
+    },
     "semantic/naming_sequential_bindings_stay_distinct__O0.luau": {
       "bytes": 376,
       "lines": 24
@@ -1443,6 +1491,30 @@
     "semantic/naming_sequential_bindings_stay_distinct__O2.luau": {
       "bytes": 429,
       "lines": 29
+    },
+    "semantic/naming_suffixes_from_evidence_stay__O0.luau": {
+      "bytes": 1132,
+      "lines": 52
+    },
+    "semantic/naming_suffixes_from_evidence_stay__O1.luau": {
+      "bytes": 1132,
+      "lines": 52
+    },
+    "semantic/naming_suffixes_from_evidence_stay__O2.luau": {
+      "bytes": 1238,
+      "lines": 52
+    },
+    "semantic/naming_taken_name_falls_back__O0.luau": {
+      "bytes": 725,
+      "lines": 38
+    },
+    "semantic/naming_taken_name_falls_back__O1.luau": {
+      "bytes": 725,
+      "lines": 38
+    },
+    "semantic/naming_taken_name_falls_back__O2.luau": {
+      "bytes": 826,
+      "lines": 39
     },
     "semantic/naming_unused_bindings_keep_their_reads__O0.luau": {
       "bytes": 630,

@@ -4316,6 +4316,15 @@ fn match_embedded_value(
         if value_kind(value) != root || evaluated_before.iter().any(&changed_by_prefix) {
             return false;
         }
+        // A local of the function's registers is read when the operation
+        // using it runs, after its other operands (`cache + hook()`): where
+        // one of them may change it, the call, run first, gives another value.
+        if let RValue::Local(local) = value
+            && register(local)
+            && crate::evaluation_order::region_late_read_conflict(&stmts[d..=d], local, &t.captures.may_change(local))
+        {
+            return false;
+        }
         // Where every result is taken, the call must give as many as the
         // value it replaces: a helper returning `(find(...))` is one value,
         // the inlined `find(...)` in `local a, b = ...` two.

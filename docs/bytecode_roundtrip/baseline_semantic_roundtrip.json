@@ -177,7 +177,13 @@
    "deinline_ordered_leading_reads": "M2a D4: ordered leading reads; 1 inequivalent proto (main), same at M1: Log.note and Service:Create print as table constructors (template LOADK 0 + SETTABLEKS)",
    "deinline_result_stored_into_its_argument": "M2a D1: assigned results with identity-leaf elision and argument-temp absorption; 1 inequivalent proto (copyInto), same at M1: an SSA phi printed as an init-less local (extra LOADNIL)",
    "deinline_written_parameter_alias": "M2a D1: written parameter standing for a dead caller local, loop-tail continue; 4 inequivalent protos, same at M1: init-less locals for SSA phis in kept/held (LOADNIL x2), main's held copy folds its captured constant 5 after recompiling (accept)",
-   "deinline_store_rebuilt_below_its_caller_copy": "De-inline fixture (2026-10-09): main recompiles the rebuilt Hitbox methods as inlined copies, so it differs by construction; Circle and Full stay exact only while the assignment-phase shortcut stops below a rewrite; baselined from the introducing stage output."
+   "deinline_store_rebuilt_below_its_caller_copy": "De-inline fixture (2026-10-09): main recompiles the rebuilt Hitbox methods as inlined copies, so it differs by construction; Circle and Full stay exact only while the assignment-phase shortcut stops below a rewrite; baselined from the introducing stage output.",
+   "deinline_late_register_read_of_a_cell": "m2b late register read fix, nonequiv 2: main and remote recompile the constructor-literal functions they print (hooks.bump, hooks.tag) as inlined copies, by construction",
+   "fractions_over_source_denominators": "M1 fix-up ab5b085 fixture, baselined by m2b: nonequiv 0",
+   "inferred_call_comment_on_its_first_line": "M1 fix-up ab5b085 fixture, baselined by m2b: nonequiv 0",
+   "naming_mixed_screaming_and_builtin_plurals": "M1 fix-up ab5b085 fixture, baselined by m2b: nonequiv 0",
+   "naming_suffixes_from_evidence_stay": "M1 fix-up ab5b085 fixture, baselined by m2b: nonequiv 0",
+   "naming_taken_name_falls_back": "M1 fix-up ab5b085 fixture, baselined by m2b: nonequiv 0"
   }
  },
  "summary": {
@@ -522,6 +528,12 @@
    "protos": 3
   },
   {
+   "file": "deinline_late_register_read_of_a_cell",
+   "status": "ok",
+   "nonequiv": 2,
+   "protos": 6
+  },
+  {
    "file": "deinline_method_receiver_read_late",
    "status": "ok",
    "nonequiv": 1,
@@ -684,6 +696,12 @@
    "protos": 2
   },
   {
+   "file": "fractions_over_source_denominators",
+   "status": "ok",
+   "nonequiv": 0,
+   "protos": 3
+  },
+  {
    "file": "function_from_debug_info_writes_cell",
    "status": "ok",
    "nonequiv": 0,
@@ -742,6 +760,12 @@
    "status": "ok",
    "nonequiv": 0,
    "protos": 3
+  },
+  {
+   "file": "inferred_call_comment_on_its_first_line",
+   "status": "ok",
+   "nonequiv": 0,
+   "protos": 6
   },
   {
    "file": "inferred_call_comments",
@@ -894,10 +918,28 @@
    "protos": 7
   },
   {
+   "file": "naming_mixed_screaming_and_builtin_plurals",
+   "status": "ok",
+   "nonequiv": 0,
+   "protos": 5
+  },
+  {
    "file": "naming_sequential_bindings_stay_distinct",
    "status": "ok",
    "nonequiv": 0,
    "protos": 3
+  },
+  {
+   "file": "naming_suffixes_from_evidence_stay",
+   "status": "ok",
+   "nonequiv": 0,
+   "protos": 7
+  },
+  {
+   "file": "naming_taken_name_falls_back",
+   "status": "ok",
+   "nonequiv": 0,
+   "protos": 5
   },
   {
    "file": "naming_unused_bindings_keep_their_reads",
