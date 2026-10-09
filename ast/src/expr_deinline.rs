@@ -118,11 +118,9 @@ struct ExprTarget {
     /// Additional, bounded proof path for named bytecode arithmetic helpers.
     arithmetic: Option<std::rc::Rc<arithmetic::AttemptBudget>>,
     /// Parameters the body reads once, before anything a call could change,
-    /// in the body's own statement order (`expr` may fold `local q = ...`):
-    /// for an argument evaluated where it stands, and for a register local
-    /// (`evaluation_order::reads_first`).
-    first_reads: Vec<RcLocal>,
-    first_register_reads: Vec<RcLocal>,
+    /// in the order it reads them, in the body's own statement order (`expr`
+    /// may fold `local q = ...`): `evaluation_order::LeadingReads`.
+    leading: crate::evaluation_order::LeadingReads,
     /// Outer locals `expr` reads that a closure assigns: the helper fetches
     /// one as an upvalue where it stands, a site holding it in a register
     /// reads it when its operation runs (`x + change()` reads `x` after the
@@ -327,7 +325,7 @@ fn collect_expr_targets(body: &Block, arithmetic_only: bool) -> Vec<ExprTarget> 
             }
         }
         crate::call_origins::register_callee(candidate.f_local.stable_id(), candidate.prototype);
-        let (first_reads, first_register_reads) = first_reads(&candidate.function.lock().body.0, &candidate.parameters, &captures);
+        let leading = leading_reads(&candidate.function.lock().body.0, &candidate.parameters, &captures);
         let mut free_cells = Vec::new();
         candidate.expr.visit_local_reads(&mut |local| {
             if !candidate.parameters.contains(local) && captures.closure_written(local) && !free_cells.contains(local) {
@@ -343,8 +341,7 @@ fn collect_expr_targets(body: &Block, arithmetic_only: bool) -> Vec<ExprTarget> 
             locals: FxHashSet::default(),
             param_order: candidate.parameters,
             arithmetic: candidate.arithmetic.then(|| arithmetic_budget.clone()),
-            first_reads,
-            first_register_reads,
+            leading,
             free_cells,
             upvalues: upvalues.clone(),
             captures: captures.clone(),
@@ -817,9 +814,9 @@ fn try_match(t: &ExprTarget, rv: &RValue, current_func: Option<FnPtr>) -> Option
     }) {
         return None;
     }
-    let hoist = hoist(&t.expr, &t.param_order, &args, |a| t.captures.stable(a), |p, arg| {
-        if is_register(arg, &t.upvalues, current_func) { t.first_register_reads.contains(p) } else { t.first_reads.contains(p) }
-    })?;
+    let hoist = hoist(&t.expr, &t.param_order, &args, |a| t.captures.stable(a), |arg| {
+        is_register(arg, &t.upvalues, current_func)
+    }, &t.leading)?;
     // The complete CaptureSafety census already excludes every reference-
     // captured local. The arithmetic family's former second census visited
     // the same statement roots (including indexed LHS) and closure bodies;
@@ -843,11 +840,11 @@ fn try_match(t: &ExprTarget, rv: &RValue, current_func: Option<FnPtr>) -> Option
 pub(super) enum Hoist {
     /// Every argument is `stable`: evaluating it early is unobservable.
     Stable,
-    /// One argument is not, but its parameter is read exactly once, as the
-    /// first observable evaluation of the body: Luau evaluated that argument
-    /// into the parameter's register right before the inlined body, so the
-    /// call keeps the original order (`toSCurveSpace(math.abs(x))`, whose body
-    /// starts with `math.abs(t)`).
+    /// Some are not, but their parameters are read exactly once each, in
+    /// parameter order, before anything observable in the body: Luau
+    /// evaluated those arguments into the parameters' registers right before
+    /// the inlined body, so the call keeps the original order
+    /// (`toSCurveSpace(math.abs(x))`, whose body starts with `math.abs(t)`).
     FirstRead,
 }
 
@@ -858,44 +855,36 @@ pub(super) fn hoist(
     params: &[RcLocal],
     args: &[RValue],
     stable: impl Fn(&RValue) -> bool,
-    // Whether the body reads a parameter first, before anything a call could
-    // change, given the argument standing for it.
-    first_read: impl Fn(&RcLocal, &RValue) -> bool,
+    // Whether an argument is a register local of the site's function, read
+    // where its operation runs.
+    register: impl Fn(&RValue) -> bool,
+    leading: &crate::evaluation_order::LeadingReads,
 ) -> Option<Hoist> {
-    let mut unstable = (0..args.len()).filter(|&i| !stable(&args[i]));
-    match (unstable.next(), unstable.next()) {
-        (None, _) => Some(Hoist::Stable),
-        (Some(only), None) => {
-            let param = &params[only];
-            let first = first_read(param, &args[only]);
-            (first && reads_of(expr, param) == 1).then_some(Hoist::FirstRead)
-        }
-        _ => None,
+    let unstable: Vec<usize> = (0..args.len()).filter(|&i| !stable(&args[i])).collect();
+    if unstable.is_empty() {
+        return Some(Hoist::Stable);
     }
+    let in_order = unstable.iter().all(|&i| reads_of(expr, &params[i]) == 1)
+        && leading.admits(unstable.iter().map(|&i| (&params[i], register(&args[i]))));
+    in_order.then_some(Hoist::FirstRead)
 }
 
-/// The parameters a helper body reads first ([`ExprTarget::first_reads`]).
-pub(super) fn first_reads(
+/// The parameters a helper body reads first ([`ExprTarget::leading`]).
+pub(super) fn leading_reads(
     body: &[Statement],
     parameters: &[RcLocal],
     captures: &crate::deinline_safety::CaptureSafety,
-) -> (Vec<RcLocal>, Vec<RcLocal>) {
+) -> crate::evaluation_order::LeadingReads {
     // The helper's parameters and locals are its registers; an outer local
-    // is its upvalue, fetched where it stands.
+    // is its upvalue, fetched where it stands. The expression checks the
+    // count of reads itself (`hoist`).
     let mut declared = FxHashSet::default();
     crate::deinline::collect_declared_locals(body, &mut declared);
     let facts = crate::evaluation_order::Body {
         registers: &|local| parameters.contains(local) || declared.contains(local),
         unchanged: &|value| captures.unchanged_by_calls(value),
     };
-    let reading = |register| {
-        parameters
-            .iter()
-            .filter(|parameter| crate::evaluation_order::block_reads_first(body, parameter, register, &facts))
-            .cloned()
-            .collect()
-    };
-    (reading(false), reading(true))
+    crate::evaluation_order::LeadingReads::new(body, parameters, |_| true, &facts)
 }
 
 /// The one helper call to rebuild at a site. A match with stable arguments
@@ -1059,21 +1048,27 @@ mod tests {
     }
 
     #[test]
-    fn an_argument_that_runs_code_hoists_only_into_the_first_read_of_its_parameter() {
+    fn arguments_that_run_code_hoist_only_into_the_leading_reads_of_their_parameters() {
         let (t, u, x) = (local("t"), local("u"), local("x"));
         let plain = |arg: &RValue| !matches!(arg, RValue::Call(_));
+        let register = |arg: &RValue| matches!(arg, RValue::Local(_));
         let runs_code = || call(global("f"), vec![]);
         let pi = RValue::Index(Index::new(global("math"), string("pi")));
         let field = RValue::Index(Index::new(lv(&x), string("y")));
         let unchanged = |_: &RValue| true;
-        let in_order = |body: RValue| move |p: &RcLocal, arg: &RValue| {
-            let facts = crate::evaluation_order::Body { registers: &|_| true, unchanged: &unchanged };
-            crate::evaluation_order::reads_first(&body, p, matches!(arg, RValue::Local(_)), &facts) == Some(true)
+        let leading = |body: &RValue, params: &[RcLocal], unchanged: &dyn Fn(&RValue) -> bool| {
+            let facts = crate::evaluation_order::Body { registers: &|_| true, unchanged };
+            let body: Statement = crate::Return::new(vec![body.clone()]).into();
+            crate::evaluation_order::LeadingReads::new(std::slice::from_ref(&body), params, |_| true, &facts)
         };
-        let hoist_into = |body: RValue| hoist(&body, &[t.clone()], &[runs_code()], plain, in_order(body.clone()));
+        let hoist_into = |body: RValue| {
+            let leading = leading(&body, std::slice::from_ref(&t), &unchanged);
+            hoist(&body, std::slice::from_ref(&t), &[runs_code()], plain, register, &leading)
+        };
 
         let sum = bin(lv(&t), BinaryOperation::Add, lv(&u));
-        assert!(hoist(&sum, &[t.clone(), u.clone()], &[lv(&x), number(1.0)], plain, in_order(sum.clone())) == Some(Hoist::Stable));
+        let params = [t.clone(), u.clone()];
+        assert!(hoist(&sum, &params, &[lv(&x), number(1.0)], plain, register, &leading(&sum, &params, &unchanged)) == Some(Hoist::Stable));
         // `math.pi * t - x`: import paths and local reads are not observable.
         let first = bin(bin(pi, BinaryOperation::Mul, lv(&t)), BinaryOperation::Sub, lv(&x));
         assert!(hoist_into(first) == Some(Hoist::FirstRead));
@@ -1083,22 +1078,26 @@ mod tests {
         // Read twice, or only on one path.
         assert!(hoist_into(bin(lv(&t), BinaryOperation::Add, lv(&t))).is_none());
         assert!(hoist_into(bin(lv(&x), BinaryOperation::And, lv(&t))).is_none());
-        // At most one argument may move.
+        // Several arguments move when their parameters lead in parameter
+        // order, never in another order.
         let both = bin(lv(&t), BinaryOperation::Add, lv(&u));
-        assert!(hoist(&both, &[t.clone(), u.clone()], &[runs_code(), runs_code()], plain, in_order(both.clone())).is_none());
+        let calls = [runs_code(), runs_code()];
+        assert!(hoist(&both, &params, &calls, plain, register, &leading(&both, &params, &unchanged)) == Some(Hoist::FirstRead));
+        let reversed = [u.clone(), t.clone()];
+        assert!(hoist(&both, &reversed, &calls, plain, register, &leading(&both, &reversed, &unchanged)).is_none());
+        // ... nor with something observable between them.
+        let between = bin(bin(lv(&t), BinaryOperation::Add, call(global("g"), vec![])), BinaryOperation::Add, lv(&u));
+        assert!(hoist(&between, &params, &calls, plain, register, &leading(&between, &params, &unchanged)).is_none());
         // `x * t` where code may change `x`: Luau reads the register `x` when
         // `*` runs, after a call standing for `t`, but before a register
         // local standing for it.
         let changed = |value: &RValue| !matches!(value, RValue::Local(local) if *local == x);
         let product = bin(lv(&x), BinaryOperation::Mul, lv(&t));
-        let first = |p: &RcLocal, arg: &RValue| {
-            let facts = crate::evaluation_order::Body { registers: &|_| true, unchanged: &changed };
-            crate::evaluation_order::reads_first(&product, p, matches!(arg, RValue::Local(_)), &facts) == Some(true)
-        };
-        assert!(hoist(&product, &[t.clone()], &[runs_code()], plain, first) == Some(Hoist::FirstRead));
-        let register = local("register");
-        let unstable = |arg: &RValue| !matches!(arg, RValue::Local(local) if *local == register);
-        assert!(hoist(&product, &[t.clone()], &[lv(&register)], unstable, first).is_none());
+        let first = leading(&product, std::slice::from_ref(&t), &changed);
+        assert!(hoist(&product, std::slice::from_ref(&t), &[runs_code()], plain, register, &first) == Some(Hoist::FirstRead));
+        let held = local("register");
+        let unstable = |arg: &RValue| !matches!(arg, RValue::Local(local) if *local == held);
+        assert!(hoist(&product, std::slice::from_ref(&t), &[lv(&held)], unstable, register, &first).is_none());
     }
 
     #[test]

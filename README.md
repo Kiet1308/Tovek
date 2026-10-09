@@ -183,7 +183,10 @@ itself) is one closure object at every site `-O2` inlined it to, as all copies
 load one constant. Copies left inline whose identity can be seen (stored,
 passed, compared or returned) are printed as one binding. Copies that capture
 variables the output cannot show to hold one value stay separate literals, and
-compare unequal where the bytecode may compare equal.
+compare unequal where the bytecode may compare equal. Code holding such a
+literal is never rebuilt into a helper call: the call would load the helper's
+own constant, one object for every caller, where each calling function's copy
+loaded a constant of its own.
 
 Bytecode that no source spells is refused rather than approximated: a NAMECALL
 method that is no identifier, a FASTCALL whose fallback names another function

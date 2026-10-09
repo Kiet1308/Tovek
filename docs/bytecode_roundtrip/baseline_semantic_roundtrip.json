@@ -172,7 +172,11 @@
    "native_function_attribute": "M1 printing fixture (2026-10-06): `@native` printed from the prototype flag. One non-equivalent proto, the same at M0: `local M = {}; function M.offset` folds into the constructor `{ offset = function ... }`, and the pinned -O2 compiler inlines a constructor-literal function, so the rebuilt main adds `x + 1` where the original calls `M.offset`; the fixture passes runtime round-trips at O0/O1/O2.",
    "native_module_hot_comment": "M1 printing and layout fixture (2026-10-06): de-inline site comments, backtick strings, long brackets, native flags, nested comparisons and line layout; baselined from the M1 output, equivalent at every proto.",
    "short_tables_one_line": "M1 printing and layout fixture (2026-10-06): de-inline site comments, backtick strings, long brackets, native flags, nested comparisons and line layout; baselined from the M1 output, equivalent at every proto.",
-   "interpolated_string_in_last_position": "M1 printing fixture (2026-10-06): truncation parentheses dropped around backtick strings. One non-equivalent proto, the same at M0: `{ (\"item %*\"):format(p) }` prints as the one-value interpolation `{ `item {p}` }`, so the rebuilt constructor ends in SETLIST(1) where the original's open format call gives SETLIST(*); the fixture passes runtime round-trips at O0/O1/O2."
+   "interpolated_string_in_last_position": "M1 printing fixture (2026-10-06): truncation parentheses dropped around backtick strings. One non-equivalent proto, the same at M0: `{ (\"item %*\"):format(p) }` prints as the one-value interpolation `{ `item {p}` }`, so the rebuilt constructor ends in SETLIST(1) where the original's open format call gives SETLIST(*); the fixture passes runtime round-trips at O0/O1/O2.",
+   "deinline_discarded_result": "M2a D1: discard variant of value helpers (track, describe, remember), declared result from a kept temp; 0 inequivalent",
+   "deinline_ordered_leading_reads": "M2a D4: ordered leading reads; 1 inequivalent proto (main), same at M1: Log.note and Service:Create print as table constructors (template LOADK 0 + SETTABLEKS)",
+   "deinline_result_stored_into_its_argument": "M2a D1: assigned results with identity-leaf elision and argument-temp absorption; 1 inequivalent proto (copyInto), same at M1: an SSA phi printed as an init-less local (extra LOADNIL)",
+   "deinline_written_parameter_alias": "M2a D1: written parameter standing for a dead caller local, loop-tail continue; 4 inequivalent protos, same at M1: init-less locals for SSA phis in kept/held (LOADNIL x2), main's held copy folds its captured constant 5 after recompiling (accept)"
   }
  },
  "summary": {
@@ -505,6 +509,12 @@
    "protos": 5
   },
   {
+   "file": "deinline_discarded_result",
+   "status": "ok",
+   "nonequiv": 0,
+   "protos": 7
+  },
+  {
    "file": "deinline_free_cell_read_late",
    "status": "ok",
    "nonequiv": 0,
@@ -515,6 +525,24 @@
    "status": "ok",
    "nonequiv": 1,
    "protos": 5
+  },
+  {
+   "file": "deinline_ordered_leading_reads",
+   "status": "ok",
+   "nonequiv": 1,
+   "protos": 8
+  },
+  {
+   "file": "deinline_result_stored_into_its_argument",
+   "status": "ok",
+   "nonequiv": 1,
+   "protos": 11
+  },
+  {
+   "file": "deinline_written_parameter_alias",
+   "status": "ok",
+   "nonequiv": 4,
+   "protos": 8
   },
   {
    "file": "drained_field_positional_slot",

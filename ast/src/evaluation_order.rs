@@ -181,6 +181,10 @@ impl Body<'_> {
     fn unchanged(&self, value: &RValue) -> bool { (self.unchanged)(value) }
 }
 
+/// The single-local question [`LeadingReads`] answers for every parameter
+/// at once, kept as its specification: checked against it in debug builds
+/// and tests.
+///
 /// In Lua's evaluation order: `Some(true)` when the first observable event of
 /// `value` is reading `local`, `Some(false)` when something observable (a
 /// call, an index, an operator that may dispatch, a skippable operand) comes
@@ -192,6 +196,7 @@ impl Body<'_> {
 /// just before `value` move into that read? `register`: the value standing for
 /// `local` is itself a register local, which an operation reads only when it
 /// runs ([`late_operands`]); any other value is evaluated where it stands.
+#[cfg(any(test, debug_assertions))]
 pub(crate) fn reads_first(value: &RValue, local: &RcLocal, register: bool, body: &Body) -> Option<bool> {
     match value {
         RValue::Literal(_) => None,
@@ -237,6 +242,7 @@ pub(crate) fn reads_first(value: &RValue, local: &RcLocal, register: bool, body:
 /// [`reads_first`] of a call: a builtin's FASTCALL takes a register-local
 /// argument as it is, when it runs ([`fastcall_arguments`]); any other call
 /// fetches its callee and copies its arguments in order.
+#[cfg(any(test, debug_assertions))]
 fn call_reads_first(call: &crate::Call, local: &RcLocal, register: bool, body: &Body) -> Option<bool> {
     match fastcall_arguments(call) {
         // Luau may or may not compile it to FASTCALL: assume the order that
@@ -250,6 +256,7 @@ fn call_reads_first(call: &crate::Call, local: &RcLocal, register: bool, body: &
 
 /// [`reads_first`] of a method call: NAMECALL reads a register receiver after
 /// the arguments, statement or expression alike.
+#[cfg(any(test, debug_assertions))]
 fn method_call_reads_first(call: &crate::MethodCall, local: &RcLocal, register: bool, body: &Body) -> Option<bool> {
     if register && matches!(call.value.as_ref(), RValue::Local(read) if read == local) {
         return call.arguments.iter().find_map(|argument| reads_first(argument, local, register, body)).or(Some(true));
@@ -261,6 +268,7 @@ fn method_call_reads_first(call: &crate::MethodCall, local: &RcLocal, register: 
 /// [`reads_first`] of an operation reading its register-local operands when
 /// it runs. `definite`: it surely does; otherwise only a register argument in
 /// place of `local` counts as read late.
+#[cfg(any(test, debug_assertions))]
 fn late_operands_read_first(operands: &[&RValue], definite: bool, local: &RcLocal, register: bool,
     body: &Body) -> Option<bool> {
     let late = |operand: &RValue| match operand {
@@ -330,6 +338,7 @@ fn fastcall_arguments(call: &crate::Call) -> Option<&[RValue]> {
 
 /// [`reads_first`] over a block: a statement that only binds locals to
 /// unobservable values is passed over, any other statement decides.
+#[cfg(any(test, debug_assertions))]
 pub(crate) fn block_reads_first(stmts: &[Statement], local: &RcLocal, register: bool, body: &Body) -> bool {
     fn first_of<'a>(
         values: impl IntoIterator<Item = &'a RValue>,
@@ -376,6 +385,223 @@ pub(crate) fn block_reads_first(stmts: &[Statement], local: &RcLocal, register: 
         }
     }
     false
+}
+
+/// The parameters a helper body reads before its first observable event, in
+/// the order it reads them: the ordered leading reads. Luau evaluates every
+/// argument of an inlined call into a register, in parameter order, before
+/// the body (`compileInlinedCall`); a site that evaluates each argument at
+/// its parameter's one read instead keeps that order when those reads come
+/// in parameter order with nothing observable before or between them. So the
+/// arguments that may run code or change can all move back into the call
+/// when they are a subsequence of these reads ([`LeadingReads::admits`]).
+///
+/// Computed once per helper, in one walk of its body per argument kind: an
+/// argument evaluated where it stands, and a register local, which an
+/// operation reads only when it runs ([`reads_first`]'s `register`).
+#[derive(Clone, Default)]
+pub(crate) struct LeadingReads {
+    values: Vec<RcLocal>,
+    registers: Vec<RcLocal>,
+}
+
+impl LeadingReads {
+    /// `read_once`: the parameters the body reads exactly once; only those
+    /// may stand for an argument evaluated at its read.
+    pub(crate) fn new(stmts: &[Statement], params: &[RcLocal], read_once: impl Fn(&RcLocal) -> bool, body: &Body) -> Self {
+        let walk = |register: bool| {
+            let mut reads = Vec::new();
+            block_leading_reads(stmts, &|local: &RcLocal| params.contains(local), register, body, &mut reads);
+            // Each parameter's first read; a later one is never leading.
+            let mut seen = Vec::with_capacity(reads.len());
+            reads.retain(|param| !seen.contains(param) && { seen.push(param.clone()); true });
+            reads.retain(|param| read_once(param));
+            reads
+        };
+        let leading = Self { values: walk(false), registers: walk(true) };
+        // A parameter leads exactly when it is the body's first read in the
+        // single-local question; pinned so the two never drift apart. (A
+        // parameter no code can change is passed over by both; one that may,
+        // only possible with an exhausted census, is ordered more precisely
+        // here.)
+        #[cfg(debug_assertions)]
+        if params.iter().all(|param| body.unchanged(&RValue::Local(param.clone()))) {
+            for param in params.iter().filter(|param| read_once(param)) {
+                for (register, list) in [(false, &leading.values), (true, &leading.registers)] {
+                    debug_assert_eq!(list.contains(param), block_reads_first(stmts, param, register, body));
+                }
+            }
+        }
+        leading
+    }
+
+    /// Whether the arguments that may run code or change, given in parameter
+    /// order with whether each is a register local, may be evaluated before
+    /// the body: each is a leading read, read once, and they come in this
+    /// order. All of one kind, as the two lists order reads differently.
+    pub(crate) fn admits<'a>(&self, unstable: impl IntoIterator<Item = (&'a RcLocal, bool)>) -> bool {
+        let mut kind = None;
+        let mut next = 0;
+        for (param, register) in unstable {
+            if *kind.get_or_insert(register) != register {
+                return false;
+            }
+            let list = if register { &self.registers } else { &self.values };
+            match list[next..].iter().position(|read| read == param) {
+                Some(at) => next += at + 1,
+                None => return false,
+            }
+        }
+        true
+    }
+}
+
+/// [`reads_first`] for a set of locals at once: appends each read of one of
+/// `params` to `reads`, in Lua's evaluation order, until the first
+/// observable event, and returns whether `value` had none. The cases mirror
+/// [`reads_first`] one for one (`LeadingReads::new` checks they agree).
+fn leading_reads(value: &RValue, params: &dyn Fn(&RcLocal) -> bool, register: bool, body: &Body,
+    reads: &mut Vec<RcLocal>) -> bool {
+    match value {
+        RValue::Literal(_) => true,
+        RValue::Local(read) if params(read) => {
+            reads.push(read.clone());
+            body.unchanged(value)
+        }
+        RValue::Local(_) => body.unchanged(value),
+        _ if is_import_path(value) => body.unchanged(value),
+        RValue::Binary(binary) if matches!(binary.operation, BinaryOperation::And | BinaryOperation::Or) => {
+            leading_reads(&binary.left, params, register, body, reads);
+            false
+        }
+        RValue::IfExpression(select) => {
+            leading_reads(&select.condition, params, register, body, reads);
+            false
+        }
+        RValue::Call(call) | RValue::Select(Select::Call(call)) => call_leading_reads(call, params, register, body, reads),
+        RValue::MethodCall(call) | RValue::Select(Select::MethodCall(call)) => {
+            method_call_leading_reads(call, params, register, body, reads)
+        }
+        _ if late_operands(value).is_some() => {
+            late_operands_leading_reads(&late_operands(value).unwrap(), true, params, register, body, reads)
+        }
+        RValue::Table(table) if register => {
+            for (key, item) in &table.0 {
+                let clear = match key {
+                    Some(RValue::Local(read)) if params(read) => {
+                        leading_reads(item, params, register, body, reads) && {
+                            reads.push(read.clone());
+                            body.unchanged(key.as_ref().unwrap())
+                        }
+                    }
+                    Some(key) => leading_reads(key, params, register, body, reads)
+                        && leading_reads(item, params, register, body, reads),
+                    None => leading_reads(item, params, register, body, reads),
+                };
+                if !clear {
+                    return false;
+                }
+            }
+            false
+        }
+        _ => {
+            value.visit_rvalues(&mut |child| leading_reads(child, params, register, body, reads));
+            false
+        }
+    }
+}
+
+/// [`call_reads_first`] for a set of locals.
+fn call_leading_reads(call: &crate::Call, params: &dyn Fn(&RcLocal) -> bool, register: bool, body: &Body,
+    reads: &mut Vec<RcLocal>) -> bool {
+    match fastcall_arguments(call) {
+        Some(arguments) => {
+            late_operands_leading_reads(&arguments.iter().collect::<Vec<_>>(), false, params, register, body, reads)
+        }
+        None => {
+            std::iter::once(&*call.value).chain(&call.arguments).all(|value| leading_reads(value, params, register, body, reads));
+            false
+        }
+    }
+}
+
+/// [`method_call_reads_first`] for a set of locals.
+fn method_call_leading_reads(call: &crate::MethodCall, params: &dyn Fn(&RcLocal) -> bool, register: bool, body: &Body,
+    reads: &mut Vec<RcLocal>) -> bool {
+    if register && let RValue::Local(receiver) = call.value.as_ref() && params(receiver) {
+        if call.arguments.iter().all(|argument| leading_reads(argument, params, register, body, reads)) {
+            reads.push(receiver.clone());
+        }
+        return false;
+    }
+    std::iter::once(&*call.value).chain(&call.arguments).all(|value| leading_reads(value, params, register, body, reads));
+    false
+}
+
+/// [`late_operands_read_first`] for a set of locals: the operands evaluated
+/// where they stand first, then those read when the operation runs.
+fn late_operands_leading_reads(operands: &[&RValue], definite: bool, params: &dyn Fn(&RcLocal) -> bool, register: bool,
+    body: &Body, reads: &mut Vec<RcLocal>) -> bool {
+    let late = |operand: &RValue| match operand {
+        RValue::Local(read) if params(read) => register,
+        RValue::Local(read) => definite && body.in_register(read),
+        _ => false,
+    };
+    if !operands.iter().filter(|operand| !late(operand)).all(|operand| leading_reads(operand, params, register, body, reads)) {
+        return false;
+    }
+    for operand in operands.iter().filter(|operand| late(operand)) {
+        if let RValue::Local(read) = operand
+            && params(read)
+        {
+            reads.push(read.clone());
+        }
+        if !body.unchanged(operand) {
+            return false;
+        }
+    }
+    false
+}
+
+/// [`block_reads_first`] for a set of locals.
+fn block_leading_reads(stmts: &[Statement], params: &dyn Fn(&RcLocal) -> bool, register: bool, body: &Body,
+    reads: &mut Vec<RcLocal>) {
+    for statement in stmts {
+        let clear = match statement {
+            Statement::Assign(assign) => {
+                let late = |address: &RValue| match address {
+                    RValue::Local(read) if params(read) => register,
+                    RValue::Local(read) => body.in_register(read),
+                    _ => false,
+                };
+                let addresses = || assign.left.iter().filter_map(LValue::as_index).flat_map(|index| [&*index.left, &*index.right]);
+                let clear = addresses().filter(|address| !late(address))
+                    .chain(&assign.right)
+                    .chain(addresses().filter(|address| late(address)))
+                    .all(|value| leading_reads(value, params, register, body, reads));
+                let stores_observably = assign.left.iter().any(|lhs| match lhs {
+                    LValue::Local(stored) => !body.unchanged(&RValue::Local(stored.clone())),
+                    _ => true,
+                });
+                clear && !stores_observably
+            }
+            Statement::Call(call) => call_leading_reads(call, params, register, body, reads),
+            Statement::MethodCall(call) => method_call_leading_reads(call, params, register, body, reads),
+            Statement::If(branch) => {
+                leading_reads(&branch.condition, params, register, body, reads);
+                false
+            }
+            Statement::Return(ret) => {
+                ret.values.iter().all(|value| leading_reads(value, params, register, body, reads));
+                false
+            }
+            Statement::Empty(_) | Statement::Comment(_) => true,
+            _ => false,
+        };
+        if !clear {
+            return;
+        }
+    }
 }
 
 fn is_import_path(value: &RValue) -> bool {
@@ -687,6 +913,75 @@ mod tests {
         // `return f(x) * p`: the call runs before `p` either way.
         let call_first = RValue::Binary(crate::Binary::new(call(vec![other.clone().into()]), param.clone().into(), crate::BinaryOperation::Mul));
         assert!(!block_reads_first(&[Return::new(vec![call_first]).into()], &param, false, &unchanged));
+    }
+
+    #[test]
+    fn leading_reads_list_parameters_in_read_order_until_something_observable() {
+        let (a, b, c, x) = (local("a"), local("b"), local("c"), local("x"));
+        let params = [a.clone(), b.clone(), c.clone()];
+        let call = |args: Vec<RValue>| -> RValue { Call::new(crate::Global(b"f".to_vec()).into(), args).into() };
+        let unchanged = Body { registers: &|_| true, unchanged: &|_| true };
+        let leading = |stmts: &[Statement]| LeadingReads::new(stmts, &params, |_| true, &unchanged);
+        let reads = |leading: &LeadingReads| leading.values.clone();
+        // `return f(a, b, c)`: all three, in order.
+        let all = [Return::new(vec![call(vec![a.clone().into(), b.clone().into(), c.clone().into()])]).into()];
+        assert_eq!(reads(&leading(&all)), params.to_vec());
+        // `f(b, a); return c`: the call is observable, `c` comes after it.
+        let swapped: [Statement; 2] = [Statement::Call(Call::new(crate::Global(b"f".to_vec()).into(), vec![b.clone().into(), a.clone().into()])),
+            Return::new(vec![c.clone().into()]).into()];
+        assert_eq!(reads(&leading(&swapped)), vec![b.clone(), a.clone()]);
+        // `return x.k + f(a)`: the index runs first.
+        let indexed = [Return::new(vec![crate::Binary::new(field(&x), call(vec![a.clone().into()]), BinaryOperation::Add).into()]).into()];
+        assert!(reads(&leading(&indexed)).is_empty());
+        // `return x and a or b`: only the left operand is evaluated on every path.
+        let short: RValue = crate::Binary::new(crate::Binary::new(x.clone().into(), a.clone().into(), BinaryOperation::And).into(), b.clone().into(), BinaryOperation::Or).into();
+        assert!(reads(&leading(&[Return::new(vec![short]).into()])).is_empty());
+        // A parameter read twice never leads; the next one still may.
+        let twice = [Return::new(vec![call(vec![a.clone().into(), a.clone().into(), b.clone().into()])]).into()];
+        let once = LeadingReads::new(&twice, &params, |p| *p != a, &unchanged);
+        assert_eq!(once.values, vec![b.clone()]);
+        // Admission: the unstable arguments in parameter order, a subsequence
+        // of one kind's reads.
+        let listed = leading(&swapped);
+        assert!(listed.admits([(&b, false)]));
+        assert!(listed.admits([(&a, false)]));
+        assert!(!listed.admits([(&a, false), (&b, false)]), "parameter order must be the read order");
+        assert!(!listed.admits([(&c, false)]));
+        let ordered = leading(&all);
+        assert!(ordered.admits([(&a, false), (&c, false)]));
+        assert!(!ordered.admits([(&a, false), (&b, true)]), "one kind at a time");
+    }
+
+    #[test]
+    fn leading_reads_agree_with_the_single_local_question() {
+        let (a, b, x) = (local("a"), local("b"), local("x"));
+        let params = [a.clone(), b.clone()];
+        let call = |args: Vec<RValue>| -> RValue { Call::new(crate::Global(b"f".to_vec()).into(), args).into() };
+        let method = |object: &RcLocal, args: Vec<RValue>| -> RValue {
+            MethodCall { node_origin: Default::default(), value: Box::new(object.clone().into()), method: "m".into(), arguments: args }.into()
+        };
+        let store = |base: RValue, value: RValue| -> Statement {
+            Assign::new(vec![Index::new(base, Literal::String(b"key".to_vec()).into()).into()], vec![value]).into()
+        };
+        let bodies: Vec<Vec<Statement>> = vec![
+            vec![Return::new(vec![crate::Binary::new(x.clone().into(), b.clone().into(), BinaryOperation::Mul).into()]).into()],
+            vec![Return::new(vec![method(&a, vec![b.clone().into(), call(vec![])])]).into()],
+            vec![store(a.clone().into(), call(vec![b.clone().into()]))],
+            vec![Return::new(vec![Table::new(vec![(Some(a.clone().into()), b.clone().into())]).into()]).into()],
+            vec![store(field(&x), a.clone().into()), Return::new(vec![b.clone().into()]).into()],
+            vec![Return::new(vec![crate::Binary::new(b.clone().into(), a.clone().into(), BinaryOperation::LessThan).into()]).into()],
+        ];
+        for changed in [false, true] {
+            let unchanged = |value: &RValue| !changed || !matches!(value, RValue::Local(local) if *local == x);
+            let facts = Body { registers: &|_| true, unchanged: &unchanged };
+            for body in &bodies {
+                let leading = LeadingReads::new(body, &params, |_| true, &facts);
+                for param in &params {
+                    assert_eq!(leading.values.contains(param), block_reads_first(body, param, false, &facts));
+                    assert_eq!(leading.registers.contains(param), block_reads_first(body, param, true, &facts));
+                }
+            }
+        }
     }
 
     #[test]

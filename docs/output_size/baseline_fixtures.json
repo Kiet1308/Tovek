@@ -664,6 +664,18 @@
       "bytes": 2762,
       "lines": 27
     },
+    "semantic/deinline_discarded_result__O0.luau": {
+      "bytes": 1021,
+      "lines": 64
+    },
+    "semantic/deinline_discarded_result__O1.luau": {
+      "bytes": 1021,
+      "lines": 64
+    },
+    "semantic/deinline_discarded_result__O2.luau": {
+      "bytes": 1453,
+      "lines": 63
+    },
     "semantic/deinline_free_cell_read_late__O0.luau": {
       "bytes": 161,
       "lines": 13
@@ -687,6 +699,42 @@
     "semantic/deinline_method_receiver_read_late__O2.luau": {
       "bytes": 621,
       "lines": 44
+    },
+    "semantic/deinline_ordered_leading_reads__O0.luau": {
+      "bytes": 1406,
+      "lines": 58
+    },
+    "semantic/deinline_ordered_leading_reads__O1.luau": {
+      "bytes": 1391,
+      "lines": 57
+    },
+    "semantic/deinline_ordered_leading_reads__O2.luau": {
+      "bytes": 1777,
+      "lines": 57
+    },
+    "semantic/deinline_result_stored_into_its_argument__O0.luau": {
+      "bytes": 1563,
+      "lines": 106
+    },
+    "semantic/deinline_result_stored_into_its_argument__O1.luau": {
+      "bytes": 1563,
+      "lines": 106
+    },
+    "semantic/deinline_result_stored_into_its_argument__O2.luau": {
+      "bytes": 2270,
+      "lines": 134
+    },
+    "semantic/deinline_written_parameter_alias__O0.luau": {
+      "bytes": 1231,
+      "lines": 83
+    },
+    "semantic/deinline_written_parameter_alias__O1.luau": {
+      "bytes": 1231,
+      "lines": 83
+    },
+    "semantic/deinline_written_parameter_alias__O2.luau": {
+      "bytes": 1778,
+      "lines": 121
     },
     "semantic/drained_field_positional_slot__O0.luau": {
       "bytes": 114,

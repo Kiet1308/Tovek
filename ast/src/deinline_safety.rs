@@ -637,9 +637,15 @@ pub(crate) struct SearchBudget {
     remaining: std::cell::Cell<usize>,
     exhausted: std::cell::Cell<bool>,
 }
+/// Node units one module's de-inline search may spend. The largest real
+/// module (GardenVisualRegistry, 2,300 lines, 60 helpers) spends about 23M
+/// with the value-site result modes and discard variants; past the budget
+/// every remaining site is refused, so it bounds pathological inputs only.
+const SEARCH_BUDGET: usize = 32_000_000;
+
 impl Default for SearchBudget {
     fn default() -> Self {
-        Self { remaining: std::cell::Cell::new(20_000_000), exhausted: std::cell::Cell::new(false) }
+        Self { remaining: std::cell::Cell::new(SEARCH_BUDGET), exhausted: std::cell::Cell::new(false) }
     }
 }
 impl SearchBudget {
@@ -667,7 +673,7 @@ mod tests {
         }
         for n in [0.0, -0.0, 2.0] { assert!(safety.stable(&crate::Literal::Number(n).into())); }
         let budget = SearchBudget::default();
-        assert!(budget.spend(20_000_000));
+        assert!(budget.spend(SEARCH_BUDGET));
         assert!(!budget.exhausted());
         assert!(!budget.spend(1));
         assert!(budget.exhausted());

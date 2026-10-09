@@ -119,8 +119,7 @@ pub(super) struct ExprTarget {
     pub(super) param_order: Vec<RcLocal>,
     /// Additional, bounded proof path for named bytecode arithmetic helpers.
     pub(super) arithmetic: Option<std::rc::Rc<arithmetic::Safety>>,
-    pub(super) first_reads: Vec<RcLocal>,
-    pub(super) first_register_reads: Vec<RcLocal>,
+    pub(super) leading: crate::evaluation_order::LeadingReads,
     pub(super) upvalues: std::rc::Rc<super::FunctionUpvalues>,
     pub(super) captures: std::rc::Rc<crate::deinline_safety::CaptureSafety>,
     pub(super) search: std::rc::Rc<crate::deinline_safety::SearchBudget>,
@@ -220,7 +219,7 @@ pub(super) fn collect_expr_targets(body: &Block) -> Vec<ExprTarget> {
         if g.is_variadic || body_unsafe(&g.body.0) {
             return;
         }
-        let (first_reads, first_register_reads) = super::first_reads(&g.body.0, &g.parameters, &captures);
+        let leading = super::leading_reads(&g.body.0, &g.parameters, &captures);
         if let Some(expr) = arithmetic::pattern(&g) {
             arithmetic_targets += 1;
             if arithmetic_targets > arithmetic::MAX_TARGETS {
@@ -235,8 +234,7 @@ pub(super) fn collect_expr_targets(body: &Block) -> Vec<ExprTarget> {
                 locals: FxHashSet::default(),
                 param_order: g.parameters.clone(),
                 arithmetic: Some(arithmetic_safety.clone()),
-                first_reads: first_reads.clone(),
-                first_register_reads: first_register_reads.clone(),
+                leading: leading.clone(),
                 upvalues: upvalues.clone(),
                 captures: captures.clone(),
                 search: search.clone(),
@@ -292,8 +290,7 @@ pub(super) fn collect_expr_targets(body: &Block) -> Vec<ExprTarget> {
             locals: FxHashSet::default(),
             param_order,
             arithmetic: None,
-            first_reads,
-            first_register_reads,
+            leading,
             upvalues: upvalues.clone(),
             captures: captures.clone(),
                 search: search.clone(),
@@ -703,12 +700,11 @@ fn try_match(t: &ExprTarget, rv: &RValue, current_func: Option<FnPtr>) -> Option
     // cell despite there being no syntactic assignment in the expression.
     let hoist = super::hoist(&t.expr, &t.param_order, &args, |a| {
         t.captures.stable(a) && t.arithmetic.as_ref().is_none_or(|safety| safety.stable(a))
-    }, |p, arg| {
-        let register = matches!(arg, RValue::Local(local) if current_func
+    }, |arg| {
+        matches!(arg, RValue::Local(local) if current_func
             .and_then(|function| t.upvalues.get(&(function as usize)))
-            .is_none_or(|ids| !ids.contains(&local.stable_id())));
-        if register { t.first_register_reads.contains(p) } else { t.first_reads.contains(p) }
-    })?;
+            .is_none_or(|ids| !ids.contains(&local.stable_id())))
+    }, &t.leading)?;
     // Cost: the replacement must be a net node saving against the specialised
     // subtree `S` (rejects `f(bigExpr)` non-shrinks). Computed only on a real match.
     let s_nodes = node_count(rv);
