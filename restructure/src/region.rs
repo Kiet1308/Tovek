@@ -1735,15 +1735,21 @@ impl Analysis {
         // at `body_pc`. An empty body (`body_pc == step_pc`) has none. When a
         // nested loop's back edge also targets `body_pc` (a `repeat` opening
         // the body), the lifter splits the FORGLOOP edge with an empty,
-        // PC-less block that only forwards to it.
+        // PC-less block that only forwards to it. A body that only breaks
+        // (the backedge threaded to the instruction after FORGLOOP's AUX)
+        // gets such a block too, forwarding where exhaustion goes: the AUX
+        // word's block at `follow_pc`.
         let enters_body_at = |body_entry: NodeIndex, origin: &ast::ForOrigin, node: NodeIndex| {
             let forwarding = |block: &ast::Block| block.is_empty();
+            let threaded_break = origin.body_pc == origin.step_pc + 2;
             node == body_entry
                 || (origin.body_pc == origin.step_pc
                     && function.block(body_entry).is_some_and(forwarding))
                 || (function.block(body_entry).is_some_and(forwarding)
                     && function.block_pc_range(body_entry).is_none()
-                    && function.successor_blocks(body_entry).exactly_one().ok() == Some(node))
+                    && function.successor_blocks(body_entry).exactly_one().ok().is_some_and(|successor| {
+                        successor == node || (threaded_break && Some(successor) == block_at_pc(origin.follow_pc))
+                    }))
         };
         let mut candidates = natural;
         let semantic_headers = nodes

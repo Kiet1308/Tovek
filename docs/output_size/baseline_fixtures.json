@@ -1372,6 +1372,18 @@
       "bytes": 272,
       "lines": 26
     },
+    "semantic/loop_breaking_at_once_after_a_swap__O0.luau": {
+      "bytes": 934,
+      "lines": 70
+    },
+    "semantic/loop_breaking_at_once_after_a_swap__O1.luau": {
+      "bytes": 711,
+      "lines": 53
+    },
+    "semantic/loop_breaking_at_once_after_a_swap__O2.luau": {
+      "bytes": 1016,
+      "lines": 95
+    },
     "semantic/loop_capture_post_loop_swap__O0.luau": {
       "bytes": 177,
       "lines": 14

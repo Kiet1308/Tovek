@@ -1685,11 +1685,17 @@ impl<'a> Lifter<'a> {
                         // only breaks through that `break` to the instruction
                         // after FORGLOOP and its AUX: the next value leaves the
                         // loop as exhaustion does. Give the body its own block
-                        // back, so the loop keeps its first trip.
+                        // back, so the loop keeps its first trip, and let it
+                        // leave through the block exhaustion leaves through
+                        // (the AUX word's): one edge then reaches the code
+                        // after the loop, and whatever SSA moves onto that
+                        // edge (the values a swap before the loop left for the
+                        // next outer trip) is written once, after the loop,
+                        // not once per arm with the body arm no longer empty.
                         if body_pc == block_start + index + 2 {
                             body = self.function.new_block();
                             self.function.set_edges(body, vec![(
-                                self.block_to_node(body_pc),
+                                self.block_to_node(block_start + index + 1),
                                 BlockEdge::new(BranchType::Unconditional),
                             )]);
                         }

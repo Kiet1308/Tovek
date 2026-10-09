@@ -188,7 +188,8 @@
    "deinline_hosted_values": "m2b D5, nonequiv 2: main and stamp recompile the constructor-literal functions they print (M.vary, hooks.bump) as inlined copies, by construction",
    "deinline_closure_factories": "m2b D6, nonequiv 2: main recompiles the constructor-literal functions it prints (T.left ...) as inlined copies; andThen prints its select as and/or, which recompiles as TEST jumps",
    "deinline_returned_cell": "m2b D5 uniform cell, nonequiv 1: main recompiles the constructor-literal functions it prints (M.play ...) as inlined copies, by construction",
-   "deinline_value_moves_into_its_reader": "m2b D5 collapse, nonequiv 1: main recompiles the constructor-literal functions it prints (M.check ...) as inlined copies, by construction"
+   "deinline_value_moves_into_its_reader": "m2b D5 collapse, nonequiv 1: main recompiles the constructor-literal functions it prints (M.check ...) as inlined copies, by construction",
+   "loop_breaking_at_once_after_a_swap": "m2b structuring fix (fuzz seed 164201), nonequiv 1: main recompiles the loops it prints from -O2 inlined copies of generic/numeric (constant-folded LOADK 1/7), by construction"
   }
  },
  "summary": {
@@ -873,6 +874,12 @@
    "status": "ok",
    "nonequiv": 2,
    "protos": 3
+  },
+  {
+   "file": "loop_breaking_at_once_after_a_swap",
+   "status": "ok",
+   "nonequiv": 1,
+   "protos": 4
   },
   {
    "file": "loop_capture_post_loop_swap",
