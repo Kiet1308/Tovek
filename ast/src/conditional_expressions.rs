@@ -321,7 +321,9 @@ fn single_local_assignment_value(block: &Block, local: &RcLocal) -> Option<RValu
     let LValue::Local(assigned) = &assign.left[0] else {
         return None;
     };
-    if assigned != local {
+    // The value moves into the use or the declaration, where its own target
+    // would be another variable (`Assign::reads_own_target`).
+    if assigned != local || assign.reads_own_target() {
         return None;
     }
     Some(assign.right[0].clone())

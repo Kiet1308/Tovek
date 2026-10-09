@@ -166,6 +166,7 @@ fn synthesize_scope(stmts: &mut Vec<Statement>, safety: &CaptureSafety) -> usize
             function: ByAddress(Arc::new(Mutex::new(Function {
                 bytecode_proto_id: None,
                 bytecode_function_id: None,
+                closure_constant: None,
                 retain_for_reconstruction: false,
                 name: function_name,
                 parameters: Vec::new(),

@@ -28,6 +28,18 @@ impl Assign {
             compound: false,
         }
     }
+
+    /// Whether the value reads the local this assignment writes first, which
+    /// pins the value to this statement. In SSA only a closure capturing its
+    /// own target does (`local function f() ... f ... end`: NEWCLOSURE fills
+    /// the register before CAPTURE VAL reads it), and that statement is the
+    /// target's only definition; moved into an expression elsewhere, the
+    /// capture names a local nothing assigns. In source, a value moved into
+    /// its target's declaration would read an outer binding instead.
+    pub fn reads_own_target(&self) -> bool {
+        let Some(target) = self.left.first().and_then(LValue::as_local) else { return false };
+        !self.right.iter().all(|value| value.visit_local_reads(&mut |read| read != target))
+    }
 }
 
 impl Traverse for Assign {

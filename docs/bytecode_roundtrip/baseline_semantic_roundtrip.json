@@ -5,7 +5,8 @@
   "normalization": "VM table-template defaults are numeric zero; explicit nil is applied after all template entries.",
   "migration": "Replayed the original baseline lifter with corrected normalization; thresholds are not regenerated from current decompiler output.",
   "reviewed_count_changes": {
-   "alias_iterators": "Historical output adds an implicit zero for the private sum field before its closure store. The same difference is present in current output; the fixture passes runtime round-trips at O0/O1/O2."
+   "alias_iterators": "Historical output adds an implicit zero for the private sum field before its closure store. The same difference is present in current output; the fixture passes runtime round-trips at O0/O1/O2.",
+   "deinline_method_receiver_read_late": "Main inlines `make` twice; both copies of its `report` literal load one DUPCLOSURE constant, so the old and new tables share one closure. The copies now print as one hoisted `local function report` stored at both sites (closure identity, M0 2026-10-06), which adds a local to the main prototype; the fixture passes runtime round-trips at O0/O1/O2."
   },
   "added_fixtures": {
    "call_before_capture_read": "Regression fixture for a reported bug (2026-09-29); baselined from the fixing commit output.",
@@ -150,7 +151,13 @@
    "swap_around_generic_loop": "V2.6 fuzzer: phi copies at a for step move to its edges",
    "value_capture_written_after_closure": "V2.6 fuzzer: by-value capture of a local written later",
    "reserved_list_slots_keep_keyed_entries": "V2.6 typed fuzzer seed 30585: reserved list slots keep keyed entries",
-   "captured_swap_before_generic_loop": "V2.7 typed fuzzer seeds 100381/101553: captured swap before a generic loop"
+   "captured_swap_before_generic_loop": "V2.7 typed fuzzer seeds 100381/101553: captured swap before a generic loop",
+   "capture_coalesced_into_closure_target": "M0 correctness fixture (2026-10-06): a by-value capture kept apart from its closure's target, a self-capturing arm kept in its block, or one binding for inlined copies of a shared closure; baselined from the fixing output.",
+   "closure_identity_across_inlined_copies": "M0 correctness fixture (2026-10-06): a by-value capture kept apart from its closure's target, a self-capturing arm kept in its block, or one binding for inlined copies of a shared closure; baselined from the fixing output.",
+   "promise_advancers_capture_their_handlers": "M0 correctness fixture (2026-10-06): a by-value capture kept apart from its closure's target, a self-capturing arm kept in its block, or one binding for inlined copies of a shared closure; baselined from the fixing output.",
+   "recursive_local_function_in_value_branch": "M0 correctness fixture (2026-10-06): a by-value capture kept apart from its closure's target, a self-capturing arm kept in its block, or one binding for inlined copies of a shared closure; baselined from the fixing output.",
+   "value_capture_into_its_own_target": "M0 correctness fixture (2026-10-06): a by-value capture kept apart from its closure's target, a self-capturing arm kept in its block, or one binding for inlined copies of a shared closure; baselined from the fixing output.",
+   "value_capture_through_call_argument": "M0 correctness fixture (2026-10-06): a by-value capture kept apart from its closure's target, a self-capturing arm kept in its block, or one binding for inlined copies of a shared closure; baselined from the fixing output."
   }
  },
  "summary": {
@@ -223,6 +230,12 @@
    "status": "ok",
    "nonequiv": 0,
    "protos": 6
+  },
+  {
+   "file": "capture_coalesced_into_closure_target",
+   "status": "ok",
+   "nonequiv": 3,
+   "protos": 9
   },
   {
    "file": "capture_written_after_yield",
@@ -337,6 +350,12 @@
    "status": "ok",
    "nonequiv": 3,
    "protos": 7
+  },
+  {
+   "file": "closure_identity_across_inlined_copies",
+   "status": "ok",
+   "nonequiv": 3,
+   "protos": 13
   },
   {
    "file": "closure_in_store_key_captures",
@@ -467,7 +486,7 @@
   {
    "file": "deinline_method_receiver_read_late",
    "status": "ok",
-   "nonequiv": 0,
+   "nonequiv": 1,
    "protos": 5
   },
   {
@@ -861,6 +880,12 @@
    "protos": 6
   },
   {
+   "file": "promise_advancers_capture_their_handlers",
+   "status": "ok",
+   "nonequiv": 6,
+   "protos": 10
+  },
+  {
    "file": "rebuilt_call_result_names",
    "status": "ok",
    "nonequiv": 0,
@@ -871,6 +896,12 @@
    "status": "ok",
    "nonequiv": 2,
    "protos": 7
+  },
+  {
+   "file": "recursive_local_function_in_value_branch",
+   "status": "ok",
+   "nonequiv": 7,
+   "protos": 12
   },
   {
    "file": "register_store_target_after_value_call",
@@ -1077,10 +1108,22 @@
    "protos": 7
   },
   {
+   "file": "value_capture_into_its_own_target",
+   "status": "ok",
+   "nonequiv": 12,
+   "protos": 28
+  },
+  {
    "file": "value_capture_of_cell_copy",
    "status": "ok",
    "nonequiv": 0,
    "protos": 4
+  },
+  {
+   "file": "value_capture_through_call_argument",
+   "status": "ok",
+   "nonequiv": 3,
+   "protos": 12
   },
   {
    "file": "value_capture_written_after_closure",

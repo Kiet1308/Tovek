@@ -38,6 +38,13 @@ These legacy tiers and the identifier-erasing token score are triage metrics,
 not semantic equivalence or binding-aware source fidelity. Each successful
 file also receives a separate bounded `dataflow` result; unknown is not proof.
 
+Per file, a report-only capture tier counts by-reference captures whose
+closure can see its variable written again (reachability over the bytecode
+CFG up to CLOSEUPVALS) and closures that capture their own register, and
+flags a file whose rebuilt chunk has more of them than the original, at -O2
+and again at -O1: a by-value capture the decompiled source turned into a
+by-reference one, or a closure that now captures itself.
+
 Exit status is non-zero when any input fails to decompile/recompile/parse, or
 when `--baseline` is given and the number of non-equivalent prototypes grew
 (overall, or in any single file).
@@ -50,6 +57,7 @@ import collections
 import concurrent.futures
 import difflib
 import hashlib
+import itertools
 import json
 import os
 import pathlib
@@ -1036,6 +1044,212 @@ def classify_delta(delta) -> str:
 
 
 # --------------------------------------------------------------------------
+# Capture observations (a report-only tier per file)
+# --------------------------------------------------------------------------
+#
+# The multiset counts CAPTURE as a neutral family, so a closure that captured
+# a register by value in the bytecode but, in the decompiled source, reads a
+# variable that is assigned again (a by-reference capture) still compares as
+# `accept`. That is how a closure printed as calling itself, instead of the
+# value it captured, passed the gate. This tier counts, per chunk:
+#
+# * `write`: a `CAPTURE REF r` from which a path of the control-flow graph
+#   reaches a write of register r before a `CLOSEUPVALS A` with A <= r closes
+#   it, so the closure can see the variable change;
+# * `self`: a capture, by value or by reference, of the closure's own
+#   destination register, so the closure holds itself. Both kinds count, so
+#   a recursive local function the output spells `f = function() f() end`
+#   (VAL in the bytecode, REF rebuilt) cancels out, while a closure that
+#   captured another value in the bytecode but itself in the output adds one.
+#   A REF self capture that can also see a later write counts twice.
+#
+# Luau closes a by-reference local with CLOSEUPVALS wherever its scope ends
+# (block exit, `break`, `continue`, an inlined `return`), except at RETURN,
+# so no path from the capture reaches a later local that reuses the register.
+# A file is flagged when its rebuilt chunk has more such captures than the
+# original, both as rebuilt at -O2 and as rebuilt at -O1. The -O1 check
+# removes the known false positive: the pinned compiler's -O2 inliner inlines
+# a local function that writes its upvalue where the Roblox compiler did not
+# (the decompiled source moved the function into a table constructor, say), so
+# a SETUPVAL in another prototype became a register write next to the closure.
+# Like every tier here, this is a proxy: a write made by another closure (a
+# SETUPVAL elsewhere) is not counted, on either side.
+
+_CLOSURE_OPS = {OP_INDEX["NEWCLOSURE"], OP_INDEX["DUPCLOSURE"]}
+_CAPTURE_OP, _CAPTURE_VAL, _CAPTURE_REF = OP_INDEX["CAPTURE"], 0, 1  # LCT_VAL, LCT_REF
+_CLOSEUPVALS_OP, _RETURN_OP = OP_INDEX["CLOSEUPVALS"], OP_INDEX["RETURN"]
+_JUMPX_OP, _LOADB_OP = OP_INDEX["JUMPX"], OP_INDEX["LOADB"]
+_FRAME_TOP = 256  # the end of a write range that runs to the top of the frame
+_CAPTURE_HITS_SHOWN = 20
+
+# Jumps by D that may fall through, and those that never do.
+_BRANCH_D_OPS = {OP_INDEX[n] for n in (
+    "JUMPIF JUMPIFNOT JUMPIFEQ JUMPIFLE JUMPIFLT JUMPIFNOTEQ JUMPIFNOTLE JUMPIFNOTLT JUMPXEQKNIL "
+    "JUMPXEQKB JUMPXEQKN JUMPXEQKS FORNPREP FORNLOOP FORGLOOP CMPPROTO").split()}
+_GOTO_D_OPS = {OP_INDEX[n] for n in "JUMP JUMPBACK FORGPREP FORGPREP_INEXT FORGPREP_NEXT".split()}
+
+# Instructions that write no register. A FASTCALL that succeeds writes the
+# results of the CALL it skips, but the path through that CALL writes them
+# too and rejoins at the same instruction, so falling through covers both.
+_WRITES_NOTHING = {OP_INDEX[n] for n in (
+    "NOP BREAK SETGLOBAL SETUPVAL CLOSEUPVALS SETTABLE SETTABLEKS SETTABLEN RETURN JUMP JUMPBACK "
+    "JUMPIF JUMPIFNOT JUMPIFEQ JUMPIFLE JUMPIFLT JUMPIFNOTEQ JUMPIFNOTLE JUMPIFNOTLT SETLIST FORNPREP "
+    "PREPVARARGS JUMPX FASTCALL FASTCALL1 FASTCALL2 FASTCALL2K FASTCALL3 FASTPCALL NATIVECALL COVERAGE "
+    "CAPTURE JUMPXEQKNIL JUMPXEQKB JUMPXEQKN JUMPXEQKS SETUDATAKS NEWCLASSMEMBER CMPPROTO").split()}
+
+
+def _written_registers(op, a, b, c, aux):
+    """The half-open range of registers one instruction writes."""
+    if op in _WRITES_NOTHING:
+        return 0, 0
+    name = OPCODES[op]
+    if name in ("CALL", "CALLFB"):
+        return a, _FRAME_TOP if c == 0 else a + c - 1
+    if name == "GETVARARGS":
+        return a, _FRAME_TOP if b == 0 else a + b - 1
+    if name in ("NAMECALL", "NAMECALLUDATA"):
+        return a, a + 2
+    if name in ("FORNLOOP", "FORGPREP_INEXT", "FORGPREP_NEXT"):
+        return a + 2, a + 3  # the index (the iterator preps reset it)
+    if name == "FORGLOOP":
+        return a + 2, a + 3 + (aux & 0xFF)  # the control and the variables
+    if name == "FORGPREP":
+        return a, a + 3  # `__iter` may replace the generator state
+    return a, a + 1
+
+
+def _capture_flow(p: Proto):
+    """Successors, written ranges and CLOSEUPVALS bounds of every instruction
+    of `p`, indexed like `p.insns` (an aux word is not an instruction)."""
+    insns = p.insns
+    index_of = {insn[0]: k for k, insn in enumerate(insns)}
+    successors, writes, closes = [], [], []
+    for k, (pc, op, a, b, c, d, e, aux) in enumerate(insns):
+        if op == _RETURN_OP:
+            targets = ()
+        elif op in _GOTO_D_OPS:
+            targets = (index_of.get(pc + 1 + d),)
+        elif op == _JUMPX_OP:
+            targets = (index_of.get(pc + 1 + e),)
+        elif op == _LOADB_OP and c:
+            targets = (index_of.get(pc + 1 + c),)  # loads, then always jumps
+        elif op in _BRANCH_D_OPS:
+            targets = (index_of.get(pc + 1 + d), k + 1)
+        else:
+            targets = (k + 1,)
+        successors.append([t for t in targets if t is not None and t < len(insns)])
+        writes.append(_written_registers(op, a, b, c, aux))
+        closes.append(a if op == _CLOSEUPVALS_OP else _FRAME_TOP)
+    return successors, writes, closes
+
+
+def _write_reachable(flow, start: int, register: int) -> bool:
+    """Whether a write of `register` is reachable from instruction `start`
+    before a CLOSEUPVALS closes it."""
+    successors, writes, closes = flow
+    seen = bytearray(len(successors))
+    stack = [start] if start < len(successors) else []
+    while stack:
+        k = stack.pop()
+        if seen[k]:
+            continue
+        seen[k] = 1
+        if closes[k] <= register:
+            continue
+        low, high = writes[k]
+        if low <= register < high:
+            return True
+        stack.extend(successors[k])
+    return False
+
+
+def _tree_order(ch: Chunk):
+    """(path, proto) for the prototype tree under main, paths spelled like
+    the comparison results ("main", "0", "0.1")."""
+    order, seen, stack = [], set(), [((), ch.main)]
+    while stack:
+        path, pid = stack.pop()
+        if pid in seen:  # a malformed chunk may list a prototype twice
+            continue
+        seen.add(pid)
+        p = ch.protos[pid]
+        order.append((".".join(map(str, path)) or "main", p))
+        stack.extend((path + (i,), cid) for i, cid in reversed(list(enumerate(p.children))))
+    return order
+
+
+def capture_observations(ch: Chunk) -> list:
+    """Every `write` and `self` capture in `ch` (see the section comment), in
+    prototype tree order. One DFS per REF capture: O(captures x instructions)."""
+    hits = []
+    for path, p in _tree_order(ch):
+        insns = p.insns
+        flow = None  # built on the first capture that needs it
+        for k, insn in enumerate(insns):
+            if insn[1] not in _CLOSURE_OPS:
+                continue
+            pc, destination = insn[0], insn[2]
+            captures, after = [], k + 1
+            while after < len(insns) and insns[after][1] == _CAPTURE_OP:
+                if insns[after][2] in (_CAPTURE_VAL, _CAPTURE_REF):  # a register, not an upvalue
+                    captures.append((insns[after][2], insns[after][3]))
+                after += 1
+            for capture, register in captures:
+                kinds = ["self"] if register == destination else []
+                if capture == _CAPTURE_REF:
+                    flow = flow or _capture_flow(p)
+                    if _write_reachable(flow, after, register):
+                        kinds.append("write")
+                hits += [{"proto": path, "line": p.line_defined, "pc": pc, "register": register, "kind": kind}
+                         for kind in kinds]
+    return hits
+
+
+def compare_captures(orig: Chunk, new: Chunk, rebuild_at_o1=None) -> dict:
+    """Both chunks' capture-observation counts.
+
+    A rise is confirmed on the decompiled source compiled at -O1
+    (`rebuild_at_o1()`, called only then; it returns None if it cannot):
+    without the pinned compiler's inliner, an upvalue write of a local
+    function stays in that function instead of becoming a register write
+    next to the closure. Where the rise holds, the hits are kept for triage:
+    prototype pairing cannot tell which capture is new, and a rebuilt `line`
+    is a line of the decompiled source."""
+    original, rebuilt = capture_observations(orig), capture_observations(new)
+    result = {"original": len(original), "rebuilt": len(rebuilt)}
+    if len(rebuilt) > len(original) and rebuild_at_o1 is not None:
+        unoptimised = rebuild_at_o1()
+        if unoptimised is not None:
+            rebuilt = capture_observations(unoptimised)
+            result["rebuilt_O1"] = len(rebuilt)
+    if len(rebuilt) > len(original):
+        result["rebuilt_hits"] = rebuilt[:_CAPTURE_HITS_SHOWN]
+    return result
+
+
+def capture_excess(r) -> int:
+    """How many more observed captures a file's rebuilt chunk has, at -O2
+    and, when it was checked, at -O1 too (0 if none)."""
+    captures = r.get("captures")
+    if not captures:
+        return 0
+    rebuilt = min(captures["rebuilt"], captures.get("rebuilt_O1", captures["rebuilt"]))
+    return max(0, rebuilt - captures["original"])
+
+
+def _capture_counts_text(r) -> str:
+    captures = r["captures"]
+    o1 = f" (-O1 {captures['rebuilt_O1']})" if "rebuilt_O1" in captures else ""
+    return f"{captures['original']} -> {captures['rebuilt']}{o1}"
+
+
+def _capture_hits_text(r, shown: int = 3) -> str:
+    hits = r["captures"].get("rebuilt_hits", [])
+    text = ", ".join(f"proto {h['proto']} line {h['line']} {h['kind']}" for h in hits[:shown])
+    return text + (f", +{len(hits) - shown}" if len(hits) > shown else "")
+
+
+# --------------------------------------------------------------------------
 # Pipeline
 # --------------------------------------------------------------------------
 
@@ -1057,14 +1271,14 @@ def read_saved_bytecode(path: pathlib.Path) -> bytes:
     return base64.b64decode(body, validate=False)
 
 
-_short_counter = [0]
+# `next()` is one step under the GIL, so worker threads never share a name.
+_short_names = itertools.count(1)
 
 
 def compile_source(compiler: str, src: pathlib.Path, opt: str = "2", short_dir: pathlib.Path | None = None) -> tuple[bytes | None, str]:
     if short_dir is not None:
         # Deep corpus trees exceed MAX_PATH on Windows; compile a short-named copy.
-        _short_counter[0] += 1
-        tmp = short_dir / f"{_short_counter[0]}.luau"
+        tmp = short_dir / f"{next(_short_names)}.luau"
         tmp.write_bytes(src.read_bytes())
         src = tmp
     r = run([compiler, "--binary", f"-O{opt}", "-g1", "--fflags=false",
@@ -1141,6 +1355,15 @@ def process_file(args, rel: str, orig_raw: bytes, key: int, decompiled: pathlib.
         res["error"] = str(e)
         return res
     results, missing, extra = compare_chunks(orig, new)
+
+    def rebuild_at_o1():
+        raw, _ = compile_source(args.compiler, decompiled, "1", short_dir=args._short_dir)
+        try:
+            return parse_chunk(raw, 1) if raw else None
+        except BytecodeError:
+            return None
+
+    res["captures"] = compare_captures(orig, new, rebuild_at_o1)
     from bytecode_dataflow import compare_dataflow
     res["dataflow"] = compare_dataflow(orig, new)
     res["legacy_comparison"] = "register-erasing-normalization"
@@ -1328,6 +1551,13 @@ def main() -> int:
     if any("source_likeness" in r for r in results):
         vals = [r["source_likeness"] for r in results if "source_likeness" in r]
         summary["source_likeness_mean"] = round(sum(vals) / len(vals), 4)
+    captured = [r for r in results if r["status"] == "ok"]
+    capture_flagged = [r for r in captured if capture_excess(r)]
+    summary["capture_tier"] = {
+        "files_flagged": len(capture_flagged),
+        "original": sum(r["captures"]["original"] for r in captured),
+        "rebuilt": sum(r["captures"]["rebuilt"] for r in captured),
+    }
 
     print(f"inputs={len(results)} ok={n_ok} status={dict(status)}")
     print(f"protos={tot['protos']} exact={tot['exact']} equiv={tot['equiv']} differ={tot['differ']} "
@@ -1335,6 +1565,10 @@ def main() -> int:
     print(f"differ classes={dict(class_count)} tags={dict(tag_count)} files_fully_equiv={tot['files_equiv']}/{n_ok}")
     if "source_likeness_mean" in summary:
         print(f"source likeness (token ratio) mean={summary['source_likeness_mean']}")
+    print(f"capture tier (report-only): {len(capture_flagged)} files where rebuilt closures see more writes "
+          f"or capture themselves more often than the original")
+    for r in capture_flagged[:50]:
+        print(f"  CAPTURE {r['file']}: {_capture_counts_text(r)} ({_capture_hits_text(r)})")
     print(f"time: decompile {t1 - t0:.1f}s, recompile+compare {t2 - t1:.1f}s")
 
     report = {"summary": summary, "files": results}
@@ -1343,7 +1577,9 @@ def main() -> int:
             "summary": {k: summary[k] for k in ("inputs", "protos", "exact", "equiv", "differ", "missing", "extra", "equiv_ratio")},
             "files": [
                 {"file": r["file"], "status": r["status"], "nonequiv": r.get("nonequiv", 0),
-                 "protos": r.get("protos", 0)}
+                 "protos": r.get("protos", 0),
+                 # Only flagged files carry the field, so the others keep their baseline lines.
+                 **({"capture_excess": capture_excess(r)} if capture_excess(r) else {})}
                 for r in results
             ],
         }
@@ -1386,6 +1622,12 @@ def main() -> int:
         print(f"baseline: non-equivalent protos {b_nonequiv} -> {cur_nonequiv}; per-file regressions={len(regressions)}")
         for line in regressions[:50]:
             print("  REGRESSION " + line)
+        # Report-only until the tier gates: shown, never part of the exit status.
+        risen = [r for r in capture_flagged if capture_excess(r) > bfiles.get(r["file"], {}).get("capture_excess", 0)]
+        print(f"baseline: capture tier above the baseline in {len(risen)} files (report-only)")
+        for r in risen[:50]:
+            print(f"  CAPTURE ROSE {r['file']}: excess {bfiles.get(r['file'], {}).get('capture_excess', 0)} -> "
+                  f"{capture_excess(r)}")
         if regressions or cur_nonequiv > b_nonequiv:
             rc = 1
     if not args.work:
@@ -1436,6 +1678,10 @@ def write_markdown(path: pathlib.Path, report):
                  f"missing {s['missing']}, extra {s['extra']}")
     lines.append(f"- equivalent ratio: **{s['equiv_ratio']:.2%}**; files fully equivalent: {s['files_fully_equiv']}")
     lines.append(f"- differ classes: {s['differ_classes']}; tags: {s['tags']}")
+    if "capture_tier" in s:
+        tier = s["capture_tier"]
+        lines.append(f"- capture tier (report-only): {tier['files_flagged']} files flagged; observed captures "
+                     f"{tier['original']} original, {tier['rebuilt']} rebuilt")
     if "source_likeness_mean" in s:
         lines.append(f"- source likeness mean: {s['source_likeness_mean']}")
     lines.append("")
@@ -1453,6 +1699,23 @@ def write_markdown(path: pathlib.Path, report):
         lines.append(f"| `{f['file']}` | {f['protos']} | {f['exact']} | {f['equiv']} | {f['differ']} | "
                      f"{len(f['missing'])} | {len(f['extra'])} | {dict(classes)} | {','.join(f['tags'])} |")
     lines.append("")
+    if "capture_tier" in s:
+        flagged = [f for f in report["files"] if f["status"] == "ok" and capture_excess(f)]
+        lines.append("## Capture observations (report-only)")
+        lines.append("")
+        lines.append("By-reference captures whose closure can see its variable written again (`write`) and "
+                     "closures capturing their own register (`self`), counted per file "
+                     "(original -> rebuilt at -O2, and at -O1 where the -O2 count rose). "
+                     "A rebuilt line is a line of the decompiled source.")
+        lines.append("")
+        lines.append("| file | counts | rebuilt captures |")
+        lines.append("|---|---|---|")
+        for f in flagged:
+            lines.append(f"| `{f['file']}` | {_capture_counts_text(f)} | "
+                         f"{_capture_hits_text(f, shown=_CAPTURE_HITS_SHOWN)} |")
+        if not flagged:
+            lines.append("| (none) | | |")
+        lines.append("")
     lines.append("## Suspect / investigate details")
     lines.append("")
     for f in report["files"]:

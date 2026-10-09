@@ -115,23 +115,27 @@ fn select_value(statement: &Statement, target: &RcLocal, else_is_nil: bool, dept
     if depth >= MAX_ARMS {
         return None;
     }
-    let then_value = arm_value(&r#if.then_block.lock(), target)?;
+    // `else_is_nil`: the chain folds into the target's declaration.
+    let then_value = arm_value(&r#if.then_block.lock(), target, else_is_nil)?;
     let else_block = r#if.else_block.lock();
     let else_value = match else_block.0.as_slice() {
         [] if else_is_nil => RValue::Literal(Literal::Nil),
         [] => return None,
         [nested @ Statement::If(_)] => select_value(nested, target, else_is_nil, depth + 1)?,
-        _ => arm_value(&else_block, target)?,
+        _ => arm_value(&else_block, target, else_is_nil)?,
     };
     Some(crate::conditional_expressions::select_expression(r#if.condition.clone(), then_value, else_value))
 }
 
-fn arm_value(block: &Block, target: &RcLocal) -> Option<RValue> {
+/// The value of an arm that is exactly `target = value`. Folded into the
+/// declaration `local target = ...`, a value reading `target` would read an
+/// outer binding instead (`Assign::reads_own_target`).
+fn arm_value(block: &Block, target: &RcLocal, into_declaration: bool) -> Option<RValue> {
     let [Statement::Assign(assign)] = block.0.as_slice() else { return None };
     if assign.prefix || assign.parallel || assign.left.len() != 1 || assign.right.len() != 1 {
         return None;
     }
-    if assign.left[0].as_local() != Some(target) {
+    if assign.left[0].as_local() != Some(target) || into_declaration && assign.reads_own_target() {
         return None;
     }
     let value = &assign.right[0];
@@ -207,6 +211,25 @@ mod tests {
         ]);
         compact_conditionals(&mut block);
         assert_eq!(block.to_string(), "total = if flag then double(total * 2) else halve(total * 2)");
+    }
+
+    /// `local mode; if flag then mode = describe(mode) ...`: in `local mode =
+    /// if flag then describe(mode) ...` the read would name an outer `mode`.
+    /// As a reassignment the read keeps its variable and the chain folds.
+    #[test]
+    fn value_reading_the_declared_target_stays_a_statement() {
+        let flag = local("flag");
+        let mode = local("mode");
+        let describe = || -> RValue { Call::new(RValue::Global(Global(b"describe".to_vec())), vec![value(&mode)]).into() };
+        let chain = || -> crate::Statement {
+            If::new(value(&flag), Block(vec![assign(&mode, describe())]), Block(vec![assign(&mode, string("b"))])).into()
+        };
+        let mut block = Block(vec![declare(&mode), chain()]);
+        compact_conditionals(&mut block);
+        assert_eq!(block.0.len(), 2, "{block}");
+        let mut block = Block(vec![chain()]);
+        compact_conditionals(&mut block);
+        assert_eq!(block.to_string(), "mode = if flag then describe(mode) else \"b\"");
     }
 
     #[test]

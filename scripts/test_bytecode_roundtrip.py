@@ -2,7 +2,8 @@ import collections
 import struct
 import unittest
 
-from bytecode_roundtrip import BytecodeError, Reader, _cancel_counted_setlists, compare_chunks, parse_chunk, OP_INDEX
+from bytecode_roundtrip import (BytecodeError, Reader, _cancel_counted_setlists, capture_excess, capture_observations,
+                                compare_captures, compare_chunks, parse_chunk, OP_INDEX)
 from test_bytecode_dataflow import chunk, instruction as ins
 
 
@@ -238,8 +239,137 @@ class CountedSetListTriageTests(unittest.TestCase):
         self.assertEqual(+added, collections.Counter({"CALL(*)": 1, 'GETIMPORT(@effect)': 1}))
 
 
-if __name__ == "__main__":
-    unittest.main()
+class CaptureObservationTests(unittest.TestCase):
+    """A by-reference capture counts when its closure can see the variable
+    change: a write of the register reachable before CLOSEUPVALS closes it,
+    or a capture of the closure's own register."""
+
+    REF, VAL = 1, 0
+
+    def kinds(self, code, **kw):
+        return [hit["kind"] for hit in capture_observations(chunk(code, params=0, **kw))]
+
+    def closure(self, destination, register, kind=REF):
+        return [ins("NEWCLOSURE", destination, d=0), ins("CAPTURE", kind, register)]
+
+    def test_later_write_of_a_reference_capture_is_observed(self):
+        code = self.closure(1, 0) + [ins("LOADN", 0, d=5), ins("RETURN", 1, 2)]
+        self.assertEqual(self.kinds(code), ["write"])
+        # A by-value capture keeps its value whatever happens to the register.
+        self.assertEqual(self.kinds(self.closure(1, 0, self.VAL) + code[2:]), [])
+        # No write after the closure: nothing to see.
+        self.assertEqual(self.kinds(self.closure(1, 0) + [ins("RETURN", 1, 2)]), [])
+
+    def test_a_closure_capturing_its_own_register(self):
+        # `local function f() f() end` (by value) and `f = function() f() end`
+        # with `f` written elsewhere (by reference) both hold themselves.
+        for kind in (self.VAL, self.REF):
+            self.assertEqual(self.kinds(self.closure(0, 0, kind) + [ins("RETURN", 0, 2)]), ["self"])
+        # By reference, a later write also replaces what the closure calls.
+        code = self.closure(0, 0) + [ins("LOADN", 0, d=1), ins("RETURN", 0, 2)]
+        self.assertEqual(self.kinds(code), ["self", "write"])
+        # An upvalue of the enclosing function is no register, whatever its index.
+        self.assertEqual(self.kinds(self.closure(0, 0, 2) + [ins("RETURN", 0, 2)]), [])
+
+    def test_a_closure_that_now_captures_itself_rises(self):
+        # Promise `_andThen`: the bytecode captured `reject` (R0) into the
+        # closure written to R2; the output's closure captures its own variable.
+        captured_other = chunk(self.closure(2, 0, self.VAL) + [ins("RETURN", 2, 2)], params=0)
+        captures_itself = chunk(self.closure(2, 2) + [ins("RETURN", 2, 2)], params=0)
+        self.assertEqual(capture_excess({"captures": compare_captures(captured_other, captures_itself)}), 1)
+        # A recursive local function printed as `f = function() f() end`
+        # (VAL in the bytecode, REF rebuilt) is still one self capture.
+        recursive = chunk(self.closure(2, 2, self.VAL) + [ins("RETURN", 2, 2)], params=0)
+        self.assertEqual(capture_excess({"captures": compare_captures(recursive, captures_itself)}), 0)
+
+    def test_closeupvals_ends_what_the_closure_can_see(self):
+        write = [ins("LOADN", 3, d=5), ins("RETURN", 1, 2)]
+        for close, seen in ((3, []), (2, []), (4, ["write"])):
+            with self.subTest(close=close):
+                # CLOSEUPVALS A closes every register >= A.
+                self.assertEqual(self.kinds(self.closure(1, 3) + [ins("CLOSEUPVALS", close)] + write), seen)
+
+    def test_a_write_in_a_sibling_branch_is_not_reached(self):
+        # if c then f = function() ... r0 ... end else r0 = 7 end: the write
+        # comes later in pc order but no path from the closure reaches it.
+        code = [ins("JUMPIFNOT", 2, d=3), *self.closure(1, 0), ins("JUMP", d=1), ins("LOADN", 0, d=7),
+                ins("RETURN", 1, 2)]
+        self.assertEqual(self.kinds(code), [])
+        fall_through = [ins("JUMPIFNOT", 2, d=2), *self.closure(1, 0), ins("LOADN", 0, d=7), ins("RETURN", 1, 2)]
+        self.assertEqual(self.kinds(fall_through), ["write"])
+
+    def test_boolean_materialisation_jumps_over_its_other_arm(self):
+        # `LOADB R3 true +1` always jumps: the instruction after it is not on this path.
+        skipped = [*self.closure(2, 0), ins("LOADB", 3, 1, 1), ins("LOADN", 0, d=5), ins("RETURN", 2, 2)]
+        self.assertEqual(self.kinds(skipped), [])
+        skipped[2] = ins("LOADB", 3, 1, 0)
+        self.assertEqual(self.kinds(skipped), ["write"])
+
+    def test_loop_back_edge_reaches_writes_above_the_closure(self):
+        # while true do r0 = 1; fs[#fs + 1] = function() ... r0 ... end end
+        loop = [ins("LOADN", 0, d=0), ins("LOADN", 0, d=1), *self.closure(2, 0), ins("JUMPBACK", d=-4),
+                ins("RETURN", 0, 1)]
+        self.assertEqual(self.kinds(loop), ["write"])
+        # A local of the body is closed before the next iteration writes it again.
+        closed = loop[:4] + [ins("CLOSEUPVALS", 0), ins("JUMPBACK", d=-5), ins("RETURN", 0, 1)]
+        self.assertEqual(self.kinds(closed), [])
+
+    def test_written_register_ranges(self):
+        from bytecode_roundtrip import _written_registers
+        op = OP_INDEX.get
+        self.assertEqual(_written_registers(op("CALL"), 2, 1, 0, 0), (2, 256))  # multret: up to the top
+        self.assertEqual(_written_registers(op("CALL"), 2, 1, 3, 0), (2, 4))
+        self.assertEqual(_written_registers(op("CALL"), 2, 1, 1, 0), (2, 2))
+        self.assertEqual(_written_registers(op("GETVARARGS"), 4, 0, 0, 0), (4, 256))
+        self.assertEqual(_written_registers(op("NAMECALL"), 4, 1, 0, 0), (4, 6))
+        self.assertEqual(_written_registers(op("FORGLOOP"), 4, 0, 0, 2), (6, 9))
+        self.assertEqual(_written_registers(op("FORNLOOP"), 4, 0, 0, 0), (6, 7))
+        for name in ("SETTABLEKS", "SETUPVAL", "FASTCALL1", "FASTPCALL", "CLOSEUPVALS", "CAPTURE"):
+            self.assertEqual(_written_registers(op(name), 4, 0, 0, 0), (0, 0), name)
+        # A multret call overwrites a captured register above its base.
+        code = self.closure(1, 5) + [ins("CALL", 2, 1, 0), ins("RETURN", 1, 2)]
+        self.assertEqual(self.kinds(code), ["write"])
+        code[2] = ins("CALL", 2, 1, 2)
+        self.assertEqual(self.kinds(code), [])
+
+    def test_hits_name_the_child_prototype_and_its_line(self):
+        main = chunk([ins("NEWCLOSURE", 0, d=0), ins("RETURN", 0, 2)], params=0)
+        child = chunk(self.closure(1, 0) + [ins("LOADN", 0, d=1), ins("RETURN", 1, 2)], params=0).protos[0]
+        child.id, child.line_defined = 1, 12
+        main.protos[0].children = [1]
+        main.protos.append(child)
+        self.assertEqual(capture_observations(main),
+                         [{"proto": "0", "line": 12, "pc": 0, "register": 0, "kind": "write"}])
+
+    def test_a_file_is_flagged_only_when_the_rebuilt_chunk_sees_more(self):
+        write = [ins("LOADN", 0, d=5), ins("RETURN", 1, 2)]
+        by_value = chunk(self.closure(1, 0, self.VAL) + write, params=0)
+        by_reference = chunk(self.closure(1, 0) + write, params=0)
+        flagged = compare_captures(by_value, by_reference)
+        self.assertEqual((flagged["original"], flagged["rebuilt"], len(flagged["rebuilt_hits"])), (0, 1, 1))
+        self.assertEqual(capture_excess({"captures": flagged}), 1)
+        for orig, new in ((by_reference, by_reference), (by_reference, by_value)):
+            result = compare_captures(orig, new, rebuild_at_o1=lambda: self.fail("no rise, no -O1 rebuild"))
+            self.assertNotIn("rebuilt_hits", result)
+            self.assertEqual(capture_excess({"captures": result}), 0)
+        self.assertEqual(capture_excess({"status": "recompile-fail"}), 0)
+
+    def test_a_rise_must_hold_without_the_pinned_inliner(self):
+        write = [ins("LOADN", 0, d=5), ins("RETURN", 1, 2)]
+        by_value = chunk(self.closure(1, 0, self.VAL) + write, params=0)
+        by_reference = chunk(self.closure(1, 0) + write, params=0)
+        confirmed = compare_captures(by_value, by_reference, rebuild_at_o1=lambda: by_reference)
+        self.assertEqual((confirmed["rebuilt_O1"], capture_excess({"captures": confirmed})), (1, 1))
+        self.assertEqual(len(confirmed["rebuilt_hits"]), 1)
+        # At -O1 the write stayed in the function that makes it: an -O2 inlining artifact.
+        inlined = compare_captures(by_value, by_reference, rebuild_at_o1=lambda: by_value)
+        self.assertEqual((inlined["rebuilt"], inlined["rebuilt_O1"]), (1, 0))
+        self.assertNotIn("rebuilt_hits", inlined)
+        self.assertEqual(capture_excess({"captures": inlined}), 0)
+        # No -O1 chunk (it did not compile): the -O2 rise stands.
+        unchecked = compare_captures(by_value, by_reference, rebuild_at_o1=lambda: None)
+        self.assertNotIn("rebuilt_O1", unchecked)
+        self.assertEqual(capture_excess({"captures": unchecked}), 1)
 
 
 class GateTests(unittest.TestCase):
@@ -314,3 +444,34 @@ class GateTests(unittest.TestCase):
         self.assertIsNone(bytecode_roundtrip.source_likeness(long_source, long_source))
         self.assertLess(time.time() - start, 5)
         self.assertEqual(bytecode_roundtrip.source_likeness('return 1', 'return 1'), 1.0)
+
+    def test_capture_tier_reports_but_never_fails_the_gate(self):
+        import base64
+        import json
+        import pathlib
+        import tempfile
+        from unittest import mock
+        import bytecode_roundtrip
+        good = base64.b64encode(self.RETURN).decode()
+        baseline = {'files': [{'file': 'good', 'status': 'ok', 'nonequiv': 0, 'protos': 1}]}
+        hit = {"proto": "main", "line": 1, "pc": 0, "register": 0, "kind": "write"}
+        # Observed in order: the original, the -O2 rebuild, the -O1 rebuild
+        # (only after a rise). A rise the -O1 rebuild does not repeat is no flag.
+        for seen, excess in (([0, 1, 1], 1), ([0, 1, 0], None), ([0, 0], None)):
+            calls = []
+
+            def observe(chunk):
+                calls.append(chunk)
+                return [hit] * seen[len(calls) - 1]
+
+            with self.subTest(seen=seen), tempfile.TemporaryDirectory() as out:
+                written = pathlib.Path(out) / 'baseline.json'
+                with mock.patch.object(bytecode_roundtrip, 'capture_observations', observe):
+                    code = self.run_gate({'good.lua': good}, baseline, extra=['--write-baseline', str(written)])
+                self.assertEqual(code, 0)
+                self.assertEqual(len(calls), len(seen))
+                self.assertEqual(json.loads(written.read_text())['files'][0].get('capture_excess'), excess)
+
+
+if __name__ == "__main__":
+    unittest.main()

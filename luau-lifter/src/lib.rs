@@ -835,8 +835,13 @@ fn decompile_bytecode_internal(
             // variable (C6). Runs before `name_locals` so the `local snap = L` it
             // mints gets named, and before `inline_temps`/`copy_cleanup` (which then
             // protect it as a captured local).
+            //
+            // First, inlined copies of one shared closure constant that
+            // de-inline left behind become one binding wherever their identity
+            // can be compared (`closure_identity`).
             {
                 ptime!(S_MATERIALIZE);
+                ast::closure_identity::share_closure_constants(&mut body);
                 ast::materialize_value_captures::materialize_value_captures(&mut body);
             }
             {

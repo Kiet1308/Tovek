@@ -22,6 +22,7 @@ pub mod node_origins;
 pub mod annotations;
 mod close;
 mod closure;
+pub mod closure_identity;
 mod r#continue;
 mod r#for;
 pub mod formatter;

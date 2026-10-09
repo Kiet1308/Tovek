@@ -29,6 +29,12 @@ use crate::{
 /// loop's mutated locals so stable upvalues (a module config captured by value) are
 /// left untouched. `local snap = L` is itself captured, so `inline_temps` /
 /// `copy_cleanup` (which refuse to touch a captured local) leave it intact.
+///
+/// Precondition (SSA destruction's invariant I1): the statement creating a
+/// closure never writes, into a by-value capture's variable, a value other
+/// than the captured one. So `L = function() ... L ... end` always captures
+/// the closure itself, and only writes after the creating statement can need
+/// a snapshot: no AST shape could tell the two meanings of that statement apart.
 pub fn materialize_value_captures(block: &mut Block) {
     materialize_in_block(block, &FxHashSet::default(), &[]);
 }
@@ -332,6 +338,7 @@ fn clone_function_tree(
     let (
         bytecode_proto_id,
         bytecode_function_id,
+        closure_constant,
         retain_for_reconstruction,
         name,
         parameters,
@@ -344,6 +351,7 @@ fn clone_function_tree(
         (
             source.bytecode_proto_id,
             source.bytecode_function_id.clone(),
+            source.closure_constant,
             source.retain_for_reconstruction,
             source.name.clone(),
             source.parameters.clone(),
@@ -357,6 +365,7 @@ fn clone_function_tree(
     *clone.lock() = Function {
         bytecode_proto_id,
         bytecode_function_id,
+        closure_constant,
         retain_for_reconstruction,
         name,
         parameters,

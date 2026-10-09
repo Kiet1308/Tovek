@@ -346,6 +346,12 @@ pub struct Destructor<'a> {
     /// Roots of the cells whose value may change after a copy of it is
     /// taken ([`Self::find_unstable_cells`]).
     unstable_cells: FxHashSet<RcLocal>,
+    /// `(value, dominator order, statement)` for every by-value capture made
+    /// by a statement that also writes a local. A closure reads its captures
+    /// whenever it runs, so after that statement has written its targets.
+    /// Recorded in [`Self::build_def_use`]: coalescing removes emptied
+    /// statements, so positions looked up later would be stale.
+    value_captures: FxHashSet<(RcLocal, usize, usize)>,
 }
 
 /// Terminal SSA still needs copy/capture coalescing and sequentialization,
@@ -375,6 +381,9 @@ thread_local! {
 
 #[cfg(test)]
 mod terminal_tests;
+
+#[cfg(test)]
+mod capture_tests;
 
 impl<'a> Destructor<'a> {
     pub fn new(
@@ -408,6 +417,7 @@ impl<'a> Destructor<'a> {
             transported: FxHashSet::default(),
             captured: None,
             unstable_cells: FxHashSet::default(),
+            value_captures: FxHashSet::default(),
         }
     }
 
@@ -580,6 +590,8 @@ impl<'a> Destructor<'a> {
         self.coalesce_copies();
         self.coalesce_dead_self_updates();
         drop(phase);
+        #[cfg(any(test, debug_assertions))]
+        self.assert_captures_keep_their_values();
 
         let phase = ast::telemetry::Span::new("SSA_APPLY_LOCAL_MAP");
         super::construct::apply_local_map(self.function, self.build_local_map());
@@ -848,6 +860,45 @@ impl<'a> Destructor<'a> {
         map
     }
 
+    /// Invariant I1, checked before the local map is applied: a closure made
+    /// by a statement (at any depth of it) reads its by-value captures after
+    /// the statement wrote its targets, so a capture may share a variable
+    /// with another target of its statement only when both hold one value.
+    /// Printed, `x = function() ... x ... end` always means the closure
+    /// captures itself, which `materialize_value_captures` relies on.
+    #[cfg(any(test, debug_assertions))]
+    fn assert_captures_keep_their_values(&self) {
+        let class = |local: &RcLocal| self.congruence_classes.get(local).map(Rc::as_ptr);
+        let value = |local: &RcLocal| self.values.get(local).map(Rc::as_ptr);
+        for (_, block) in self.function.blocks() {
+            for statement in block.iter() {
+                let mut captures = Vec::new();
+                statement.traverse_rvalues_ref(&mut |rvalue| {
+                    if let ast::RValue::Closure(closure) = rvalue {
+                        captures.extend(closure.upvalues.iter().filter_map(|upvalue| match upvalue {
+                            ast::Upvalue::Copy(local) => Some(local.clone()),
+                            ast::Upvalue::Ref(_) => None,
+                        }));
+                    }
+                });
+                if captures.is_empty() {
+                    continue;
+                }
+                statement.visit_local_writes(&mut |target| {
+                    for capture in &captures {
+                        let shared = capture != target && class(capture).is_some() && class(capture) == class(target);
+                        let same_value = value(capture).is_some() && value(capture) == value(target);
+                        assert!(
+                            !shared || same_value,
+                            "closure capture {capture} shares a variable with {target}, written by its own statement {statement}"
+                        );
+                    }
+                    true
+                });
+            }
+        }
+    }
+
     // TODO: combine with compute value interference
     fn build_def_use(&mut self) {
         #[cfg(test)]
@@ -916,13 +967,29 @@ impl<'a> Destructor<'a> {
                 }
             }
             for (stat_index, stat) in self.function.block(node).unwrap().0.iter().enumerate() {
+                let mut writes_local = false;
                 stat.visit_local_writes(&mut |local| {
+                    writes_local = true;
                     self.local_defs.insert(
                         local.clone(),
                         (dominator_index, node, ParamOrStatIndex::Stat(stat_index)),
                     );
                     true
                 });
+                // A closure at any depth counts: `x = keep(function() ... end)`
+                // stores the closure before it can run, as `x = function() ...
+                // end` does.
+                if writes_local {
+                    stat.traverse_rvalues_ref(&mut |value| {
+                        if let ast::RValue::Closure(closure) = value {
+                            for upvalue in &closure.upvalues {
+                                if let ast::Upvalue::Copy(local) = upvalue {
+                                    self.value_captures.insert((local.clone(), dominator_index, stat_index));
+                                }
+                            }
+                        }
+                    });
+                }
 
                 stat.visit_local_reads(&mut |local| {
                     self.local_last_use
@@ -1322,7 +1389,14 @@ impl<'a> Destructor<'a> {
             .get(local_b)
             .and_then(|uses| uses.get(def_dom_index))
         {
-            ParamOrStatIndex::Stat(last_use) > def_stat_index
+            let last_use_position = ParamOrStatIndex::Stat(last_use);
+            last_use_position > def_stat_index
+                // `a = function() ... b ... end`, or a parallel copy holding
+                // it: the closure reads `b` after `a` is written, so `b` keeps
+                // a variable of its own. (The self capture `a = function() ...
+                // a ... end` is the closure's own value and never asked.)
+                || last_use_position == def_stat_index
+                    && self.value_captures.contains(&(local_b.clone(), def_dom_index, last_use))
         } else {
             false
         }

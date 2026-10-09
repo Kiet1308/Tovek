@@ -154,6 +154,7 @@ fn match_conditional_sequence(
                             let values_written = assign.values_written();
                             if values_written.len() == 1
                                 && !captured(values_written[0])
+                                && !assign.reads_own_target()
                                 && second_conditional_if.condition
                                     == values_written[0].clone().into()
                             {
@@ -461,10 +462,12 @@ fn structure_bool_conditional(function: &mut Function, node: NodeIndex) -> bool 
             // TODO: allow multiple unused (excl. first) locals in left
             && assign.left.len() == 1 && assign.right.len() == 1
             && let ast::LValue::Local(assigned_local) = &assign.left[0]
+            // In SSA the only other use the assigned local can have is its own
+            // closure's self capture, which pins the value to this block.
+            && !assign.reads_own_target()
             && next_args.len() == 1 && let Ok((param, ast::RValue::Local(arg))) = edge_to_next.weight().arguments.iter().exactly_one()
             && arg == assigned_local
         {
-            // TODO: make sure assigned_local is only used in the assigner and it's params to next
             // TODO: unnecessary clone
             Some((param, assign.right[0].clone(), (*next_args[param]).clone()))
         } else {
@@ -627,6 +630,9 @@ fn structure_bool_conditional(function: &mut Function, node: NodeIndex) -> bool 
             && then_param == else_param
             && then_assign.left[0].as_local() == Some(then_arg)
             && else_assign.left[0].as_local() == Some(else_arg)
+            // As in `match_triangle`: no arm may be a self-capturing closure.
+            && !then_assign.reads_own_target()
+            && !else_assign.reads_own_target()
         {
             // TODO: make sure then_arg and else_arg arent used outside their respective assigner blocks
             // and the arguments passed to next
@@ -1284,5 +1290,62 @@ mod edge_argument_regressions {
             !overwritten,
             "short-circuit merge discarded an unrelated local"
         );
+    }
+}
+
+#[cfg(test)]
+mod self_capture_collapses {
+    use super::*;
+
+    fn closure(upvalues: Vec<ast::Upvalue>) -> ast::RValue {
+        ast::Closure { node_origin: Default::default(), function: Default::default(), upvalues }.into()
+    }
+
+    /// `if c then d = <value> end` (the else arm when `in_else`) joining into
+    /// `return phi`, where the skipped edge passes `other`. Returns whether
+    /// the head took the collapsed value `c and <value> or other`.
+    fn collapses(in_else: bool, value: impl FnOnce(&ast::RcLocal) -> ast::RValue) -> bool {
+        let [condition, other, d, phi] = std::array::from_fn::<_, 4, _>(|_| ast::RcLocal::default());
+        let value = value(&d);
+        let mut function = Function::new(0);
+        function.parameters = vec![condition.clone(), other.clone()];
+        let entry = function.new_block();
+        let arm = function.new_block();
+        let join = function.new_block();
+        function.set_entry(entry);
+        function.block_mut(entry).unwrap().push(ast::If::new(condition.into(), Default::default(), Default::default()).into());
+        function.block_mut(arm).unwrap().push(ast::Assign::new(vec![d.clone().into()], vec![value]).into());
+        function.block_mut(join).unwrap().push(ast::Return::new(vec![phi.clone().into()]).into());
+        function.set_edges(arm, vec![(join, BlockEdge {
+            branch_type: BranchType::Unconditional,
+            arguments: vec![(phi.clone(), d.into())],
+        })]);
+        let (arm_branch, skip_branch) = if in_else { (BranchType::Else, BranchType::Then) } else { (BranchType::Then, BranchType::Else) };
+        let skip = BlockEdge { branch_type: skip_branch, arguments: vec![(phi, other.into())] };
+        let mut edges = vec![(arm, BlockEdge::new(arm_branch)), (join, skip)];
+        if in_else {
+            edges.reverse();
+        }
+        function.set_edges(entry, edges);
+        structure_conditionals(&mut function, &|_| false);
+        function.block(entry).unwrap().iter().any(|statement| statement.as_assign().is_some())
+    }
+
+    /// `local function f() ... f ... end` in one arm: its closure is the only
+    /// definition of `f`, so the arm stays a block of its own.
+    #[test]
+    fn self_capturing_closure_arm_stays_in_its_block() {
+        for in_else in [false, true] {
+            assert!(!collapses(in_else, |d| closure(vec![ast::Upvalue::Copy(d.clone())])), "in_else={in_else}");
+        }
+    }
+
+    /// An ordinary closure arm still becomes `c and function() ... end or y`.
+    #[test]
+    fn closure_capturing_another_local_still_collapses() {
+        for in_else in [false, true] {
+            let captured = ast::RcLocal::default();
+            assert!(collapses(in_else, |_| closure(vec![ast::Upvalue::Copy(captured.clone())])), "in_else={in_else}");
+        }
     }
 }

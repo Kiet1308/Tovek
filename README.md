@@ -173,6 +173,13 @@ calling one that reads past its caller's source (its caller's name, or a frame
 above): the caller it sees may become the helper, in the same script. Code in
 other scripts is assumed not to inspect this script's frames.
 
+A function literal that Luau shares (one capturing only top-level locals or
+itself) is one closure object at every site `-O2` inlined it to, as all copies
+load one constant. Copies left inline whose identity can be seen (stored,
+passed, compared or returned) are printed as one binding. Copies that capture
+variables the output cannot show to hold one value stay separate literals, and
+compare unequal where the bytecode may compare equal.
+
 Bytecode that no source spells is refused rather than approximated: a NAMECALL
 method that is no identifier, a FASTCALL whose fallback names another function
 than its builtin, a loop prepared for `next` or `ipairs` over another generator,
@@ -411,14 +418,20 @@ với các nhóm tính năng lấy từ những lớp lỗi các đợt review �
 ghi giữa các toán hạng, metamethod, method call, nhiều giá trị trả về, constructor
 với key `±0` và `nil`, so sánh NaN, vòng lặp với `break`/`continue`, closure trong
 vòng lặp, helper cạnh bản sao inline, thư viện bị che, `debug.info`, áp lực
-register). Tham chiếu là bytecode đã biên dịch, chạy trên benchmark VM; output
+register). Hai nhóm `capture-factory` và `recursive-arm` rút từ luồng ngẫu nhiên
+riêng, nên seed không rút chúng vẫn sinh đúng chương trình cũ: closure gán đè lên
+biến đang giữ chính giá trị nó capture (qua factory mà -O2 inline, hoặc làm đối
+số gọi ở mọi mức tối ưu), và hàm đệ quy cục bộ trong một nhánh của phép chọn giá
+trị. Tham chiếu là bytecode đã biên dịch, chạy trên benchmark VM; output
 được biên dịch lại ở một mức ngẫu nhiên và chạy cùng driver. `--mutate` sửa
 bytecode theo cách chỉ chunk tự tạo mới có (string không phải identifier, NaN
 payload): decompiler phải từ chối hoặc giữ nguyên hành vi. Grammar tránh những
 gì chính Luau làm khác nhau giữa các mức tối ưu (từ -O1 POWK tính `^ 0.5` bằng
 `sqrt`; ở -O2 vòng `for i = -0, 1` được unroll và bắt đầu từ `0`; inliner -O2 bỏ
-frame) và những gì phụ thuộc layout bảng (thứ tự `pairs`, `#` khi có lỗ `nil`,
-dấu của key `0` trên slot đang giữ `nil`). CI chạy 80 seed cố định mỗi lần push;
+frame; DUPCLOSURE chỉ dùng chung closure từ -O1, nên mọi hàm in ra là `fn`) và
+những gì phụ thuộc layout bảng (thứ tự `pairs`, `#` khi có lỗ `nil`, dấu của key
+`0` trên slot đang giữ `nil`). Địa chỉ heap mà một chunk bị sửa in ra (string
+`"function"` bị đổi tên) được so như một token. CI chạy 80 seed cố định mỗi lần push;
 workflow `Nightly fuzz` chạy một dải seed mới mỗi đêm và giữ chương trình đã rút
 gọn của ca lỗi.
 

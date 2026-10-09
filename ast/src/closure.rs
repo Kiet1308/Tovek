@@ -32,6 +32,12 @@ pub struct Function {
     /// Unlike `bytecode_proto_id`, this distinguishes multiple closure sites that
     /// instantiate the same prototype. Synthetic functions leave it as `None`.
     pub bytecode_function_id: Option<String>,
+    /// The parent prototype's constant a DUPCLOSURE loaded this closure from.
+    /// Every load of one constant yields the same closure object while the
+    /// captured values stay rawequal, so copies `-O2` inlining made of one
+    /// literal are one object ([`crate::closure_identity`]). `None` for
+    /// NEWCLOSURE (a new object each time) and synthesized functions.
+    pub closure_constant: Option<usize>,
     /// Immutable bytecode hint: retain the local closure binder through SSA so
     /// the module reconstruction pass can inspect it after child bodies exist.
     /// This is only an inlining refusal, never a semantic equivalence proof.

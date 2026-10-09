@@ -13,6 +13,13 @@ run on the same VM with the same driver. `--mutate` also patches the bytecode
 the way only a hand-made chunk can (a string no identifier spells, a NaN
 payload): the decompiler must then refuse or keep the behavior.
 
+Two capture families come from a random stream of their own, so a seed that
+draws neither builds exactly the program it built before they existed:
+`capture-factory` assigns a closure over a variable that shares a value with
+what the closure captures (through a factory Luau -O2 inlines, or as a call
+argument at every level), and `recursive-arm` defines a recursive local
+function in one arm of a value branch.
+
 A failure keeps its directory and, with `--reduce`, a reduced program (whole
 units deleted while the failure category stays). Passing seeds leave nothing.
 """
@@ -29,7 +36,7 @@ import struct
 import subprocess
 import sys
 
-VERSION = "typed-families-v1"
+VERSION = "typed-families-v2"
 
 PRELUDE = r'''local ids, nextId = {}, 0
 local function describe(value)
@@ -128,15 +135,35 @@ end
 FAMILIES = ("arithmetic", "capture", "metamethod", "method", "multret", "table", "control", "closure",
             "deinline", "shadow", "frames", "pressure")
 
+# Drawn independently of FAMILIES, each with this chance, from the seed's
+# own capture stream (see `Generator.capture_units`).
+CAPTURE_FAMILIES = ("capture-factory", "recursive-arm")
+CAPTURE_CHANCE = 0.2
+CAPTURE_SHAPES = ("branch", "two-branches", "second-use", "loop", "parallel")
+CLOSURE_BINDERS = ("factory", "keep", "record")
+RECURSIVE_ARMS = ("then", "else", "diamond", "diamond-value")
+
 REFUSALS = ("headroom for the vector constructor", "a method name no identifier spells",
             "a NaN constant whose payload", "a global name no identifier spells",
             "more locals at once than Luau allows", "more registers than Luau allows",
             "no faithful source", "a builtin call names another function", "a loop prepared for")
 
+# `describe` prints every function as `fn`: the grammar never observes closure
+# identity, which DUPCLOSURE shares only from -O1. A mutation renaming the
+# string "function" sends functions to `tostring`, a heap address that differs
+# between two runs of one chunk, so outputs compare with addresses as one token.
+HEAP_ADDRESS = re.compile(r"\b(function|table|thread|userdata|buffer): 0x[0-9a-fA-F]+")
+
+
+def comparable(output):
+    return HEAP_ADDRESS.sub(r"\1: 0x", output)
+
 
 class Generator:
     def __init__(self, seed):
         self.rng = random.Random(seed)
+        # A second stream: drawing the capture families never shifts `rng`.
+        self.capture_rng = random.Random(f"capture-families:{seed}")
         count = self.rng.randint(1, 4)
         self.families = set(self.rng.sample(FAMILIES, count))
         self.locals = []  # numeric locals in scope: list of scopes
@@ -449,6 +476,160 @@ class Generator:
         lines.append(f"record({' + '.join(names[:40])})")
         return lines
 
+    def capture_units(self):
+        """The capture families' units, drawn from `capture_rng` once every
+        other unit exists, so the units drawn from `rng` stay what they were.
+        `program` puts them before the inline copies and the pressure unit."""
+        rng = self.capture_rng
+        units = []
+        if rng.random() < CAPTURE_CHANCE:
+            self.families.add("capture-factory")
+            units.append(self.capture_factory(rng.choice(CAPTURE_SHAPES), rng.choice(CLOSURE_BINDERS)))
+        if rng.random() < CAPTURE_CHANCE:
+            self.families.add("recursive-arm")
+            units.append(self.recursive_arm(rng.choice(RECURSIVE_ARMS), rng.random() < 0.5))
+        return units
+
+    def bind_closure(self, binder, captured, arguments, result, call=None):
+        """`function(arguments) return result end` over the locals named in
+        `captured`, made the way `binder` says:
+
+        * `factory`: a local factory taking `captured` (called with `call`,
+          by default the same names). Luau -O2 inlines it, so the closure is
+          made right in the assignment; below -O2 it is a plain call.
+        * `keep`: a small local function given the literal. A call argument
+          below -O2; -O2 inlines `keep` around it.
+        * `record`: the variadic `record` given the literal. Never inlined,
+          so the closure is a call argument at every level.
+
+        Returns the definitions the binder needs and the expression."""
+        if binder == "factory":
+            make = self.fresh("make")
+            definition = [f"local function {make}({', '.join(captured)})",
+                          f"    return function({arguments})", f"        return {result}", "    end", "end"]
+            return definition, f"{make}({', '.join(call or captured)})"
+        literal = f"function({arguments}) return {result} end"
+        if binder == "keep":
+            keep, kept = self.fresh("keep"), self.fresh("kept")
+            definition = [f"local {kept} = {{}}", f"local function {keep}(f)", f"    {kept}[#{kept} + 1] = f",
+                          "    return f", "end"]
+            return definition, f"{keep}({literal})"
+        return [], f"record({literal})"
+
+    def capture_factory(self, shape, binder):
+        """A closure assigned over a variable that holds, on another path or
+        in the same parallel copy, the value the closure captures. The
+        decompiler must keep them apart: merged into one variable, the
+        closure captures itself and recurses until the stack overflows."""
+        if shape == "loop":
+            return self.capture_loop(binder)
+        if shape == "parallel":
+            return self.capture_parallel(binder)
+        # `local failure = reject; if tag then failure = wrap(tag, reject) end`
+        # in a function the caller gets back, so no inlining reshapes it.
+        definition, failure = self.bind_closure(binder, ["reject", "tag"], "x", "reject(x) * 100 + tag")
+        pick = self.fresh("pick")
+        arm = [f"failure = {failure}"]
+        after = []
+        if shape == "second-use":
+            # The closure is also stored, so it stays a statement of its own
+            # and a separate copy carries it to the join.
+            last = self.fresh("last")
+            definition.append(f"local {last} = {{}}")
+            arm.append(f"{last}.last = failure")
+            after.append(f"record({last}.last and {last}.last(3))")
+        lines = ["local failure = reject", "if tag then", *("    " + line for line in arm), "end"]
+        if shape == "two-branches":
+            # Promise `_andThen`: an earlier branch of the same shape must not
+            # treat `failure` as written (and snapshot what it captures).
+            more, success = self.bind_closure(binder, ["resolve", "tag"], "x", "resolve(x) + tag")
+            definition += more
+            lines = ["local success = resolve", "if tag then", f"    success = {success}", "end", *lines,
+                     "return sink(success, failure)"]
+            parameters = "resolve, reject, sink"
+            arguments = "function(v) return v + 1 end, function(v) return v * 10 end, " \
+                        "function(s, f) return s(2), f(2) end"
+        else:
+            lines.append("return sink(failure)")
+            parameters = "reject, sink"
+            arguments = "function(v) return v * 10 end, function(f) return f(2) end"
+        tag = self.capture_rng.choice(["3", "0.5", "-2"])
+        return self.unit(definition + [
+            f"local function {pick}(tag)", f"    return function({parameters})",
+            *("        " + line for line in lines), "    end", "end",
+            f"record({pick}(if flip then {tag} else nil)({arguments}))", *after])
+
+    def capture_loop(self, binder):
+        """`acc = wrap(i, acc)` in a loop: the closure captures the value the
+        assignment overwrites. A literal needs that value in a local of its
+        own (`previous`), or it would read `acc` itself; a factory's
+        argument is already the copy. The loop is in a function reached
+        through `record`, so its bound stays a parameter: Luau -O2 unrolls a
+        loop with constant bounds (or a copy inlined with a constant count)
+        into straight code without the shared variable."""
+        chain = self.fresh("chain")
+        definition, wrapped = self.bind_closure(binder, ["previous", "i"], "x", "previous(x) + i",
+                                                call=["acc", "i"])
+        rebind = [f"acc = {wrapped}"] if binder == "factory" else ["local previous = acc", f"acc = {wrapped}"]
+        if self.capture_rng.random() < 0.5:
+            loop = ["for i = 1, count do", *("    " + line for line in rebind), "end"]
+        else:
+            loop = ["local i = 0", "while i < count do", "    i += 1", *("    " + line for line in rebind), "end"]
+        handler = self.fresh("handler")
+        return self.unit(definition + [
+            f"local function {chain}(count)", "    local acc = function(x) return x end",
+            *("    " + line for line in loop), "    return acc", "end",
+            f"local {handler} = record({chain})({self.capture_rng.randint(1, 3)})",
+            f"record({handler}(100), {handler}(2.5))"])
+
+    def capture_parallel(self, binder):
+        """Two variables meet on one edge: `first` becomes a closure over
+        `right` while `second` takes `left`, in one parallel copy. Reached
+        through `record`, so the arguments stay parameters (an inlined copy
+        folds the constants and the shared variables disappear)."""
+        definition, made = self.bind_closure(binder, ["right"], "", "right")
+        pair, first, second = self.fresh("pair"), self.fresh("first"), self.fresh("second")
+        copy = [f"first, second = {made}, left"] if self.capture_rng.random() < 0.5 else \
+            [f"first = {made}", "second = left"]
+        return self.unit(definition + [
+            f"local function {pair}(left, right, flag)", "    local first, second = left, right",
+            "    if flag then", *("        " + line for line in copy), "    end",
+            "    return first, second", "end",
+            f"local {first}, {second} = record({pair})(\"a\", \"b\", flip)",
+            f"record(if flip then {first}() else {first}, {second})"])
+
+    def recursive_arm(self, arm, indirect):
+        """A recursive local function defined in one arm of a value branch.
+        Its closure captures its own register, so moving the closure out of
+        the arm (into `flag and function ... end or other`) leaves the
+        recursion calling a variable nothing set. Called directly, Luau -O2
+        inlines the chooser into `body`; called `indirect`ly (through
+        `record`), never."""
+        choose, rec, chosen = self.fresh("choose"), self.fresh("rec"), self.fresh("chosen")
+        recursive = [f"local function {rec}(n)", f"    if n <= 0 then return \"{rec}\" end",
+                     f"    return {rec}(n - 1)", "end", f"chosen = {rec}"]
+        recursive = ["    " + line for line in recursive]
+        if arm in ("then", "else"):
+            condition = "flag" if arm == "then" else "not flag"
+            body = ["local chosen = fallback", f"if {condition} then", *recursive, "end"]
+        else:
+            other = "function() return \"plain\" end" if arm == "diamond" else "1"
+            body = ["local chosen", "if flag then", *recursive, "else", f"    chosen = {other}", "end"]
+        callee = f"record({choose})" if indirect else choose
+        # `chosen` is the recursive function exactly when `flip` picks its
+        # arm; the `diamond-value` arm's other value is not callable.
+        use = f"if flip then {chosen}(3) else {chosen}" if arm == "diamond-value" else f"{chosen}(3)"
+        return self.unit([f"local function {choose}(flag, fallback)", *("    " + line for line in body),
+                          "    return chosen", "end",
+                          f"local {chosen} = {callee}(flip, function() return \"fallback\" end)",
+                          f"record({use})"])
+
+    @staticmethod
+    def unit(lines):
+        # Its own block, so its locals end with it: the pressure unit after
+        # it may hold close to the 200 locals Luau allows.
+        return ["do", *("    " + line for line in lines), "end"]
+
     def program(self):
         units = []
         if self.has("deinline"):
@@ -456,11 +637,13 @@ class Generator:
         self.locals.append([])
         for _ in range(self.rng.randint(4, 10)):
             units.append(self.statement(3))
+        tail = []
         if self.has("deinline"):
-            units.append(self.inline_copies())
+            tail.append(self.inline_copies())
         if self.has("pressure"):
-            units.append(self.pressure())
+            tail.append(self.pressure())
         self.locals.pop()
+        units += self.capture_units() + tail
         return ["\n".join("    " + line for line in unit) + "\n" for unit in units]
 
 
@@ -547,8 +730,9 @@ def check(args, units, directory, opt, debug, out_opt, mutation=None):
         return "failed", f"recompile -O{out_opt}: {error}"
     (directory / "output.bc").write_bytes(rebuilt)
     actual = run([args.vm, directory / "output.bc", args.driver_bc], args.timeout)
-    if actual[:2] != reference[:2]:
-        detail = first_difference(reference[1], actual[1]) if actual[0] == reference[0] else f"exit {actual[0]}: {actual[2][:200]}"
+    expected_output, actual_output = comparable(reference[1]), comparable(actual[1])
+    if actual[0] != reference[0] or actual_output != expected_output:
+        detail = first_difference(expected_output, actual_output) if actual[0] == reference[0] else f"exit {actual[0]}: {actual[2][:200]}"
         return "failed", f"mismatch (output -O{out_opt}{', ' + note if note else ''}): {detail}"
     return "passed", note
 

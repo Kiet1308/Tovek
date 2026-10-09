@@ -148,6 +148,18 @@
       "bytes": 280,
       "lines": 24
     },
+    "semantic/capture_coalesced_into_closure_target__O0.luau": {
+      "bytes": 392,
+      "lines": 27
+    },
+    "semantic/capture_coalesced_into_closure_target__O1.luau": {
+      "bytes": 392,
+      "lines": 27
+    },
+    "semantic/capture_coalesced_into_closure_target__O2.luau": {
+      "bytes": 843,
+      "lines": 65
+    },
     "semantic/capture_written_after_yield__O0.luau": {
       "bytes": 403,
       "lines": 28
@@ -375,6 +387,18 @@
     "semantic/cell_written_in_loop_read_after__O2.luau": {
       "bytes": 689,
       "lines": 55
+    },
+    "semantic/closure_identity_across_inlined_copies__O0.luau": {
+      "bytes": 1048,
+      "lines": 77
+    },
+    "semantic/closure_identity_across_inlined_copies__O1.luau": {
+      "bytes": 1031,
+      "lines": 76
+    },
+    "semantic/closure_identity_across_inlined_copies__O2.luau": {
+      "bytes": 1535,
+      "lines": 114
     },
     "semantic/closure_in_store_key_captures__O0.luau": {
       "bytes": 147,
@@ -1420,6 +1444,18 @@
       "bytes": 738,
       "lines": 41
     },
+    "semantic/promise_advancers_capture_their_handlers__O0.luau": {
+      "bytes": 927,
+      "lines": 51
+    },
+    "semantic/promise_advancers_capture_their_handlers__O1.luau": {
+      "bytes": 927,
+      "lines": 51
+    },
+    "semantic/promise_advancers_capture_their_handlers__O2.luau": {
+      "bytes": 2433,
+      "lines": 165
+    },
     "semantic/rebuilt_call_result_names__O0.luau": {
       "bytes": 638,
       "lines": 28
@@ -1443,6 +1479,18 @@
     "semantic/recursive_local_function_in_loop__O2.luau": {
       "bytes": 815,
       "lines": 65
+    },
+    "semantic/recursive_local_function_in_value_branch__O0.luau": {
+      "bytes": 1018,
+      "lines": 77
+    },
+    "semantic/recursive_local_function_in_value_branch__O1.luau": {
+      "bytes": 994,
+      "lines": 73
+    },
+    "semantic/recursive_local_function_in_value_branch__O2.luau": {
+      "bytes": 1291,
+      "lines": 108
     },
     "semantic/register_store_target_after_value_call__O0.luau": {
       "bytes": 462,
@@ -1852,6 +1900,18 @@
       "bytes": 456,
       "lines": 37
     },
+    "semantic/value_capture_into_its_own_target__O0.luau": {
+      "bytes": 2034,
+      "lines": 146
+    },
+    "semantic/value_capture_into_its_own_target__O1.luau": {
+      "bytes": 2034,
+      "lines": 146
+    },
+    "semantic/value_capture_into_its_own_target__O2.luau": {
+      "bytes": 4173,
+      "lines": 332
+    },
     "semantic/value_capture_of_cell_copy__O0.luau": {
       "bytes": 217,
       "lines": 20
@@ -1863,6 +1923,18 @@
     "semantic/value_capture_of_cell_copy__O2.luau": {
       "bytes": 186,
       "lines": 19
+    },
+    "semantic/value_capture_through_call_argument__O0.luau": {
+      "bytes": 701,
+      "lines": 51
+    },
+    "semantic/value_capture_through_call_argument__O1.luau": {
+      "bytes": 701,
+      "lines": 51
+    },
+    "semantic/value_capture_through_call_argument__O2.luau": {
+      "bytes": 1107,
+      "lines": 87
     },
     "semantic/value_capture_written_after_closure__O0.luau": {
       "bytes": 865,
