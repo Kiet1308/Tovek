@@ -674,6 +674,10 @@ pub fn deinline_orphans_in(body: &mut Block, chunk_orphans: &mut Vec<(RcLocal, C
     let mut unchanged_targets: Option<Vec<Target>> = None;
     let mut rescan: Option<Rescan> = None;
     let mut current_captures: Option<std::rc::Rc<crate::deinline_safety::CaptureSafety>> = None;
+    // What collecting found for each helper whose code no rewrite changed
+    // since, and the targets of the last collection.
+    let mut helper_cache = HelperCache::default();
+    let mut last_targets: Option<Vec<Target>> = None;
     for _ in 0..64 {
         dprof::inc(&dprof::ITERATIONS, 1);
         crate::telemetry::count("iterations", 1);
@@ -682,9 +686,12 @@ pub fn deinline_orphans_in(body: &mut Block, chunk_orphans: &mut Vec<(RcLocal, C
             let _span = crate::telemetry::Span::new("D_COLLECT_TARGETS");
             let mut targets = match unchanged_targets.take() {
                 Some(targets) => {
-                    // What the previous scan of this tree tried and found;
-                    // the late targets wait for the assignment phase.
-                    let tried = targets.iter().map(|target| target.focused && (!target.late() || target.assigns)).collect();
+                    // What the previous scan of this tree tried and found.
+                    // It rewrote nothing: a target outside its focus could
+                    // not match anew there ([`Target::focused`]), nor on the
+                    // same tree now. Every target counts as tried but the
+                    // late ones, which wait for the assignment phase.
+                    let tried = targets.iter().map(|target| !target.late() || target.assigns).collect();
                     let with_closure = targets.iter().map(|target| block_has_closure(&target.pat)).collect();
                     rescan = previous.as_mut().map(|previous| Rescan {
                         tried,
@@ -698,7 +705,10 @@ pub fn deinline_orphans_in(body: &mut Block, chunk_orphans: &mut Vec<(RcLocal, C
                     let captures = initial_captures.take().unwrap_or_else(||
                         std::rc::Rc::new(crate::deinline_safety::CaptureSafety::new(body)));
                     current_captures = Some(captures.clone());
-                    let targets = collect_targets(body, &write_counts, &single_valued, captures, &orphans);
+                    if let Some(last) = last_targets.take() {
+                        helper_cache.keep_targets(last);
+                    }
+                    let targets = collect_targets(body, &write_counts, &single_valued, captures, &orphans, &mut helper_cache);
                     crate::telemetry::count("accepted_targets", targets.len() as u64);
                     // The budget counts helpers: a value helper's discard
                     // variant shares its definition.
@@ -796,6 +806,8 @@ pub fn deinline_orphans_in(body: &mut Block, chunk_orphans: &mut Vec<(RcLocal, C
         }
         current_captures = None;
         converted.extend(newly.binders.iter().cloned());
+        helper_cache.forget_rewritten(&newly.bodies);
+        last_targets = Some(targets);
         previous = Some(newly);
         if search.exhausted() { break; }
     }
@@ -3011,15 +3023,18 @@ fn deinline_block(
     }
     let last_statement = stmts.iter().rposition(|statement| !is_match_trivia(statement));
     {
-        let snapshot = (targets.iter().any(|target| target.cps_loop_return)
-            && stmts.iter().any(|statement| matches!(statement, Statement::If(_))))
-            .then(|| stmts.clone());
+        // An `if`'s continuation is the statements after it, which the
+        // recursion into the statements before them leaves as they are.
+        let continuations = targets.iter().any(|target| target.cps_loop_return);
         let mut active: Vec<usize> = outer_active.to_vec();
-        for (j, s) in stmts.iter_mut().enumerate() {
-            let continuation = if matches!(s, Statement::If(_)) {
-                snapshot.as_ref().map(|snapshot|
-                    continuation_segments(&snapshot[j + 1..], outer_continuation)).unwrap_or_default()
-            } else { Vec::new() };
+        for j in 0..stmts.len() {
+            let (head, rest) = stmts.split_at_mut(j + 1);
+            let s = &mut head[j];
+            let continuation = if continuations && matches!(s, Statement::If(_)) {
+                continuation_segments(rest, outer_continuation)
+            } else {
+                Vec::new()
+            };
             let child_tail = child_tails[j];
             let arm_loop_tail = loop_tail && Some(j) == last_statement;
             match s {
@@ -4219,7 +4234,7 @@ fn match_value(
     current_func: Option<FnPtr>,
 ) -> Option<Hit> {
     let Some(r) = result_decl(&stmts[i]) else {
-        return match_declared_value(stmts, i, i, t, is_func_body_top, last_occ, current_func);
+        return match_declared_value(stmts, i, i, t, is_func_body_top, last_occ, current_func, &SitePrefix::new(&[]));
     };
     let kc = t.pat.len();
     let body_start = i + 1;
@@ -4835,6 +4850,8 @@ fn match_declared_value(
     is_func_body_top: bool,
     last_occ: &mut Option<FxHashMap<RcLocal, usize>>,
     current_func: Option<FnPtr>,
+    // `stmts[i..d]`, shared by the plain forms.
+    site: &SitePrefix,
 ) -> Option<Hit> {
     let Statement::Assign(decl) = &stmts[d] else { return None };
     if !decl.prefix || decl.parallel || decl.left.len() != 1 || decl.right.len() != 1 {
@@ -4856,13 +4873,7 @@ fn match_declared_value(
     if lone && !may_specialize(t) && unify_assignment(t, &t.ctx(), &t.pat[0], decl, false, &mut Bindings::default()).is_err() {
         return None;
     }
-    let mut window = prefix.to_vec();
-    window.push(Statement::Assign(Assign { prefix: false, ..decl.clone() }));
-    if !charge_window(t, &window) {
-        return None;
-    }
-    let canonical = if lone { window } else { canon_recurse(canon_top(&window, true), true) };
-    let u = try_unify_site_any(t, &canonical, current_func)?;
+    let u = site.unify_store(t, Statement::Assign(Assign { prefix: false, ..decl.clone() }), current_func)?;
     let complete = u.result.as_ref() == Some(r)
         && !u.callee_locals.contains(r)
         && !block_reads_local(prefix, r)
@@ -4887,6 +4898,8 @@ fn match_returned_local(
     // The site local the prefix alone binds the returned local to, where
     // [`prefix_may_unify`] tells: `Some(None)` when it binds none.
     hint: Option<&Option<RcLocal>>,
+    // `stmts[i..d]`, shared by the plain forms.
+    site: &SitePrefix,
 ) -> Option<Hit> {
     let prefix = &stmts[i..d];
     if t.falls_off || prefix.is_empty() || block_has_return(prefix) {
@@ -4900,30 +4913,41 @@ fn match_returned_local(
         Statement::Assign(assign) if assign.prefix => Some(assign.left.iter()),
         _ => None,
     }).flatten().filter_map(|left| left.as_local());
-    // What may write a candidate after the prefix defines it, read once a
-    // candidate is left.
-    let mut written_later: Option<FxHashSet<RcLocal>> = None;
+    // What may write a candidate after the prefix defines it: the closures
+    // the prefix makes, and the statements after it, where the tail index
+    // shows the candidate at all. Each read once a candidate needs it.
+    let mut closure_written: Option<FxHashSet<RcLocal>> = None;
+    let mut written_after: Option<FxHashSet<RcLocal>> = None;
     for local in declared {
         if hint.is_some_and(|hint| hint.as_ref() != Some(local)) {
             continue;
         }
-        let written_later = written_later.get_or_insert_with(|| {
+        let in_closures = closure_written.get_or_insert_with(|| {
             let mut written = FxHashSet::default();
-            collect_written(&stmts[d..], &mut written);
             closure_writes(prefix, &mut written);
             written
         });
-        if written_later.contains(local) {
+        if in_closures.contains(local) {
             continue;
         }
         let read_later = tail_has_live(last_occ, stmts, i, d, &FxHashSet::from_iter([local.clone()]));
-        let result = RcLocal::default();
-        let mut window = prefix.to_vec();
-        window.push(Assign::new(vec![result.clone().into()], vec![RValue::Local(local.clone())]).into());
-        if canon_top_len(&window, true) != t.pat.len() || !charge_window(t, &window) {
+        if read_later
+            && written_after
+                .get_or_insert_with(|| {
+                    let mut written = FxHashSet::default();
+                    collect_written(&stmts[d..], &mut written);
+                    written
+                })
+                .contains(local)
+        {
             continue;
         }
-        let Some(u) = try_unify_site_any(t, &canon_recurse(canon_top(&window, true), true), current_func) else {
+        let result = RcLocal::default();
+        let store: Statement = Assign::new(vec![result.clone().into()], vec![RValue::Local(local.clone())]).into();
+        if canon_top_len_of(prefix.iter().chain(std::iter::once(&store)), true) != t.pat.len() {
+            continue;
+        }
+        let Some(u) = site.unify_store(t, store, current_func) else {
             continue;
         };
         let mut others = u.callee_locals.clone();
@@ -5049,6 +5073,8 @@ fn match_embedded_value(
     current_func: Option<FnPtr>,
     is_func_body_top: bool,
     last_occ: &mut Option<FxHashMap<RcLocal, usize>>,
+    // `stmts[i..d]`, shared by the plain forms.
+    site: &SitePrefix,
 ) -> Option<Hit> {
     let prefix = &stmts[i..d];
     if t.falls_off || prefix.is_empty() || block_has_return(prefix) || (is_func_body_top && i == 0 && d + 1 == stmts.len()) {
@@ -5068,9 +5094,8 @@ fn match_embedded_value(
     }
     let root = value_kind(pattern_value);
     let result = RcLocal::default();
-    let mut window = prefix.to_vec();
-    window.push(Assign::new(vec![result.clone().into()], vec![RValue::Literal(Literal::Nil)]).into());
-    if canon_top_len(&window, true) != t.pat.len() {
+    let nil_store: Statement = Assign::new(vec![result.clone().into()], vec![RValue::Literal(Literal::Nil)]).into();
+    if canon_top_len_of(prefix.iter().chain(std::iter::once(&nil_store)), true) != t.pat.len() {
         return None;
     }
     let mut host = stmts[d].clone();
@@ -5081,17 +5106,25 @@ fn match_embedded_value(
     // and a global or field that code may change once the prefix runs any
     // (`dispatch = new; dispatch(f())` is not `dispatch(helper())`). A method
     // lookup is no effect, as everywhere in evaluation order.
-    let mut prefix_writes = FxHashSet::default();
-    collect_written(prefix, &mut prefix_writes);
-    let prefix_runs_code = may_run_code(prefix);
+    // Each read once a value needs it.
+    let prefix_writes = std::cell::OnceCell::new();
+    let prefix_runs_code = std::cell::OnceCell::new();
+    let writes = || {
+        prefix_writes.get_or_init(|| {
+            let mut written = FxHashSet::default();
+            collect_written(prefix, &mut written);
+            written
+        })
+    };
+    let runs_code = || *prefix_runs_code.get_or_init(|| may_run_code(prefix));
     let function = current_func.map(|function| function as usize);
     let register = |local: &RcLocal| t.captures.register_of(local, function);
     let changed_by_prefix = |read: &Earlier| match read {
         Earlier::Value(RValue::Literal(_)) => false,
         Earlier::Value(value @ RValue::Local(local)) => {
-            prefix_writes.contains(local) || (prefix_runs_code && !t.captures.stable_at(value, function))
+            writes().contains(local) || (runs_code() && !t.captures.stable_at(value, function))
         }
-        Earlier::Value(value) => prefix_runs_code && !t.captures.constant_import(value),
+        Earlier::Value(value) => runs_code() && !t.captures.constant_import(value),
     };
     visit_leading_values(&mut host, &register, &mut |value, evaluated_before, spread| {
         if value_kind(value) != root || evaluated_before.iter().any(&changed_by_prefix) {
@@ -5112,13 +5145,8 @@ fn match_embedded_value(
         if spread.takes_all(value) != (spread != Spread::One && is_multiple(pattern_value)) {
             return false;
         }
-        if let Some(Statement::Assign(store)) = window.last_mut() {
-            store.right[0] = value.clone();
-        }
-        if !charge_window(t, &window) {
-            return false;
-        }
-        let Some(u) = try_unify_site_any(t, &canon_recurse(canon_top(&window, true), true), current_func) else {
+        let store = Assign::new(vec![result.clone().into()], vec![value.clone()]).into();
+        let Some(u) = site.unify_store(t, store, current_func) else {
             return false;
         };
         if u.result.as_ref() != Some(&result) || u.callee_locals.contains(&result) {
@@ -5763,8 +5791,11 @@ fn match_value_prefixed(
     is_func_body_top: bool,
     last_occ: &mut Option<FxHashMap<RcLocal, usize>>,
 ) -> Option<Hit> {
-    // Every window here opens with the callee prefix.
-    if head_refused(t, &stmts[i..]) {
+    // Every window here opens with the callee prefix, an `if` of which keeps
+    // its condition through canon (the prefix returns nothing).
+    if head_refused(t, &stmts[i..])
+        || (!may_specialize(t) && (leading_condition_refused(t, &stmts[i..]) || leading_prefix_refused(t, &stmts[i..])))
+    {
         return None;
     }
     let p = t.prefix_len; // effective callee-prefix statement count (>= 1)
@@ -5778,19 +5809,18 @@ fn match_value_prefixed(
         // The next three forms unify the pattern against the site's prefix
         // and one plain store: a prefix that does not unify alone (from no
         // bindings, as they start) refuses them all, read once.
-        let prefix_bindings = prefix_may_unify(t, &stmts[i..d]);
-        let plain_forms = prefix_bindings.is_some();
+        let Some(site) = prefix_may_unify(t, &stmts[i..d]) else {
+            return match_own_local_value(stmts, i, d, t, current_func, is_func_body_top, last_occ);
+        };
         // The site local the prefix binds the returned local to, if known.
-        let returned_hint = prefix_bindings.as_ref().and_then(|b| {
+        let returned_hint = site.bindings.as_ref().and_then(|bindings| {
             let Some(Statement::Return(ret)) = t.pat.last() else { return None };
             let [RValue::Local(local)] = ret.values.as_slice() else { return None };
-            b.as_ref().map(|b| b.locals.get(local).cloned())
+            Some(bindings.locals.get(local).cloned())
         });
-        return plain_forms
-            .then(|| match_declared_value(stmts, i, d, t, is_func_body_top, last_occ, current_func))
-            .flatten()
-            .or_else(|| plain_forms.then(|| match_embedded_value(stmts, i, d, t, current_func, is_func_body_top, last_occ)).flatten())
-            .or_else(|| plain_forms.then(|| match_returned_local(stmts, i, d, t, current_func, last_occ, returned_hint.as_ref())).flatten())
+        return match_declared_value(stmts, i, d, t, is_func_body_top, last_occ, current_func, &site)
+            .or_else(|| match_embedded_value(stmts, i, d, t, current_func, is_func_body_top, last_occ, &site))
+            .or_else(|| match_returned_local(stmts, i, d, t, current_func, last_occ, returned_hint.as_ref(), &site))
             .or_else(|| match_own_local_value(stmts, i, d, t, current_func, is_func_body_top, last_occ));
     };
     let kc = t.pat.len();
@@ -5870,20 +5900,86 @@ fn match_value_prefixed(
 /// does so with: a necessary condition of [`match_declared_value`],
 /// [`match_embedded_value`] and [`match_returned_local`], which unify
 /// `prefix` and one plain store after it from no bindings, the prefix
-/// first. A return-free prefix canonicalizes alike alone and before a plain
-/// store. `Some(None)` (no bindings known, every form tried) for a target
-/// whose specializations unify instead ([`may_specialize`]), and for a
-/// narrow prefix, as before.
-fn prefix_may_unify(t: &Target, prefix: &[Statement]) -> Option<Option<Bindings>> {
+/// first. No bindings known (every form tried) for a target whose
+/// specializations unify instead ([`may_specialize`]), and for a narrow
+/// prefix, as before; `None` refuses the three forms.
+fn prefix_may_unify<'a>(t: &Target, prefix: &'a [Statement]) -> Option<SitePrefix<'a>> {
+    let site = SitePrefix::new(prefix);
     if narrow_prefix(&t.pat) || may_specialize(t) || block_has_return(prefix) {
-        return Some(None);
+        return Some(site);
     }
     if !charge_window(t, prefix) {
         return None;
     }
-    let canonical = canon_recurse(canon_top(prefix, true), true);
-    let mut b = Bindings::default();
-    unify_block(t, &t.pat[..t.prefix_len], &canonical, &mut b).ok().map(|_| Some(b))
+    let mut bindings = Bindings::default();
+    let unified = {
+        let window = site.window();
+        unify_block(t, &t.pat[..t.prefix_len], &window[..window.len() - 1], &mut bindings).is_ok()
+    };
+    unified.then(|| SitePrefix { bindings: Some(bindings), ..site })
+}
+
+/// The prefix of a plain-form site: the statements before the one plain
+/// store whose window [`match_declared_value`], [`match_embedded_value`]
+/// and [`match_returned_local`] unify, each with stores of its own. Canon's
+/// tail rules all read returns, so a return-free prefix canonicalizes alike
+/// alone and before a plain store, which is its own canon: the canonical
+/// prefix is built once, on first use, with a slot after it that each store
+/// takes in turn. Where the pattern's prefix unified with it alone
+/// ([`prefix_may_unify`]), it holds those bindings, and a window then
+/// unifies exactly when its store unifies with the pattern's last statement
+/// from them.
+struct SitePrefix<'a> {
+    statements: &'a [Statement],
+    /// The canonical prefix, then the store slot, once built.
+    window: std::cell::RefCell<Option<Vec<Statement>>>,
+    /// The nodes of `statements`: a window is charged to the search budget
+    /// as the statements it is made of ([`charge_window`]).
+    nodes: std::cell::Cell<Option<usize>>,
+    bindings: Option<Bindings>,
+}
+
+impl<'a> SitePrefix<'a> {
+    fn new(statements: &'a [Statement]) -> Self {
+        Self { statements, window: Default::default(), nodes: Default::default(), bindings: None }
+    }
+
+    /// The canonical prefix and the store slot.
+    fn window(&self) -> std::cell::RefMut<'_, Vec<Statement>> {
+        std::cell::RefMut::map(self.window.borrow_mut(), |window| {
+            window.get_or_insert_with(|| {
+                let mut window = canon_recurse(canon_top(self.statements, true), true);
+                window.push(Statement::Empty(crate::Empty {}));
+                window
+            })
+        })
+    }
+
+    /// [`try_unify_site_any`] of the window this return-free prefix and
+    /// `store` make, or from the prefix's bindings where known.
+    fn unify_store(&self, t: &Target, store: Statement, current_func: Option<FnPtr>) -> Option<Unified> {
+        if let Some(bindings) = &self.bindings {
+            if !charge_unify(t, &[]) {
+                return None;
+            }
+            let mut b = bindings.clone();
+            unify_stmt(t, t.pat.last()?, &store, &mut b).ok()?;
+            let mut window = self.window();
+            *window.last_mut()? = store;
+            return finish_unified(t, &window, b, current_func);
+        }
+        let nodes = self.nodes.get().unwrap_or_else(|| {
+            let nodes = self.statements.iter().map(dbg_stmt_node_count).sum();
+            self.nodes.set(Some(nodes));
+            nodes
+        });
+        if t.search.exhausted() || !t.search.spend(nodes + dbg_stmt_node_count(&store)) {
+            return None;
+        }
+        let mut window = self.window();
+        *window.last_mut()? = store;
+        try_unify_site_any(t, &window, current_func)
+    }
 }
 
 /// Result-alias form of a value site (Shape A). The callee's value leaf
@@ -6624,6 +6720,31 @@ fn leading_statement_refused(t: &Target, stmts: &[Statement]) -> bool {
         }
         _ => false,
     }
+}
+
+/// Whether the plain statements opening `stmts` (assignments with values,
+/// calls) fail to unify, one for one and from no bindings, with the
+/// statements opening `t`'s prefix. Canon keeps such statements as they are
+/// and in place (it only drops trivia), so every window of a prefixed
+/// matcher, which unifies its prefix first and from no stricter bindings
+/// than these, is refused with them. Stops at the first other statement.
+fn leading_prefix_refused(t: &Target, stmts: &[Statement]) -> bool {
+    let mut b = Bindings::default();
+    let site = stmts.iter().filter(|statement| !is_match_trivia(statement));
+    for (pattern, statement) in t.pat[..t.prefix_len].iter().zip(site) {
+        let plain = match statement {
+            Statement::Assign(assign) => !assign.right.is_empty(),
+            Statement::Call(_) | Statement::MethodCall(_) => true,
+            _ => false,
+        };
+        if !plain {
+            return false;
+        }
+        if unify_stmt(t, pattern, statement, &mut b).is_err() {
+            return true;
+        }
+    }
+    false
 }
 
 /// Whether [`try_unify_specialized_site`] can match anything: a window
@@ -7842,6 +7963,7 @@ fn collect_targets(
     single_valued: &FxHashSet<RcLocal>,
     captures: std::rc::Rc<crate::deinline_safety::CaptureSafety>,
     orphans: &[Orphan],
+    cache: &mut HelperCache,
 ) -> Vec<Target> {
     // P4: a write-once census (`write_counts`, computed once by the caller — see the
     // invariance note in `deinline`) replaces the old `Arc::count(&l) == 1` gate.
@@ -7871,12 +7993,12 @@ fn collect_targets(
             deinline_reject!(RejectReason::TargetStillReferenced, f_local, "<binder>");
             continue;
         }
-        helper_targets(&f_local, &func, single_valued, &captures, None, &mut targets);
+        helper_targets(&f_local, &func, single_valued, &captures, None, &mut targets, cache);
     }
     // Orphans: functions only ever called where Luau inlined them, their
     // dead declarations kept aside ([`Orphan`]).
     for orphan in orphans {
-        helper_targets(&orphan.binder, &orphan.function, single_valued, &captures, Some(orphan.scope), &mut targets);
+        helper_targets(&orphan.binder, &orphan.function, single_valued, &captures, Some(orphan.scope), &mut targets, cache);
     }
     targets
 }
@@ -7884,7 +8006,10 @@ fn collect_targets(
 /// The targets of the helper `func` bound to `f_local`, if it passes the
 /// per-helper gates: its pattern, its discard variant and its
 /// specialization variants. `orphan` is the scope of an orphan's kept-aside
-/// declaration ([`Orphan`]), `None` for a declaration in the tree.
+/// declaration ([`Orphan`]), `None` for a declaration in the tree. What an
+/// earlier collection found for the helper stands while its code is as it
+/// was ([`HelperCache`]); only the gate reading the module's capture facts,
+/// which any rewrite may change, is read anew.
 fn helper_targets(
     f_local: &RcLocal,
     func: &Arc<Mutex<Function>>,
@@ -7892,9 +8017,141 @@ fn helper_targets(
     captures: &std::rc::Rc<crate::deinline_safety::CaptureSafety>,
     orphan: Option<Option<FnPtr>>,
     targets: &mut Vec<Target>,
+    cache: &mut HelperCache,
 ) {
-    let f_local = f_local.clone();
     let g = func.lock();
+    let key = (Arc::as_ptr(func), f_local.stable_id());
+    let mut found = cache.targets.remove(&key);
+    let entry = match cache.helpers.entry(key) {
+        std::collections::hash_map::Entry::Occupied(entry)
+            if found.is_some() || !matches!(entry.get().analysis, HelperAnalysis::Accepted) => entry.into_mut(),
+        entry => {
+            let mut functions = vec![Arc::as_ptr(func)];
+            functions_within(&g.body.0, &mut functions);
+            let analysis = analyze_helper(f_local, func, &g, single_valued, captures);
+            let (analysis, fresh) = match analysis {
+                Ok(fresh) => (HelperAnalysis::Accepted, Some(fresh)),
+                Err(refusal) => (refusal, None),
+            };
+            found = fresh;
+            let helper = CachedHelper { functions, analysis };
+            match entry {
+                std::collections::hash_map::Entry::Occupied(mut entry) => {
+                    entry.insert(helper);
+                    entry.into_mut()
+                }
+                std::collections::hash_map::Entry::Vacant(entry) => entry.insert(helper),
+            }
+        }
+    };
+    match entry.analysis {
+        HelperAnalysis::Refused(reason) => deinline_reject!(reason, f_local, g.name.as_deref().unwrap_or("<anon>")),
+        // Its code runs a call frame deeper inside the helper, where reading
+        // frames gives another answer.
+        _ if captures.reads_frames(&g.body.0) => {
+            deinline_reject!(RejectReason::UnsafeBody, f_local, g.name.as_deref().unwrap_or("<anon>"))
+        }
+        HelperAnalysis::RefusedLater(reason) => deinline_reject!(reason, f_local, g.name.as_deref().unwrap_or("<anon>")),
+        HelperAnalysis::Accepted => {
+            crate::call_origins::register_callee(f_local.stable_id(), g.bytecode_proto_id);
+            crate::reconstruction_stats::accept_helper(f_local.stable_id());
+            for mut target in found.unwrap_or_default() {
+                // What it read of the earlier capture facts is read anew.
+                target.captures = captures.clone();
+                target.leading = Default::default();
+                target.free_cells = Default::default();
+                target.orphan = orphan;
+                targets.push(target);
+            }
+        }
+    }
+}
+
+/// What collecting found for each helper, by its function and binder, kept
+/// while the helper's code is as it was: a rewrite in its body, or in a
+/// function within it, drops it ([`HelperCache::forget_rewritten`]). The
+/// analysis reads nothing else that changes: the write-once census and the
+/// single-valued helpers are read once, and the capture facts only by the
+/// frame gate and lazily by the targets, both read anew. The targets of the
+/// last collection come back for reuse rather than as copies.
+#[derive(Default)]
+struct HelperCache {
+    helpers: FxHashMap<(FnPtr, u64), CachedHelper>,
+    targets: FxHashMap<(FnPtr, u64), Vec<Target>>,
+}
+
+struct CachedHelper {
+    /// The helper's function and those within its body.
+    functions: Vec<FnPtr>,
+    analysis: HelperAnalysis,
+}
+
+#[derive(Clone, Copy)]
+enum HelperAnalysis {
+    /// Refused before the frame gate.
+    Refused(RejectReason),
+    /// Refused after it.
+    RefusedLater(RejectReason),
+    Accepted,
+}
+
+impl HelperCache {
+    /// Forgets each helper whose code a rewrite in `bodies` changed.
+    fn forget_rewritten(&mut self, bodies: &FxHashSet<Option<FnPtr>>) {
+        if bodies.iter().all(Option::is_none) {
+            // Only the chunk's own statements changed, in no helper.
+            return;
+        }
+        self.helpers.retain(|_, helper| !helper.functions.iter().any(|function| bodies.contains(&Some(*function))));
+    }
+
+    /// Takes back the targets of the collection before, for the helpers
+    /// still known.
+    fn keep_targets(&mut self, targets: Vec<Target>) {
+        self.targets.clear();
+        for target in targets {
+            let key = (target.func_ptr, target.f_local.stable_id());
+            if self.helpers.contains_key(&key) {
+                self.targets.entry(key).or_default().push(target);
+            }
+        }
+    }
+}
+
+/// The functions whose bodies `stmts` holds, at any depth.
+fn functions_within(stmts: &[Statement], out: &mut Vec<FnPtr>) {
+    for statement in stmts {
+        statement.traverse_rvalues_ref(&mut |value| {
+            if let RValue::Closure(closure) = value {
+                out.push(Arc::as_ptr(&closure.function.0));
+                functions_within(&closure.function.0.lock().body.0, out);
+            }
+        });
+        match statement {
+            Statement::If(branch) => {
+                functions_within(&branch.then_block.lock().0, out);
+                functions_within(&branch.else_block.lock().0, out);
+            }
+            Statement::While(node) => functions_within(&node.block.lock().0, out),
+            Statement::Repeat(node) => functions_within(&node.block.lock().0, out),
+            Statement::NumericFor(node) => functions_within(&node.block.lock().0, out),
+            Statement::GenericFor(node) => functions_within(&node.block.lock().0, out),
+            _ => {}
+        }
+    }
+}
+
+/// [`helper_targets`]' analysis of the helper `g` (`func`, bound to
+/// `f_local`): its targets, or why it is refused. It reads the capture
+/// facts for no gate.
+fn analyze_helper(
+    f_local: &RcLocal,
+    func: &Arc<Mutex<Function>>,
+    g: &Function,
+    single_valued: &FxHashSet<RcLocal>,
+    captures: &std::rc::Rc<crate::deinline_safety::CaptureSafety>,
+) -> Result<Vec<Target>, HelperAnalysis> {
+    let f_local = f_local.clone();
     // P5-A: drop the `g.name.is_none()` gate. `g.name` is only the bytecode
     // debugname — never consumed by emission (the call/marker use `f_local`,
     // line ~1377) nor the formatter; only this gate and a debug-trace string
@@ -7904,41 +8161,27 @@ fn helper_targets(
     // unprovable from the inlined body, so it is left for `body_unsafe`-style
     // refusal here.) Every soundness gate downstream is unchanged.
     if g.is_variadic {
-        deinline_reject!(RejectReason::Variadic, f_local,
-            g.name.as_deref().unwrap_or("<anon>")
-        );
-        return;
+        return Err(HelperAnalysis::Refused(RejectReason::Variadic));
     }
-    // Its code runs a call frame deeper inside the helper, where reading
-    // frames gives another answer.
-    if body_unsafe(&g.body.0) || captures.reads_frames(&g.body.0) {
-        deinline_reject!(RejectReason::UnsafeBody, f_local,
-            g.name.as_deref().unwrap_or("<anon>")
-        );
-        return;
+    // The frame gate is [`helper_targets`]'.
+    if body_unsafe(&g.body.0) {
+        return Err(HelperAnalysis::Refused(RejectReason::UnsafeBody));
     }
     let (body, returns) = pattern_body(&g.body.0, &g.parameters);
     let (kind, falls_off) = match classify_returns(&body) {
         Some(classified) => classified,
         None => {
             // multi-return / mixed / bare-vararg leaf / non-terminal value return
-            deinline_reject!(RejectReason::UnsupportedReturnShape, f_local,
-                g.name.as_deref().unwrap_or("<anon>")
-            );
-            return;
+            return Err(HelperAnalysis::RefusedLater(RejectReason::UnsupportedReturnShape));
         }
     };
     let shape = crate::deinline_safety::CaptureSafety::new(&g.body);
     if !shape.complete() || shape.nodes() > 2048 {
-        deinline_reject!(RejectReason::ShapeBudget, f_local, g.name.as_deref().unwrap_or("<anon>"));
-        return;
+        return Err(HelperAnalysis::RefusedLater(RejectReason::ShapeBudget));
     }
     let pat = if falls_off { canon(&returning_nil(&body)) } else { canon(&body) };
     if pat.is_empty() {
-        deinline_reject!(RejectReason::EmptyPattern, f_local,
-            g.name.as_deref().unwrap_or("<anon>")
-        );
-        return;
+        return Err(HelperAnalysis::RefusedLater(RejectReason::EmptyPattern));
     }
     let cps_loop_return = kind == TKind::Void && has_loop_void_return(&pat, false);
     let loop_exit_at = (kind == TKind::Value && !value_leaf_shape(&pat))
@@ -7950,20 +8193,14 @@ fn helper_targets(
         // proving CPS matcher below.
         TKind::Void => {
             if block_has_return(&pat) && !cps_loop_return {
-                deinline_reject!(RejectReason::UnsupportedReturnShape, f_local,
-                    g.name.as_deref().unwrap_or("<anon>")
-                );
-                return;
+                return Err(HelperAnalysis::RefusedLater(RejectReason::UnsupportedReturnShape));
             }
         }
         // value: every leaf must be a single value-return (the result),
         // or a return from inside a loop (`loop_return_split`).
         TKind::Value => {
             if !value_leaf_shape(&pat) && loop_exit_at.is_none() {
-                deinline_reject!(RejectReason::UnsupportedReturnShape, f_local,
-                    g.name.as_deref().unwrap_or("<anon>")
-                );
-                return;
+                return Err(HelperAnalysis::RefusedLater(RejectReason::UnsupportedReturnShape));
             }
         }
     }
@@ -7986,10 +8223,7 @@ fn helper_targets(
         );
     }
     if anchor_score(&pat, &g.parameters) + LOOP_EXIT_ANCHORS * usize::from(loop_exit_at.is_some()) < 2 {
-        deinline_reject!(RejectReason::LowAnchorScore, f_local,
-            g.name.as_deref().unwrap_or("<anon>")
-        );
-        return;
+        return Err(HelperAnalysis::RefusedLater(RejectReason::LowAnchorScore));
     }
     // Written params (see `Target::written_params`) are matched as callee
     // locals: the site materialises them as `local L = ARG` copies, or
@@ -8086,8 +8320,6 @@ fn helper_targets(
         unread: &unread,
         captures: &captures,
     };
-    crate::call_origins::register_callee(f_local.stable_id(), g.bytecode_proto_id);
-    crate::reconstruction_stats::accept_helper(f_local.stable_id());
     let mut target = common.target(kind, pat, &body);
     target.value_anchor = value_anchor;
     target.prefix_len = prefix_len;
@@ -8117,13 +8349,10 @@ fn helper_targets(
         ..common.target(TKind::Void, pattern, &raw)
     });
     let variants = specialization_variants(&target, &common, &body);
-    let first = targets.len();
-    targets.push(target);
-    targets.extend(discard_target);
-    targets.extend(variants);
-    for target in &mut targets[first..] {
-        target.orphan = orphan;
-    }
+    let mut found = vec![target];
+    found.extend(discard_target);
+    found.extend(variants);
+    Ok(found)
 }
 
 /// Where a value pattern's result sits at its sites ([`ValueAnchor`]), and
@@ -8247,6 +8476,8 @@ impl TargetCommon<'_> {
         let pat0_kind = std::mem::discriminant(&pat[0]);
         let pat0_anchor_key = stmt_anchor_key(&pat[0]);
         let pat_nodes = pat.iter().map(dbg_stmt_node_count).sum();
+        // Read now, while no function body is locked by a scan: a pattern's
+        // literals may be the very ones a scan holds.
         let private_closures = private_closures(&pat);
         Target {
             f_local: self.f_local.clone(),
@@ -9445,7 +9676,7 @@ mod tests {
             hosted: None,
             returns_cell: None,
             inferred: None,
-            private_closures: FxHashSet::default(),
+            private_closures: Default::default(),
             orphan: None,
             captures: Default::default(),
             search: Default::default(),
@@ -10239,7 +10470,7 @@ mod tests {
             hosted: None,
             returns_cell: None,
             inferred: None,
-            private_closures: FxHashSet::default(),
+            private_closures: Default::default(),
             orphan: None,
             captures: Default::default(),
             search: Default::default(),
@@ -10329,7 +10560,7 @@ mod tests {
             hosted: None,
             returns_cell: None,
             inferred: None,
-            private_closures: FxHashSet::default(),
+            private_closures: Default::default(),
             orphan: None,
             captures: Default::default(),
             search: Default::default(),
@@ -10409,7 +10640,7 @@ mod tests {
             hosted: None,
             returns_cell: None,
             inferred: None,
-            private_closures: FxHashSet::default(),
+            private_closures: Default::default(),
             orphan: None,
             captures: Default::default(),
             search: Default::default(),
@@ -10504,7 +10735,7 @@ mod tests {
             hosted: None,
             returns_cell: None,
             inferred: None,
-            private_closures: FxHashSet::default(),
+            private_closures: Default::default(),
             orphan: None,
             captures: Default::default(),
             search: Default::default(),
@@ -10857,7 +11088,7 @@ mod tests {
             hosted: None,
             returns_cell: None,
             inferred: None,
-            private_closures: FxHashSet::default(),
+            private_closures: Default::default(),
             orphan: None,
             captures: Default::default(),
             search: Default::default(),
@@ -10960,7 +11191,7 @@ mod tests {
             hosted: None,
             returns_cell: None,
             inferred: None,
-            private_closures: FxHashSet::default(),
+            private_closures: Default::default(),
             orphan: None,
             captures: Default::default(),
             search: Default::default(),
@@ -11125,7 +11356,7 @@ mod tests {
             hosted: None,
             returns_cell: None,
             inferred: None,
-            private_closures: FxHashSet::default(),
+            private_closures: Default::default(),
             orphan: None,
             captures: Default::default(),
             search: Default::default(),
@@ -11185,7 +11416,7 @@ mod tests {
             hosted: None,
             returns_cell: None,
             inferred: None,
-            private_closures: FxHashSet::default(),
+            private_closures: Default::default(),
             orphan: None,
             captures: Default::default(),
             search: Default::default(),
@@ -12362,7 +12593,7 @@ mod tests {
             hosted: None,
             returns_cell: None,
             inferred: None,
-            private_closures: FxHashSet::default(),
+            private_closures: Default::default(),
             orphan: None,
             captures: Default::default(),
             search: Default::default(),

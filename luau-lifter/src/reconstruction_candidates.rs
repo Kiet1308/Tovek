@@ -54,18 +54,9 @@ pub(crate) fn inlined_prototypes(functions: &[Function], lines: &[Vec<Option<u32
                 | OpCode::LOP_SETUPVAL | OpCode::LOP_RETURN | OpCode::LOP_PREPVARARGS | OpCode::LOP_COVERAGE
         )
     };
-    // The operations each function has itself, one bit per opcode.
-    let own: Vec<[u64; 4]> = functions
-        .iter()
-        .map(|function| {
-            let mut bits = [0u64; 4];
-            for instruction in &function.instructions {
-                let opcode = opcode_of(instruction) as usize & 255;
-                bits[opcode / 64] |= 1 << (opcode % 64);
-            }
-            bits
-        })
-        .collect();
+    // The operations each function has itself, one bit per opcode, read
+    // where a first or last line needs them.
+    let mut own: Vec<Option<[u64; 4]>> = vec![None; functions.len()];
     let mut owner = vec![u32::MAX; last as usize + 1];
     let mut order: Vec<usize> = (0..functions.len()).filter(|&p| spans[p].is_some()).collect();
     // Outer spans first, so an inner span overwrites the lines it holds.
@@ -79,36 +70,52 @@ pub(crate) fn inlined_prototypes(functions: &[Function], lines: &[Vec<Option<u32
     }
     for (caller, lines) in lines.iter().enumerate() {
         let instructions = &functions[caller].instructions;
-        // Runs of consecutive PCs on one line that create a closure.
-        let mut creating = vec![false; lines.len()];
-        let mut run = 0;
-        while run < lines.len() {
-            let mut next = run + 1;
-            while next < lines.len() && lines[next] == lines[run] {
-                next += 1;
-            }
-            let creates = instructions.get(run..next).is_some_and(|run| {
-                run.iter().any(|instruction| matches!(opcode_of(instruction), OpCode::LOP_NEWCLOSURE | OpCode::LOP_DUPCLOSURE))
-            });
-            creating[run..next].fill(creates);
-            run = next;
-        }
+        // For each PC, whether the run of consecutive PCs on its line
+        // creates a closure: read once, where a first or last line needs it.
+        let mut creating: Option<Vec<bool>> = None;
+        let mut creating_at = |pc: usize| {
+            creating.get_or_insert_with(|| {
+                let mut creating = vec![false; lines.len()];
+                let mut run = 0;
+                while run < lines.len() {
+                    let mut next = run + 1;
+                    while next < lines.len() && lines[next] == lines[run] {
+                        next += 1;
+                    }
+                    let creates = instructions.get(run..next).is_some_and(|run| {
+                        run.iter().any(|instruction| matches!(opcode_of(instruction), OpCode::LOP_NEWCLOSURE | OpCode::LOP_DUPCLOSURE))
+                    });
+                    creating[run..next].fill(creates);
+                    run = next;
+                }
+                creating
+            })[pc]
+        };
         for (pc, line) in lines.iter().enumerate() {
             let Some(line) = *line else { continue };
             let Some(&helper) = owner.get(line as usize) else { continue };
-            if helper == u32::MAX || helper as usize == caller {
+            if helper == u32::MAX || helper as usize == caller || inlined[helper as usize] {
                 continue;
             }
             let helper = helper as usize;
-            let Some(opcode) = instructions.get(pc).map(opcode_of) else { continue };
             let Some((start, end)) = spans[helper] else { continue };
-            let encloses = spans[caller].is_some_and(|(outer_start, outer_end)| outer_start <= start && end <= outer_end);
-            let bit = opcode as usize & 255;
-            let own_code = (start < line && line < end)
-                || (!shared(opcode) && own[helper][bit / 64] & (1 << (bit % 64)) != 0 && !(encloses && creating[pc]));
+            let own_code = (start < line && line < end) || {
+                let Some(opcode) = instructions.get(pc).map(opcode_of) else { continue };
+                let bit = opcode as usize & 255;
+                let bits = own[helper].get_or_insert_with(|| {
+                    let mut bits = [0u64; 4];
+                    for instruction in &functions[helper].instructions {
+                        let opcode = opcode_of(instruction) as usize & 255;
+                        bits[opcode / 64] |= 1 << (opcode % 64);
+                    }
+                    bits
+                });
+                let encloses = spans[caller].is_some_and(|(outer_start, outer_end)| outer_start <= start && end <= outer_end);
+                !shared(opcode) && bits[bit / 64] & (1 << (bit % 64)) != 0 && !(encloses && creating_at(pc))
+            };
             if own_code {
-                if ast::env_flag!("MEDAL_TRACE_INLINED") && !inlined[helper] {
-                    eprintln!("INLINED helper=p{helper} start={start} end={end} caller=p{caller} pc={pc} line={line} op={opcode:?}");
+                if ast::env_flag!("MEDAL_TRACE_INLINED") {
+                    eprintln!("INLINED helper=p{helper} start={start} end={end} caller=p{caller} pc={pc} line={line}");
                 }
                 inlined[helper] = true;
             }

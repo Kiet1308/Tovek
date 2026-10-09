@@ -766,8 +766,12 @@ fn decompile_bytecode_internal(
             let main_function = Arc::try_unwrap(main.0).unwrap().into_inner();
             let mut body = main_function.body;
             let mut chunk_orphans = main_function.orphans;
-            // Whether a nested function kept an orphan aside for the de-inliner.
-            let nested_orphans = upvalues.keys().any(|function| !function.0.lock().orphans.is_empty());
+            // Whether a nested function kept an orphan aside for the
+            // de-inliner, or left a function-name fold to it.
+            let (nested_orphans, named_store_folds) = upvalues.keys().fold((false, false), |(orphans, folds), function| {
+                let function = function.0.lock();
+                (orphans || !function.orphans.is_empty(), folds || function.named_store_fold)
+            });
             let mut linked_upvalue_bindings = BTreeMap::new();
             {
                 ptime!(S_LINK_UPVALUES);
@@ -838,7 +842,9 @@ fn decompile_bytecode_internal(
                 // de-inliner: `M.F = F` -> `function M.F` where no call of
                 // `F` was rebuilt.
                 let _span = ast::telemetry::Span::new("S_FOLD_FUNCTION_NAMES");
-                ast::fold_function_names::fold_function_names(&mut body);
+                if named_store_folds {
+                    ast::fold_function_names::fold_function_names(&mut body);
+                }
             }
             dump_stage("statement_deinline", &body);
             // Tier-B fallback for terminal continuations that cannot be hoisted

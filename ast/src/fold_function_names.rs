@@ -30,6 +30,10 @@ pub fn fold_function_names(body: &mut Block) {
         return;
     }
     count_reads(&body.0, &mut reads);
+    if crate::telemetry::enabled() {
+        crate::telemetry::count("named_store_binders", reads.len() as u64);
+        crate::telemetry::count("named_store_binders_called", reads.values().filter(|&&n| n > 1).count() as u64);
+    }
     fold_block(&mut body.0, &reads);
 }
 
