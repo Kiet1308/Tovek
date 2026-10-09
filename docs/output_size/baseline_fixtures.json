@@ -724,6 +724,18 @@
       "bytes": 2270,
       "lines": 134
     },
+    "semantic/deinline_store_rebuilt_below_its_caller_copy__O0.luau": {
+      "bytes": 2011,
+      "lines": 93
+    },
+    "semantic/deinline_store_rebuilt_below_its_caller_copy__O1.luau": {
+      "bytes": 2011,
+      "lines": 93
+    },
+    "semantic/deinline_store_rebuilt_below_its_caller_copy__O2.luau": {
+      "bytes": 2196,
+      "lines": 93
+    },
     "semantic/deinline_written_parameter_alias__O0.luau": {
       "bytes": 1231,
       "lines": 83

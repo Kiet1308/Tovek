@@ -258,14 +258,16 @@ struct Target {
     /// Luau evaluated the arguments in parameter order right before the
     /// inlined body, so arguments that run code may still move back into the
     /// call when they are such reads, in that order
-    /// (`tween(TweenInfo.new(...), { ... })`).
-    leading: crate::evaluation_order::LeadingReads,
+    /// (`tween(TweenInfo.new(...), { ... })`). Read off the pattern the
+    /// first time a site needs it ([`Target::leading`]).
+    leading: std::cell::OnceCell<crate::evaluation_order::LeadingReads>,
     /// Outer locals the body reads that a closure assigns. The helper
     /// fetches one as an upvalue where it stands; a site holding it in a
     /// register reads it when an operation runs, maybe after a call changed
     /// it (`x + change()`), so such a site is refused
-    /// ([`crate::evaluation_order::region_late_read_conflict`]).
-    free_cells: Vec<RcLocal>,
+    /// ([`crate::evaluation_order::region_late_read_conflict`]). Read off
+    /// the pattern the first time a site needs it ([`Target::free_cells`]).
+    free_cells: std::cell::OnceCell<Vec<RcLocal>>,
     /// At least one branch condition reads a parameter.  Only such targets can
     /// change statement shape after constant argument propagation, so this is a
     /// cold precomputed gate for the Tier-B partial-evaluation fallback.
@@ -373,6 +375,35 @@ impl Target {
             locals: &self.locals,
         }
     }
+
+    /// [`Target::leading`]: the parameters whose arguments may run code
+    /// before the body, read once, before anything observable, in order.
+    /// The body's own locals are its registers; an outer local is its
+    /// upvalue, fetched where it stands.
+    fn leading(&self) -> &crate::evaluation_order::LeadingReads {
+        self.leading.get_or_init(|| {
+            let facts = crate::evaluation_order::Body {
+                registers: &|local| self.params.contains(local) || self.locals.contains(local),
+                unchanged: &|value| self.captures.unchanged_by_calls(value),
+            };
+            let unwritten: Vec<RcLocal> = self.param_order.iter().filter(|p| self.params.contains(*p)).cloned().collect();
+            crate::evaluation_order::LeadingReads::new(&self.pat, &unwritten, |p| count_local_reads(&self.pat, p) == 1, &facts)
+        })
+    }
+
+    /// [`Target::free_cells`].
+    fn free_cells(&self) -> &[RcLocal] {
+        self.free_cells.get_or_init(|| {
+            let mut pat_reads: FxHashSet<RcLocal> = FxHashSet::default();
+            collect_reads(&self.pat, &mut pat_reads);
+            let mut free_cells: Vec<RcLocal> = pat_reads
+                .into_iter()
+                .filter(|l| !self.params.contains(l) && !self.locals.contains(l) && self.captures.closure_written(l))
+                .collect();
+            free_cells.sort();
+            free_cells
+        })
+    }
 }
 
 // ===================================================================
@@ -393,6 +424,33 @@ struct Progress {
     /// `overwrite` the copy it starts with), so every active target is tried
     /// anew in these bodies, focused or not.
     revisit: FxHashSet<Option<FnPtr>>,
+    /// Each body's priority key per target
+    /// ([`crate::reconstruction_search::priority_keys`]), read once per
+    /// iteration however many blocks it has.
+    priorities: FxHashMap<Option<FnPtr>, Option<std::rc::Rc<Vec<bool>>>>,
+    /// Where a target's own matcher found a site, by block, position and
+    /// target ([`Rescan`]).
+    found: FxHashSet<(usize, usize, usize)>,
+    /// What the previous scan tried, when this one starts on the same tree.
+    rescan: Option<Rescan>,
+    /// The sites rewritten so far.
+    splices: usize,
+}
+
+/// The scan of an iteration that rewrote nothing, as the next one, which
+/// starts on the very same tree with the same targets, sees it: the targets
+/// it tried at every position of their scope (`tried`, and every target in
+/// the bodies of `everywhere`), and where their own matchers found a site
+/// (`found`). Elsewhere such a matcher finds none again, so the assignment
+/// phase entered then goes straight to its store matcher, while the block
+/// is as the previous scan saw it: no site rewritten in it or below it yet,
+/// and no closure in the target's pattern, whose body a rewrite elsewhere
+/// may change (`with_closure`).
+struct Rescan {
+    tried: Vec<bool>,
+    with_closure: Vec<bool>,
+    everywhere: FxHashSet<Option<FnPtr>>,
+    found: FxHashSet<(usize, usize, usize)>,
 }
 
 pub fn deinline(body: &mut Block) {
@@ -451,22 +509,47 @@ pub fn deinline(body: &mut Block) {
     // rebuilding the inner call first would hide the outer copy.
     let mut assign_phase = false;
     let mut entering_assign_phase = false;
+    // The targets of an iteration that rewrote nothing, and the census of the
+    // tree as it stands while no rewrite followed it: collecting on the same
+    // tree gives them again. What that iteration's scan tried goes to the
+    // next one ([`Rescan`]).
+    let mut unchanged_targets: Option<Vec<Target>> = None;
+    let mut rescan: Option<Rescan> = None;
+    let mut current_captures: Option<std::rc::Rc<crate::deinline_safety::CaptureSafety>> = None;
     for _ in 0..64 {
         dprof::inc(&dprof::ITERATIONS, 1);
         crate::telemetry::count("iterations", 1);
         let targets = {
             let _t = dprof::T::new(&dprof::COLLECT_TARGETS_US);
             let _span = crate::telemetry::Span::new("D_COLLECT_TARGETS");
-            let captures = initial_captures.take().unwrap_or_else(||
-                std::rc::Rc::new(crate::deinline_safety::CaptureSafety::new(body)));
-            let mut targets = collect_targets(body, &write_counts, captures);
-            crate::telemetry::count("accepted_targets", targets.len() as u64);
-            // The budget counts helpers: a value helper's discard variant
-            // shares its definition.
-            if targets.iter().filter(|target| !target.discarded).count() > 256 {
-                crate::telemetry::count("target_budget_exhausted", 1);
-                break;
-            }
+            let mut targets = match unchanged_targets.take() {
+                Some(targets) => {
+                    // What the previous scan of this tree tried and found.
+                    let tried = targets.iter().map(|target| target.focused).collect();
+                    let with_closure = targets.iter().map(|target| block_has_closure(&target.pat)).collect();
+                    rescan = previous.as_mut().map(|previous| Rescan {
+                        tried,
+                        with_closure,
+                        everywhere: previous.revisit.clone(),
+                        found: std::mem::take(&mut previous.found),
+                    });
+                    targets
+                }
+                None => {
+                    let captures = initial_captures.take().unwrap_or_else(||
+                        std::rc::Rc::new(crate::deinline_safety::CaptureSafety::new(body)));
+                    current_captures = Some(captures.clone());
+                    let targets = collect_targets(body, &write_counts, captures);
+                    crate::telemetry::count("accepted_targets", targets.len() as u64);
+                    // The budget counts helpers: a value helper's discard
+                    // variant shares its definition.
+                    if targets.iter().filter(|target| !target.discarded).count() > 256 {
+                        crate::telemetry::count("target_budget_exhausted", 1);
+                        break;
+                    }
+                    targets
+                }
+            };
             for target in &mut targets {
                 target.search = search.clone();
                 target.assigns = assign_phase;
@@ -495,6 +578,7 @@ pub fn deinline(body: &mut Block) {
         }
         let mut newly = Progress {
             revisit: previous.as_ref().map(|previous| previous.bodies.clone()).unwrap_or_default(),
+            rescan: rescan.take(),
             ..Progress::default()
         };
         {
@@ -540,9 +624,11 @@ pub fn deinline(body: &mut Block) {
             }
             assign_phase = true;
             entering_assign_phase = true;
+            unchanged_targets = Some(targets);
             previous = Some(newly);
             continue;
         }
+        current_captures = None;
         converted.extend(newly.binders.iter().cloned());
         previous = Some(newly);
         if search.exhausted() { break; }
@@ -555,7 +641,8 @@ pub fn deinline(body: &mut Block) {
             let _t = dprof::T::new(&dprof::COLLAPSE_US);
             let _span = crate::telemetry::Span::new("D_COLLAPSE_RESULTS");
             // The collapse reads the final tree's registers and stable values.
-            let captures = crate::deinline_safety::CaptureSafety::new(body);
+            let captures = current_captures
+                .unwrap_or_else(|| std::rc::Rc::new(crate::deinline_safety::CaptureSafety::new(body)));
             let facts = Collapse { single_valued: &single_valued, captures: &captures, function: None };
             collapse_value_results(&mut body.0, &facts, &FxHashSet::default());
         }
@@ -1288,29 +1375,145 @@ pub(crate) fn canon(stmts: &[Statement]) -> Vec<Statement> {
     canon_tail(stmts, true)
 }
 
-/// Per-position memo for the tail-canon of a contiguous candidate window,
-/// keyed by `(absolute_start, raw_width)`. Values are `Rc`-shared so a cache hit
-/// hands out a cheap handle instead of re-running the deep-clone `canon`. Only
-/// tail-position contiguous windows (the void attempt-1 path and the `match_value`
-/// region) use it — both compute the identical `canon_recurse(canon_top(win,true))`,
-/// so they share one cache safely. The non-contiguous `match_value_prefixed` union
-/// and the rewritten `value_tail_ret` window are NOT cached (they are rare and not
-/// a plain slice). The cache is cleared per position (`stmts` mutates on splice, so
-/// absolute indices are only valid within a single `try_match_at` call).
-type CanonCache = FxHashMap<(usize, usize), std::rc::Rc<Vec<Statement>>>;
+/// A canonical window: a run of statements shared with others (the block's
+/// canonical statements, or one window built on its own).
+#[derive(Clone, Default)]
+struct Window {
+    statements: std::rc::Rc<Vec<Statement>>,
+    range: std::ops::Range<usize>,
+}
+
+impl Window {
+    fn owned(statements: Vec<Statement>) -> Self {
+        let range = 0..statements.len();
+        Self { statements: std::rc::Rc::new(statements), range }
+    }
+}
+
+impl std::ops::Deref for Window {
+    type Target = [Statement];
+
+    fn deref(&self) -> &[Statement] {
+        &self.statements[self.range.clone()]
+    }
+}
+
+/// The tail-canon of the contiguous candidate windows of the block being
+/// scanned. A window `stmts[start..start + w]` is built once per position,
+/// however many targets ask for it (`windows`, cleared at each position).
+/// Below that, canon maps each top-level statement on its own unless a guard
+/// folds what follows it, and only an `if` takes another form as the last
+/// statement. So each statement's canonical form is built once for the
+/// whole scan (`middle`, the last `if`s in `last`), and a window of real
+/// statements ending in anything else is a run of `middle`, shared rather
+/// than copied. The window fuel adds up node counts kept as prefix sums
+/// (`nodes`). Only the void attempt-1 path and the value regions use it; the
+/// non-contiguous `match_value_prefixed` union and the rewritten windows are
+/// built where they are needed. A splice updates what it changes
+/// ([`CanonCache::spliced`]).
+#[derive(Default)]
+struct CanonCache {
+    windows: FxHashMap<(usize, usize), Window>,
+    middle: Option<std::rc::Rc<Vec<Statement>>>,
+    last: Vec<Option<Statement>>,
+    nodes: Vec<usize>,
+}
+
+impl CanonCache {
+    /// A new position: its windows start elsewhere.
+    fn clear(&mut self) {
+        self.windows.clear();
+    }
+
+    /// `stmts[start..start + added]` replaced `removed` statements at
+    /// `start`: the canonical forms of the others stay as they are.
+    fn spliced(&mut self, stmts: &[Statement], start: usize, removed: usize, added: usize) {
+        self.windows.clear();
+        match self.middle.as_mut().map(std::rc::Rc::get_mut) {
+            Some(Some(middle)) => {
+                middle.splice(
+                    start..start + removed,
+                    stmts[start..start + added].iter().map(|statement| canon_statement(statement.clone(), false)),
+                );
+            }
+            _ => self.middle = None,
+        }
+        self.last.clear();
+        self.nodes.truncate(start + 1);
+    }
+
+    /// Every statement's canonical form as a middle one.
+    fn middle(&mut self, stmts: &[Statement]) -> &std::rc::Rc<Vec<Statement>> {
+        self.middle.get_or_insert_with(|| {
+            std::rc::Rc::new(stmts.iter().map(|statement| canon_statement(statement.clone(), false)).collect())
+        })
+    }
+
+    /// The node count of `stmts[start..start + w]`, what [`charge_window`]
+    /// charges for building it.
+    fn nodes(&mut self, stmts: &[Statement], start: usize, w: usize) -> usize {
+        if self.nodes.is_empty() {
+            self.nodes.push(0);
+        }
+        while self.nodes.len() <= start + w {
+            let total = self.nodes[self.nodes.len() - 1] + dbg_stmt_node_count(&stmts[self.nodes.len() - 1]);
+            self.nodes.push(total);
+        }
+        self.nodes[start + w] - self.nodes[start]
+    }
+
+    /// `canon_recurse(canon_top(&stmts[start..start + w], true), true)`. With
+    /// no guard folding the rest of the window (`unguard`), that is each
+    /// statement's own canonical form, the last one's in tail position.
+    fn canonical(&mut self, stmts: &[Statement], start: usize, w: usize) -> Window {
+        let mut real: Vec<usize> = (start..start + w).filter(|&k| !is_match_trivia(&stmts[k])).collect();
+        // N1: a trailing void return is dropped.
+        if real.last().is_some_and(|&k| matches!(&stmts[k], Statement::Return(r) if r.values.is_empty())) {
+            real.pop();
+        }
+        let (Some(&first), Some((&tail, body))) = (real.first(), real.split_last()) else { return Window::default() };
+        if body.iter().any(|&k| is_foldable_guard(&stmts[k])) {
+            return Window::owned(canon_recurse(canon_top(&stmts[start..start + w], true), true));
+        }
+        let middle = self.middle(stmts).clone();
+        let contiguous = tail + 1 - first == real.len();
+        if contiguous && !matches!(stmts[tail], Statement::If(_)) {
+            return Window { statements: middle, range: first..tail + 1 };
+        }
+        if self.last.is_empty() {
+            self.last.resize(stmts.len(), None);
+        }
+        let mut out = Vec::with_capacity(real.len());
+        out.extend(body.iter().map(|&k| middle[k].clone()));
+        out.push(self.last[tail].get_or_insert_with(|| canon_statement(stmts[tail].clone(), true)).clone());
+        Window::owned(out)
+    }
+}
+
+/// One statement of a window as `canon_recurse` gives it: its child blocks
+/// canonicalized, a select diamond fused, and in tail position a trailing
+/// return diamond too.
+fn canon_statement(statement: Statement, tail: bool) -> Statement {
+    let mut statement = [canon_children_owned(statement, tail)];
+    fuse_assign_diamond(&mut statement[0]);
+    if tail {
+        fuse_return_diamond(&mut statement);
+    }
+    let [statement] = statement;
+    statement
+}
 
 /// Tail-canon of the contiguous window `stmts[start..start+w]`, memoized in `cache`.
-/// Byte-identical to `canon_recurse(canon_top(&stmts[start..start+w], true), true)`;
-/// the only effect is that repeated requests for the same `(start, w)` — different
-/// active targets with equal pattern length — pay the deep clone once.
+/// Equal to `canon_recurse(canon_top(&stmts[start..start+w], true), true)`;
+/// the only effect is that repeated requests pay the deep copy once.
 fn canon_window(
     cache: &mut CanonCache,
     t: &Target,
     stmts: &[Statement],
     start: usize,
     w: usize,
-) -> std::rc::Rc<Vec<Statement>> {
-    if let Some(c) = cache.get(&(start, w)) {
+) -> Window {
+    if let Some(c) = cache.windows.get(&(start, w)) {
         return c.clone();
     }
     dprof::inc(&dprof::CANON_RECURSE_CALLS, 1);
@@ -1318,14 +1521,17 @@ fn canon_window(
     let _t = dprof::T::new(&dprof::CANON_RECURSE_US);
     // An exhausted budget refuses the whole position (`try_match_at`); the
     // empty window built in its place matches no pattern.
-    if !charge_window(t, &stmts[start..start + w]) {
-        return std::rc::Rc::new(Vec::new());
+    let nodes = cache.nodes(stmts, start, w);
+    if t.search.exhausted() || !t.search.spend(nodes) {
+        return Window::default();
     }
-    let c = std::rc::Rc::new(canon_recurse(
-        canon_top(&stmts[start..start + w], true),
-        true,
-    ));
-    cache.insert((start, w), c.clone());
+    let c = cache.canonical(stmts, start, w);
+    #[cfg(debug_assertions)]
+    {
+        let whole = canon_recurse(canon_top(&stmts[start..start + w], true), true);
+        debug_assert_eq!(format!("{:?}", &*c), format!("{whole:?}"), "the window from canonical statements is its canon");
+    }
+    cache.windows.insert((start, w), c.clone());
     c
 }
 
@@ -1859,29 +2065,7 @@ fn unify_stmt(t: &Target, p: &Statement, c: &Statement, b: &mut Bindings) -> Res
     // so it keeps taking `t`.
     let ctx = t.ctx();
     match (p, c) {
-        (Statement::Assign(pa), Statement::Assign(ca)) => {
-            // `prefix` distinguishes a `local x = ...` declaration from a plain
-            // `x = ...` reassignment — they are NOT interchangeable. Matching a
-            // declaration against a reassignment (or vice versa) would erase a
-            // write to a caller-visible local. An inlined copy preserves the
-            // callee's `local`, so genuine matches keep equal prefixes.
-            // `t[k] += v` evaluates `t` and `k` once, `t[k] = t[k] + v` twice.
-            if pa.left.len() != ca.left.len()
-                || pa.right.len() != ca.right.len()
-                || pa.parallel != ca.parallel
-                || pa.prefix != ca.prefix
-                || pa.compound != ca.compound
-            {
-                return Err(());
-            }
-            for (pl, cl) in pa.left.iter().zip(&ca.left) {
-                unify_lvalue(&ctx, pl, cl, b)?;
-            }
-            for (pr, cr) in pa.right.iter().zip(&ca.right) {
-                unify_rvalue(&ctx, pr, cr, b)?;
-            }
-            Ok(())
-        }
+        (Statement::Assign(_) | Statement::Return(_), Statement::Assign(ca)) => unify_assignment(t, &ctx, p, ca, ca.prefix, b),
         (Statement::Call(pc), Statement::Call(cc)) => unify_call(&ctx, pc, cc, b),
         (Statement::MethodCall(pm), Statement::MethodCall(cm)) => unify_method(&ctx, pm, cm, b),
         // §8 guard-polarity flip (Value targets only). The call-site value
@@ -1961,37 +2145,6 @@ fn unify_stmt(t: &Target, p: &Statement, c: &Statement, b: &mut Bindings) -> Res
             ([pattern], [site]) if t.loop_exit_at.is_some() => unify_returned_value(&ctx, pattern, site, b),
             _ => Err(()),
         },
-        // Value target: the callee's `return X` was lowered to `RESULT = X` in
-        // the inlined copy. Bind the single result local and unify the value.
-        // The result-write leaf is always a PLAIN reassignment (`RESULT = X`):
-        // `RESULT` is the init-less decl pinned by `result_decl` (prefix=true), and
-        // LocalDeclarer's single-declaration invariant (local_declarations.rs) gives
-        // each local exactly ONE prefix=true decl, so every in-region write to it is
-        // prefix=false / parallel=false. A `local RESULT = X` redeclaration or a
-        // parallel phi-copy here would change scope when spliced, so refuse it —
-        // mirrors the sibling (Assign, Assign) arm's prefix/parallel equality and
-        // `result_decl`'s own `prefix && !parallel` gate (F10a hardening).
-        // A compound store (`r += x`) also reads `r`: never a leaf's store.
-        (Statement::Return(pr), Statement::Assign(ca))
-            if t.kind == TKind::Value
-                && pr.values.len() == 1
-                && ca.left.len() == 1
-                && ca.right.len() == 1
-                && !ca.prefix
-                && !ca.parallel
-                && !ca.compound =>
-        {
-            let r = match &ca.left[0] {
-                LValue::Local(r) => r,
-                _ => return Err(()),
-            };
-            match &b.result {
-                Some(prev) if prev == r => {}
-                Some(_) => return Err(()), // two different result locals
-                None => b.result = Some(r.clone()),
-            }
-            unify_returned_value(&ctx, &pr.values[0], &ca.right[0], b)
-        }
         (Statement::Break(_), Statement::Break(_)) => Ok(()),
         (Statement::Continue(_), Statement::Continue(_)) => Ok(()),
         (Statement::SetList(ps), Statement::SetList(cs)) => {
@@ -2007,6 +2160,70 @@ fn unify_stmt(t: &Target, p: &Statement, c: &Statement, b: &mut Bindings) -> Res
                 (None, None) => Ok(()),
                 _ => Err(()),
             }
+        }
+        _ => Err(()),
+    }
+}
+
+/// [`unify_stmt`] of a pattern assignment or value `return` against the
+/// assignment `ca`, read as a declaration when `prefix`, whatever its own
+/// flag says: a site declaration can be unified as the store it stands for
+/// without a copy (`match_declared_value`).
+fn unify_assignment(t: &Target, ctx: &MatchCtx, p: &Statement, ca: &Assign, prefix: bool, b: &mut Bindings) -> Result<(), ()> {
+    match p {
+        Statement::Assign(pa) => {
+            // `prefix` distinguishes a `local x = ...` declaration from a plain
+            // `x = ...` reassignment — they are NOT interchangeable. Matching a
+            // declaration against a reassignment (or vice versa) would erase a
+            // write to a caller-visible local. An inlined copy preserves the
+            // callee's `local`, so genuine matches keep equal prefixes.
+            // `t[k] += v` evaluates `t` and `k` once, `t[k] = t[k] + v` twice.
+            if pa.left.len() != ca.left.len()
+                || pa.right.len() != ca.right.len()
+                || pa.parallel != ca.parallel
+                || pa.prefix != prefix
+                || pa.compound != ca.compound
+            {
+                return Err(());
+            }
+            for (pl, cl) in pa.left.iter().zip(&ca.left) {
+                unify_lvalue(ctx, pl, cl, b)?;
+            }
+            for (pr, cr) in pa.right.iter().zip(&ca.right) {
+                unify_rvalue(ctx, pr, cr, b)?;
+            }
+            Ok(())
+        }
+        // Value target: the callee's `return X` was lowered to `RESULT = X` in
+        // the inlined copy. Bind the single result local and unify the value.
+        // The result-write leaf is always a PLAIN reassignment (`RESULT = X`):
+        // `RESULT` is the init-less decl pinned by `result_decl` (prefix=true), and
+        // LocalDeclarer's single-declaration invariant (local_declarations.rs) gives
+        // each local exactly ONE prefix=true decl, so every in-region write to it is
+        // prefix=false / parallel=false. A `local RESULT = X` redeclaration or a
+        // parallel phi-copy here would change scope when spliced, so refuse it —
+        // mirrors the sibling assignment arm's prefix/parallel equality and
+        // `result_decl`'s own `prefix && !parallel` gate (F10a hardening).
+        // A compound store (`r += x`) also reads `r`: never a leaf's store.
+        Statement::Return(pr)
+            if t.kind == TKind::Value
+                && pr.values.len() == 1
+                && ca.left.len() == 1
+                && ca.right.len() == 1
+                && !prefix
+                && !ca.parallel
+                && !ca.compound =>
+        {
+            let r = match &ca.left[0] {
+                LValue::Local(r) => r,
+                _ => return Err(()),
+            };
+            match &b.result {
+                Some(prev) if prev == r => {}
+                Some(_) => return Err(()), // two different result locals
+                None => b.result = Some(r.clone()),
+            }
+            unify_returned_value(ctx, &pr.values[0], &ca.right[0], b)
         }
         _ => Err(()),
     }
@@ -2441,6 +2658,8 @@ fn deinline_block(
     // runs A and then leaves the function, so a `return` inside A is a local exit
     // and the guard ⇄ nest canon (`unguard`) is sound there. `break`/`continue`
     // do NOT qualify (they leave the loop, not the function).
+    // Rewrites below this block and in it change what its windows hold.
+    let splices_before = newly.splices;
     let mut child_tails = void_return_tails(stmts);
     if is_func_tail && let Some(last) = child_tails.last_mut() {
         *last = true;
@@ -2554,12 +2773,24 @@ fn deinline_block(
     // depend only on this function and the active set: compute them when the
     // set grows, not at every position.
     let revisit = newly.revisit.contains(&current_func);
+    let keys = newly
+        .priorities
+        .entry(current_func)
+        .or_insert_with(|| {
+            let helpers: Vec<usize> = targets.iter().map(|target| target.func_ptr as usize).collect();
+            crate::reconstruction_search::priority_keys(current_func.map(|p| p as usize), &helpers).map(std::rc::Rc::new)
+        })
+        .clone();
+    // `reconstruction_search::prioritize` of the focused targets: a stable
+    // partition by the body's keys.
     let prioritize = |active: &[usize]| {
-        let (focused, rivals): (Vec<usize>, Vec<usize>) =
+        let (mut focused, rivals): (Vec<usize>, Vec<usize>) =
             active.iter().partition(|&&i| revisit || targets[i].focused);
-        let focused = crate::reconstruction_search::prioritize(&focused, current_func.map(|p| p as usize), |i| {
-            targets[i].func_ptr as usize
-        });
+        if let Some(keys) = &keys {
+            let (first, rest): (Vec<usize>, Vec<usize>) = focused.iter().partition(|&&i| keys[i]);
+            focused = first;
+            focused.extend(rest);
+        }
         (focused, rivals)
     };
     let (mut ordered, mut rivals) = prioritize(&active);
@@ -2570,14 +2801,12 @@ fn deinline_block(
     // never-matching blocks pay nothing) and reused across positions; the driver
     // invalidates it after each splice, after which the next query rebuilds it.
     let mut last_occ: Option<FxHashMap<RcLocal, usize>> = live_out_index(stmts, 0, live_out);
-    // Per-position canon cache, reused across the whole block scan (cleared at the
-    // top of each `try_match_at`). Within one position the canon of a contiguous
-    // tail-window `stmts[start..start+w]` depends ONLY on `(start, w)`, not on which
-    // target requested it, yet several active targets that share a pattern length
-    // recompute the very same deep-clone. Memoizing by `(start, w)` collapses those
-    // to one canon per distinct window. Single-threaded (the serial tail), so `Rc`
-    // is fine; the whole `deinline` pass never runs inside the parallel region.
-    let mut canon_cache: CanonCache = FxHashMap::default();
+    // The canonical windows of this block ([`CanonCache`]): the canon of a
+    // contiguous tail-window `stmts[start..start+w]` depends ONLY on the block,
+    // not on which target requested it. Single-threaded (the serial tail), so
+    // `Rc` is fine; the whole `deinline` pass never runs inside the parallel
+    // region.
+    let mut canon_cache = CanonCache::default();
     while i < stmts.len() {
         // The first statement at or after `i` that is not `Empty`: a cursor
         // that only moves forward between splices.
@@ -2594,7 +2823,8 @@ fn deinline_block(
             targets,
             &ordered,
             &rivals,
-            &mut newly.contested,
+            newly,
+            splices_before,
             current_func,
             is_func_tail,
             is_func_body_top,
@@ -2626,13 +2856,16 @@ fn deinline_block(
             let advance = replacement.len();
             // The absorbed argument temps and copies right before `i` go too.
             let start = i - hit.absorbed;
-            stmts.splice(start..i + hit.consume, replacement);
+            let removed = i + hit.consume - start;
+            stmts.splice(start..start + removed, replacement);
             newly.binders.insert(hit.f_local);
+            newly.splices += 1;
             newly.bodies.insert(current_func);
             i = start + advance;
             // The block changed; drop the cached index so the next query rebuilds
             // it against the spliced `stmts`.
             last_occ = live_out_index(stmts, i, live_out);
+            canon_cache.spliced(stmts, start, removed, advance);
             anchor = i;
         } else {
             // A target declared inside a matched window went with it and is never
@@ -3095,8 +3328,11 @@ fn try_match_at(
     ordered: &[usize],
     // The other targets in scope: consulted only where an `ordered` one matches.
     rivals: &[usize],
-    // Receives the helpers of a site refused because two of them match.
-    contested: &mut FxHashSet<RcLocal>,
+    // Receives the helpers of a site refused because two of them match
+    // (`contested`) and where a target's own matcher found one (`found`).
+    progress: &mut Progress,
+    // `progress.splices` before this block's subtree was scanned.
+    splices_before: usize,
     current_func: Option<FnPtr>,
     is_func_tail: bool,
     is_func_body_top: bool,
@@ -3132,6 +3368,10 @@ fn try_match_at(
     // candidate target's `pat0_anchor_key`. Same sound domain as `pat0_kind`.
     let anchor_key = anchor_stmt.and_then(stmt_anchor_key);
     let anchor_is_if = matches!(anchor_stmt, Some(Statement::If(_)));
+    let block = stmts.as_ptr() as usize;
+    let found_at = &mut progress.found;
+    let rescan = progress.rescan.as_ref().filter(|_| progress.splices == splices_before);
+    let tried_everywhere = rescan.is_some_and(|rescan| rescan.everywhere.contains(&current_func));
     let assign_kind = std::mem::discriminant(&Statement::Assign(Assign::new(Vec::new(), Vec::new())));
     // only targets whose local function is in scope here (declared earlier, in a
     // visible block) are candidates — emitting a call to an out-of-scope local
@@ -3174,7 +3414,12 @@ fn try_match_at(
         // One unit per width the non-allocating length check scans; the deep
         // canon/unify work is charged where it happens (`charge_unify`).
         if !t.search.spend(t.pat_spine_len.saturating_add(2)) { return Err(()); }
-        let mut hit = match (t.kind, t.value_anchor) {
+        let seen_without_site = rescan.is_some_and(|rescan| {
+            (rescan.tried[ti] || tried_everywhere)
+                && !rescan.with_closure[ti]
+                && !rescan.found.contains(&(block, i, ti))
+        });
+        let mut hit = if seen_without_site { None } else { match (t.kind, t.value_anchor) {
             (TKind::Void, _) => match_void(
                 stmts,
                 i,
@@ -3196,9 +3441,12 @@ fn try_match_at(
             (TKind::Value, ValueAnchor::AtPrefix) => {
                 match_value_prefixed(stmts, i, t, current_func, is_func_body_top, last_occ)
             }
-        };
+        } };
+        if hit.is_some() {
+            found_at.insert((block, i, ti));
+        }
         // A value stored into a local the caller already has.
-        if hit.is_none() && t.assigns && t.kind == TKind::Value && assign_head_may_match(t, anchor_stmt) {
+        if hit.is_none() && t.assigns && t.kind == TKind::Value && assign_head_may_match(t, anchor_stmt, anchor_key) {
             hit = match_assigned_value(stmts, i, t, is_func_body_top, last_occ, canon_cache, current_func);
         }
         let hit = hit.filter(|hit| !hit.inferred.as_ref().is_some_and(|param| continues_pruned_branch(t, param, stmts, i + hit.consume)));
@@ -3246,8 +3494,8 @@ fn try_match_at(
         }
     }
     if !tied.is_empty() {
-        contested.extend(tied);
-        contested.extend(found.map(|best| best.f_local));
+        progress.contested.extend(tied);
+        progress.contested.extend(found.map(|best| best.f_local));
         return refused("ambiguous");
     }
     // A width or target skipped for fuel may have been a competing match.
@@ -3275,6 +3523,9 @@ fn match_void(
     // written parameters before it are taken in afterwards
     // (`absorb_arguments`).
     let start = i;
+    if head_refused(t, &stmts[start..]) {
+        return None;
+    }
     // F2: an effective-count ceiling (trivia don't consume the budget) so a nested
     // candidate region carrying 2+ interposed `Empty`s is still reachable. The
     // ceiling is the pattern's tail-spine length (guard-form expansion of every
@@ -3285,18 +3536,22 @@ fn match_void(
     // A constant argument can remove a branch of the body (Tier B), so a
     // specializable helper's copy may be shorter than its body.
     let min_w = if t.specializable { 1 } else { kc };
+    // The canon length and return scan of each width, one statement at a time.
+    let mut grown = WindowGrowth::new(stmts, start, min_w);
     for w in min_w..=max_w {
         dprof::inc(&dprof::WIDTH_ITERS, 1);
         crate::telemetry::count("width_candidates", 1);
         let raw = &stmts[start..start + w];
+        let (top_len, has_return) = grown.extend_to(stmts, start + w);
         // Never replace a function's ENTIRE top-level body with a single call:
         // the ambiguous thin-wrapper case (`B(x)=A(x)`).
         if is_func_body_top && i == 0 && start + w == stmts.len() {
             continue;
         }
-        if w < kc || canon_top_len(raw, true) < kc {
-            let shorter = canon_top_len(raw, true) < kc
-                && !(block_has_return(raw) && !(is_func_tail && start + w == stmts.len()));
+        if w < kc || top_len < kc {
+            let shorter = may_specialize(t)
+                && top_len < kc
+                && !(has_return && !(is_func_tail && start + w == stmts.len()));
             if shorter {
                 let plain = canon_window(canon_cache, t, stmts, start, w);
                 if charge_unify(t, &plain)
@@ -3309,18 +3564,9 @@ fn match_void(
             continue;
         }
         // Attempt 1 — plain canon, with tail-safety for consuming a caller return.
-        // Order the pure gates cheapest-reject-first: the non-allocating top-level
-        // canon-length check rejects the large majority of widths, so evaluate it
-        // BEFORE the recursive `block_has_return` return-safety scan (both are
-        // side-effect-free, so this reordering is byte-identical — it only avoids
-        // computing `block_has_return` for windows whose length already can't match).
-        if canon_top_len(raw, true) == kc {
-            let plain_blocked = {
-                dprof::inc(&dprof::BHR_CALLS, 1);
-                crate::telemetry::count("return_scan_calls", 1);
-                let _t = dprof::T::new(&dprof::BHR_US);
-                block_has_return(raw) && !(is_func_tail && start + w == stmts.len())
-            };
+        // The canon length rejects most widths before any window is built.
+        if top_len == kc {
+            let plain_blocked = has_return && !(is_func_tail && start + w == stmts.len());
             if !plain_blocked && plain_kinds_may_match(t, raw) {
                 let plain = canon_window(canon_cache, t, stmts, start, w);
                 if let Some(u) = try_unify_site_any(t, &plain, current_func) {
@@ -3396,6 +3642,7 @@ fn match_void(
         // jump to the end of its copy, is the loop's `continue` there.
         if loop_tail
             && stmts[start + w..].iter().all(is_match_trivia)
+            && continues_as_returns_shape(raw)
             && let Some(returning) = continues_as_returns(raw)
             && canon_top_len(&returning, true) == kc
             && charge_window(t, &returning)
@@ -3414,6 +3661,92 @@ fn match_void(
     let site = site?;
     let results = site.unified.returned.clone();
     Some(Hit { tail_ret: site.tail_ret, ..Hit::call(t, (start - i) + site.width, site.unified, results) })
+}
+
+/// Whether [`continues_as_returns`] gives a body, read without copying one:
+/// most loop bodies have no `continue`.
+fn continues_as_returns_shape(stmts: &[Statement]) -> bool {
+    fn walk(stmts: &[Statement], found: &mut bool) -> bool {
+        stmts.iter().all(|statement| match statement {
+            Statement::Continue(_) => {
+                *found = true;
+                true
+            }
+            Statement::Break(_) | Statement::Return(_) | Statement::Goto(_) | Statement::Label(_) => false,
+            Statement::If(branch) => walk(&branch.then_block.lock().0, found) && walk(&branch.else_block.lock().0, found),
+            other => !statement_has_return(other),
+        })
+    }
+    let mut found = false;
+    let shaped = walk(stmts, &mut found) && found;
+    debug_assert_eq!(shaped, continues_as_returns(stmts).is_some());
+    shaped
+}
+
+/// [`canon_top_len`] (tail position) and [`block_has_return`] of the window
+/// `stmts[start..end]` as `end` grows, one statement at a time instead of
+/// rescanning every width. The canon length is the count of real
+/// statements, less a trailing void return (N1), or up to the first
+/// foldable guard with an effective statement after it (N3).
+struct WindowGrowth {
+    start: usize,
+    end: usize,
+    real: usize,
+    last_void: bool,
+    first_guard: Option<usize>,
+    has_return: bool,
+}
+
+impl WindowGrowth {
+    fn new(stmts: &[Statement], start: usize, width: usize) -> Self {
+        let mut grown = Self { start, end: start, real: 0, last_void: false, first_guard: None, has_return: false };
+        // A block shorter than the narrowest width has no window to grow.
+        grown.extend_to(stmts, (start + width.saturating_sub(1)).min(stmts.len()));
+        grown
+    }
+
+    /// The canon length and whether a return is in the window ending at `end`.
+    fn extend_to(&mut self, stmts: &[Statement], end: usize) -> (usize, bool) {
+        for statement in &stmts[self.end..end] {
+            self.has_return |= statement_has_return(statement);
+            if is_match_trivia(statement) {
+                continue;
+            }
+            if self.first_guard.is_none() && is_foldable_guard(statement) {
+                self.first_guard = Some(self.real);
+            }
+            self.last_void = matches!(statement, Statement::Return(r) if r.values.is_empty());
+            self.real += 1;
+        }
+        self.end = self.end.max(end);
+        let effective = self.real - usize::from(self.last_void);
+        let len = match self.first_guard {
+            Some(guard) if guard + 1 < effective => guard + 1,
+            _ => effective,
+        };
+        debug_assert_eq!(len, canon_top_len(&stmts[self.start..end], true));
+        debug_assert_eq!(self.has_return, block_has_return(&stmts[self.start..end]));
+        (len, self.has_return)
+    }
+}
+
+/// Whether `stmts` create a closure, at any depth.
+fn block_has_closure(stmts: &[Statement]) -> bool {
+    stmts.iter().any(|statement| {
+        let mut found = false;
+        statement.traverse_rvalues_ref(&mut |value| found |= matches!(value, RValue::Closure(_)));
+        found
+            || match statement {
+                Statement::If(branch) => {
+                    block_has_closure(&branch.then_block.lock().0) || block_has_closure(&branch.else_block.lock().0)
+                }
+                Statement::While(node) => block_has_closure(&node.block.lock().0),
+                Statement::Repeat(node) => block_has_closure(&node.block.lock().0),
+                Statement::NumericFor(node) => block_has_closure(&node.block.lock().0),
+                Statement::GenericFor(node) => block_has_closure(&node.block.lock().0),
+                _ => false,
+            }
+    })
 }
 
 /// `stmts`, the end of a loop body, with each `continue` of that loop a
@@ -3491,20 +3824,20 @@ fn match_value(
         let cwin = if plain_kinds_may_match(t, region) {
             canon_window(canon_cache, t, stmts, body_start, w)
         } else {
-            std::rc::Rc::new(Vec::new())
+            Window::default()
         };
         // Plain form first; then the result-alias form (`alias_result_leaves`):
         // a leaf that writes RESULT early and keeps using it (`RESULT = E;
         // S(RESULT)…`) is rewritten to `local T = E; S(T)…; RESULT = T` — the
         // shape the callee's `local L = E; S(L)…; return L` unifies against.
-        let attempts: [(std::rc::Rc<Vec<Statement>>, Option<Vec<Statement>>); 2] = [
+        let attempts: [(Window, Option<Vec<Statement>>); 2] = [
             (cwin, None),
             match alias_result_leaves(region, &r) {
                 Some(rw) if !block_has_return(&rw) && canon_top_len(&rw, true) == kc && charge_window(t, &rw) => (
-                    std::rc::Rc::new(canon_recurse(canon_top(&rw, true), true)),
+                    Window::owned(canon_recurse(canon_top(&rw, true), true)),
                     Some(rw),
                 ),
-                _ => (std::rc::Rc::new(Vec::new()), None),
+                _ => (Window::default(), None),
             },
         ];
         for (idx, (cw, rewritten)) in attempts.iter().enumerate() {
@@ -3560,19 +3893,23 @@ fn match_assigned_value(
     canon_cache: &mut CanonCache,
     current_func: Option<FnPtr>,
 ) -> Option<Hit> {
-    if t.loop_exit_at.is_some() || !t.returns.is_empty() {
+    // Every window here opens with the statement at `i`; the bindings fixed
+    // in advance only narrow what unifies with it.
+    if t.loop_exit_at.is_some() || !t.returns.is_empty() || leading_statement_refused(t, &stmts[i..]) {
         return None;
     }
     let kc = t.pat.len();
     let max_w = raw_width_for_effective(stmts, i, t.pat_raw_len + 1);
     let mut site: Option<Site> = None;
     let mut ambiguous = false;
+    let mut grown = WindowGrowth::new(stmts, i, kc);
     for w in kc..=max_w {
+        let (top_len, has_return) = grown.extend_to(stmts, i + w);
         if is_func_body_top && i == 0 && i + w == stmts.len() {
             continue;
         }
         let region = &stmts[i..i + w];
-        if canon_top_len(region, true) != kc || block_has_return(region) {
+        if top_len != kc || has_return {
             continue;
         }
         let Some(result) = terminal_store(region) else { continue };
@@ -3625,14 +3962,15 @@ fn terminal_store(stmts: &[Statement]) -> Option<RcLocal> {
 /// has no declaration to look for: it opens with a statement of `pat[0]`'s
 /// kind, or an `if` canon may fuse into an assignment or a return (N4, N5),
 /// or, for a pattern opening with its value `return X`, the store `R = X`;
-/// with the same fixed name where both have one (`stmt_anchor_key`).
-fn assign_head_may_match(t: &Target, head: Option<&Statement>) -> bool {
+/// with the same fixed name where both have one (`head_key`, the head's
+/// `stmt_anchor_key`).
+fn assign_head_may_match(t: &Target, head: Option<&Statement>, head_key: Option<u64>) -> bool {
     let Some(head) = head else { return false };
     let kinds = match (&t.pat[0], head) {
         (Statement::Return(_), Statement::Assign(_) | Statement::If(_)) | (Statement::Assign(_), Statement::If(_)) => true,
         (pattern, site) => std::mem::discriminant(pattern) == std::mem::discriminant(site),
     };
-    kinds && !matches!((stmt_anchor_key(head), t.pat0_anchor_key), (Some(site), Some(pattern)) if site != pattern)
+    kinds && !matches!((head_key, t.pat0_anchor_key), (Some(site), Some(pattern)) if site != pattern)
 }
 
 /// The arguments Luau evaluated into registers before the inlined body, as
@@ -3814,12 +4152,24 @@ fn match_declared_value(
         return None;
     }
     let prefix = &stmts[i..d];
-    let mut window = prefix.to_vec();
-    window.push(Statement::Assign(Assign { prefix: false, ..decl.clone() }));
-    if canon_top_len(&window, true) != t.pat.len() || block_has_return(prefix) || !charge_window(t, &window) {
+    // The declaration counts as the store it stands for: canon reads no flag
+    // of an assignment.
+    if canon_top_len_of(stmts[i..=d].iter(), true) != t.pat.len() || block_has_return(prefix) {
         return None;
     }
-    let u = try_unify_site_any(t, &canon_recurse(canon_top(&window, true), true), current_func)?;
+    // A lone store is its own canon: unify its first statement, the store,
+    // before copying it (`head_refused`; an earlier one was the caller's).
+    let lone = i == d;
+    if lone && !may_specialize(t) && unify_assignment(t, &t.ctx(), &t.pat[0], decl, false, &mut Bindings::default()).is_err() {
+        return None;
+    }
+    let mut window = prefix.to_vec();
+    window.push(Statement::Assign(Assign { prefix: false, ..decl.clone() }));
+    if !charge_window(t, &window) {
+        return None;
+    }
+    let canonical = if lone { window } else { canon_recurse(canon_top(&window, true), true) };
+    let u = try_unify_site_any(t, &canonical, current_func)?;
     let complete = u.result.as_ref() == Some(r)
         && !u.callee_locals.contains(r)
         && !block_reads_local(prefix, r)
@@ -4236,6 +4586,10 @@ fn match_value_prefixed(
     is_func_body_top: bool,
     last_occ: &mut Option<FxHashMap<RcLocal, usize>>,
 ) -> Option<Hit> {
+    // Every window here opens with the callee prefix.
+    if head_refused(t, &stmts[i..]) {
+        return None;
+    }
     let p = t.prefix_len; // effective callee-prefix statement count (>= 1)
     // P1: the interposed init-less `local RESULT` decl is the p-th EFFECTIVE
     // statement at/after i — `i + p` (the old fixed offset) would land on an
@@ -4595,7 +4949,7 @@ fn finish_unified(
     // Callback/metamethod writes are not syntactic region writes. A module
     // census protects reference-captured cells independently of upstream SSA
     // cleanup, so the proof holds even when matching a handwritten shape.
-    if t.free_cells.iter().any(|local| {
+    if t.free_cells().iter().any(|local| {
         t.captures.register_of(local, current_func.map(|function| function as usize))
             && crate::evaluation_order::region_late_read_conflict(cwin, local, &t.captures.may_change(local))
     }) {
@@ -4643,7 +4997,7 @@ fn finish_unified(
             }
         }
     }
-    if !t.leading.admits(unstable) {
+    if !t.leading().admits(unstable) {
         return refused("unstable_argument");
     }
     // Each returned local is declared by the pattern, so the site's matching
@@ -5004,6 +5358,37 @@ fn cps_unify_loop_exit(
         *bindings = trial;
     }
     equal
+}
+
+/// Whether no window opening with `stmts` can match `t`, read off its first
+/// statement alone, before any window is built. Canon keeps a leading
+/// assignment or call as it stands, and so do the rewrites of a window's
+/// returns and `continue`s, so the exact unification of every window here
+/// starts by unifying that statement with the pattern's first, from no
+/// bindings (`try_unify_site`). Where that fails, only a specialized body
+/// (`may_specialize`) or a continuation proof (`cps_loop_return`) could
+/// still match.
+fn head_refused(t: &Target, stmts: &[Statement]) -> bool {
+    !t.cps_loop_return && !may_specialize(t) && leading_statement_refused(t, stmts)
+}
+
+/// Whether the first statement of `stmts`, an assignment or a call, which
+/// heads every window opening there, fails to unify with the pattern's
+/// first statement from no bindings, and so from any bindings
+/// (`head_refused`).
+fn leading_statement_refused(t: &Target, stmts: &[Statement]) -> bool {
+    match stmts.iter().find(|statement| !is_match_trivia(statement)) {
+        Some(head @ (Statement::Assign(_) | Statement::Call(_) | Statement::MethodCall(_))) => {
+            unify_stmt(t, &t.pat[0], head, &mut Bindings::default()).is_err()
+        }
+        _ => false,
+    }
+}
+
+/// Whether [`try_unify_specialized_site`] can match anything: a window
+/// shorter than the pattern is worth building only then.
+fn may_specialize(t: &Target) -> bool {
+    (t.specializable && !t.params.is_empty()) || (1..=MAX_TRUTH_PARAMS).contains(&t.truth_params.len())
 }
 
 fn try_unify_specialized_site(t: &Target, cwin: &[Statement], current_func: Option<FnPtr>) -> Option<Unified> {
@@ -6373,24 +6758,6 @@ impl TargetCommon<'_> {
             locals.remove(p);
         }
         locals.extend(self.written_params.iter().cloned());
-        // The parameters whose arguments may run code before the body: read
-        // once, before anything observable, in order (`Target::leading`).
-        // The body's own locals are its registers; an outer local is its
-        // upvalue, fetched where it stands.
-        let captures = self.captures;
-        let facts = crate::evaluation_order::Body {
-            registers: &|local| params.contains(local) || locals.contains(local),
-            unchanged: &|value| captures.unchanged_by_calls(value),
-        };
-        let unwritten: Vec<RcLocal> = self.parameters.iter().filter(|p| params.contains(*p)).cloned().collect();
-        let leading = crate::evaluation_order::LeadingReads::new(&pat, &unwritten, |p| count_local_reads(&pat, p) == 1, &facts);
-        let mut pat_reads: FxHashSet<RcLocal> = FxHashSet::default();
-        collect_reads(&pat, &mut pat_reads);
-        let mut free_cells: Vec<RcLocal> = pat_reads
-            .into_iter()
-            .filter(|l| !params.contains(l) && !locals.contains(l) && captures.closure_written(l))
-            .collect();
-        free_cells.sort();
         // The window starts at the body: the copies of written parameters
         // before it are taken in afterwards (`absorb_arguments`).
         let pat0_kind = std::mem::discriminant(&pat[0]);
@@ -6414,8 +6781,8 @@ impl TargetCommon<'_> {
             param_order: self.parameters.to_vec(),
             written_params: self.written_params.to_vec(),
             unread: self.unread.clone(),
-            leading,
-            free_cells,
+            leading: Default::default(),
+            free_cells: Default::default(),
             specializable,
             truth_params,
             optional_params,
@@ -7462,8 +7829,8 @@ mod tests {
             param_order: Vec::new(),
             written_params: Vec::new(),
             unread: FxHashSet::default(),
-            leading: Default::default(),
-            free_cells: Vec::new(),
+            leading: std::cell::OnceCell::from(crate::evaluation_order::LeadingReads::default()),
+            free_cells: std::cell::OnceCell::from(Vec::new()),
             specializable: false,
             truth_params: Vec::new(),
             optional_params: Vec::new(),
@@ -8237,8 +8604,8 @@ mod tests {
             param_order: vec![event, key],
             written_params: Vec::new(),
             unread: FxHashSet::default(),
-            leading: Default::default(),
-            free_cells: Vec::new(),
+            leading: std::cell::OnceCell::from(crate::evaluation_order::LeadingReads::default()),
+            free_cells: std::cell::OnceCell::from(Vec::new()),
             specializable: true,
             truth_params: Vec::new(),
             optional_params: Vec::new(),
@@ -8321,8 +8688,8 @@ mod tests {
             param_order: vec![flag, value],
             written_params: Vec::new(),
             unread: FxHashSet::default(),
-            leading: Default::default(),
-            free_cells: Vec::new(),
+            leading: std::cell::OnceCell::from(crate::evaluation_order::LeadingReads::default()),
+            free_cells: std::cell::OnceCell::from(Vec::new()),
             specializable: true,
             truth_params: Vec::new(),
             optional_params: Vec::new(),
@@ -8395,8 +8762,8 @@ mod tests {
             param_order: vec![parameter],
             written_params: Vec::new(),
             unread: FxHashSet::default(),
-            leading: Default::default(),
-            free_cells: Vec::new(),
+            leading: std::cell::OnceCell::from(crate::evaluation_order::LeadingReads::default()),
+            free_cells: std::cell::OnceCell::from(Vec::new()),
             specializable: false,
             truth_params: Vec::new(),
             optional_params: Vec::new(),
@@ -8484,8 +8851,8 @@ mod tests {
             param_order: vec![frame],
             written_params: Vec::new(),
             unread: FxHashSet::default(),
-            leading: Default::default(),
-            free_cells: Vec::new(),
+            leading: std::cell::OnceCell::from(crate::evaluation_order::LeadingReads::default()),
+            free_cells: std::cell::OnceCell::from(Vec::new()),
             specializable: false,
             truth_params: Vec::new(),
             optional_params: Vec::new(),
@@ -8831,8 +9198,8 @@ mod tests {
             param_order: vec![p.clone()],
             written_params: Vec::new(),
             unread: FxHashSet::default(),
-            leading: Default::default(),
-            free_cells: Vec::new(),
+            leading: std::cell::OnceCell::from(crate::evaluation_order::LeadingReads::default()),
+            free_cells: std::cell::OnceCell::from(Vec::new()),
             specializable: false,
             truth_params: Vec::new(),
             optional_params: Vec::new(),
@@ -8928,8 +9295,8 @@ mod tests {
             param_order,
             written_params: Vec::new(),
             unread: unread_set,
-            leading: Default::default(),
-            free_cells: Vec::new(),
+            leading: std::cell::OnceCell::from(crate::evaluation_order::LeadingReads::default()),
+            free_cells: std::cell::OnceCell::from(Vec::new()),
             specializable: false,
             truth_params: Vec::new(),
             optional_params: Vec::new(),
@@ -9087,8 +9454,8 @@ mod tests {
             param_order: Vec::new(),
             written_params: Vec::new(),
             unread: FxHashSet::default(),
-            leading: Default::default(),
-            free_cells: Vec::new(),
+            leading: std::cell::OnceCell::from(crate::evaluation_order::LeadingReads::default()),
+            free_cells: std::cell::OnceCell::from(Vec::new()),
             specializable: false,
             truth_params: Vec::new(),
             optional_params: Vec::new(),
@@ -9141,8 +9508,8 @@ mod tests {
             param_order: Vec::new(),
             written_params: Vec::new(),
             unread: FxHashSet::default(),
-            leading: Default::default(),
-            free_cells: Vec::new(),
+            leading: std::cell::OnceCell::from(crate::evaluation_order::LeadingReads::default()),
+            free_cells: std::cell::OnceCell::from(Vec::new()),
             specializable: false,
             truth_params: Vec::new(),
             optional_params: Vec::new(),
@@ -10296,8 +10663,8 @@ mod tests {
             param_order: vec![p.clone(), v.clone()],
             written_params: vec![v.clone()],
             unread: FxHashSet::default(),
-            leading: Default::default(),
-            free_cells: Vec::new(),
+            leading: std::cell::OnceCell::from(crate::evaluation_order::LeadingReads::default()),
+            free_cells: std::cell::OnceCell::from(Vec::new()),
             specializable: false,
             truth_params: Vec::new(),
             optional_params: Vec::new(),

@@ -26,6 +26,20 @@ fn assert_order(candidates: &[usize], caller: Option<usize>) {
     assert_eq!(actual, expected);
     assert_eq!(actual_calls.into_inner(), expected_calls.into_inner(), "callback invocation order");
 }
+/// `priority_keys` is the key `prioritize` sorts on: a stable partition by
+/// it gives the same order, from any candidate subset.
+fn assert_keys(candidates: &[usize], caller: Option<usize>) {
+    let helpers: Vec<usize> = candidates.iter().map(|&i| identity(i)).collect();
+    let partitioned = match priority_keys(caller, &helpers) {
+        Some(keys) => {
+            let (mut first, rest): (Vec<_>, Vec<_>) = candidates.iter().zip(&keys).partition(|&(_, &key)| key);
+            first.extend(rest);
+            first.into_iter().map(|(&i, _)| i).collect()
+        }
+        None => candidates.to_vec(),
+    };
+    assert_eq!(partitioned, reference::prioritize(candidates, caller, identity));
+}
 fn next(seed: &mut u64) -> u64 {
     *seed ^= *seed << 13; *seed ^= *seed >> 7; *seed ^= *seed << 17; *seed
 }
@@ -58,6 +72,10 @@ fn random_eager_oracle_preserves_regions_priority_duplicates_and_callback_order(
         assert_order(&[], Some(identity(0)));
         assert_order(&[1], Some(identity(0)));
         assert_order(&candidates, Some(identity(0)));
+        assert_keys(&candidates, None);
+        assert_keys(&candidates, Some(usize::MAX));
+        assert_keys(&candidates, Some(identity(0)));
+        assert_keys(&candidates[..candidates.len() / 2], Some(identity(count.saturating_sub(1))));
         assert_order(&candidates, Some(identity(count.saturating_sub(1))));
         assert_eq!(actual_report(), expected_report(), "seed {seed}");
     }

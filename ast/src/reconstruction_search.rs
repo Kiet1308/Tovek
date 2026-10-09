@@ -207,6 +207,13 @@ impl State {
         }
     }
 
+    fn keys(&self, caller: Option<usize>, helpers: &[usize]) -> Option<Vec<bool>> {
+        let caller = caller.and_then(|c| self.functions.get(&c))?;
+        Some(helpers.iter().map(|helper| {
+            self.functions.get(helper).is_some_and(|callee| self.pairs.contains(&(*caller, *callee)))
+        }).collect())
+    }
+
     fn order(&self, candidates: &[usize], ordered: &mut Vec<usize>, caller: Option<usize>, function: &impl Fn(usize) -> usize) {
         let caller = caller.and_then(|c| self.functions.get(&c));
         self.statistics.update(|c| {
@@ -262,6 +269,31 @@ pub(crate) fn prioritize(candidates: &[usize], caller: Option<usize>, function: 
         state.order(candidates, &mut ordered, caller, &function);
     });
     ordered
+}
+
+/// [`prioritize`]'s sort key for each of `helpers` (by identity) under
+/// `caller`: whether the helper's code is inlined into the caller's. Read
+/// once per helper, so a caller ordering many candidate sets stably
+/// partitions each by these instead of sorting it anew. `None` where
+/// `prioritize` keeps every order as it is (an unregistered caller).
+pub(crate) fn priority_keys(caller: Option<usize>, helpers: &[usize]) -> Option<Vec<bool>> {
+    STATE.with(|s| {
+        {
+            let state = s.borrow();
+            if state.pending_lines.is_none() || helpers.len() < 2
+                || !caller.is_some_and(|c| state.functions.contains_key(&c)) {
+                return state.keys(caller, helpers);
+            }
+        }
+        {
+            let mut state = s.borrow_mut();
+            if let Some(lines) = state.pending_lines.take() {
+                state.statistics.update(|c| c.force_prioritize += 1);
+                state.build(&lines);
+            }
+        }
+        s.borrow().keys(caller, helpers)
+    })
 }
 
 pub fn report() -> (Vec<Region>, bool) {

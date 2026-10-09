@@ -176,7 +176,8 @@
    "deinline_discarded_result": "M2a D1: discard variant of value helpers (track, describe, remember), declared result from a kept temp; 0 inequivalent",
    "deinline_ordered_leading_reads": "M2a D4: ordered leading reads; 1 inequivalent proto (main), same at M1: Log.note and Service:Create print as table constructors (template LOADK 0 + SETTABLEKS)",
    "deinline_result_stored_into_its_argument": "M2a D1: assigned results with identity-leaf elision and argument-temp absorption; 1 inequivalent proto (copyInto), same at M1: an SSA phi printed as an init-less local (extra LOADNIL)",
-   "deinline_written_parameter_alias": "M2a D1: written parameter standing for a dead caller local, loop-tail continue; 4 inequivalent protos, same at M1: init-less locals for SSA phis in kept/held (LOADNIL x2), main's held copy folds its captured constant 5 after recompiling (accept)"
+   "deinline_written_parameter_alias": "M2a D1: written parameter standing for a dead caller local, loop-tail continue; 4 inequivalent protos, same at M1: init-less locals for SSA phis in kept/held (LOADNIL x2), main's held copy folds its captured constant 5 after recompiling (accept)",
+   "deinline_store_rebuilt_below_its_caller_copy": "De-inline fixture (2026-10-09): main recompiles the rebuilt Hitbox methods as inlined copies, so it differs by construction; Circle and Full stay exact only while the assignment-phase shortcut stops below a rewrite; baselined from the introducing stage output."
   }
  },
  "summary": {
@@ -534,6 +535,12 @@
   },
   {
    "file": "deinline_result_stored_into_its_argument",
+   "status": "ok",
+   "nonequiv": 1,
+   "protos": 11
+  },
+  {
+   "file": "deinline_store_rebuilt_below_its_caller_copy",
    "status": "ok",
    "nonequiv": 1,
    "protos": 11
