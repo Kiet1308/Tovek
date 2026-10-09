@@ -185,7 +185,9 @@ is never inferred where the copy still reads the argument the caller passed (a
 function literal capturing it). A helper
 stored under its own name (`M.Copy = Copy`) keeps its `local function` beside
 that store where its calls are rebuilt, and prints as `function M.Copy`
-otherwise.
+otherwise. An unnamed function literal capturing nothing that `-O2` inlined
+everywhere (`local scramble = function`) comes back as a local function
+before its first rebuilt call; without one it stays out, as before.
 
 A function literal that Luau shares (one capturing only top-level locals or
 itself) is one closure object at every site `-O2` inlined it to, as all copies

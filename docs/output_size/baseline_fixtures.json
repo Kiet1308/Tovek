@@ -772,6 +772,18 @@
       "bytes": 1777,
       "lines": 57
     },
+    "semantic/deinline_orphan_function__O0.luau": {
+      "bytes": 488,
+      "lines": 34
+    },
+    "semantic/deinline_orphan_function__O1.luau": {
+      "bytes": 488,
+      "lines": 34
+    },
+    "semantic/deinline_orphan_function__O2.luau": {
+      "bytes": 527,
+      "lines": 24
+    },
     "semantic/deinline_result_stored_into_its_argument__O0.luau": {
       "bytes": 1563,
       "lines": 106

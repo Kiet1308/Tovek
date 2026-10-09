@@ -53,6 +53,11 @@ pub struct Function {
     /// function-name fold to [`crate::fold_function_names`]; an evidence
     /// hint, never a proof.
     pub inlined_by_compiler: bool,
+    /// The dead declarations `local f = function ... end` the SSA inliner
+    /// kept aside for the de-inliner, of anonymous function literals
+    /// capturing nothing that Luau inlined everywhere
+    /// ([`crate::deinline::deinline_with_orphans`]). They count as no use.
+    pub orphans: Vec<(RcLocal, Closure)>,
     /// The source gave the function the `@native` attribute (the prototype's
     /// `LPF_NATIVE_FUNCTION` flag); printed back before its `function`.
     pub native: bool,

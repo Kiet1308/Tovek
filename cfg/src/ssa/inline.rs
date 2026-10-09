@@ -1239,6 +1239,7 @@ pub fn inline_with_readonly_captures(
         .inline_rvalues(&mut schedule);
         drop(inline_timer);
         let dead_timer = ast::prof::Timer::new(&ast::prof::I_DEAD);
+        let mut orphans = Vec::new();
 
         // remove unused locals
         for node_index in 0..schedule.nodes.len() {
@@ -1304,6 +1305,15 @@ pub fn inline_with_readonly_captures(
                             let keep_const_table =
                                 matches!(rvalue, ast::RValue::Table(t) if !t.0.is_empty());
                             if !keep_named_closure && !keep_can_raise && !keep_const_table {
+                                // An anonymous function literal capturing nothing that
+                                // Luau inlined everywhere: kept aside for the de-inliner,
+                                // where it counts as no use (`ast::deinline` orphans).
+                                if let ast::RValue::Closure(closure) = rvalue
+                                    && closure.upvalues.is_empty()
+                                    && closure.function.lock().inlined_by_compiler
+                                {
+                                    orphans.push((local.clone(), closure.clone()));
+                                }
                                 block[stat_index] = ast::Empty {}.into();
                                 changed = true;
                                 schedule.changed(node);
@@ -1314,6 +1324,7 @@ pub fn inline_with_readonly_captures(
             }
         }
 
+        function.orphans.extend(orphans);
         drop(dead_timer);
         let _tables_timer = ast::prof::Timer::new(&ast::prof::I_TABLES);
         for node_index in 0..schedule.nodes.len() {

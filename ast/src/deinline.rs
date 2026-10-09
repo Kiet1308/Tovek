@@ -348,6 +348,10 @@ struct Target {
     /// site's local is the region's own, dead after it, and unifies with
     /// these reads one for one.
     private_closures: FxHashSet<RcLocal>,
+    /// An orphan's target ([`Orphan`]): the function whose body its
+    /// kept-aside declaration belongs to (`None`: the chunk). Active in all
+    /// of that body; its declaration goes back in once a call is rebuilt.
+    orphan: Option<Option<FnPtr>>,
     captures: std::rc::Rc<crate::deinline_safety::CaptureSafety>,
     search: std::rc::Rc<crate::deinline_safety::SearchBudget>,
 }
@@ -475,6 +479,95 @@ struct Progress {
     rescan: Option<Rescan>,
     /// The sites rewritten so far.
     splices: usize,
+    /// The orphans' targets active in each function body ([`Orphan`]),
+    /// by the body (`None`: the chunk).
+    orphan_scopes: FxHashMap<Option<FnPtr>, Vec<usize>>,
+}
+
+/// A function only ever called, all of whose calls Luau `-O2` inlined: an
+/// anonymous function literal capturing nothing (`local scramble =
+/// function(v, key) ... end`). The SSA inliner deletes such a dead
+/// declaration as before, but keeps it aside in its function's
+/// [`Function::orphans`], where it counts as no use of anything, so every
+/// analysis sees the tree it saw. Its copies may rebuild calls of it; only
+/// then does the declaration go back, at the top level of that body right
+/// before the first statement calling it ([`materialize_orphans`]). Line
+/// info must show its code inlined somewhere
+/// ([`Function::inlined_by_compiler`]); capturing nothing, it may be
+/// declared anywhere in that body, and only ever called, its object is
+/// seen by no code.
+struct Orphan {
+    binder: RcLocal,
+    function: Arc<Mutex<Function>>,
+    /// The function whose body held the declaration, `None` for the chunk.
+    scope: Option<FnPtr>,
+    scope_function: Option<Arc<Mutex<Function>>>,
+}
+
+/// The orphans kept aside by `body`'s functions, nested ones included,
+/// those of the chunk first (`chunk`).
+fn collect_orphans(body: &Block, chunk: &[(RcLocal, Closure)]) -> Vec<Orphan> {
+    fn walk(stmts: &[Statement], out: &mut Vec<Orphan>) {
+        for statement in stmts {
+            statement.traverse_rvalues_ref(&mut |value| {
+                if let RValue::Closure(closure) = value {
+                    let function = closure.function.0.lock();
+                    for (binder, orphan) in &function.orphans {
+                        out.push(Orphan {
+                            binder: binder.clone(),
+                            function: orphan.function.0.clone(),
+                            scope: Some(Arc::as_ptr(&closure.function.0)),
+                            scope_function: Some(closure.function.0.clone()),
+                        });
+                    }
+                    walk(&function.body.0, out);
+                }
+            });
+            match statement {
+                Statement::If(branch) => {
+                    walk(&branch.then_block.lock().0, out);
+                    walk(&branch.else_block.lock().0, out);
+                }
+                Statement::While(node) => walk(&node.block.lock().0, out),
+                Statement::Repeat(node) => walk(&node.block.lock().0, out),
+                Statement::NumericFor(node) => walk(&node.block.lock().0, out),
+                Statement::GenericFor(node) => walk(&node.block.lock().0, out),
+                _ => {}
+            }
+        }
+    }
+    let mut orphans: Vec<Orphan> = chunk
+        .iter()
+        .map(|(binder, closure)| Orphan { binder: binder.clone(), function: closure.function.0.clone(), scope: None, scope_function: None })
+        .collect();
+    walk(&body.0, &mut orphans);
+    orphans
+}
+
+/// Each orphan a call of which was rebuilt goes back into its body
+/// ([`Orphan`]), right before the first top-level statement reading it,
+/// and leaves the side table.
+fn materialize_orphans(body: &mut Block, chunk: &mut Vec<(RcLocal, Closure)>, orphans: &[Orphan], used: &FxHashSet<RcLocal>) {
+    for orphan in orphans.iter().filter(|orphan| used.contains(&orphan.binder)) {
+        let mut scope_function = orphan.scope_function.as_ref().map(|function| function.lock());
+        let (stmts, table) = match &mut scope_function {
+            Some(function) => {
+                let function = &mut **function;
+                (&mut function.body.0, &mut function.orphans)
+            }
+            None => (&mut body.0, &mut *chunk),
+        };
+        let Some(at) = table.iter().position(|(binder, _)| *binder == orphan.binder) else { continue };
+        let (binder, closure) = table.remove(at);
+        let Some(first) = stmts.iter().position(|statement| count_local_reads(std::slice::from_ref(statement), &binder) > 0) else {
+            // Its calls went with a later rewrite: it stays aside.
+            table.insert(at, (binder, closure));
+            continue;
+        };
+        let mut declaration = Assign::new(vec![LValue::Local(binder)], vec![RValue::Closure(closure)]);
+        declaration.prefix = true;
+        stmts.insert(first, declaration.into());
+    }
 }
 
 /// The scan of an iteration that rewrote nothing, as the next one, which
@@ -494,9 +587,16 @@ struct Rescan {
 }
 
 pub fn deinline(body: &mut Block) {
+    deinline_with_orphans(body, &mut Vec::new());
+}
+
+/// [`deinline`] with the chunk's orphans ([`Orphan`]); nested functions
+/// hold theirs.
+pub fn deinline_with_orphans(body: &mut Block, chunk_orphans: &mut Vec<(RcLocal, Closure)>) {
+    let orphans = collect_orphans(body, chunk_orphans);
     // Every rewrite needs a target; the module-wide censuses below are only
     // worth building when some helper passes the per-declaration gates.
-    if !any_structural_target(body) {
+    if !any_structural_target(body) && orphans.is_empty() {
         crate::telemetry::count("skipped_without_targets", 1);
         return;
     }
@@ -515,6 +615,11 @@ pub fn deinline(body: &mut Block) {
             single_valued.insert(binder.clone());
         }
     });
+    for orphan in &orphans {
+        if returns_exactly_one(&orphan.function.lock().body.0) {
+            single_valued.insert(orphan.binder.clone());
+        }
+    }
     // The entry budget census describes the unchanged first iteration too.
     // Later iterations rebuild it after rewriting; no mutable-tree facts are
     // retained across a revision, and this summary owns only numeric IDs.
@@ -580,7 +685,7 @@ pub fn deinline(body: &mut Block) {
                     let captures = initial_captures.take().unwrap_or_else(||
                         std::rc::Rc::new(crate::deinline_safety::CaptureSafety::new(body)));
                     current_captures = Some(captures.clone());
-                    let targets = collect_targets(body, &write_counts, &single_valued, captures);
+                    let targets = collect_targets(body, &write_counts, &single_valued, captures, &orphans);
                     crate::telemetry::count("accepted_targets", targets.len() as u64);
                     // The budget counts helpers: a value helper's discard
                     // variant shares its definition.
@@ -623,13 +728,19 @@ pub fn deinline(body: &mut Block) {
             rescan: rescan.take(),
             ..Progress::default()
         };
+        for (index, target) in targets.iter().enumerate() {
+            if let Some(scope) = target.orphan {
+                newly.orphan_scopes.entry(scope).or_default().push(index);
+            }
+        }
+        let chunk_orphans_active = newly.orphan_scopes.get(&None).cloned().unwrap_or_default();
         {
             let _span = crate::telemetry::Span::new("D_SCAN");
             deinline_block(
                 &mut body.0,
                 &targets,
                 &decl_map,
-                &[],
+                &chunk_orphans_active,
                 &[],
                 &FxHashSet::default(),
                 None,
@@ -677,6 +788,9 @@ pub fn deinline(body: &mut Block) {
     }
     if search.exhausted() {
         crate::reconstruction_stats::refuse_site("search_budget_exhausted");
+    }
+    if !orphans.is_empty() {
+        materialize_orphans(body, chunk_orphans, &orphans, &converted);
     }
     if !converted.is_empty() {
         {
@@ -3186,6 +3300,15 @@ fn recurse_into_closures(
     match rv {
         RValue::Closure(c) => {
             let fp = Arc::as_ptr(&c.function.0);
+            // The orphans this body kept aside are in scope in all of it.
+            let with_orphans: Vec<usize>;
+            let active = match newly.orphan_scopes.get(&Some(fp)) {
+                Some(orphans) => {
+                    with_orphans = active.iter().chain(orphans).copied().collect();
+                    &with_orphans
+                }
+                None => active,
+            };
             deinline_block(
                 &mut c.function.0.lock().body.0,
                 targets,
@@ -7551,6 +7674,7 @@ fn collect_targets(
     write_counts: &FxHashMap<RcLocal, usize>,
     single_valued: &FxHashSet<RcLocal>,
     captures: std::rc::Rc<crate::deinline_safety::CaptureSafety>,
+    orphans: &[Orphan],
 ) -> Vec<Target> {
     // P4: a write-once census (`write_counts`, computed once by the caller — see the
     // invariance note in `deinline`) replaces the old `Arc::count(&l) == 1` gate.
@@ -7580,234 +7704,259 @@ fn collect_targets(
             deinline_reject!(RejectReason::TargetStillReferenced, f_local, "<binder>");
             continue;
         }
-        let g = func.lock();
-        // P5-A: drop the `g.name.is_none()` gate. `g.name` is only the bytecode
-        // debugname — never consumed by emission (the call/marker use `f_local`,
-        // line ~1377) nor the formatter; only this gate and a debug-trace string
-        // read it. Refusing a name-less closure therefore dropped the `name == 0`
-        // subset of the IDENTICAL `local f = function…end` shape for no soundness
-        // reason. (Variadic stays refused — see P5-B: `...`→multi-arg arity is
-        // unprovable from the inlined body, so it is left for `body_unsafe`-style
-        // refusal here.) Every soundness gate downstream is unchanged.
-        if g.is_variadic {
-            deinline_reject!(RejectReason::Variadic, f_local,
+        helper_targets(&f_local, &func, single_valued, &captures, None, &mut targets);
+    }
+    // Orphans: functions only ever called where Luau inlined them, their
+    // dead declarations kept aside ([`Orphan`]).
+    for orphan in orphans {
+        helper_targets(&orphan.binder, &orphan.function, single_valued, &captures, Some(orphan.scope), &mut targets);
+    }
+    targets
+}
+
+/// The targets of the helper `func` bound to `f_local`, if it passes the
+/// per-helper gates: its pattern, its discard variant and its
+/// specialization variants. `orphan` is the scope of an orphan's kept-aside
+/// declaration ([`Orphan`]), `None` for a declaration in the tree.
+fn helper_targets(
+    f_local: &RcLocal,
+    func: &Arc<Mutex<Function>>,
+    single_valued: &FxHashSet<RcLocal>,
+    captures: &std::rc::Rc<crate::deinline_safety::CaptureSafety>,
+    orphan: Option<Option<FnPtr>>,
+    targets: &mut Vec<Target>,
+) {
+    let f_local = f_local.clone();
+    let g = func.lock();
+    // P5-A: drop the `g.name.is_none()` gate. `g.name` is only the bytecode
+    // debugname — never consumed by emission (the call/marker use `f_local`,
+    // line ~1377) nor the formatter; only this gate and a debug-trace string
+    // read it. Refusing a name-less closure therefore dropped the `name == 0`
+    // subset of the IDENTICAL `local f = function…end` shape for no soundness
+    // reason. (Variadic stays refused — see P5-B: `...`→multi-arg arity is
+    // unprovable from the inlined body, so it is left for `body_unsafe`-style
+    // refusal here.) Every soundness gate downstream is unchanged.
+    if g.is_variadic {
+        deinline_reject!(RejectReason::Variadic, f_local,
+            g.name.as_deref().unwrap_or("<anon>")
+        );
+        return;
+    }
+    // Its code runs a call frame deeper inside the helper, where reading
+    // frames gives another answer.
+    if body_unsafe(&g.body.0) || captures.reads_frames(&g.body.0) {
+        deinline_reject!(RejectReason::UnsafeBody, f_local,
+            g.name.as_deref().unwrap_or("<anon>")
+        );
+        return;
+    }
+    let (body, returns) = pattern_body(&g.body.0, &g.parameters);
+    let (kind, falls_off) = match classify_returns(&body) {
+        Some(classified) => classified,
+        None => {
+            // multi-return / mixed / bare-vararg leaf / non-terminal value return
+            deinline_reject!(RejectReason::UnsupportedReturnShape, f_local,
                 g.name.as_deref().unwrap_or("<anon>")
             );
-            continue;
+            return;
         }
-        // Its code runs a call frame deeper inside the helper, where reading
-        // frames gives another answer.
-        if body_unsafe(&g.body.0) || captures.reads_frames(&g.body.0) {
-            deinline_reject!(RejectReason::UnsafeBody, f_local,
-                g.name.as_deref().unwrap_or("<anon>")
-            );
-            continue;
-        }
-        let (body, returns) = pattern_body(&g.body.0, &g.parameters);
-        let (kind, falls_off) = match classify_returns(&body) {
-            Some(classified) => classified,
-            None => {
-                // multi-return / mixed / bare-vararg leaf / non-terminal value return
+    };
+    let shape = crate::deinline_safety::CaptureSafety::new(&g.body);
+    if !shape.complete() || shape.nodes() > 2048 {
+        deinline_reject!(RejectReason::ShapeBudget, f_local, g.name.as_deref().unwrap_or("<anon>"));
+        return;
+    }
+    let pat = if falls_off { canon(&returning_nil(&body)) } else { canon(&body) };
+    if pat.is_empty() {
+        deinline_reject!(RejectReason::EmptyPattern, f_local,
+            g.name.as_deref().unwrap_or("<anon>")
+        );
+        return;
+    }
+    let cps_loop_return = kind == TKind::Void && has_loop_void_return(&pat, false);
+    let loop_exit_at = (kind == TKind::Value && !value_leaf_shape(&pat))
+        .then(|| loop_return_split(&pat))
+        .flatten();
+    match kind {
+        // Ordinary void targets must canon away every return.  A narrowly
+        // recognized loop-return target is retained for the continuation-
+        // proving CPS matcher below.
+        TKind::Void => {
+            if block_has_return(&pat) && !cps_loop_return {
                 deinline_reject!(RejectReason::UnsupportedReturnShape, f_local,
                     g.name.as_deref().unwrap_or("<anon>")
                 );
-                continue;
-            }
-        };
-        let shape = crate::deinline_safety::CaptureSafety::new(&g.body);
-        if !shape.complete() || shape.nodes() > 2048 {
-            deinline_reject!(RejectReason::ShapeBudget, f_local, g.name.as_deref().unwrap_or("<anon>"));
-            continue;
-        }
-        let pat = if falls_off { canon(&returning_nil(&body)) } else { canon(&body) };
-        if pat.is_empty() {
-            deinline_reject!(RejectReason::EmptyPattern, f_local,
-                g.name.as_deref().unwrap_or("<anon>")
-            );
-            continue;
-        }
-        let cps_loop_return = kind == TKind::Void && has_loop_void_return(&pat, false);
-        let loop_exit_at = (kind == TKind::Value && !value_leaf_shape(&pat))
-            .then(|| loop_return_split(&pat))
-            .flatten();
-        match kind {
-            // Ordinary void targets must canon away every return.  A narrowly
-            // recognized loop-return target is retained for the continuation-
-            // proving CPS matcher below.
-            TKind::Void => {
-                if block_has_return(&pat) && !cps_loop_return {
-                    deinline_reject!(RejectReason::UnsupportedReturnShape, f_local,
-                        g.name.as_deref().unwrap_or("<anon>")
-                    );
-                    continue;
-                }
-            }
-            // value: every leaf must be a single value-return (the result),
-            // or a return from inside a loop (`loop_return_split`).
-            TKind::Value => {
-                if !value_leaf_shape(&pat) && loop_exit_at.is_none() {
-                    deinline_reject!(RejectReason::UnsupportedReturnShape, f_local,
-                        g.name.as_deref().unwrap_or("<anon>")
-                    );
-                    continue;
-                }
+                return;
             }
         }
-        if crate::env_flag!("DEINLINE_ANCHOR_TRACE") {
-            let a = anchor_score(&pat, &g.parameters);
-            let nc: usize = pat.iter().map(crate::deinline::dbg_stmt_node_count).sum();
-            let nm = g.name.as_deref().unwrap_or("<none>");
-            eprintln!(
-                "ANCHORTRACE\tanchors={}\tstmts={}\tnodes={}\tkind={:?}\tname={}\tlocal={}\tcps={}",
-                a,
-                pat.len(),
-                nc,
-                match kind {
-                    TKind::Void => "Void",
-                    TKind::Value => "Value",
-                },
-                nm,
-                f_local,
-                cps_loop_return,
-            );
-        }
-        if anchor_score(&pat, &g.parameters) + LOOP_EXIT_ANCHORS * usize::from(loop_exit_at.is_some()) < 2 {
-            deinline_reject!(RejectReason::LowAnchorScore, f_local,
-                g.name.as_deref().unwrap_or("<anon>")
-            );
-            continue;
-        }
-        // Written params (see `Target::written_params`) are matched as callee
-        // locals: the site materialises them as `local L = ARG` copies, or
-        // coalesced them into a dead caller local (`absorb_arguments`).
-        let mut body_written: FxHashSet<RcLocal> = FxHashSet::default();
-        collect_written(&g.body.0, &mut body_written);
-        let written_params: Vec<RcLocal> = g
-            .parameters
-            .iter()
-            .filter(|p| body_written.contains(*p))
-            .cloned()
-            .collect();
-        let params: FxHashSet<RcLocal> = g
-            .parameters
-            .iter()
-            .filter(|p| !body_written.contains(*p))
-            .cloned()
-            .collect();
-        // F6a: parameters the body never READS. Build the read-set in ONE pass over
-        // the RAW body (`g.body.0`) — O(body + params), not a per-param re-traversal,
-        // and over the body the helper ACTUALLY runs, which decouples F6a soundness
-        // from canon's drop-semantics (canon only ever removes read-free statements,
-        // so this yields the identical set today, but is self-evidently correct even
-        // if canon ever changes). `collect_reads` also enters the bodies of the
-        // closures `body_unsafe` admits, so a read there counts too.
-        //
-        // A WRITTEN param needs no special case: it appears in the body as an
-        // `LValue::Local(p)`, which `unify_local`'s param-identity branch forces the
-        // candidate to write through the *same* callee local — impossible at the call
-        // site (the caller writes a different register), so the whole match fails in
-        // `unify_block` BEFORE `try_unify_site`'s args loop. That holds whether or not
-        // the param is also read: a pure write-only `p = X` IS classified unread here
-        // (it has zero reads), but it can still never receive a wrong `nil`, because
-        // the site is refused upstream.
-        let mut body_reads: FxHashSet<RcLocal> = FxHashSet::default();
-        collect_reads(&g.body.0, &mut body_reads);
-        let unread: FxHashSet<RcLocal> = g
-            .parameters
-            .iter()
-            .filter(|p| !body_reads.contains(*p))
-            .cloned()
-            .collect();
-        // §8 + P6: a Value target whose canon'd body is `<K leading non-branch
-        // callee statements> ; <value branch>` is matched at the call site with the
-        // RESULT-register decl INTERPOSED after those K leading statements (those
-        // are the callee's own locals/effects, computed before the value is
-        // produced). `value_leaf_shape` guarantees the value branch is `pat`'s
-        // unique LAST statement and the prefix is return-free, so the prefix is
-        // exactly `pat[..k]` with `k == pat.len() - 1`.
-        //
-        // §8 scoped this to K==1; P6 generalises to 1..=MAX_PREFIX. The prefix
-        // statements must be NON-BRANCH (`Assign`/`Call`/`MethodCall`) for two
-        // reasons: (1) it keeps the `pat0_kind` O(1) prefilter sound (canon
-        // preserves the first surviving statement's variant, and these variants
-        // survive canon unchanged — a leading `If` prefix would be folded/unguarded
-        // and is left on the `AtResultDecl` path); (2) a branch in the prefix would
-        // be a different inlining shape. Soundness is otherwise unchanged: every
-        // whole-window analysis in `match_value_prefixed` (exact unify over the
-        // union, region-write arg-safety, RESULT identity + never-read, callee-temp
-        // liveness) runs over `prefix ++ region`, so K>1 cannot smuggle anything
-        // past the gates the K==1 path already enforces. MAX_PREFIX bounds the
-        // per-position work (the matcher's single per-width loop is unchanged).
-        let (value_anchor, prefix_len) = value_anchor_of(kind, &pat, loop_exit_at);
-        // The parameters a value leaf hands back as they are, and the one
-        // every leaf does, if any.
-        let mut leaves = Vec::new();
-        if kind == TKind::Value && loop_exit_at.is_none() {
-            value_leaves(&pat, &mut leaves);
-        }
-        let returned_param = |leaf: &RValue| match leaf {
-            RValue::Local(local) if params.contains(local) => Some(local.clone()),
-            _ => None,
-        };
-        let identity_params: Vec<RcLocal> =
-            g.parameters.iter().filter(|p| leaves.iter().filter_map(returned_param).any(|l| l == **p)).cloned().collect();
-        let returns_parameter = match identity_params.as_slice() {
-            [param] if leaves.iter().all(|leaf| returned_param(leaf).as_ref() == Some(param)) => Some(param.clone()),
-            _ => None,
-        };
-        // Called for no result, a value helper runs its discard body.
-        let discard = (kind == TKind::Value && loop_exit_at.is_none() && returns.is_empty())
-            .then(|| discard_body(&body))
-            .flatten()
-            .map(|raw| (canon(&raw), raw))
-            .filter(|(pattern, _)| {
-                !pattern.is_empty() && !block_has_return(pattern) && anchor_score(pattern, &g.parameters) >= 2
-            });
-        let common = TargetCommon {
-            f_local: &f_local,
-            func_ptr: Arc::as_ptr(&func),
-            parameters: &g.parameters,
-            params: &params,
-            written_params: &written_params,
-            unread: &unread,
-            captures: &captures,
-        };
-        crate::call_origins::register_callee(f_local.stable_id(), g.bytecode_proto_id);
-        crate::reconstruction_stats::accept_helper(f_local.stable_id());
-        let mut target = common.target(kind, pat, &body);
-        target.value_anchor = value_anchor;
-        target.prefix_len = prefix_len;
-        target.falls_off = falls_off;
-        target.cps_loop_return = cps_loop_return;
-        target.loop_exit_at = loop_exit_at;
-        target.returns = returns;
-        target.identity_params = identity_params;
-        target.single_valued = single_valued.contains(&f_local);
-        target.hosted = hosted_pattern(&target);
-        // The outer local every leaf returns, if one.
-        let returns_cell = match leaves.split_first() {
-            Some((RValue::Local(cell), rest))
-                if !g.parameters.contains(cell)
-                    && !target.locals.contains(cell)
-                    && rest.iter().all(|leaf| matches!(leaf, RValue::Local(other) if other == cell)) =>
-            {
-                Some(cell.clone())
+        // value: every leaf must be a single value-return (the result),
+        // or a return from inside a loop (`loop_return_split`).
+        TKind::Value => {
+            if !value_leaf_shape(&pat) && loop_exit_at.is_none() {
+                deinline_reject!(RejectReason::UnsupportedReturnShape, f_local,
+                    g.name.as_deref().unwrap_or("<anon>")
+                );
+                return;
             }
-            _ => None,
-        };
-        let discard_target = discard.map(|(pattern, raw)| Target {
-            discarded: true,
-            returns_parameter,
-            returns_cell,
-            single_valued: target.single_valued,
-            ..common.target(TKind::Void, pattern, &raw)
-        });
-        let variants = specialization_variants(&target, &common, &body);
-        targets.push(target);
-        targets.extend(discard_target);
-        targets.extend(variants);
+        }
     }
-    targets
+    if crate::env_flag!("DEINLINE_ANCHOR_TRACE") {
+        let a = anchor_score(&pat, &g.parameters);
+        let nc: usize = pat.iter().map(crate::deinline::dbg_stmt_node_count).sum();
+        let nm = g.name.as_deref().unwrap_or("<none>");
+        eprintln!(
+            "ANCHORTRACE\tanchors={}\tstmts={}\tnodes={}\tkind={:?}\tname={}\tlocal={}\tcps={}",
+            a,
+            pat.len(),
+            nc,
+            match kind {
+                TKind::Void => "Void",
+                TKind::Value => "Value",
+            },
+            nm,
+            f_local,
+            cps_loop_return,
+        );
+    }
+    if anchor_score(&pat, &g.parameters) + LOOP_EXIT_ANCHORS * usize::from(loop_exit_at.is_some()) < 2 {
+        deinline_reject!(RejectReason::LowAnchorScore, f_local,
+            g.name.as_deref().unwrap_or("<anon>")
+        );
+        return;
+    }
+    // Written params (see `Target::written_params`) are matched as callee
+    // locals: the site materialises them as `local L = ARG` copies, or
+    // coalesced them into a dead caller local (`absorb_arguments`).
+    let mut body_written: FxHashSet<RcLocal> = FxHashSet::default();
+    collect_written(&g.body.0, &mut body_written);
+    let written_params: Vec<RcLocal> = g
+        .parameters
+        .iter()
+        .filter(|p| body_written.contains(*p))
+        .cloned()
+        .collect();
+    let params: FxHashSet<RcLocal> = g
+        .parameters
+        .iter()
+        .filter(|p| !body_written.contains(*p))
+        .cloned()
+        .collect();
+    // F6a: parameters the body never READS. Build the read-set in ONE pass over
+    // the RAW body (`g.body.0`) — O(body + params), not a per-param re-traversal,
+    // and over the body the helper ACTUALLY runs, which decouples F6a soundness
+    // from canon's drop-semantics (canon only ever removes read-free statements,
+    // so this yields the identical set today, but is self-evidently correct even
+    // if canon ever changes). `collect_reads` also enters the bodies of the
+    // closures `body_unsafe` admits, so a read there counts too.
+    //
+    // A WRITTEN param needs no special case: it appears in the body as an
+    // `LValue::Local(p)`, which `unify_local`'s param-identity branch forces the
+    // candidate to write through the *same* callee local — impossible at the call
+    // site (the caller writes a different register), so the whole match fails in
+    // `unify_block` BEFORE `try_unify_site`'s args loop. That holds whether or not
+    // the param is also read: a pure write-only `p = X` IS classified unread here
+    // (it has zero reads), but it can still never receive a wrong `nil`, because
+    // the site is refused upstream.
+    let mut body_reads: FxHashSet<RcLocal> = FxHashSet::default();
+    collect_reads(&g.body.0, &mut body_reads);
+    let unread: FxHashSet<RcLocal> = g
+        .parameters
+        .iter()
+        .filter(|p| !body_reads.contains(*p))
+        .cloned()
+        .collect();
+    // §8 + P6: a Value target whose canon'd body is `<K leading non-branch
+    // callee statements> ; <value branch>` is matched at the call site with the
+    // RESULT-register decl INTERPOSED after those K leading statements (those
+    // are the callee's own locals/effects, computed before the value is
+    // produced). `value_leaf_shape` guarantees the value branch is `pat`'s
+    // unique LAST statement and the prefix is return-free, so the prefix is
+    // exactly `pat[..k]` with `k == pat.len() - 1`.
+    //
+    // §8 scoped this to K==1; P6 generalises to 1..=MAX_PREFIX. The prefix
+    // statements must be NON-BRANCH (`Assign`/`Call`/`MethodCall`) for two
+    // reasons: (1) it keeps the `pat0_kind` O(1) prefilter sound (canon
+    // preserves the first surviving statement's variant, and these variants
+    // survive canon unchanged — a leading `If` prefix would be folded/unguarded
+    // and is left on the `AtResultDecl` path); (2) a branch in the prefix would
+    // be a different inlining shape. Soundness is otherwise unchanged: every
+    // whole-window analysis in `match_value_prefixed` (exact unify over the
+    // union, region-write arg-safety, RESULT identity + never-read, callee-temp
+    // liveness) runs over `prefix ++ region`, so K>1 cannot smuggle anything
+    // past the gates the K==1 path already enforces. MAX_PREFIX bounds the
+    // per-position work (the matcher's single per-width loop is unchanged).
+    let (value_anchor, prefix_len) = value_anchor_of(kind, &pat, loop_exit_at);
+    // The parameters a value leaf hands back as they are, and the one
+    // every leaf does, if any.
+    let mut leaves = Vec::new();
+    if kind == TKind::Value && loop_exit_at.is_none() {
+        value_leaves(&pat, &mut leaves);
+    }
+    let returned_param = |leaf: &RValue| match leaf {
+        RValue::Local(local) if params.contains(local) => Some(local.clone()),
+        _ => None,
+    };
+    let identity_params: Vec<RcLocal> =
+        g.parameters.iter().filter(|p| leaves.iter().filter_map(returned_param).any(|l| l == **p)).cloned().collect();
+    let returns_parameter = match identity_params.as_slice() {
+        [param] if leaves.iter().all(|leaf| returned_param(leaf).as_ref() == Some(param)) => Some(param.clone()),
+        _ => None,
+    };
+    // Called for no result, a value helper runs its discard body.
+    let discard = (kind == TKind::Value && loop_exit_at.is_none() && returns.is_empty())
+        .then(|| discard_body(&body))
+        .flatten()
+        .map(|raw| (canon(&raw), raw))
+        .filter(|(pattern, _)| {
+            !pattern.is_empty() && !block_has_return(pattern) && anchor_score(pattern, &g.parameters) >= 2
+        });
+    let common = TargetCommon {
+        f_local: &f_local,
+        func_ptr: Arc::as_ptr(&func),
+        parameters: &g.parameters,
+        params: &params,
+        written_params: &written_params,
+        unread: &unread,
+        captures: &captures,
+    };
+    crate::call_origins::register_callee(f_local.stable_id(), g.bytecode_proto_id);
+    crate::reconstruction_stats::accept_helper(f_local.stable_id());
+    let mut target = common.target(kind, pat, &body);
+    target.value_anchor = value_anchor;
+    target.prefix_len = prefix_len;
+    target.falls_off = falls_off;
+    target.cps_loop_return = cps_loop_return;
+    target.loop_exit_at = loop_exit_at;
+    target.returns = returns;
+    target.identity_params = identity_params;
+    target.single_valued = single_valued.contains(&f_local);
+    target.hosted = hosted_pattern(&target);
+    // The outer local every leaf returns, if one.
+    let returns_cell = match leaves.split_first() {
+        Some((RValue::Local(cell), rest))
+            if !g.parameters.contains(cell)
+                && !target.locals.contains(cell)
+                && rest.iter().all(|leaf| matches!(leaf, RValue::Local(other) if other == cell)) =>
+        {
+            Some(cell.clone())
+        }
+        _ => None,
+    };
+    let discard_target = discard.map(|(pattern, raw)| Target {
+        discarded: true,
+        returns_parameter,
+        returns_cell,
+        single_valued: target.single_valued,
+        ..common.target(TKind::Void, pattern, &raw)
+    });
+    let variants = specialization_variants(&target, &common, &body);
+    let first = targets.len();
+    targets.push(target);
+    targets.extend(discard_target);
+    targets.extend(variants);
+    for target in &mut targets[first..] {
+        target.orphan = orphan;
+    }
 }
 
 /// Where a value pattern's result sits at its sites ([`ValueAnchor`]), and
@@ -7954,6 +8103,7 @@ impl TargetCommon<'_> {
             returns_cell: None,
             inferred: None,
             private_closures: private_closures(&pat_for_private),
+            orphan: None,
             captures: self.captures.clone(),
             search: Default::default(),
         }
@@ -9114,6 +9264,7 @@ mod tests {
             returns_cell: None,
             inferred: None,
             private_closures: FxHashSet::default(),
+            orphan: None,
             captures: Default::default(),
             search: Default::default(),
         }
@@ -9907,6 +10058,7 @@ mod tests {
             returns_cell: None,
             inferred: None,
             private_closures: FxHashSet::default(),
+            orphan: None,
             captures: Default::default(),
             search: Default::default(),
         };
@@ -9996,6 +10148,7 @@ mod tests {
             returns_cell: None,
             inferred: None,
             private_closures: FxHashSet::default(),
+            orphan: None,
             captures: Default::default(),
             search: Default::default(),
         };
@@ -10075,6 +10228,7 @@ mod tests {
             returns_cell: None,
             inferred: None,
             private_closures: FxHashSet::default(),
+            orphan: None,
             captures: Default::default(),
             search: Default::default(),
         };
@@ -10169,6 +10323,7 @@ mod tests {
             returns_cell: None,
             inferred: None,
             private_closures: FxHashSet::default(),
+            orphan: None,
             captures: Default::default(),
             search: Default::default(),
         };
@@ -10521,6 +10676,7 @@ mod tests {
             returns_cell: None,
             inferred: None,
             private_closures: FxHashSet::default(),
+            orphan: None,
             captures: Default::default(),
             search: Default::default(),
         };
@@ -10623,6 +10779,7 @@ mod tests {
             returns_cell: None,
             inferred: None,
             private_closures: FxHashSet::default(),
+            orphan: None,
             captures: Default::default(),
             search: Default::default(),
         }
@@ -10787,6 +10944,7 @@ mod tests {
             returns_cell: None,
             inferred: None,
             private_closures: FxHashSet::default(),
+            orphan: None,
             captures: Default::default(),
             search: Default::default(),
         }
@@ -10846,6 +11004,7 @@ mod tests {
             returns_cell: None,
             inferred: None,
             private_closures: FxHashSet::default(),
+            orphan: None,
             captures: Default::default(),
             search: Default::default(),
         }
@@ -12022,6 +12181,7 @@ mod tests {
             returns_cell: None,
             inferred: None,
             private_closures: FxHashSet::default(),
+            orphan: None,
             captures: Default::default(),
             search: Default::default(),
         };
@@ -12521,6 +12681,51 @@ mod tests {
         ];
         assert!(returned_before(&mixed).is_none());
         assert!(returned_before(&[return_one(local_value(&a))]).is_none());
+    }
+
+    #[test]
+    fn an_orphan_goes_back_only_where_its_call_is_rebuilt() {
+        // local scramble = function(v, key) if key then v = clamp(v, "hi") end; log(v) end
+        // kept aside; `run` holds a copy, another body a different shape.
+        let (scramble, v, key, x, k) = (local("scramble"), local("v"), local("key"), local("x"), local("k"));
+        let body = |value: &RcLocal, flag: &RcLocal| {
+            vec![
+                Statement::If(If::new(local_value(flag), Block(vec![assign_local(value, Call::new(global("clamp"), vec![local_value(value), string("hi")]).into(), false)]), Block::default())),
+                Statement::Call(global_call("log", vec![local_value(value)])),
+            ]
+        };
+        let orphan = |used: bool| {
+            let closure = Closure {
+                node_origin: Default::default(),
+                function: ByAddress(Arc::new(Mutex::new(Function {
+                    bytecode_proto_id: Some(9),
+                    parameters: vec![v.clone(), key.clone()],
+                    body: Block(body(&v, &key)),
+                    ..Function::default()
+                }))),
+                upvalues: Vec::new(),
+            };
+            let mut site = vec![assign_local(&x, global("input"), true), assign_local(&k, global("flag"), true)];
+            if used {
+                site.extend(body(&x, &k));
+            } else {
+                site.push(Statement::Call(global_call("log", vec![local_value(&x)])));
+            }
+            (Block(site), vec![(scramble.clone(), closure)])
+        };
+        let (mut block, mut aside) = orphan(true);
+        deinline_with_orphans(&mut block, &mut aside);
+        let output = block.to_string();
+        assert!(aside.is_empty() && output.contains("scramble(x, flag)"), "{output}");
+        let declared = block.0.iter().position(|s| matches!(s, Statement::Assign(a) if a.prefix && a.left[0].as_local() == Some(&scramble))).expect("declared again");
+        let called = block.0.iter().position(|s| count_local_reads(std::slice::from_ref(s), &scramble) > 0).unwrap();
+        assert_eq!(declared + 1, called);
+        // No copy: the tree stays as it was, the orphan aside.
+        let (mut block, mut aside) = orphan(false);
+        let before = block.to_string();
+        deinline_with_orphans(&mut block, &mut aside);
+        assert_eq!(block.to_string(), before);
+        assert_eq!(aside.len(), 1);
     }
 
     #[test]

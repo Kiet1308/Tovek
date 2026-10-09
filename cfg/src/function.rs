@@ -70,6 +70,10 @@ pub struct Function {
     /// one per closure instruction, and it clears this for a prototype that
     /// has none.
     pub may_hold_closures: bool,
+    /// The dead declarations of anonymous function literals capturing
+    /// nothing that the SSA inliner deleted and kept aside for the
+    /// de-inliner (`ast::Function::orphans`).
+    pub orphans: Vec<(RcLocal, ast::Closure)>,
 }
 
 impl Function {
@@ -98,6 +102,7 @@ impl Function {
             minted_ids: 0,
             globals: Default::default(),
             may_hold_closures: true,
+            orphans: Vec::new(),
         }
     }
 
@@ -136,6 +141,7 @@ impl Function {
             minted_ids: self.minted_ids,
             globals: self.globals.clone(),
             may_hold_closures: self.may_hold_closures,
+            orphans: self.orphans.clone(),
         }
     }
 

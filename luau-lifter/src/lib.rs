@@ -763,7 +763,9 @@ fn decompile_bytecode_internal(
 
             let main = ByAddress(main);
             upvalues.remove(&main);
-            let mut body = Arc::try_unwrap(main.0).unwrap().into_inner().body;
+            let main_function = Arc::try_unwrap(main.0).unwrap().into_inner();
+            let mut body = main_function.body;
+            let mut chunk_orphans = main_function.orphans;
             let mut linked_upvalue_bindings = BTreeMap::new();
             {
                 ptime!(S_LINK_UPVALUES);
@@ -811,7 +813,7 @@ fn decompile_bytecode_internal(
                 {
                     let _t = crate::prof::Timer::new(&crate::prof::S_DEINLINE);
                     let span = ast::telemetry::Span::ast("S_DEINLINE", &body, true);
-                    ast::deinline::deinline(&mut body);
+                    ast::deinline::deinline_with_orphans(&mut body, &mut chunk_orphans);
                     span.finish_ast(&body, true);
                 }
                 // Replacing an inlined region by a call can make formerly
@@ -2123,6 +2125,8 @@ fn decompile_function(
             function: function_identity, message: "CFG simplification exceeded its size-derived iteration budget".into(),
         }), function.provenance.take());
     }
+    // The orphans the SSA inliner kept aside go to the de-inliner.
+    ast_function.lock().orphans = std::mem::take(&mut function.orphans);
     // Values that took a passed cell's place in cleanup are its versions too.
     let adopted_captures = upvalue_to_group.iter()
         .filter(|(local, cell)| local_capture_bindings.contains(*cell) && !local_capture_bindings.contains(*local))
