@@ -766,6 +766,8 @@ fn decompile_bytecode_internal(
             let main_function = Arc::try_unwrap(main.0).unwrap().into_inner();
             let mut body = main_function.body;
             let mut chunk_orphans = main_function.orphans;
+            // Whether a nested function kept an orphan aside for the de-inliner.
+            let nested_orphans = upvalues.keys().any(|function| !function.0.lock().orphans.is_empty());
             let mut linked_upvalue_bindings = BTreeMap::new();
             {
                 ptime!(S_LINK_UPVALUES);
@@ -813,7 +815,7 @@ fn decompile_bytecode_internal(
                 {
                     let _t = crate::prof::Timer::new(&crate::prof::S_DEINLINE);
                     let span = ast::telemetry::Span::ast("S_DEINLINE", &body, true);
-                    ast::deinline::deinline_with_orphans(&mut body, &mut chunk_orphans);
+                    ast::deinline::deinline_orphans_in(&mut body, &mut chunk_orphans, nested_orphans);
                     span.finish_ast(&body, true);
                 }
                 // Replacing an inlined region by a call can make formerly

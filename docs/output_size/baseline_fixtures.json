@@ -868,6 +868,18 @@
       "bytes": 1050,
       "lines": 40
     },
+    "semantic/deinline_value_sites_without_prefix_limit__O0.luau": {
+      "bytes": 2041,
+      "lines": 116
+    },
+    "semantic/deinline_value_sites_without_prefix_limit__O1.luau": {
+      "bytes": 2026,
+      "lines": 115
+    },
+    "semantic/deinline_value_sites_without_prefix_limit__O2.luau": {
+      "bytes": 2759,
+      "lines": 131
+    },
     "semantic/deinline_written_parameter_alias__O0.luau": {
       "bytes": 1231,
       "lines": 83

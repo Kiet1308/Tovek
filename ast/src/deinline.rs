@@ -374,6 +374,11 @@ pub(crate) struct Bindings {
     /// The site returns the helper's value itself: each `return X` of the
     /// pattern stands for a `return X` of the site ([`match_returned_value`]).
     returning: bool,
+    /// `result` is a local the site declared without a value and that only
+    /// the leaves store into: a pattern block that only returns `nil`
+    /// stands for an empty site block, on whose path the result keeps that
+    /// `nil` (nil-leaf elision, [`match_value`]).
+    elide_nil: bool,
 }
 
 impl Bindings {
@@ -506,7 +511,7 @@ struct Orphan {
 
 /// The orphans kept aside by `body`'s functions, nested ones included,
 /// those of the chunk first (`chunk`).
-fn collect_orphans(body: &Block, chunk: &[(RcLocal, Closure)]) -> Vec<Orphan> {
+fn collect_orphans(body: &Block, chunk: &[(RcLocal, Closure)], nested: bool) -> Vec<Orphan> {
     fn walk(stmts: &[Statement], out: &mut Vec<Orphan>) {
         for statement in stmts {
             statement.traverse_rvalues_ref(&mut |value| {
@@ -540,7 +545,9 @@ fn collect_orphans(body: &Block, chunk: &[(RcLocal, Closure)]) -> Vec<Orphan> {
         .iter()
         .map(|(binder, closure)| Orphan { binder: binder.clone(), function: closure.function.0.clone(), scope: None, scope_function: None })
         .collect();
-    walk(&body.0, &mut orphans);
+    if nested {
+        walk(&body.0, &mut orphans);
+    }
     orphans
 }
 
@@ -587,13 +594,19 @@ struct Rescan {
 }
 
 pub fn deinline(body: &mut Block) {
-    deinline_with_orphans(body, &mut Vec::new());
+    deinline_orphans_in(body, &mut Vec::new(), false);
 }
 
 /// [`deinline`] with the chunk's orphans ([`Orphan`]); nested functions
 /// hold theirs.
 pub fn deinline_with_orphans(body: &mut Block, chunk_orphans: &mut Vec<(RcLocal, Closure)>) {
-    let orphans = collect_orphans(body, chunk_orphans);
+    deinline_orphans_in(body, chunk_orphans, true);
+}
+
+/// [`deinline_with_orphans`], where `nested` says whether a function of
+/// the chunk may hold orphans of its own (else none is looked for).
+pub fn deinline_orphans_in(body: &mut Block, chunk_orphans: &mut Vec<(RcLocal, Closure)>, nested: bool) {
+    let orphans = if nested || !chunk_orphans.is_empty() { collect_orphans(body, chunk_orphans, nested) } else { Vec::new() };
     // Every rewrite needs a target; the module-wide censuses below are only
     // worth building when some helper passes the per-declaration gates.
     if !any_structural_target(body) && orphans.is_empty() {
@@ -2324,10 +2337,21 @@ fn unify_block(
     b: &mut Bindings,
 ) -> Result<(), ()> {
     if pat.len() != cand.len() {
-        // Identity-leaf elision: `return p` against nothing, with `p`
-        // pre-bound to the result local, which on this path keeps the
-        // argument it held: the value the call returns.
-        return if cand.is_empty() && is_elided_leaf(pat, b) { Ok(()) } else { Err(()) };
+        // Leaf elision: a block ending `return x` against the same block
+        // without it, where `x` is what the result local already holds on
+        // this path ([`is_elided_leaf`]): the identity parameter pre-bound
+        // to it, the helper's own local in its register, or `nil` it was
+        // declared with. Nothing in the block stores into the result, which
+        // only the leaves of the region write.
+        return match pat.split_last() {
+            Some((last, rest)) if rest.len() == cand.len() && is_elided_leaf(std::slice::from_ref(last), b) => {
+                for (p, c) in rest.iter().zip(cand) {
+                    unify_stmt(t, p, c, b)?;
+                }
+                Ok(())
+            }
+            _ => Err(()),
+        };
     }
     for (p, c) in pat.iter().zip(cand) {
         unify_stmt(t, p, c, b)?;
@@ -2339,7 +2363,11 @@ fn unify_block(
 /// ([`Bindings::elide`]).
 fn is_elided_leaf(pat: &[Statement], b: &Bindings) -> bool {
     matches!(pat, [Statement::Return(ret)]
-        if matches!(ret.values.as_slice(), [RValue::Local(param)] if b.elide.as_ref() == Some(param)))
+        if match ret.values.as_slice() {
+            [RValue::Local(param)] => b.elide.as_ref() == Some(param),
+            [RValue::Literal(Literal::Nil)] => b.elide_nil,
+            _ => false,
+        })
 }
 
 fn unify_stmt(t: &Target, p: &Statement, c: &Statement, b: &mut Bindings) -> Result<(), ()> {
@@ -3811,6 +3839,11 @@ fn try_match_at(
             (TKind::Value, ValueAnchor::AtPrefix) => {
                 match_value_prefixed(stmts, i, t, current_func, is_func_body_top, last_occ)
                     .or_else(|| match_returned_value(stmts, i, t, is_func_body_top, last_occ, canon_cache, current_func))
+                    .or_else(|| {
+                        (!narrow_prefix(&t.pat))
+                            .then(|| match_value(stmts, i, t, is_func_body_top, last_occ, canon_cache, current_func))
+                            .flatten()
+                    })
             }
         } };
         if hit.is_some() {
@@ -4236,7 +4269,7 @@ fn match_value(
                 continue;
             }
             let region_eff: &[Statement] = rewritten.as_deref().unwrap_or(region);
-            if let Some(u) = try_unify_site_any(t, cw, current_func) {
+            if let Some(u) = try_unify_declared_result(t, cw, current_func) {
                 // RESULT must be exactly the declared local and only written (never
                 // read) inside the region, so the region is its full computation.
                 // A later reassignment of RESULT is FINE: the replacement re-declares
@@ -4851,6 +4884,9 @@ fn match_returned_local(
     t: &Target,
     current_func: Option<FnPtr>,
     last_occ: &mut Option<FxHashMap<RcLocal, usize>>,
+    // The site local the prefix alone binds the returned local to, where
+    // [`prefix_may_unify`] tells: `Some(None)` when it binds none.
+    hint: Option<&Option<RcLocal>>,
 ) -> Option<Hit> {
     let prefix = &stmts[i..d];
     if t.falls_off || prefix.is_empty() || block_has_return(prefix) {
@@ -4860,14 +4896,23 @@ fn match_returned_local(
     if !matches!(ret.values.as_slice(), [RValue::Local(_)]) {
         return None;
     }
-    let mut written_later = FxHashSet::default();
-    collect_written(&stmts[d..], &mut written_later);
-    closure_writes(prefix, &mut written_later);
     let declared = prefix.iter().filter_map(|statement| match statement {
         Statement::Assign(assign) if assign.prefix => Some(assign.left.iter()),
         _ => None,
     }).flatten().filter_map(|left| left.as_local());
+    // What may write a candidate after the prefix defines it, read once a
+    // candidate is left.
+    let mut written_later: Option<FxHashSet<RcLocal>> = None;
     for local in declared {
+        if hint.is_some_and(|hint| hint.as_ref() != Some(local)) {
+            continue;
+        }
+        let written_later = written_later.get_or_insert_with(|| {
+            let mut written = FxHashSet::default();
+            collect_written(&stmts[d..], &mut written);
+            closure_writes(prefix, &mut written);
+            written
+        });
         if written_later.contains(local) {
             continue;
         }
@@ -4890,6 +4935,82 @@ fn match_returned_local(
         return Some(Hit::call(t, d - i, u, results));
     }
     None
+}
+
+/// Own-local result (Luau's move elision): a value helper some leaves of
+/// which return its own prefix local `L` (`local v = E; if v then return v
+/// end; ...; return x`). Luau computes `L` in the result's register, so such
+/// a leaf has nothing to store, and the site is the prefix declaring the
+/// result itself, then the value branch storing into it on the other paths:
+/// `local R = E'; if not R then ... R = x' end`. Unified with `L` bound to
+/// `R`, each `return L` leaf standing for its block without it
+/// ([`Bindings::elide`]); rebuilt as `local R = f(args)`. No closure of the
+/// window may capture `R`, which lives on after it as the helper's `L`
+/// does not.
+fn match_own_local_value(
+    stmts: &[Statement],
+    i: usize,
+    d: usize,
+    t: &Target,
+    current_func: Option<FnPtr>,
+    is_func_body_top: bool,
+    last_occ: &mut Option<FxHashMap<RcLocal, usize>>,
+) -> Option<Hit> {
+    if narrow_prefix_only() || t.falls_off || !t.returns.is_empty() || t.prefix_len == 0 {
+        return None;
+    }
+    let Some(Statement::If(_)) = t.pat.last() else { return None };
+    let mut leaves = Vec::new();
+    value_leaves(&t.pat, &mut leaves);
+    // The prefix's own local a leaf returns, and where it is declared.
+    let (k, own) = t.pat[..t.prefix_len].iter().enumerate().find_map(|(k, statement)| match statement {
+        Statement::Assign(assign) if assign.prefix && assign.left.len() == 1 => match &assign.left[0] {
+            LValue::Local(local) if leaves.iter().any(|leaf| matches!(leaf, RValue::Local(l) if l == local)) => Some((k, local.clone())),
+            _ => None,
+        },
+        _ => None,
+    })?;
+    let at = nth_effective_index(stmts, i, k)?;
+    let Statement::Assign(declaration) = &stmts[at] else { return None };
+    let (true, [LValue::Local(r)]) = (declaration.prefix, declaration.left.as_slice()) else { return None };
+    let prefix = &stmts[i..d];
+    if at >= d || block_has_return(prefix) {
+        return None;
+    }
+    let kc = t.pat.len();
+    let max_w = raw_width_for_effective(stmts, d, t.pat_raw_len + 1);
+    let mut site: Option<Site> = None;
+    let mut ambiguous = false;
+    for w in kc.saturating_sub(t.prefix_len).max(1)..=max_w {
+        if is_func_body_top && i == 0 && d + w == stmts.len() {
+            continue;
+        }
+        let region = &stmts[d..d + w];
+        if canon_top_len_of(prefix.iter().chain(region), true) != kc || block_has_return(region) {
+            continue;
+        }
+        let mut union: Vec<Statement> = Vec::with_capacity(prefix.len() + w);
+        union.extend_from_slice(prefix);
+        union.extend_from_slice(region);
+        if !charge_window(t, &union) {
+            break;
+        }
+        let cwin = canon_recurse(canon_top(&union, true), true);
+        let seed = Bindings { result: Some(r.clone()), elide: Some(own.clone()), ..Bindings::default() };
+        let Some(mut u) = try_unify_seeded(t, &cwin, current_func, seed) else { continue };
+        // `R` is the helper's `L`, the call's result now, alive after it.
+        if u.result.as_ref() != Some(r) || !u.callee_locals.remove(r) || closures_capture_any(&stmts[i..d + w], std::slice::from_ref(r)) {
+            continue;
+        }
+        if !tail_has_live(last_occ, stmts, i, d + w, &u.callee_locals) {
+            record_site(&mut site, &mut ambiguous, w, &u, None);
+        }
+    }
+    if ambiguous {
+        return None;
+    }
+    let site = site?;
+    Some(Hit { mode: "site_own_local", ..Hit::call(t, (d - i) + site.width, site.unified, vec![r.clone()]) })
 }
 
 /// The locals the closures `stmts` create write, at any depth.
@@ -5654,9 +5775,23 @@ fn match_value_prefixed(
     // reconstruction. Count only non-trivia statements instead.
     let d = nth_effective_index(stmts, i, p)?;
     let Some(r) = result_decl(&stmts[d]) else {
-        return match_declared_value(stmts, i, d, t, is_func_body_top, last_occ, current_func)
-            .or_else(|| match_embedded_value(stmts, i, d, t, current_func, is_func_body_top, last_occ))
-            .or_else(|| match_returned_local(stmts, i, d, t, current_func, last_occ));
+        // The next three forms unify the pattern against the site's prefix
+        // and one plain store: a prefix that does not unify alone (from no
+        // bindings, as they start) refuses them all, read once.
+        let prefix_bindings = prefix_may_unify(t, &stmts[i..d]);
+        let plain_forms = prefix_bindings.is_some();
+        // The site local the prefix binds the returned local to, if known.
+        let returned_hint = prefix_bindings.as_ref().and_then(|b| {
+            let Some(Statement::Return(ret)) = t.pat.last() else { return None };
+            let [RValue::Local(local)] = ret.values.as_slice() else { return None };
+            b.as_ref().map(|b| b.locals.get(local).cloned())
+        });
+        return plain_forms
+            .then(|| match_declared_value(stmts, i, d, t, is_func_body_top, last_occ, current_func))
+            .flatten()
+            .or_else(|| plain_forms.then(|| match_embedded_value(stmts, i, d, t, current_func, is_func_body_top, last_occ)).flatten())
+            .or_else(|| plain_forms.then(|| match_returned_local(stmts, i, d, t, current_func, last_occ, returned_hint.as_ref())).flatten())
+            .or_else(|| match_own_local_value(stmts, i, d, t, current_func, is_func_body_top, last_occ));
     };
     let kc = t.pat.len();
     let region_start = d + 1;
@@ -5705,7 +5840,7 @@ fn match_value_prefixed(
             let _t = dprof::T::new(&dprof::CANON_RECURSE_US);
             canon_recurse(canon_top(&union, true), true)
         };
-        if let Some(u) = try_unify_site_any(t, &cwin, current_func) {
+        if let Some(u) = try_unify_declared_result(t, &cwin, current_func) {
             // RESULT must be exactly the interposed decl, written-only inside the
             // union (its full computation), NOT also a callee-prefix binder (the
             // getOwnerId reassignment-collision class), and every OTHER callee temp
@@ -5728,6 +5863,27 @@ fn match_value_prefixed(
     // (at d) + the w-statement region. `(d - i)` counts the prefix and trivia
     // so the splice removes the interposed trivia along with the window.
     Some(Hit::call(t, (d - i) + 1 + site.width, site.unified, vec![r]))
+}
+
+/// Whether the site's prefix `prefix` (the statements before the value of
+/// an `AtPrefix` target) may unify with the pattern's, and the bindings it
+/// does so with: a necessary condition of [`match_declared_value`],
+/// [`match_embedded_value`] and [`match_returned_local`], which unify
+/// `prefix` and one plain store after it from no bindings, the prefix
+/// first. A return-free prefix canonicalizes alike alone and before a plain
+/// store. `Some(None)` (no bindings known, every form tried) for a target
+/// whose specializations unify instead ([`may_specialize`]), and for a
+/// narrow prefix, as before.
+fn prefix_may_unify(t: &Target, prefix: &[Statement]) -> Option<Option<Bindings>> {
+    if narrow_prefix(&t.pat) || may_specialize(t) || block_has_return(prefix) {
+        return Some(None);
+    }
+    if !charge_window(t, prefix) {
+        return None;
+    }
+    let canonical = canon_recurse(canon_top(prefix, true), true);
+    let mut b = Bindings::default();
+    unify_block(t, &t.pat[..t.prefix_len], &canonical, &mut b).ok().map(|_| Some(b))
 }
 
 /// Result-alias form of a value site (Shape A). The callee's value leaf
@@ -6131,6 +6287,17 @@ fn try_unify_site_any(t: &Target, cwin: &[Statement], current_func: Option<FnPtr
         return None;
     }
     try_unify_site(t, cwin, current_func).or_else(|| try_unify_specialized_site(t, cwin, current_func))
+}
+
+/// [`try_unify_site_any`] of a region storing into a result its site
+/// declared without a value: a `return nil` leaf of the pattern may stand
+/// for an empty block there ([`Bindings::elide_nil`]).
+fn try_unify_declared_result(t: &Target, cwin: &[Statement], current_func: Option<FnPtr>) -> Option<Unified> {
+    if !charge_unify(t, cwin) {
+        return None;
+    }
+    try_unify_seeded(t, cwin, current_func, Bindings { elide_nil: true, ..Bindings::default() })
+        .or_else(|| try_unify_specialized_site(t, cwin, current_func))
 }
 
 /// Fuel for unifying one candidate window: the pattern's node count, the most
@@ -7962,16 +8129,31 @@ fn helper_targets(
 /// Where a value pattern's result sits at its sites ([`ValueAnchor`]), and
 /// the number of statements before its value branch.
 fn value_anchor_of(kind: TKind, pat: &[Statement], loop_exit_at: Option<usize>) -> (ValueAnchor, usize) {
-    const MAX_PREFIX: usize = 4;
     if kind == TKind::Value && pat.len() >= 2 && loop_exit_at.is_none() {
         let k = pat.len() - 1;
-        if (1..=MAX_PREFIX).contains(&k)
-            && pat[..k].iter().all(|s| matches!(s, Statement::Assign(_) | Statement::Call(_) | Statement::MethodCall(_)))
-        {
+        if !narrow_prefix_only() || narrow_prefix(pat) {
             return (ValueAnchor::AtPrefix, k);
         }
     }
     (ValueAnchor::AtResultDecl, 0)
+}
+
+/// Whether the prefix of the value pattern `pat` is what the value-site
+/// locator took before it had no prefix limit: one to four statements, none
+/// a branch. Such a target never tries the result-first form
+/// ([`match_value`]) after the prefixed ones; a wider one still does.
+fn narrow_prefix(pat: &[Statement]) -> bool {
+    const MAX_PREFIX: usize = 4;
+    let k = pat.len().saturating_sub(1);
+    (1..=MAX_PREFIX).contains(&k)
+        && pat[..k].iter().all(|s| matches!(s, Statement::Assign(_) | Statement::Call(_) | Statement::MethodCall(_)))
+}
+
+/// `MEDAL_DEINLINE_LEGACY_VALUE` (diagnostic): the value-site locator of
+/// before, a prefix of at most four statements without a branch, and no
+/// own-local result ([`match_own_local_value`]).
+fn narrow_prefix_only() -> bool {
+    crate::env_flag!("MEDAL_DEINLINE_LEGACY_VALUE")
 }
 
 /// Specialization variants of `t`: a copy Luau made for a constant argument
@@ -8065,7 +8247,7 @@ impl TargetCommon<'_> {
         let pat0_kind = std::mem::discriminant(&pat[0]);
         let pat0_anchor_key = stmt_anchor_key(&pat[0]);
         let pat_nodes = pat.iter().map(dbg_stmt_node_count).sum();
-        let pat_for_private = pat.clone();
+        let private_closures = private_closures(&pat);
         Target {
             f_local: self.f_local.clone(),
             func_ptr: self.func_ptr,
@@ -8102,7 +8284,7 @@ impl TargetCommon<'_> {
             hosted: None,
             returns_cell: None,
             inferred: None,
-            private_closures: private_closures(&pat_for_private),
+            private_closures,
             orphan: None,
             captures: self.captures.clone(),
             search: Default::default(),
@@ -12726,6 +12908,72 @@ mod tests {
         deinline_with_orphans(&mut block, &mut aside);
         assert_eq!(block.to_string(), before);
         assert_eq!(aside.len(), 1);
+    }
+
+    #[test]
+    fn a_nil_leaf_stands_for_an_empty_arm_of_a_result_declared_without_a_value() {
+        // local function f(c) if not c then return nil end; return wrap(c, "x") end
+        let (f, c, x, r) = (local("f"), local("c"), local("x"), local("r"));
+        let body = vec![
+            Statement::If(If::new(not_rv(local_value(&c)), Block(vec![return_one(RValue::Literal(Literal::Nil))]), Block::default())),
+            return_one(Call::new(global("wrap"), vec![local_value(&c), string("x")]).into()),
+        ];
+        let site = |arm: Vec<Statement>| {
+            let mut block = Block(vec![
+                helper_with_params(&f, vec![c.clone()], body.clone()),
+                assign_local(&x, global("input"), true),
+                init_less_decl(&r),
+                Statement::If(If::new(
+                    local_value(&x),
+                    Block(vec![assign_local(&r, Call::new(global("wrap"), vec![local_value(&x), string("x")]).into(), false)]),
+                    Block(arm),
+                )),
+                Statement::Call(global_call("print", vec![local_value(&r)])),
+            ]);
+            deinline(&mut block);
+            block.to_string()
+        };
+        let output = site(Vec::new());
+        assert!(output.contains("local r = f(input)"), "{output}");
+        // An arm storing something else is no copy.
+        let output = site(vec![assign_local(&r, number(1.0), false)]);
+        assert!(!output.contains("f(input)"), "{output}");
+    }
+
+    #[test]
+    fn a_helper_local_returned_on_some_paths_is_the_result_itself() {
+        // local function f(p) local v = lookup(p, "a"); [keep(function() return v end)]
+        //     if v then return v end; return fallback(p, "b") end
+        let (f, p, v, x, r) = (local("f"), local("p"), local("v"), local("x"), local("r"));
+        let lookup = |of: &RcLocal| RValue::Call(Call::new(global("lookup"), vec![local_value(of), string("a")]));
+        let fallback = |of: &RcLocal| RValue::Call(Call::new(global("fallback"), vec![local_value(of), string("b")]));
+        let keep = |of: &RcLocal| Statement::Call(global_call("keep", vec![closure_of(5, false, vec![Upvalue::Ref(of.clone())], Vec::new())]));
+        let run = |captured: bool| {
+            let mut body = vec![
+                assign_local(&v, lookup(&p), true),
+                Statement::If(If::new(local_value(&v), Block(vec![return_one(local_value(&v))]), Block::default())),
+                return_one(fallback(&p)),
+            ];
+            let mut site = vec![
+                assign_local(&x, global("input"), true),
+                assign_local(&r, lookup(&x), true),
+                Statement::If(If::new(not_rv(local_value(&r)), Block(vec![assign_local(&r, fallback(&x), false)]), Block::default())),
+                Statement::Call(global_call("print", vec![local_value(&r)])),
+            ];
+            if captured {
+                // The copy's closure holds `r`, which lives on after it.
+                body.insert(1, keep(&v));
+                site.insert(2, keep(&r));
+            }
+            site.insert(0, helper_with_params(&f, vec![p.clone()], body));
+            let mut block = Block(site);
+            deinline(&mut block);
+            block.to_string()
+        };
+        let output = run(false);
+        assert!(output.contains("f(input)"), "{output}");
+        let output = run(true);
+        assert!(!output.contains("f(input)"), "{output}");
     }
 
     #[test]
