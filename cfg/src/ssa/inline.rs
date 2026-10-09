@@ -615,16 +615,48 @@ impl<'a> Inliner<'a> {
                                 // arguments (`Call::callee_after_arguments`), so an
                                 // argument definition does not move across it.
                                 let late_callees = late_global_callees(&block[index]);
-                                if Self::try_inline(
-                                    &mut block[index],
-                                    read.as_ref().unwrap(),
-                                    &mut new_rvalue,
-                                    new_rvalue_has_side_effects,
-                                    self.upvalue_to_group,
-                                    self.readonly_capture_ids,
-                                    self.incoming_upvalue_ids,
-                                    &late_callees,
-                                ) {
+                                // A function moving into the store of its own
+                                // name (`M.F = F`, `function M.F`) that line info
+                                // shows Luau inlined: the move is proven on a copy
+                                // and both statements stay, as the statement
+                                // de-inliner may still rebuild calls of `F`;
+                                // `ast::fold_function_names` makes it where none
+                                // was. `MEDAL_SSA_NAME_FOLD` (diagnostic) folds
+                                // here as before.
+                                let named_store = !ast::env_flag!("MEDAL_SSA_NAME_FOLD")
+                                    && read.as_ref().unwrap().preserve_binding()
+                                    && matches!(&new_rvalue, Some(ast::RValue::Closure(closure))
+                                        if closure.function.lock().inlined_by_compiler);
+                                let inlined = if named_store {
+                                    let mut probe = block[index].clone();
+                                    let mut moved = new_rvalue.clone();
+                                    if Self::try_inline(
+                                        &mut probe,
+                                        read.as_ref().unwrap(),
+                                        &mut moved,
+                                        new_rvalue_has_side_effects,
+                                        self.upvalue_to_group,
+                                        self.readonly_capture_ids,
+                                        self.incoming_upvalue_ids,
+                                        &late_callees,
+                                    ) && let Some(ast::RValue::Closure(closure)) = &new_rvalue
+                                    {
+                                        closure.function.lock().named_store_fold = true;
+                                    }
+                                    false
+                                } else {
+                                    Self::try_inline(
+                                        &mut block[index],
+                                        read.as_ref().unwrap(),
+                                        &mut new_rvalue,
+                                        new_rvalue_has_side_effects,
+                                        self.upvalue_to_group,
+                                        self.readonly_capture_ids,
+                                        self.incoming_upvalue_ids,
+                                        &late_callees,
+                                    )
+                                };
+                                if inlined {
                                     assert!(new_rvalue.is_none());
                                     schedule.changed(node);
 

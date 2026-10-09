@@ -525,12 +525,16 @@ fn decompile_bytecode_internal(
             let raw_upvalue_analysis =
                 emit_upvalue_analysis.then(|| upvalue_analysis::RawUpvalueAnalysis::build(&chunk));
             let setup_timer = prof::Timer::new(&prof::SETUP);
+            // Which prototypes Luau inlined somewhere, read off line info.
+            let mut inlined_prototypes = vec![false; chunk.functions.len()];
             let _reconstruction_search = if chunk.functions.len() <= 4096
                 && chunk.functions.iter().map(|p| p.instructions.len()).sum::<usize>() <= ast::reconstruction_search::PC_LIMIT {
                 if chunk.functions.len() == 1 {
                     ast::reconstruction_search::enter_single_prototype(chunk.functions[0].instructions.len())
                 } else {
-                    ast::reconstruction_search::enter(chunk.functions.iter().map(upvalue_analysis::decode_source_lines).collect())
+                    let lines: Vec<Vec<Option<u32>>> = chunk.functions.iter().map(upvalue_analysis::decode_source_lines).collect();
+                    inlined_prototypes = reconstruction_candidates::inlined_prototypes(&chunk.functions, &lines);
+                    ast::reconstruction_search::enter(lines)
                 }
             } else { ast::reconstruction_search::enter_truncated() };
             let capture_effects = capture_effects::CaptureEffects::build(&chunk);
@@ -597,6 +601,9 @@ fn decompile_bytecode_internal(
                 // instantiated by several closure sites) for a fully reproducible
                 // order independent of heap addresses.
                 loaded_constants.record_prototype(child_functions.iter().map(|(function, _, _)| &function.0));
+                for (child, func_index, _) in &child_functions {
+                    child.0.lock().inlined_by_compiler = inlined_prototypes[*func_index];
+                }
                 let mut children = child_functions
                     .into_iter()
                     .map(|(a, f, function_id)| (a.0, f, function_id))
@@ -821,6 +828,13 @@ fn decompile_bytecode_internal(
                 if !changed {
                     break;
                 }
+            }
+            {
+                // The function-name folds the SSA inliner left for the
+                // de-inliner: `M.F = F` -> `function M.F` where no call of
+                // `F` was rebuilt.
+                let _span = ast::telemetry::Span::new("S_FOLD_FUNCTION_NAMES");
+                ast::fold_function_names::fold_function_names(&mut body);
             }
             dump_stage("statement_deinline", &body);
             // Tier-B fallback for terminal continuations that cannot be hoisted

@@ -189,7 +189,8 @@
    "deinline_closure_factories": "m2b D6, nonequiv 2: main recompiles the constructor-literal functions it prints (T.left ...) as inlined copies; andThen prints its select as and/or, which recompiles as TEST jumps",
    "deinline_returned_cell": "m2b D5 uniform cell, nonequiv 1: main recompiles the constructor-literal functions it prints (M.play ...) as inlined copies, by construction",
    "deinline_value_moves_into_its_reader": "m2b D5 collapse, nonequiv 1: main recompiles the constructor-literal functions it prints (M.check ...) as inlined copies, by construction",
-   "loop_breaking_at_once_after_a_swap": "m2b structuring fix (fuzz seed 164201), nonequiv 1: main recompiles the loops it prints from -O2 inlined copies of generic/numeric (constant-folded LOADK 1/7), by construction"
+   "loop_breaking_at_once_after_a_swap": "m2b structuring fix (fuzz seed 164201), nonequiv 1: main recompiles the loops it prints from -O2 inlined copies of generic/numeric (constant-folded LOADK 1/7), by construction",
+   "deinline_helper_kept_beside_its_named_store": "m2c D7 binder kept beside its named store, nonequiv 1: main recompiles the constructor-literal functions it prints (read, copy ...) as inlined copies, by construction"
   }
  },
  "summary": {
@@ -538,6 +539,12 @@
    "status": "ok",
    "nonequiv": 0,
    "protos": 3
+  },
+  {
+   "file": "deinline_helper_kept_beside_its_named_store",
+   "status": "ok",
+   "nonequiv": 1,
+   "protos": 7
   },
   {
    "file": "deinline_hosted_values",

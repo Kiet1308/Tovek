@@ -178,6 +178,13 @@ calling one that reads past its caller's source (its caller's name, or a frame
 above): the caller it sees may become the helper, in the same script. Code in
 other scripts is assumed not to inspect this script's frames.
 
+A rebuilt call that names a constant the copy folded away (`fade(part, true)`)
+stands only where the copy is larger than the call: a copy reduced to one call
+of its own size (`table.clone(t)` for `Copy(t)`) keeps its code. A helper
+stored under its own name (`M.Copy = Copy`) keeps its `local function` beside
+that store where its calls are rebuilt, and prints as `function M.Copy`
+otherwise.
+
 A function literal that Luau shares (one capturing only top-level locals or
 itself) is one closure object at every site `-O2` inlined it to, as all copies
 load one constant. Copies left inline whose identity can be seen (stored,

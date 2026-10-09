@@ -2380,11 +2380,17 @@ fn unify_assignment(t: &Target, ctx: &MatchCtx, p: &Statement, ca: &Assign, pref
 
 /// The value a helper returns against the one its inlined copy stores into
 /// the result local, which takes one value: a call leaf (P7-A) is the call
-/// the store adjusts to one result.
+/// the store adjusts to one result, and a call the helper truncates
+/// (`return (DeepCopy(t))`) the call such a store makes (`r = DeepCopy(v)`).
+/// A caller taking more than one value of the site checks it apart
+/// ([`hosted_spread`]).
 fn unify_returned_value(ctx: &MatchCtx, pattern: &RValue, site: &RValue, b: &mut Bindings) -> Result<(), ()> {
     match (pattern, site) {
-        (RValue::Call(x), RValue::Select(Select::Call(y))) => unify_call(ctx, x, y, b),
-        (RValue::MethodCall(x), RValue::Select(Select::MethodCall(y))) => unify_method(ctx, x, y, b),
+        (RValue::Call(x), RValue::Select(Select::Call(y))) | (RValue::Select(Select::Call(x)), RValue::Call(y)) => {
+            unify_call(ctx, x, y, b)
+        }
+        (RValue::MethodCall(x), RValue::Select(Select::MethodCall(y)))
+        | (RValue::Select(Select::MethodCall(x)), RValue::MethodCall(y)) => unify_method(ctx, x, y, b),
         (pattern, site) => unify_rvalue(ctx, pattern, site, b),
     }
 }
@@ -4985,6 +4991,11 @@ fn hosted_spread(t: &Target, pattern: &RValue, site: &RValue, spread: Spread) ->
         (true, RValue::Call(_) | RValue::MethodCall(_)) => (spread != Spread::Values).then_some(false),
         (true, RValue::Select(Select::Call(_) | Select::MethodCall(_))) => Some(spread != Spread::One),
         (true, _) => None,
+        // A call the helper truncates stands for a site call only where one
+        // of its values is taken.
+        (false, RValue::Call(_) | RValue::MethodCall(_)) if matches!(pattern, RValue::Select(_)) => {
+            (spread == Spread::One).then_some(false)
+        }
         (false, _) => (spread == Spread::One || t.single_valued).then_some(false),
     }
 }
@@ -6225,7 +6236,53 @@ fn try_seeded_specialization(t: &Target, cwin: &[Statement], current_func: Optio
     if unify_block(t, &specialized, cwin, &mut verified).is_err() {
         return None;
     }
-    finish_unified(t, cwin, verified, current_func)
+    let unified = finish_unified(t, cwin, verified, current_func)?;
+    if !specialization_is_honest(t, cwin, &unified.args) {
+        return refused("specialization_no_larger_than_call");
+    }
+    Some(unified)
+}
+
+/// Honesty refusal for a specialized match (Tier B, [`try_seeded_specialization`],
+/// [`try_inferred_constant`]): the rebuilt call claims the helper ran with
+/// constants its copy folded away. Exact either way, but worth claiming only
+/// where the copy is larger than the call standing for it, an import path
+/// (`table.clone`) counting as the one load it is. A copy no larger keeps its
+/// code: `table.clone(t)` never becomes `Copy(t, false)`, not even inside
+/// the copy of another helper (`DeepCopy`'s `table.clone(tbl)`).
+fn specialization_is_honest(t: &Target, cwin: &[Statement], args: &[RValue]) -> bool {
+    fn nodes(value: &RValue) -> usize {
+        if is_import_path(value) {
+            return 1;
+        }
+        let mut count = 1;
+        value.visit_rvalues(&mut |child| {
+            count += nodes(child);
+            true
+        });
+        count
+    }
+    fn statement_nodes(statement: &Statement) -> usize {
+        let mut count = 1;
+        visit_stmt_rvalues(statement, &mut |value| {
+            count += nodes(value);
+            true
+        });
+        let blocks: Vec<&Arc<Mutex<Block>>> = match statement {
+            Statement::If(branch) => vec![&branch.then_block, &branch.else_block],
+            Statement::While(node) => vec![&node.block],
+            Statement::Repeat(node) => vec![&node.block],
+            Statement::NumericFor(node) => vec![&node.block],
+            Statement::GenericFor(node) => vec![&node.block],
+            _ => Vec::new(),
+        };
+        count + blocks.into_iter().map(|block| block.lock().0.iter().map(statement_nodes).sum::<usize>()).sum::<usize>()
+    }
+    let window: usize = cwin.iter().map(statement_nodes).sum();
+    // `f(args)` as a statement, or the value of the store a value window
+    // ends with: the statement, the call, its callee and its arguments.
+    let call = 2 + usize::from(t.kind == TKind::Value) + args.iter().map(nodes).sum::<usize>();
+    window > call
 }
 
 /// The most truth-tested parameters a constant is inferred for.
@@ -6319,6 +6376,9 @@ fn try_truth(
         && t.param_order.get(unified.args.len() - 1) == Some(param)
     {
         unified.args.pop();
+    }
+    if !specialization_is_honest(t, cwin, &unified.args) {
+        return refused("specialization_no_larger_than_call");
     }
     Some(unified)
 }
@@ -9022,16 +9082,25 @@ mod tests {
         ]);
         assert!(output.contains("add(part)"), "{output}");
 
-        // local function emit(enabled) if enabled then work("a") end end:
+        // local function emit(enabled) if enabled then work("a", "b") end end:
         // `false` leaves nothing, which no statement may stand for.
         let (emit, enabled) = (local("emit"), local("enabled"));
-        let work = || Statement::Call(global_call("work", vec![string("a")]));
+        let work_both = || Statement::Call(global_call("work", vec![string("a"), string("b")]));
+        let work = |name: &str| Statement::Call(global_call("work", vec![string(name)]));
         let output = run(vec![
-            declare(&emit, vec![enabled.clone()], vec![Statement::If(If::new(local_value(&enabled), Block(vec![work()]), Block::default()))]),
+            declare(&emit, vec![enabled.clone()], vec![Statement::If(If::new(local_value(&enabled), Block(vec![work_both()]), Block::default()))]),
             print_x(),
-            work(),
+            work_both(),
         ]);
         assert!(output.contains("emit(true)") && !output.contains("emit(false)"), "{output}");
+        // A copy no larger than the call claiming it (`work("a")` for
+        // `emit(true)`) keeps its code.
+        let output = run(vec![
+            declare(&emit, vec![enabled.clone()], vec![Statement::If(If::new(local_value(&enabled), Block(vec![work("a")]), Block::default()))]),
+            print_x(),
+            work("a"),
+        ]);
+        assert!(!output.contains("emit(true)"), "{output}");
 
         // local function start(time) cancel("x"); if time then work(time) end end:
         // the whole copy `start(t)` wins over its prefix, `start(nil)`.
@@ -11869,6 +11938,27 @@ mod tests {
         // returning a call there, so that is no copy.
         let output = run(vec![number(1.0), shouted(&x)]);
         assert!(output.contains("print(1, rep(x.name, 2, \"!\"))"), "{output}");
+    }
+
+    #[test]
+    fn a_call_the_helper_truncates_matches_a_site_call_taking_one_value() {
+        let (helper, s, x) = (local("first"), local("s"), local("x"));
+        let produce = |of: &RcLocal| Call::new(global("produce"), vec![field(local_value(of), "name"), string("!")]);
+        let run = |arguments: Vec<RValue>| {
+            let mut block = Block(vec![
+                assign_local(&x, global("input"), true),
+                helper_with(&helper, std::slice::from_ref(&s), vec![return_one(RValue::Select(crate::Select::Call(produce(&s))))]),
+                Statement::Call(global_call("print", arguments)),
+            ]);
+            deinline(&mut block);
+            block.to_string()
+        };
+        // An operand takes one value of the site's call, as `(produce(s))`.
+        let output = run(vec![RValue::Call(produce(&x)), number(1.0)]);
+        assert!(output.contains("print(first(x), 1)"), "{output}");
+        // A last argument takes all of them, which the helper cuts to one.
+        let output = run(vec![number(1.0), RValue::Call(produce(&x))]);
+        assert!(output.contains("print(1, produce(x.name, \"!\"))"), "{output}");
     }
 
     #[test]

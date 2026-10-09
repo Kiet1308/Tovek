@@ -700,6 +700,18 @@
       "bytes": 175,
       "lines": 16
     },
+    "semantic/deinline_helper_kept_beside_its_named_store__O0.luau": {
+      "bytes": 1156,
+      "lines": 68
+    },
+    "semantic/deinline_helper_kept_beside_its_named_store__O1.luau": {
+      "bytes": 1156,
+      "lines": 68
+    },
+    "semantic/deinline_helper_kept_beside_its_named_store__O2.luau": {
+      "bytes": 1353,
+      "lines": 66
+    },
     "semantic/deinline_hosted_values__O0.luau": {
       "bytes": 1774,
       "lines": 82

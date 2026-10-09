@@ -42,6 +42,17 @@ pub struct Function {
     /// the module reconstruction pass can inspect it after child bodies exist.
     /// This is only an inlining refusal, never a semantic equivalence proof.
     pub retain_for_reconstruction: bool,
+    /// The SSA inliner proved this closure may move into the one store that
+    /// reads its binder, a field or global of the function's own name (`M.F =
+    /// F` -> `function M.F`), and left it in place: the statement de-inliner
+    /// may still rebuild calls of `F` first. [`crate::fold_function_names`]
+    /// makes the move afterwards where `F` gained no other read.
+    pub named_store_fold: bool,
+    /// Line info shows this prototype's code inside another function: Luau
+    /// `-O2` inlined it there. Only then does the SSA inliner leave a
+    /// function-name fold to [`crate::fold_function_names`]; an evidence
+    /// hint, never a proof.
+    pub inlined_by_compiler: bool,
     /// The source gave the function the `@native` attribute (the prototype's
     /// `LPF_NATIVE_FUNCTION` flag); printed back before its `function`.
     pub native: bool,

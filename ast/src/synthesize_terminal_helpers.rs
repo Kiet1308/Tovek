@@ -168,6 +168,8 @@ fn synthesize_scope(stmts: &mut Vec<Statement>, safety: &CaptureSafety) -> usize
                 bytecode_function_id: None,
                 closure_constant: None,
                 retain_for_reconstruction: false,
+                named_store_fold: false,
+                inlined_by_compiler: false,
                 native: false,
                 name: function_name,
                 parameters: Vec::new(),
