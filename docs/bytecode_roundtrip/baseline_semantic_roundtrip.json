@@ -192,7 +192,8 @@
    "loop_breaking_at_once_after_a_swap": "m2b structuring fix (fuzz seed 164201), nonequiv 1: main recompiles the loops it prints from -O2 inlined copies of generic/numeric (constant-folded LOADK 1/7), by construction",
    "deinline_helper_kept_beside_its_named_store": "m2c D7 binder kept beside its named store, nonequiv 1: main recompiles the constructor-literal functions it prints (read, copy ...) as inlined copies, by construction",
    "deinline_constant_parameter_still_captured": "m2c miscompile fix (constant inferred for a parameter a literal still captures), nonequiv 3: main keeps its copies of show/play inline (hosted in print arguments), whose literals recompile as 2 extra protos, by construction",
-   "deinline_specialized_copies": "m2c D7 specialization variants, nonequiv 1: main recompiles the constructor-literal functions it prints (sync, setup) and the one shared literal of its share() copies (closure identity kept), by construction"
+   "deinline_specialized_copies": "m2c D7 specialization variants, nonequiv 1: main recompiles the constructor-literal functions it prints (sync, setup) and the one shared literal of its share() copies (closure identity kept), by construction",
+   "deinline_tuple_returns": "m2c D7 straight and last-slot tuple returns, nonequiv 1: main recompiles the constructor-literal functions it prints (dir, sel, cone, flag, tick, words) as inlined copies, by construction"
   }
  },
  "summary": {
@@ -607,6 +608,12 @@
    "status": "ok",
    "nonequiv": 1,
    "protos": 11
+  },
+  {
+   "file": "deinline_tuple_returns",
+   "status": "ok",
+   "nonequiv": 1,
+   "protos": 14
   },
   {
    "file": "deinline_value_moves_into_its_reader",

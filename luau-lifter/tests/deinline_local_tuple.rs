@@ -5,7 +5,9 @@
 //! `local set, key = makeTrack(x)` inlines as the helper's body alone, the
 //! caller's locals taking the place of the returned `set` and `key` (Roblox
 //! cutscene scripts, ~30 sites). A returned local that a closure captures
-//! (`counter`) is only a snapshot after a call, so its copy stays. A returned
+//! (`counter`) is only a snapshot after a call: the copy declares that
+//! snapshot into the caller's local, which the straight tuple form matches
+//! (`local bump, count = counter()`). A returned
 //! parameter is the caller's argument (`toNames` hands its list back). And a
 //! helper whose only distinctive statement is a closure (`FrameClock`) is
 //! identified by that closure's prototype.
@@ -19,7 +21,7 @@ fn helpers_returning_their_locals_rebuild() {
     assert!(source.contains("local set, key = makeTrack(CurrentCamera)"), "{source}");
     assert!(source.contains("= makeTrack(p)"), "{source}");
     assert!(source.contains("= makeTrack(instance)"), "{source}");
-    assert!(!source.contains("= counter()"), "{source}");
+    assert!(source.contains("local bump, count = counter()"), "{source}");
     assert!(source.contains("local frameClock = FrameClock()"), "{source}");
     // Its one result read once, the call stands in that read.
     assert!(source.contains("print(toNames(children), children)"), "{source}");

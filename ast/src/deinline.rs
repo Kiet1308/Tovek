@@ -3048,7 +3048,11 @@ fn deinline_block(
                     select_prefix_calls(&mut host);
                     host
                 }
-                None if hit.returns_value => Statement::Return(Return::new(vec![RValue::Call(call)])),
+                None if hit.returns_value => {
+                    let mut values = hit.returned_before;
+                    values.push(RValue::Call(call));
+                    Statement::Return(Return::new(values))
+                }
                 None if hit.results.is_empty() => Statement::Call(call),
                 None => Statement::Assign(Assign {
                     node_origin: Default::default(),
@@ -3507,6 +3511,9 @@ struct Hit {
     /// The call's value is the caller's return value: `return f(args)`
     /// ([`match_returned_value`]).
     returns_value: bool,
+    /// The values the caller's `return` gives before the call's
+    /// (`return p, f(args)`).
+    returned_before: Vec<RValue>,
     /// Where `host` holds the call: the read of this local, and whether the
     /// call keeps one result there (`(f(args))`). The call is built once the
     /// arguments are known: the temps right before the statement may still
@@ -3537,6 +3544,7 @@ impl Hit {
             first_moved: u.first_moved,
             discarded: false,
             returns_value: false,
+            returned_before: Vec::new(),
             placeholder: None,
             mode: "",
             single_valued: t.single_valued,
@@ -4209,33 +4217,117 @@ fn match_returned_value(
     canon_cache: &mut CanonCache,
     current_func: Option<FnPtr>,
 ) -> Option<Hit> {
-    if !t.single_valued || t.loop_exit_at.is_some() || !t.returns.is_empty() || t.falls_off || (is_func_body_top && i == 0) {
+    if !t.single_valued || t.loop_exit_at.is_some() || !t.returns.is_empty() || t.falls_off {
         return None;
     }
     let end = stmts.len();
-    let window = &stmts[i..end];
     let kc = t.pat.len();
-    if !canon_cache.returns(stmts) || !return_window_may_fit(window, kc) {
+    if !canon_cache.returns(stmts) || !return_window_may_fit(&stmts[i..end], kc) {
         return None;
     }
-    if !block_always_returns(window) || leading_statement_refused(t, window) || leading_condition_refused(t, window) {
+    // A whole function body is never one call (the thin-wrapper case):
+    // only where its `return` gives more values than the copy's.
+    let whole_body = is_func_body_top && i == 0;
+    let mut attempt = |window: &[Statement], before: Vec<RValue>| -> Option<Hit> {
+        if whole_body && before.is_empty() {
+            return None;
+        }
+        if !block_always_returns(window) || leading_statement_refused(t, window) || leading_condition_refused(t, window) {
+            return None;
+        }
+        if block_has_void_return(window) || has_depth_zero_loop_control(window, 0) || canon_top_len(window, true) != kc {
+            return None;
+        }
+        if !charge_window(t, window) {
+            return None;
+        }
+        let canonical = canon_recurse(canon_top(window, true), true);
+        if !charge_unify(t, &canonical) {
+            return None;
+        }
+        let u = try_unify_seeded(t, &canonical, current_func, Bindings { returning: true, ..Bindings::default() })?;
+        if u.result.is_some() || tail_has_live(last_occ, stmts, i, end, &u.callee_locals) {
+            return None;
+        }
+        // Those values ran before the copy and now run before the call:
+        // each a constant, or a local neither the copy nor a closure writes.
+        if !before.is_empty() {
+            let mut written = FxHashSet::default();
+            collect_written(window, &mut written);
+            let stable = |value: &RValue| match value {
+                RValue::Literal(_) => true,
+                RValue::Local(local) => {
+                    !written.contains(local) && !u.callee_locals.contains(local) && !t.captures.closure_written(local)
+                }
+                _ => false,
+            };
+            if !before.iter().all(stable) {
+                return refused("returned_before_unstable");
+            }
+        }
+        let mode = if before.is_empty() { "site_returned" } else { "site_returned_tuple" };
+        Some(Hit { returns_value: true, returned_before: before, mode, ..Hit::call(t, end - i, u, Vec::new()) })
+    };
+    if let Some(hit) = attempt(&stmts[i..end], Vec::new()) {
+        return Some(hit);
+    }
+    // The caller's `return` may give values before the copy's: the same
+    // ones on every path (`return p, f(x)`, the copy's leaves each `return
+    // p, A`), split off.
+    let (stripped, before) = returned_before(&stmts[i..end])?;
+    attempt(&stripped, before)
+}
+
+/// `stmts`, a window returning on every path, with each `return v1, ...,
+/// vn, x` cut to `return x`, and `v1, ..., vn`: one to several values, the
+/// same ones (constants and locals) in every `return`. `None` where the
+/// returns give one value, differ before the last one, or a `return` sits
+/// in a loop.
+fn returned_before(stmts: &[Statement]) -> Option<(Vec<Statement>, Vec<RValue>)> {
+    fn cut(stmts: &[Statement], before: &mut Option<Vec<RValue>>) -> Option<Vec<Statement>> {
+        let mut out = Vec::with_capacity(stmts.len());
+        for statement in stmts {
+            match statement {
+                Statement::Return(ret) => {
+                    let (last, values) = ret.values.split_last()?;
+                    if values.is_empty() || !values.iter().all(|v| matches!(v, RValue::Local(_) | RValue::Literal(_))) {
+                        return None;
+                    }
+                    match before {
+                        Some(seen) if seen.len() != values.len() || !seen.iter().zip(values).all(|(a, b)| rvalue_exact_eq(a, b)) => return None,
+                        Some(_) => {}
+                        None => *before = Some(values.to_vec()),
+                    }
+                    out.push(Statement::Return(Return::new(vec![last.clone()])));
+                }
+                Statement::If(branch) => out.push(
+                    If::new(
+                        branch.condition.clone(),
+                        Block(cut(&branch.then_block.lock().0, before)?),
+                        Block(cut(&branch.else_block.lock().0, before)?),
+                    )
+                    .into(),
+                ),
+                other if statement_has_return(other) => return None,
+                other => out.push(other.clone()),
+            }
+        }
+        Some(out)
+    }
+    // Cheapest reject first: the first `return` gives one value.
+    fn first_arity(stmts: &[Statement]) -> Option<usize> {
+        stmts.iter().find_map(|statement| match statement {
+            Statement::Return(ret) => Some(ret.values.len()),
+            Statement::If(branch) => first_arity(&branch.then_block.lock().0).or_else(|| first_arity(&branch.else_block.lock().0)),
+            _ => None,
+        })
+    }
+    if first_arity(stmts)? < 2 {
         return None;
     }
-    if block_has_void_return(window) || has_depth_zero_loop_control(window, 0) || canon_top_len(window, true) != kc {
-        return None;
-    }
-    if !charge_window(t, window) {
-        return None;
-    }
-    let canonical = canon_recurse(canon_top(window, true), true);
-    if !charge_unify(t, &canonical) {
-        return None;
-    }
-    let u = try_unify_seeded(t, &canonical, current_func, Bindings { returning: true, ..Bindings::default() })?;
-    if u.result.is_some() || tail_has_live(last_occ, stmts, i, end, &u.callee_locals) {
-        return None;
-    }
-    Some(Hit { returns_value: true, mode: "site_returned", ..Hit::call(t, end - i, u, Vec::new()) })
+    let mut before = None;
+    let stripped = cut(stmts, &mut before)?;
+    Some((stripped, before?))
 }
 
 /// Whether no window opening with `stmts` can match a value pattern opening
@@ -7225,7 +7317,66 @@ fn pattern_body<'a>(body: &'a [Statement], parameters: &[RcLocal]) -> (std::borr
     if let Some((lowered, returned)) = branch_tuple_return(body, parameters) {
         return (std::borrow::Cow::Owned(lowered), returned);
     }
+    if let Some((lowered, returned)) = straight_tuple_return(body, parameters) {
+        return (std::borrow::Cow::Owned(lowered), returned);
+    }
     (std::borrow::Cow::Borrowed(body), Vec::new())
+}
+
+/// A helper ending with one `return e1, e2, ...` of two or more values, not
+/// all its own locals ([`local_tuple_return`] takes those):
+/// `local unit = cross.Unit; return unit, v:Cross(unit).Unit`. Luau inlines
+/// `local a, b = f(x)` as the body with the values evaluated into the
+/// caller's locals in order (`compileExprListTemp`): a value that is a local
+/// of the body's top level shares its result's register, another one is
+/// declared into a fresh result right there. Returns the body with those
+/// declarations in place of the `return`, and the results in order. A local
+/// result must be returned once and captured by no closure; a value before
+/// the last is cut to one, and the last must be one.
+fn straight_tuple_return(body: &[Statement], parameters: &[RcLocal]) -> Option<(Vec<Statement>, Vec<RcLocal>)> {
+    let (Statement::Return(ret), rest) = body.split_last()? else { return None };
+    let (last, before) = ret.values.split_last()?;
+    // The last value gives one result: not a call, unless cut to one or a
+    // rebuilt call of a helper returning one (`return look,
+    // horizontalUnit(v)` once that copy is a call again).
+    let one = is_scalar_return_value(last)
+        || matches!(last, RValue::Select(Select::Call(_) | Select::MethodCall(_)))
+        || matches!(last, RValue::Call(call) if call.one_result);
+    if before.is_empty() || block_has_return(rest) || !before.iter().all(is_truncatable_return_value) || !one {
+        return None;
+    }
+    let declared = |local: &RcLocal| {
+        !parameters.contains(local)
+            && rest.iter().any(|statement| {
+                matches!(statement, Statement::Assign(a)
+                    if a.prefix && a.left.iter().any(|l| matches!(l, LValue::Local(x) if x == local)))
+            })
+    };
+    let mut lowered = rest.to_vec();
+    let mut results: Vec<RcLocal> = Vec::with_capacity(ret.values.len());
+    for value in &ret.values {
+        // A shared result is never stored into, so later values may read it.
+        let own = match value {
+            RValue::Local(local)
+                if declared(local) && !results.contains(local) && !closures_capture_any(rest, std::slice::from_ref(local)) =>
+            {
+                Some(local.clone())
+            }
+            _ => None,
+        };
+        match own {
+            Some(local) => results.push(local),
+            None => {
+                let result = RcLocal::default();
+                let mut declaration = Assign::new(vec![LValue::Local(result.clone())], vec![value.clone()]);
+                declaration.prefix = true;
+                lowered.push(declaration.into());
+                results.push(result);
+            }
+        }
+    }
+    // All of them the body's own locals: `local_tuple_return`'s shape.
+    (lowered.len() > rest.len()).then_some((lowered, results))
 }
 
 /// A helper returning the same number (two or more) of values on every path,
@@ -12324,6 +12475,52 @@ mod tests {
         assert!(private_closures(&declared(false)).contains(&binder));
         // Passed on, its identity can be seen.
         assert!(!private_closures(&declared(true)).contains(&binder));
+    }
+
+    #[test]
+    fn a_straight_tuple_declares_its_values_into_results() {
+        // local unit = norm(x); return unit, scale(unit)
+        let (unit, x) = (local("unit"), local("x"));
+        let body = vec![
+            assign_local(&unit, call1(global("norm"), local_value(&x)), true),
+            Statement::Return(Return::new(vec![local_value(&unit), call1(global("scale"), local_value(&unit))])),
+        ];
+        // `scale(unit)` takes all its results last: no fixed arity.
+        assert!(straight_tuple_return(&body, std::slice::from_ref(&x)).is_none());
+        let mut body = body;
+        let Statement::Return(ret) = &mut body[1] else { unreachable!() };
+        ret.values[1] = field(local_value(&unit), "k");
+        let (lowered, results) = straight_tuple_return(&body, std::slice::from_ref(&x)).expect("one value each");
+        assert_eq!(results[0], unit);
+        assert_eq!(lowered.len(), 2);
+        assert!(matches!(&lowered[1], Statement::Assign(a) if a.prefix && a.left[0].as_local() == Some(&results[1])));
+        // All the body's own locals: `local_tuple_return`'s shape, not this.
+        let other = local("other");
+        let own = vec![
+            assign_local(&unit, number(1.0), true),
+            assign_local(&other, number(2.0), true),
+            Statement::Return(Return::new(vec![local_value(&unit), local_value(&other)])),
+        ];
+        assert!(straight_tuple_return(&own, &[]).is_none());
+    }
+
+    #[test]
+    fn the_same_leading_return_values_split_off_every_return() {
+        let (p, c, a, b) = (local("p"), local("c"), local("a"), local("b"));
+        let returning = |first: &RcLocal, last: &RcLocal| Statement::Return(Return::new(vec![local_value(first), local_value(last)]));
+        let window = vec![
+            Statement::If(If::new(local_value(&c), Block(vec![returning(&p, &a)]), Block::default())),
+            returning(&p, &b),
+        ];
+        let (stripped, before) = returned_before(&window).expect("same leading value");
+        assert!(matches!(before.as_slice(), [RValue::Local(l)] if *l == p));
+        assert!(matches!(&stripped[1], Statement::Return(r) if r.values.len() == 1));
+        let mixed = vec![
+            Statement::If(If::new(local_value(&c), Block(vec![returning(&p, &a)]), Block::default())),
+            returning(&b, &b),
+        ];
+        assert!(returned_before(&mixed).is_none());
+        assert!(returned_before(&[return_one(local_value(&a))]).is_none());
     }
 
     #[test]
