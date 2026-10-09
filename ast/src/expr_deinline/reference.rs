@@ -131,6 +131,7 @@ impl ExprTarget {
         MatchCtx {
             params: &self.params,
             locals: &self.locals,
+            captures: None,
         }
     }
 }

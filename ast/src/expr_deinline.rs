@@ -94,11 +94,11 @@ type FnPtr = *const Mutex<Function>;
 const ANCHOR_FLOOR: usize = 2;
 /// `E` must have at least this many RValue nodes — a second readability floor that
 /// rejects single-operator helpers the anchor gate might admit.
-const NODE_COUNT_FLOOR: usize = 5;
+pub(crate) const NODE_COUNT_FLOOR: usize = 5;
 /// A site is only rewritten when the inlined subtree `S` is at least this many
 /// nodes larger than its replacement `helper(args)` — so `f(bigExpr)` non-shrinks
 /// are refused.
-const NET_SAVING_FLOOR: usize = 4;
+pub(crate) const NET_SAVING_FLOOR: usize = 4;
 
 /// A pure-scalar helper eligible for expression-level de-inlining.
 struct ExprTarget {
@@ -139,6 +139,7 @@ impl ExprTarget {
         MatchCtx {
             params: &self.params,
             locals: &self.locals,
+            captures: None,
         }
     }
 }

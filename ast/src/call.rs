@@ -26,6 +26,11 @@ pub struct Call {
     /// call count from this attribute, and `--stats-json` counts calls by
     /// kind from it. Not part of equality.
     pub rebuilt: Option<crate::call_origins::Kind>,
+    /// A rebuilt call of a helper that returns exactly one value on every
+    /// path: where all of a call's results are taken it still gives one,
+    /// so `("...%*"):format(x, f())` prints as a backtick string. Not part
+    /// of equality.
+    pub one_result: bool,
 }
 
 impl PartialEq for Call {
@@ -49,6 +54,7 @@ impl Call {
             reconstruction_event: 0,
             callee_after_arguments: false,
             rebuilt: None,
+            one_result: false,
         }
     }
 
@@ -65,6 +71,7 @@ impl Call {
             reconstruction_event: self.reconstruction_event,
             callee_after_arguments: self.callee_after_arguments,
             rebuilt: self.rebuilt,
+            one_result: self.one_result,
         }
     }
 

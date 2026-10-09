@@ -21,5 +21,6 @@ fn helpers_returning_their_locals_rebuild() {
     assert!(source.contains("= makeTrack(instance)"), "{source}");
     assert!(!source.contains("= counter()"), "{source}");
     assert!(source.contains("local frameClock = FrameClock()"), "{source}");
-    assert!(source.contains("= toNames(children)"), "{source}");
+    // Its one result read once, the call stands in that read.
+    assert!(source.contains("print(toNames(children), children)"), "{source}");
 }

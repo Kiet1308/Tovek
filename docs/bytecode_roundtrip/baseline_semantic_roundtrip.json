@@ -183,7 +183,12 @@
    "inferred_call_comment_on_its_first_line": "M1 fix-up ab5b085 fixture, baselined by m2b: nonequiv 0",
    "naming_mixed_screaming_and_builtin_plurals": "M1 fix-up ab5b085 fixture, baselined by m2b: nonequiv 0",
    "naming_suffixes_from_evidence_stay": "M1 fix-up ab5b085 fixture, baselined by m2b: nonequiv 0",
-   "naming_taken_name_falls_back": "M1 fix-up ab5b085 fixture, baselined by m2b: nonequiv 0"
+   "naming_taken_name_falls_back": "M1 fix-up ab5b085 fixture, baselined by m2b: nonequiv 0",
+   "deinline_returns_distributed_and_short_circuit": "m2b D3, nonequiv 1: main recompiles the constructor-literal functions it prints (M.check ...) as inlined copies, by construction",
+   "deinline_hosted_values": "m2b D5, nonequiv 2: main and stamp recompile the constructor-literal functions they print (M.vary, hooks.bump) as inlined copies, by construction",
+   "deinline_closure_factories": "m2b D6, nonequiv 2: main recompiles the constructor-literal functions it prints (T.left ...) as inlined copies; andThen prints its select as and/or, which recompiles as TEST jumps",
+   "deinline_returned_cell": "m2b D5 uniform cell, nonequiv 1: main recompiles the constructor-literal functions it prints (M.play ...) as inlined copies, by construction",
+   "deinline_value_moves_into_its_reader": "m2b D5 collapse, nonequiv 1: main recompiles the constructor-literal functions it prints (M.check ...) as inlined copies, by construction"
   }
  },
  "summary": {
@@ -266,7 +271,7 @@
   {
    "file": "capture_coalesced_into_closure_target",
    "status": "ok",
-   "nonequiv": 3,
+   "nonequiv": 2,
    "protos": 9
   },
   {
@@ -290,7 +295,7 @@
   {
    "file": "captured_cell_iterator",
    "status": "ok",
-   "nonequiv": 3,
+   "nonequiv": 2,
    "protos": 5
   },
   {
@@ -516,6 +521,12 @@
    "protos": 5
   },
   {
+   "file": "deinline_closure_factories",
+   "status": "ok",
+   "nonequiv": 2,
+   "protos": 27
+  },
+  {
    "file": "deinline_discarded_result",
    "status": "ok",
    "nonequiv": 0,
@@ -526,6 +537,12 @@
    "status": "ok",
    "nonequiv": 0,
    "protos": 3
+  },
+  {
+   "file": "deinline_hosted_values",
+   "status": "ok",
+   "nonequiv": 2,
+   "protos": 13
   },
   {
    "file": "deinline_late_register_read_of_a_cell",
@@ -552,10 +569,28 @@
    "protos": 11
   },
   {
+   "file": "deinline_returned_cell",
+   "status": "ok",
+   "nonequiv": 1,
+   "protos": 12
+  },
+  {
+   "file": "deinline_returns_distributed_and_short_circuit",
+   "status": "ok",
+   "nonequiv": 1,
+   "protos": 11
+  },
+  {
    "file": "deinline_store_rebuilt_below_its_caller_copy",
    "status": "ok",
    "nonequiv": 1,
    "protos": 11
+  },
+  {
+   "file": "deinline_value_moves_into_its_reader",
+   "status": "ok",
+   "nonequiv": 1,
+   "protos": 9
   },
   {
    "file": "deinline_written_parameter_alias",
@@ -1058,7 +1093,7 @@
   {
    "file": "promise_advancers_capture_their_handlers",
    "status": "ok",
-   "nonequiv": 6,
+   "nonequiv": 2,
    "protos": 10
   },
   {
@@ -1304,7 +1339,7 @@
   {
    "file": "value_capture_through_call_argument",
    "status": "ok",
-   "nonequiv": 3,
+   "nonequiv": 2,
    "protos": 12
   },
   {

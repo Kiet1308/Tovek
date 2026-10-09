@@ -705,6 +705,7 @@ pub(crate) fn block_alpha_bindings_with_locals(
     let ctx = MatchCtx {
         params: &params,
         locals: &locals,
+        captures: None,
     };
     let mut bindings = Bindings::default();
     alpha_block(pattern, candidate, &ctx, &mut bindings).then_some(bindings)

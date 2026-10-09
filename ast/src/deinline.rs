@@ -324,6 +324,18 @@ struct Target {
     /// the argument's temp alive declares the result from the call
     /// (`local t = track(task.delay(1, f))`).
     returns_parameter: Option<RcLocal>,
+    /// Every call of the helper returns exactly one value (Luau's
+    /// `returnsOne`, read off its declaration before any rewrite): its call
+    /// may stand where all of a value's results are taken (`return f(x)`).
+    single_valued: bool,
+    /// The value `V` of a value helper whose whole body is `return V`, when
+    /// its copies may be rebuilt wherever the caller evaluates them
+    /// ([`match_hosted_value`]).
+    hosted: Option<RValue>,
+    /// For a discard target: the outer local every leaf of the value helper
+    /// returns (`return ignoreList`). Its copy leaves the value there, which
+    /// the statement after it may read first ([`host_returned_cell`]).
+    returns_cell: Option<RcLocal>,
     captures: std::rc::Rc<crate::deinline_safety::CaptureSafety>,
     search: std::rc::Rc<crate::deinline_safety::SearchBudget>,
 }
@@ -343,6 +355,9 @@ pub(crate) struct Bindings {
     /// `result` is a local the caller already has, stored into by the leaves
     /// (`R = f(args)`), rather than one the site declares.
     assigned: bool,
+    /// The site returns the helper's value itself: each `return X` of the
+    /// pattern stands for a `return X` of the site ([`match_returned_value`]).
+    returning: bool,
 }
 
 impl Bindings {
@@ -366,6 +381,9 @@ impl Bindings {
 pub(crate) struct MatchCtx<'a> {
     pub(crate) params: &'a FxHashSet<RcLocal>,
     pub(crate) locals: &'a FxHashSet<RcLocal>,
+    /// The module's census, when the matcher has one: it tells the outer
+    /// locals no code assigns after their declaration ([`unify_closure`]).
+    pub(crate) captures: Option<&'a crate::deinline_safety::CaptureSafety>,
 }
 
 impl Target {
@@ -373,6 +391,7 @@ impl Target {
         MatchCtx {
             params: &self.params,
             locals: &self.locals,
+            captures: Some(&self.captures),
         }
     }
 
@@ -539,7 +558,7 @@ pub fn deinline(body: &mut Block) {
                     let captures = initial_captures.take().unwrap_or_else(||
                         std::rc::Rc::new(crate::deinline_safety::CaptureSafety::new(body)));
                     current_captures = Some(captures.clone());
-                    let targets = collect_targets(body, &write_counts, captures);
+                    let targets = collect_targets(body, &write_counts, &single_valued, captures);
                     crate::telemetry::count("accepted_targets", targets.len() as u64);
                     // The budget counts helpers: a value helper's discard
                     // variant shares its definition.
@@ -867,40 +886,47 @@ fn collapse_value_results(stmts: &mut Vec<Statement>, facts: &Collapse, live_out
             last_write.insert(v, k);
         }
     }
-    let mut out: Vec<Statement> = Vec::with_capacity(n);
-    let mut i = 0;
-    while i < n {
-        if i + 1 < n
-            && let Statement::Assign(a) = &taken[i]
+    // From the end, so that a value moved into the statement after it lets
+    // the one before move in as well (`local a = f(); local b = g(); h(a,
+    // b)` is `h(f(), g())`). `kept` holds the statements kept so far, last
+    // first, each with the last original statement it covers.
+    let mut kept: Vec<(Statement, usize)> = Vec::with_capacity(n);
+    for (i, statement) in taken.into_iter().enumerate().rev() {
+        if let Some((next, covers)) = kept.last()
+            && let Statement::Assign(a) = &statement
             && let Some((v, call)) = value_call_decl(a)
-            && count_local_reads(&taken[i + 1..i + 2], &v) == 1
-            && last_read.get(&v).is_none_or(|&k| k < i + 2)
+            && count_local_reads(std::slice::from_ref(next), &v) == 1
+            && last_read.get(&v).is_none_or(|k| k <= covers)
             && !live_out.contains(&v)
             // `v`'s declaration is about to be removed, so `v` must not be
             // *written* anywhere we keep either — a later `v = ...` (e.g. inside
             // the collapsed `if`) would otherwise be left with no declaration.
             && last_write.get(&v).is_none_or(|&k| k < i + 1)
-            && let Some(collapsed) = collapse_use(&taken[i + 1], &v, call, facts.single_valued, &|address| facts.stable_address(address))
+            && let Some(collapsed) = collapse_use(next, &v, call, facts)
         {
             // The rebuilt call now lives inside `collapsed`, still carrying
             // its `rebuilt` attribute for the formatter's site comment.
-            out.push(collapsed);
-            i += 2;
+            let covers = *covers;
+            kept.pop();
+            kept.push((collapsed, covers));
         } else {
-            out.push(taken[i].clone());
-            i += 1;
+            kept.push((statement, i));
         }
     }
-    *stmts = out;
+    *stmts = kept.into_iter().rev().map(|(statement, _)| statement).collect();
 }
 
-/// `local v = <rebuilt Call>` -> (v, the call rvalue).
+/// `local v = <rebuilt Call>` -> (v, the call rvalue); also `local v = P
+/// or f(args)` ([`match_short_circuit`]), one value whatever `f` returns.
 fn value_call_decl(a: &Assign) -> Option<(RcLocal, &RValue)> {
+    let rebuilt = |value: &RValue| matches!(value, RValue::Call(c) if c.rebuilt.is_some());
     if a.prefix && !a.parallel && a.left.len() == 1 && a.right.len() == 1 {
-        if let (LValue::Local(v), call @ RValue::Call(c)) = (&a.left[0], &a.right[0])
-            && c.rebuilt.is_some()
+        if let LValue::Local(v) = &a.left[0]
+            && (rebuilt(&a.right[0])
+                || matches!(&a.right[0], RValue::Binary(binary)
+                    if binary.operation == BinaryOperation::Or && rebuilt(&binary.right)))
         {
-            return Some((v.clone(), call));
+            return Some((v.clone(), &a.right[0]));
         }
     }
     None
@@ -918,32 +944,26 @@ fn value_call_decl(a: &Assign) -> Option<(RcLocal, &RValue)> {
 /// `if` condition, a SINGLE-LHS assign) truncate to one value either way and stay
 /// sound for every helper. `stable_address` tells the address operands a store
 /// may evaluate before the call (`lvalue_safe_for_collapse`).
-fn collapse_use(
-    s: &Statement,
-    v: &RcLocal,
-    call: &RValue,
-    single_valued: &FxHashSet<RcLocal>,
-    stable_address: &dyn Fn(&RValue) -> bool,
-) -> Option<Statement> {
+fn collapse_use(s: &Statement, v: &RcLocal, call: &RValue, facts: &Collapse) -> Option<Statement> {
+    let stable_address = |address: &RValue| facts.stable_address(address);
     let is_v = |rv: &RValue| matches!(rv, RValue::Local(x) if x == v);
     let is_not_v = |rv: &RValue| {
         matches!(rv, RValue::Unary(u)
             if u.operation == UnaryOperation::Not && is_v(&u.value))
     };
-    // Only a call proven to return one value may move into a multi-value context.
-    let exactly_one = call_callee_local(call).is_some_and(|l| single_valued.contains(l));
-    match s {
-        Statement::If(f) => {
+    // Only a call proven to return one value may move into a multi-value
+    // context; any other value is one.
+    let exactly_one = !is_multiple(call) || call_callee_local(call).is_some_and(|l| facts.single_valued.contains(l));
+    let specific = match s {
+        Statement::If(f) if is_v(&f.condition) || is_not_v(&f.condition) => {
             let cond = if is_v(&f.condition) {
                 call.clone()
-            } else if is_not_v(&f.condition) {
+            } else {
                 RValue::Unary(Unary {
                     node_origin: Default::default(),
                     value: Box::new(call.clone()),
                     operation: UnaryOperation::Not,
                 })
-            } else {
-                return None;
             };
             Some(Statement::If(If {
                 node_origin: Default::default(),
@@ -976,7 +996,7 @@ fn collapse_use(
             if a.right.len() == 1
                 && is_v(&a.right[0])
                 && !a.compound
-                && a.left.iter().all(|left| lvalue_safe_for_collapse(left, stable_address))
+                && a.left.iter().all(|left| lvalue_safe_for_collapse(left, &stable_address))
                 && (a.left.len() == 1 || (exactly_one && a.left.iter().all(|left| !matches!(left, LValue::Index(_))))) =>
         {
             Some(Statement::Assign(Assign {
@@ -989,7 +1009,44 @@ fn collapse_use(
             }))
         }
         _ => None,
+    };
+    specific.or_else(|| collapse_into_leading_value(s, v, call, exactly_one, facts))
+}
+
+/// The value placed where `s` reads `v` first of all it evaluates, after
+/// only reads (`assert(v, msg)` -> `assert(isCallable(x), msg)`, a host's
+/// leading value as [`visit_leading_values`] finds it): it runs there
+/// rather than before `s`, so none of those reads may see a change, a
+/// local no call can change or an unchanging import. Where all of a value's
+/// results are taken, only one value may move in.
+fn collapse_into_leading_value(s: &Statement, v: &RcLocal, value: &RValue, exactly_one: bool, facts: &Collapse) -> Option<Statement> {
+    // A local the source declared stays declared.
+    if v.preserve_binding() {
+        return None;
     }
+    let register = |local: &RcLocal| facts.captures.register_of(local, facts.function);
+    let unchanged = |read: &Earlier| {
+        let Earlier::Value(read) = read;
+        facts.captures.stable_at(read, facts.function) || facts.captures.unchanged_by_calls(read)
+    };
+    let mut host = s.clone();
+    let mut placed = false;
+    visit_leading_values(&mut host, &register, &mut |slot, evaluated_before, spread| {
+        if !matches!(slot, RValue::Local(read) if read == v) {
+            return false;
+        }
+        if (spread == Spread::One || exactly_one) && evaluated_before.iter().all(unchanged) {
+            *slot = value.clone();
+            placed = true;
+        }
+        // `v` is read once: this read decides.
+        true
+    });
+    placed.then(|| {
+        crate::telemetry::count("collapse_into_leading_value", 1);
+        select_prefix_calls(&mut host);
+        host
+    })
 }
 
 /// A collapse-safe assignment target: a bare name binding (`x` / `GLOBAL`) whose
@@ -1417,12 +1474,43 @@ struct CanonCache {
     middle: Option<std::rc::Rc<Vec<Statement>>>,
     last: Vec<Option<Statement>>,
     nodes: Vec<usize>,
+    /// Whether the block returns on every path ([`block_always_returns`]),
+    /// which every return-mode window, running to its end, needs.
+    returns: Option<bool>,
+    /// The kinds of the values the statement at this position evaluates
+    /// ([`kind_bit`]), which a hosted copy's value must be one of.
+    kinds: Option<u32>,
 }
 
 impl CanonCache {
     /// A new position: its windows start elsewhere.
     fn clear(&mut self) {
         self.windows.clear();
+        self.kinds = None;
+    }
+
+    /// [`CanonCache::returns`].
+    fn returns(&mut self, stmts: &[Statement]) -> bool {
+        *self.returns.get_or_insert_with(|| block_always_returns(stmts))
+    }
+
+    /// [`CanonCache::kinds`] of `statement`, the one at this position.
+    fn kinds(&mut self, statement: &Statement) -> u32 {
+        *self.kinds.get_or_insert_with(|| {
+            fn walk(value: &RValue, kinds: &mut u32) {
+                *kinds |= kind_bit(value);
+                value.visit_rvalues(&mut |child| {
+                    walk(child, kinds);
+                    true
+                });
+            }
+            let mut kinds = 0;
+            visit_stmt_rvalues(statement, &mut |value| {
+                walk(value, &mut kinds);
+                true
+            });
+            kinds
+        })
     }
 
     /// `stmts[start..start + added]` replaced `removed` statements at
@@ -1440,6 +1528,8 @@ impl CanonCache {
         }
         self.last.clear();
         self.nodes.truncate(start + 1);
+        self.returns = None;
+        self.kinds = None;
     }
 
     /// Every statement's canonical form as a middle one.
@@ -1472,7 +1562,10 @@ impl CanonCache {
             real.pop();
         }
         let (Some(&first), Some((&tail, body))) = (real.first(), real.split_last()) else { return Window::default() };
-        if body.iter().any(|&k| is_foldable_guard(&stmts[k])) {
+        let distributed = body.last().is_some_and(|&k| {
+            matches!(&stmts[k], Statement::If(f) if distributes_return(f, std::slice::from_ref(&stmts[tail])))
+        });
+        if distributed || body.iter().any(|&k| is_foldable_guard(&stmts[k])) {
             return Window::owned(canon_recurse(canon_top(&stmts[start..start + w], true), true));
         }
         let middle = self.middle(stmts).clone();
@@ -1824,6 +1917,7 @@ fn unguard_owned(mut stmts: std::vec::IntoIter<Statement>) -> Vec<Statement> {
                 }
             };
             let open = guard.is_none() && is_open_guard(f);
+            let distributes = guard.is_none() && !open && distributes_return(f, stmts.as_slice());
             if let Some((mut early_prefix, ret_val)) = guard {
                 if !stmts.as_slice().is_empty() {
                     let Statement::If(f) = statement else { unreachable!() };
@@ -1842,6 +1936,10 @@ fn unguard_owned(mut stmts: std::vec::IntoIter<Statement>) -> Vec<Statement> {
             } else if open && !stmts.as_slice().is_empty() {
                 let folded = unguard_owned(stmts);
                 out.extend(graft(vec![statement], folded));
+                return out;
+            } else if distributes {
+                let rest: Vec<Statement> = stmts.filter(|s| !is_match_trivia(s)).collect();
+                out.extend(graft_all(vec![statement], &rest));
                 return out;
             }
         }
@@ -1894,6 +1992,47 @@ fn graft(mut stmts: Vec<Statement>, rest: Vec<Statement>) -> Vec<Statement> {
         return stmts;
     }
     stmts.extend(rest);
+    stmts
+}
+
+/// E1, return distribution: an `if` that returns on some path and falls
+/// off its end on two or more others, followed by nothing but one `return`
+/// of one value. That `return` belongs at each of those ends, where the
+/// copy Luau inlined for a value stores the result (`if a then return true
+/// end; if b then ...; if c then return true end end; return false`, whose
+/// `return false` closes both the `b` and the `not b` paths). Each path
+/// still runs one copy of it, the last thing it runs. An `if` that never
+/// returns keeps the `return` after it, as its copies keep the store.
+fn distributes_return(f: &If, rest: &[Statement]) -> bool {
+    let mut real = rest.iter().filter(|s| !is_match_trivia(s));
+    let (Some(Statement::Return(ret)), None) = (real.next(), real.next()) else { return false };
+    ret.values.len() == 1 && is_distributing_if(f)
+}
+
+/// The `if` half of [`distributes_return`]: two or more open ends
+/// ([`open_ends`]) and a `return` on some path.
+fn is_distributing_if(f: &If) -> bool {
+    let then = f.then_block.lock();
+    let els = f.else_block.lock();
+    matches!((open_ends(&then.0), open_ends(&els.0)), (Some(a), Some(b)) if a + b >= 2)
+        && (block_has_return(&then.0) || block_has_return(&els.0))
+}
+
+/// `stmts` with a copy of `rest` at every path that falls off its end
+/// (see [`distributes_return`]).
+fn graft_all(mut stmts: Vec<Statement>, rest: &[Statement]) -> Vec<Statement> {
+    if open_ends(&stmts) == Some(0) {
+        return stmts;
+    }
+    if let Some(at) = stmts.iter().rposition(|s| !is_match_trivia(s))
+        && let Statement::If(f) = &stmts[at]
+    {
+        let then = graft_all(f.then_block.lock().0.clone(), rest);
+        let els = graft_all(f.else_block.lock().0.clone(), rest);
+        stmts[at] = If::new(f.condition.clone(), Block(then), Block(els)).into();
+        return stmts;
+    }
+    stmts.extend(rest.iter().cloned());
     stmts
 }
 
@@ -1958,15 +2097,22 @@ where
     // N3: unguard folds at the first foldable guard that has a following
     // (within-`effective`) statement -> top-level length is its index + 1.
     let mut len = effective;
+    // E1: the last two, an `if` taking a copy of the `return` after it.
+    let mut last_two: [Option<&Statement>; 2] = [None, None];
     for (idx, s) in stmts
         .filter(|s| !is_match_trivia(s))
         .take(effective)
         .enumerate()
     {
         if idx + 1 < effective && is_foldable_guard(s) {
-            len = idx + 1;
-            break;
+            return idx + 1;
         }
+        last_two = [last_two[1], Some(s)];
+    }
+    if let [Some(Statement::If(f)), Some(last)] = last_two
+        && distributes_return(f, std::slice::from_ref(last))
+    {
+        len -= 1;
     }
     len
 }
@@ -2143,6 +2289,9 @@ fn unify_stmt(t: &Target, p: &Statement, c: &Statement, b: &mut Bindings) -> Res
             // `unflag_value_loop` gives back from the site's `r = x; flag =
             // false; break` (a site window has no `return` of its own).
             ([pattern], [site]) if t.loop_exit_at.is_some() => unify_returned_value(&ctx, pattern, site, b),
+            // A copy returning the helper's value from the caller: the same
+            // value, taken the same way.
+            ([pattern], [site]) if b.returning => unify_rvalue(&ctx, pattern, site, b),
             _ => Err(()),
         },
         (Statement::Break(_), Statement::Break(_)) => Ok(()),
@@ -2412,6 +2561,20 @@ fn unify_closure(
         let (pattern_local, candidate_local) = match (pattern_upvalue, candidate_upvalue) {
             (Upvalue::Copy(pattern), Upvalue::Copy(candidate))
             | (Upvalue::Ref(pattern), Upvalue::Ref(candidate)) => (pattern, candidate),
+            // The helper's closure reaches an outer local through the
+            // helper's own upvalue (`LCT_UPVAL`, a shared cell), its inlined
+            // copy straight from the caller's register (`LCT_VAL`). The
+            // helper captured that local when it was created, the copy when
+            // it runs: the same value where nothing assigns the local after
+            // its declaration.
+            (Upvalue::Ref(pattern), Upvalue::Copy(candidate))
+                if pattern == candidate
+                    && !ctx.params.contains(pattern)
+                    && !ctx.locals.contains(pattern)
+                    && ctx.captures.is_some_and(|captures| captures.never_reassigned(pattern)) =>
+            {
+                (pattern, candidate)
+            }
             _ => return Err(()),
         };
         unify_rvalue(
@@ -2833,10 +2996,19 @@ fn deinline_block(
             &mut last_occ,
             &mut canon_cache,
         ) {
-            let call = Call::new(RValue::Local(hit.f_local.clone()), hit.args)
+            let mut call = Call::new(RValue::Local(hit.f_local.clone()), hit.args)
                 .reconstructed(crate::call_origins::Kind::StatementDeinline);
+            call.one_result = hit.single_valued;
             let stmt = match hit.host {
-                Some(host) => host,
+                Some(mut host) => {
+                    if let Some((placeholder, wrap)) = &hit.placeholder {
+                        let value = if *wrap { RValue::Select(Select::Call(call)) } else { RValue::Call(call) };
+                        fill_placeholder(&mut host, placeholder, value);
+                    }
+                    select_prefix_calls(&mut host);
+                    host
+                }
+                None if hit.returns_value => Statement::Return(Return::new(vec![RValue::Call(call)])),
                 None if hit.results.is_empty() => Statement::Call(call),
                 None => Statement::Assign(Assign {
                     node_origin: Default::default(),
@@ -2858,6 +3030,9 @@ fn deinline_block(
             let start = i - hit.absorbed;
             let removed = i + hit.consume - start;
             stmts.splice(start..start + removed, replacement);
+            if !hit.mode.is_empty() {
+                crate::telemetry::count(hit.mode, 1);
+            }
             newly.binders.insert(hit.f_local);
             newly.splices += 1;
             newly.bodies.insert(current_func);
@@ -3289,6 +3464,19 @@ struct Hit {
     first_moved: Option<usize>,
     /// Matched by a discard target ([`Target::discarded`]).
     discarded: bool,
+    /// The call's value is the caller's return value: `return f(args)`
+    /// ([`match_returned_value`]).
+    returns_value: bool,
+    /// Where `host` holds the call: the read of this local, and whether the
+    /// call keeps one result there (`(f(args))`). The call is built once the
+    /// arguments are known: the temps right before the statement may still
+    /// go into it ([`match_hosted_value`], [`absorb_arguments`]).
+    placeholder: Option<(RcLocal, bool)>,
+    /// The site shape a new result mode found, for telemetry (`""` for the
+    /// others).
+    mode: &'static str,
+    /// [`Target::single_valued`] of the helper called.
+    single_valued: bool,
 }
 
 impl Hit {
@@ -3308,6 +3496,10 @@ impl Hit {
             written: u.written,
             first_moved: u.first_moved,
             discarded: false,
+            returns_value: false,
+            placeholder: None,
+            mode: "",
+            single_valued: t.single_valued,
         }
     }
 
@@ -3437,9 +3629,12 @@ fn try_match_at(
             }
             (TKind::Value, ValueAnchor::AtResultDecl) => {
                 match_value(stmts, i, t, is_func_body_top, last_occ, canon_cache, current_func)
+                    .or_else(|| match_returned_value(stmts, i, t, is_func_body_top, last_occ, canon_cache, current_func))
+                    .or_else(|| match_hosted_value(stmts, i, anchor, t, canon_cache, current_func))
             }
             (TKind::Value, ValueAnchor::AtPrefix) => {
                 match_value_prefixed(stmts, i, t, current_func, is_func_body_top, last_occ)
+                    .or_else(|| match_returned_value(stmts, i, t, is_func_body_top, last_occ, canon_cache, current_func))
             }
         } };
         if hit.is_some() {
@@ -3450,6 +3645,7 @@ fn try_match_at(
             hit = match_assigned_value(stmts, i, t, is_func_body_top, last_occ, canon_cache, current_func);
         }
         let hit = hit.filter(|hit| !hit.inferred.as_ref().is_some_and(|param| continues_pruned_branch(t, param, stmts, i + hit.consume)));
+        let hit = hit.map(|hit| host_returned_cell(stmts, i, hit, t, current_func).unwrap_or_else(|hit| hit));
         Ok(hit.and_then(|hit| absorb_arguments(stmts, i, t, Hit { discarded: t.discarded, ..hit }, last_occ, is_func_body_top)))
     };
     // Where several helpers match, the one covering the most statements wins:
@@ -3695,11 +3891,24 @@ struct WindowGrowth {
     last_void: bool,
     first_guard: Option<usize>,
     has_return: bool,
+    /// The last real statement, and the one before it (E1,
+    /// [`distributes_return`]).
+    last: Option<usize>,
+    before_last: Option<usize>,
 }
 
 impl WindowGrowth {
     fn new(stmts: &[Statement], start: usize, width: usize) -> Self {
-        let mut grown = Self { start, end: start, real: 0, last_void: false, first_guard: None, has_return: false };
+        let mut grown = Self {
+            start,
+            end: start,
+            real: 0,
+            last_void: false,
+            first_guard: None,
+            has_return: false,
+            last: None,
+            before_last: None,
+        };
         // A block shorter than the narrowest width has no window to grow.
         grown.extend_to(stmts, (start + width.saturating_sub(1)).min(stmts.len()));
         grown
@@ -3707,7 +3916,7 @@ impl WindowGrowth {
 
     /// The canon length and whether a return is in the window ending at `end`.
     fn extend_to(&mut self, stmts: &[Statement], end: usize) -> (usize, bool) {
-        for statement in &stmts[self.end..end] {
+        for (k, statement) in stmts[self.end..end].iter().enumerate() {
             self.has_return |= statement_has_return(statement);
             if is_match_trivia(statement) {
                 continue;
@@ -3717,11 +3926,17 @@ impl WindowGrowth {
             }
             self.last_void = matches!(statement, Statement::Return(r) if r.values.is_empty());
             self.real += 1;
+            self.before_last = self.last;
+            self.last = Some(self.end + k);
         }
         self.end = self.end.max(end);
         let effective = self.real - usize::from(self.last_void);
+        let distributed = !self.last_void
+            && matches!((self.before_last, self.last), (Some(before), Some(last))
+                if matches!(&stmts[before], Statement::If(f) if distributes_return(f, std::slice::from_ref(&stmts[last]))));
         let len = match self.first_guard {
             Some(guard) if guard + 1 < effective => guard + 1,
+            _ if distributed => effective - 1,
             _ => effective,
         };
         debug_assert_eq!(len, canon_top_len(&stmts[self.start..end], true));
@@ -3871,8 +4086,158 @@ fn match_value(
     if ambiguous {
         return None;
     }
-    let site = site?;
+    let Some(site) = site else {
+        return match_short_circuit(stmts, i, &r, t, is_func_body_top, last_occ, current_func);
+    };
     Some(Hit::call(t, 1 + site.width, site.unified, vec![r]))
+}
+
+/// `local R = P or f(args)` for a helper whose first guard returns `true`
+/// (`f == nil or isCallable(f)`). Luau compiles the comparison `P` as a
+/// jump to the store of `true` the copy's first guard takes too, so the
+/// site reads `local R; if P or A then R = true else REST end`. With `P`
+/// provably boolean (a comparison, `not`, a boolean literal, or `and` /
+/// `or` of those), `R` gets `P` exactly where it is `true`, and what is left
+/// once `P` is split off is the copy: `if A then R = true else REST end`.
+/// `P` runs first and the copy only where it is false, as in `P or
+/// f(args)`; the arguments stay inside the copy, nothing is absorbed.
+fn match_short_circuit(
+    stmts: &[Statement],
+    i: usize,
+    r: &RcLocal,
+    t: &Target,
+    is_func_body_top: bool,
+    last_occ: &mut Option<FxHashMap<RcLocal, usize>>,
+    current_func: Option<FnPtr>,
+) -> Option<Hit> {
+    let at = nth_effective_index(stmts, i + 1, 0)?;
+    let Statement::If(branch) = &stmts[at] else { return None };
+    let RValue::Binary(or) = &branch.condition else { return None };
+    if or.operation != BinaryOperation::Or || !crate::binary::is_boolean(&or.left) || reads_local(&or.left, r) {
+        return None;
+    }
+    let stores_true = {
+        let then = branch.then_block.lock();
+        let mut real = then.0.iter().filter(|s| !is_match_trivia(s));
+        matches!((real.next(), real.next()), (Some(Statement::Assign(store)), None)
+            if is_plain_local_write(store, r) && !store.compound
+                && matches!(store.right[0], RValue::Literal(Literal::Boolean(true))))
+    };
+    if !stores_true || (is_func_body_top && i == 0 && at + 1 == stmts.len()) {
+        return None;
+    }
+    let region = vec![Statement::If(If::new(
+        or.right.as_ref().clone(),
+        Block(branch.then_block.lock().0.clone()),
+        Block(branch.else_block.lock().0.clone()),
+    ))];
+    if canon_top_len(&region, true) != t.pat.len() || block_has_return(&region) || !charge_window(t, &region) {
+        return None;
+    }
+    let u = try_unify_site_any(t, &canon_recurse(canon_top(&region, true), true), current_func)?;
+    let complete = u.result.as_ref() == Some(r)
+        && !u.callee_locals.contains(r)
+        && !block_reads_local(&stmts[at..=at], r)
+        && !tail_has_live(last_occ, stmts, i, at + 1, &u.callee_locals);
+    if !complete {
+        return None;
+    }
+    let value = Binary::new(or.left.as_ref().clone(), hosted_call(t, u.args.clone(), false), BinaryOperation::Or);
+    let mut declaration = Assign::new(vec![LValue::Local(r.clone())], vec![value.into()]);
+    declaration.prefix = true;
+    Some(Hit { host: Some(declaration.into()), mode: "site_short_circuit", ..Hit::call(t, at + 1 - i, u, Vec::new()) })
+}
+
+/// Return mode: the copy of a single-valued helper returns its value from
+/// the caller (`return isCallable(object.andThen)`), the store of each leaf
+/// cloned into the caller's `return`. The window is the rest of the block,
+/// returning one value on every path; each `return X` of the pattern
+/// unifies with one of the site. Rebuilt as `return f(args)`: the helper
+/// gives exactly one value on every path (Luau's `returnsOne`, the only
+/// helpers Luau inlines there), as each `return X` of the copy did.
+fn match_returned_value(
+    stmts: &[Statement],
+    i: usize,
+    t: &Target,
+    is_func_body_top: bool,
+    last_occ: &mut Option<FxHashMap<RcLocal, usize>>,
+    canon_cache: &mut CanonCache,
+    current_func: Option<FnPtr>,
+) -> Option<Hit> {
+    if !t.single_valued || t.loop_exit_at.is_some() || !t.returns.is_empty() || t.falls_off || (is_func_body_top && i == 0) {
+        return None;
+    }
+    let end = stmts.len();
+    let window = &stmts[i..end];
+    let kc = t.pat.len();
+    if !canon_cache.returns(stmts) || !return_window_may_fit(window, kc) {
+        return None;
+    }
+    if !block_always_returns(window) || leading_statement_refused(t, window) || leading_condition_refused(t, window) {
+        return None;
+    }
+    if block_has_void_return(window) || has_depth_zero_loop_control(window, 0) || canon_top_len(window, true) != kc {
+        return None;
+    }
+    if !charge_window(t, window) {
+        return None;
+    }
+    let canonical = canon_recurse(canon_top(window, true), true);
+    if !charge_unify(t, &canonical) {
+        return None;
+    }
+    let u = try_unify_seeded(t, &canonical, current_func, Bindings { returning: true, ..Bindings::default() })?;
+    if u.result.is_some() || tail_has_live(last_occ, stmts, i, end, &u.callee_locals) {
+        return None;
+    }
+    Some(Hit { returns_value: true, mode: "site_returned", ..Hit::call(t, end - i, u, Vec::new()) })
+}
+
+/// Whether no window opening with `stmts` can match a value pattern opening
+/// with an `if`, read off the first statement's condition alone: canon keeps
+/// an `if` heading a window, its condition negated where a guard folds what
+/// follows, and the unification compares the conditions first, from no
+/// bindings, directly or negated ([`unify_stmt`]'s flip).
+fn leading_condition_refused(t: &Target, stmts: &[Statement]) -> bool {
+    let (Some(Statement::If(pattern)), Some(Statement::If(head))) = (t.pat.first(), stmts.iter().find(|s| !is_match_trivia(s))) else {
+        return false;
+    };
+    let negated = negate_canon(head.condition.clone());
+    let twice = negate_canon(negated.clone());
+    [&head.condition, &negated, &twice]
+        .into_iter()
+        .all(|condition| unify_rvalue(&t.ctx(), &pattern.condition, condition, &mut Bindings::default()).is_err())
+}
+
+/// Whether the window `stmts`, running to the end of its block, may
+/// canonicalize to `kc` statements, read off its first `kc + 2` statements:
+/// past those, only a guard among the first `kc` folds it that short
+/// ([`canon_top_len`]; E1 takes one statement off the end at most).
+fn return_window_may_fit(stmts: &[Statement], kc: usize) -> bool {
+    let mut seen = 0;
+    for statement in stmts.iter().filter(|s| !is_match_trivia(s)) {
+        if seen < kc && is_foldable_guard(statement) {
+            return true;
+        }
+        seen += 1;
+        if seen >= kc + 2 {
+            return false;
+        }
+    }
+    true
+}
+
+/// Whether `stmts` hold a `return` of no value, nested blocks included.
+fn block_has_void_return(stmts: &[Statement]) -> bool {
+    stmts.iter().any(|s| match s {
+        Statement::Return(r) => r.values.is_empty(),
+        Statement::If(f) => block_has_void_return(&f.then_block.lock().0) || block_has_void_return(&f.else_block.lock().0),
+        Statement::While(w) => block_has_void_return(&w.block.lock().0),
+        Statement::Repeat(r) => block_has_void_return(&r.block.lock().0),
+        Statement::NumericFor(nf) => block_has_void_return(&nf.block.lock().0),
+        Statement::GenericFor(gf) => block_has_void_return(&gf.block.lock().0),
+        _ => false,
+    })
 }
 
 /// A value helper's result stored into a local the caller already has
@@ -4012,8 +4377,12 @@ fn absorb_arguments(
     let mut taken: Vec<(usize, RcLocal, RValue)> = Vec::new();
     let mut declared = None;
     let mut start = i;
-    // A host statement holds the call itself; its arguments stay as found.
-    let mut below = if hit.host.is_some() { 0 } else { hit.first_moved.unwrap_or(usize::MAX) };
+    // A host statement holds the call itself; its arguments stay as found,
+    // unless it holds the call first of all it evaluates
+    // (`Hit::placeholder`).
+    let into_host = hit.placeholder.is_some();
+    let mut below = if hit.host.is_some() && !into_host { 0 } else { hit.first_moved.unwrap_or(usize::MAX) };
+    let host_reads = |local: &RcLocal| hit.host.as_ref().is_some_and(|host| count_local_reads(std::slice::from_ref(host), local) > 0);
     while let Some(k) = (0..start).rev().find(|&k| !is_match_trivia(&stmts[k])) {
         let Statement::Assign(declaration) = &stmts[k] else { break };
         let ([LValue::Local(local)], [init]) = (declaration.left.as_slice(), declaration.right.as_slice()) else { break };
@@ -4022,7 +4391,8 @@ fn absorb_arguments(
         }
         let Some(at) = hit.args.iter().position(|arg| matches!(arg, RValue::Local(read) if read == local)) else { break };
         let read_elsewhere = hit.args.iter().enumerate().any(|(other, arg)| other != at && reads(arg, local))
-            || taken.iter().any(|(_, _, later)| reads(later, local));
+            || taken.iter().any(|(_, _, later)| reads(later, local))
+            || host_reads(local);
         // Never the whole body of a function in one call.
         if at >= below || read_elsewhere || (is_func_body_top && k == 0 && end == stmts.len()) {
             break;
@@ -4036,6 +4406,36 @@ fn absorb_arguments(
         }
         taken.push((at, local.clone(), init.clone()));
         below = at;
+        start = k;
+    }
+    // A store's base Luau evaluated before the stored value, into a temp
+    // right before the arguments' (`local m = A; local t = E; m.k = f(t)`
+    // is `A.k = f(E)`): read nowhere but there, with a constant key. Luau
+    // evaluates a base that is not one of the function's locals before the
+    // value, where the temp stood.
+    if into_host
+        && let Some(k) = (0..start).rev().find(|&k| !is_match_trivia(&stmts[k]))
+        && let Statement::Assign(declaration) = &stmts[k]
+        && let ([LValue::Local(base)], [address]) = (declaration.left.as_slice(), declaration.right.as_slice())
+        && declaration.prefix
+        && !declaration.parallel
+        && !declaration.compound
+        && !matches!(address, RValue::Local(_) | RValue::Closure(_))
+        && !(is_func_body_top && k == 0 && end == stmts.len())
+        && let Some(Statement::Assign(store)) = &hit.host
+        && let [LValue::Index(index)] = store.left.as_slice()
+        && matches!((index.left.as_ref(), index.right.as_ref()), (RValue::Local(read), RValue::Literal(_)) if read == base)
+        && count_local_reads(std::slice::from_ref(hit.host.as_ref().unwrap()), base) == 1
+        && !hit.args.iter().any(|arg| reads(arg, base))
+        && !taken.iter().any(|(_, _, init)| reads(init, base))
+        && !tail_has_live(last_occ, stmts, i, end, &FxHashSet::from_iter([base.clone()]))
+    {
+        let address = crate::untruncated(address.clone());
+        if let Some(Statement::Assign(store)) = &mut hit.host
+            && let [LValue::Index(index)] = store.left.as_mut_slice()
+        {
+            *index.left = address;
+        }
         start = k;
     }
     // An assigned result whose temp went with the rest and is read nowhere
@@ -4343,9 +4743,7 @@ fn match_embedded_value(
         if u.result.as_ref() != Some(&result) || u.callee_locals.contains(&result) {
             return false;
         }
-        let call = Call::new(RValue::Local(t.f_local.clone()), u.args.clone())
-            .reconstructed(crate::call_origins::Kind::StatementDeinline);
-        *value = RValue::Call(call);
+        *value = hosted_call(t, u.args.clone(), false);
         found = Some(u);
         true
     });
@@ -4359,6 +4757,366 @@ fn match_embedded_value(
         return None;
     }
     Some(Hit { host: Some(host), ..Hit::call(t, d + 1 - i, u, Vec::new()) })
+}
+
+/// [`Target::hosted`]: the `V` of a `return V` pattern, when it pins its
+/// copies down: not a parameter handed back as it is (any value would
+/// match it), with no parameter the body writes (a copy writes a local of
+/// its own), and no smaller than the expression helpers' floor
+/// (`expr_deinline::NODE_COUNT_FLOOR`), a function literal counted with
+/// its body ([`value_nodes`]).
+fn hosted_pattern(t: &Target) -> Option<RValue> {
+    if t.kind != TKind::Value || t.loop_exit_at.is_some() || !t.returns.is_empty() || !t.written_params.is_empty() {
+        return None;
+    }
+    let [Statement::Return(ret)] = t.pat.as_slice() else { return None };
+    let [value] = ret.values.as_slice() else { return None };
+    if matches!(value, RValue::Local(local) if t.params.contains(local))
+        || matches!(value, RValue::VarArg(_) | RValue::Select(Select::VarArg(_)))
+    {
+        return None;
+    }
+    (value_nodes(value) >= crate::expr_deinline::NODE_COUNT_FLOOR).then(|| value.clone())
+}
+
+/// The nodes of `value`, a function literal's body included: the size of
+/// the code a call stands for.
+fn value_nodes(value: &RValue) -> usize {
+    match value {
+        RValue::Closure(closure) => 1 + closure.function.0.lock().body.0.iter().map(dbg_stmt_node_count).sum::<usize>(),
+        _ => {
+            let mut nodes = 1;
+            value.visit_rvalues(&mut |child| {
+                nodes += value_nodes(child);
+                true
+            });
+            nodes
+        }
+    }
+}
+
+/// Expression mode: the copy of a value helper whose whole body is `return
+/// V` ([`Target::hosted`]) is `V` itself, evaluated in place in the
+/// statement at `anchor` (`state.Lifetime = jit(state.Lifetime)`,
+/// `print(toCF(keys[3]).Position)`, `self.a = bindSelf(self, self.a)`,
+/// `onCancel(finalize(reject))`). Nothing moves but the arguments, which
+/// the call evaluates before the body as Luau did (`finish_unified`'s
+/// hoist proof). A copy Lua evaluates first in its statement
+/// ([`visit_leading_values`]), after nothing a moved temp could change,
+/// may also take in the temps Luau made for its arguments and a store's
+/// address right before the statement ([`absorb_arguments`]); one anywhere
+/// else keeps them. A store of the whole value into a local the caller has
+/// waits for the assignment phase, as [`match_assigned_value`] does. The
+/// call must save what the expression helpers' floor asks
+/// (`expr_deinline::NET_SAVING_FLOOR`).
+fn match_hosted_value(
+    stmts: &[Statement],
+    i: usize,
+    anchor: usize,
+    t: &Target,
+    canon_cache: &mut CanonCache,
+    current_func: Option<FnPtr>,
+) -> Option<Hit> {
+    let pattern = t.hosted.as_ref()?;
+    let statement = stmts.get(anchor)?;
+    if canon_cache.kinds(statement) & kind_bit(pattern) == 0 {
+        return None;
+    }
+    let kind = value_kind(pattern);
+    // No copy to build where no value of the statement has the pattern's
+    // shape (the walk does not enter function bodies, as the visits below
+    // do not).
+    if !holds_shape(statement, &|value| value_kind(value) == kind && unify_returned_value(&t.ctx(), pattern, value, &mut Bindings::default()).is_ok()) {
+        return None;
+    }
+    let function = current_func.map(|function| function as usize);
+    let register = |local: &RcLocal| t.captures.register_of(local, function);
+    let unchanged = |value: &Earlier| {
+        let Earlier::Value(value) = value;
+        t.captures.stable_at(value, function) || t.captures.unchanged_by_calls(value)
+    };
+    // The whole value stored into a local the caller has (`r = V`).
+    let whole_store = |host: &Statement| match host {
+        Statement::Assign(assign)
+            if !assign.prefix && assign.right.len() == 1 && assign.left.iter().all(|left| matches!(left, LValue::Local(_))) =>
+        {
+            Some(&assign.right[0] as *const RValue)
+        }
+        _ => None,
+    };
+    let placeholder = RcLocal::default();
+    let try_value = |value: &RValue, spread: Spread, whole: Option<*const RValue>| -> Option<(Unified, bool)> {
+        if value_kind(value) != kind || (!t.assigns && whole == Some(value as *const RValue)) {
+            return None;
+        }
+        if !charge_unify(t, &[]) || unify_returned_value(&t.ctx(), pattern, value, &mut Bindings::default()).is_err() {
+            return None;
+        }
+        let wrap = hosted_spread(t, pattern, value, spread)?;
+        let result = RcLocal::default();
+        let window = [Statement::Assign(Assign::new(vec![LValue::Local(result.clone())], vec![value.clone()]))];
+        let u = try_unify_site(t, &window, current_func)?;
+        let argument_nodes: usize = u.args.iter().map(value_nodes).sum();
+        if u.result.as_ref() != Some(&result)
+            || !u.callee_locals.is_empty()
+            || value_nodes(value) < 1 + argument_nodes + crate::expr_deinline::NET_SAVING_FLOOR
+        {
+            return None;
+        }
+        Some((u, wrap))
+    };
+    // First the copy Lua evaluates first, which may take in the temps
+    // before the statement.
+    let mut found: Option<(Unified, bool)> = None;
+    let mut host = statement.clone();
+    let whole = whole_store(&host);
+    let (mut leading, mut absorbs) = (false, false);
+    visit_leading_values(&mut host, &register, &mut |value, evaluated_before, spread| {
+        let Some(matched) = try_value(value, spread, whole) else { return false };
+        leading = true;
+        absorbs = evaluated_before.iter().all(unchanged);
+        found = Some(matched);
+        *value = RValue::Local(placeholder.clone());
+        true
+    });
+    if found.is_none() {
+        host = statement.clone();
+        let whole = whole_store(&host);
+        visit_value_slots(&mut host, &mut |value, spread| {
+            let Some((u, wrap)) = try_value(value, spread, whole) else { return false };
+            *value = hosted_call(t, u.args.clone(), wrap);
+            found = Some((u, wrap));
+            true
+        });
+    }
+    let (u, wrap) = found?;
+    // Where a temp moved in could change what the statement read before
+    // the copy, the call takes the arguments as they stand.
+    if leading && !absorbs {
+        fill_placeholder(&mut host, &placeholder, hosted_call(t, u.args.clone(), wrap));
+    }
+    let placeholder = (leading && absorbs).then_some((placeholder, wrap));
+    let mode = if leading { "site_hosted_leading" } else { "site_hosted" };
+    Some(Hit { host: Some(host), placeholder, mode, ..Hit::call(t, anchor + 1 - i, u, Vec::new()) })
+}
+
+/// The uniform-cell return: a helper every leaf of which returns the outer
+/// local `cell` (`return ignoreList`), matched as the body its call runs
+/// for no result (`hit`, a discard target's), and the statement right
+/// after the copy reading `cell` first of all it evaluates, after only
+/// reads (`FindPartOnRayWithIgnoreList(ray, ignoreList)`): that read gets
+/// the value the call returns, the one the copy left in `cell`. Rebuilt as
+/// that statement with the call there (`...(ray, getIgnoreList())`). A
+/// register Luau reads only when an operation runs, after a value that may
+/// change it, would see another value: refused. Where all of the results
+/// are taken, only a `single_valued` helper's call stands for the read.
+fn host_returned_cell(stmts: &[Statement], i: usize, mut hit: Hit, t: &Target, current_func: Option<FnPtr>) -> Result<Hit, Hit> {
+    let Some(cell) = t.returns_cell.as_ref() else { return Err(hit) };
+    // A plain call statement, the copy ending where the window does.
+    if hit.host.is_some() || hit.tail_ret.is_some() || !hit.results.is_empty() || hit.assign {
+        return Err(hit);
+    }
+    let Some(at) = nth_effective_index(stmts, i + hit.consume, 0) else { return Err(hit) };
+    let function = current_func.map(|function| function as usize);
+    if t.captures.register_of(cell, function)
+        && crate::evaluation_order::region_late_read_conflict(&stmts[at..=at], cell, &t.captures.may_change(cell))
+    {
+        return Err(hit);
+    }
+    let register = |local: &RcLocal| t.captures.register_of(local, function);
+    let unchanged = |value: &Earlier| {
+        let Earlier::Value(value) = value;
+        t.captures.stable_at(value, function) || t.captures.unchanged_by_calls(value)
+    };
+    let placeholder = RcLocal::default();
+    let mut host = stmts[at].clone();
+    let mut taken: Option<bool> = None;
+    visit_leading_values(&mut host, &register, &mut |value, evaluated_before, spread| {
+        if !matches!(value, RValue::Local(read) if read == cell) {
+            return false;
+        }
+        if spread == Spread::One || t.single_valued {
+            taken = Some(evaluated_before.iter().all(unchanged));
+            *value = RValue::Local(placeholder.clone());
+        }
+        // The first read of the cell decides: a later one ran after it.
+        true
+    });
+    let Some(absorbs) = taken else { return Err(hit) };
+    if absorbs {
+        hit.placeholder = Some((placeholder, false));
+    } else {
+        fill_placeholder(&mut host, &placeholder, hosted_call(t, hit.args.clone(), false));
+    }
+    hit.consume = at + 1 - i;
+    hit.host = Some(host);
+    hit.mode = "site_returned_cell";
+    Ok(hit)
+}
+
+/// Whether some value `statement` evaluates (its own, function bodies
+/// aside) passes `shaped`: a cheap gate before any copy is built.
+fn holds_shape(statement: &Statement, shaped: &dyn Fn(&RValue) -> bool) -> bool {
+    fn walk(value: &RValue, shaped: &dyn Fn(&RValue) -> bool) -> bool {
+        shaped(value) || !value.visit_rvalues(&mut |child| !walk(child, shaped))
+    }
+    match statement {
+        Statement::Assign(_)
+        | Statement::Call(_)
+        | Statement::MethodCall(_)
+        | Statement::Return(_)
+        | Statement::If(_)
+        | Statement::While(_)
+        | Statement::NumericFor(_)
+        | Statement::GenericFor(_) => !visit_stmt_rvalues(statement, &mut |value| !walk(value, shaped)),
+        _ => false,
+    }
+}
+
+/// Whether a call of `t` can stand where its copy `site` stood, taking
+/// `spread` of its results, and whether it then needs `(...)` to keep one.
+/// Luau inlines a call taking all of its results only when the helper is
+/// `single_valued`: a copy there is a copy only then. A helper returning a
+/// call gives all of that call's results, so it never is: a copy of it
+/// takes one result (`(V)`, or an operand) or as many as a store needs.
+/// One returning another value gives one.
+fn hosted_spread(t: &Target, pattern: &RValue, site: &RValue, spread: Spread) -> Option<bool> {
+    match (is_multiple(pattern), site) {
+        (true, RValue::Call(_) | RValue::MethodCall(_)) => (spread != Spread::Values).then_some(false),
+        (true, RValue::Select(Select::Call(_) | Select::MethodCall(_))) => Some(spread != Spread::One),
+        (true, _) => None,
+        (false, _) => (spread == Spread::One || t.single_valued).then_some(false),
+    }
+}
+
+/// The rebuilt call of a hosted copy, `(f(args))` where it must keep one
+/// result.
+fn hosted_call(t: &Target, args: Vec<RValue>, wrap: bool) -> RValue {
+    let mut call = Call::new(RValue::Local(t.f_local.clone()), args).reconstructed(crate::call_origins::Kind::StatementDeinline);
+    call.one_result = t.single_valued;
+    if wrap { RValue::Select(Select::Call(call)) } else { RValue::Call(call) }
+}
+
+/// A rebuilt call where a prefix stands (`f().x`, `f():m()`, `f()()`) as
+/// the one-result select the lifter writes there, which prints without
+/// parentheses: a call takes one value there either way.
+fn select_prefix_calls(statement: &mut Statement) {
+    fn selected(prefix: &mut RValue) {
+        if matches!(prefix, RValue::Call(call) if call.rebuilt.is_some()) {
+            let RValue::Call(call) = std::mem::replace(prefix, RValue::Literal(Literal::Nil)) else { unreachable!() };
+            *prefix = RValue::Select(Select::Call(call));
+        }
+    }
+    fn walk(value: &mut RValue) {
+        match value {
+            RValue::Index(index) => selected(&mut index.left),
+            RValue::Call(call) | RValue::Select(Select::Call(call)) => selected(&mut call.value),
+            RValue::MethodCall(call) | RValue::Select(Select::MethodCall(call)) => selected(&mut call.value),
+            _ => {}
+        }
+        value.visit_rvalues_mut(&mut |child| {
+            walk(child);
+            true
+        });
+    }
+    match statement {
+        Statement::Call(call) => selected(&mut call.value),
+        Statement::MethodCall(call) => selected(&mut call.value),
+        Statement::Assign(assign) => {
+            for left in &mut assign.left {
+                if let LValue::Index(index) = left {
+                    selected(&mut index.left);
+                }
+            }
+        }
+        _ => {}
+    }
+    visit_stmt_rvalues_mut(statement, &mut |value| {
+        walk(value);
+        true
+    });
+}
+
+/// Puts `value` in place of the read of `placeholder` in `statement`.
+fn fill_placeholder(statement: &mut Statement, placeholder: &RcLocal, value: RValue) {
+    fn fill(slot: &mut RValue, placeholder: &RcLocal, value: &mut Option<RValue>) -> bool {
+        if matches!(slot, RValue::Local(local) if local == placeholder) {
+            *slot = value.take().expect("one placeholder");
+            return true;
+        }
+        let mut done = false;
+        slot.visit_rvalues_mut(&mut |child| {
+            done = fill(child, placeholder, value);
+            !done
+        });
+        done
+    }
+    let mut value = Some(value);
+    visit_stmt_rvalues_mut(statement, &mut |slot| !fill(slot, placeholder, &mut value));
+    debug_assert!(value.is_none(), "the placeholder was filled");
+}
+
+/// Every value Lua evaluates in `statement`, outermost first, offered to
+/// `visit` with how many results its place takes, until `visit` takes one.
+/// Function bodies are not entered: they run where they are called, and
+/// are scanned as functions of their own.
+fn visit_value_slots(statement: &mut Statement, visit: &mut impl FnMut(&mut RValue, Spread) -> bool) -> bool {
+    fn value(slot: &mut RValue, spread: Spread, visit: &mut impl FnMut(&mut RValue, Spread) -> bool) -> bool {
+        if visit(slot, spread) {
+            return true;
+        }
+        match slot {
+            RValue::Call(call) | RValue::Select(Select::Call(call)) => {
+                value(&mut call.value, Spread::One, visit) || list(&mut call.arguments, Spread::Values, visit)
+            }
+            RValue::MethodCall(call) | RValue::Select(Select::MethodCall(call)) => {
+                value(&mut call.value, Spread::One, visit) || list(&mut call.arguments, Spread::Values, visit)
+            }
+            RValue::Table(table) => {
+                let last = table.0.len();
+                table.0.iter_mut().enumerate().any(|(at, (key, item))| {
+                    let spread = if key.is_none() && at + 1 == last { Spread::Values } else { Spread::One };
+                    key.as_mut().is_some_and(|key| value(key, Spread::One, visit)) || value(item, spread, visit)
+                })
+            }
+            RValue::Closure(_) => false,
+            other => {
+                let mut taken = false;
+                other.visit_rvalues_mut(&mut |child| {
+                    taken = value(child, Spread::One, visit);
+                    !taken
+                });
+                taken
+            }
+        }
+    }
+    fn list(values: &mut [RValue], last: Spread, visit: &mut impl FnMut(&mut RValue, Spread) -> bool) -> bool {
+        let count = values.len();
+        values.iter_mut().enumerate().any(|(at, slot)| value(slot, if at + 1 == count { last } else { Spread::One }, visit))
+    }
+    match statement {
+        Statement::Assign(assign) if !assign.parallel => {
+            let last = if assign.left.len() > assign.right.len() { Spread::Store } else { Spread::One };
+            assign.left.iter_mut().any(|left| match left {
+                LValue::Index(index) => value(&mut index.left, Spread::One, visit) || value(&mut index.right, Spread::One, visit),
+                _ => false,
+            }) || list(&mut assign.right, last, visit)
+        }
+        Statement::Call(call) => value(&mut call.value, Spread::One, visit) || list(&mut call.arguments, Spread::Values, visit),
+        Statement::MethodCall(call) => {
+            value(&mut call.value, Spread::One, visit) || list(&mut call.arguments, Spread::Values, visit)
+        }
+        Statement::Return(ret) => list(&mut ret.values, Spread::Values, visit),
+        Statement::If(branch) => value(&mut branch.condition, Spread::One, visit),
+        Statement::While(node) => value(&mut node.condition, Spread::One, visit),
+        Statement::NumericFor(node) => {
+            value(&mut node.initial, Spread::One, visit)
+                || value(&mut node.limit, Spread::One, visit)
+                || value(&mut node.step, Spread::One, visit)
+        }
+        Statement::GenericFor(node) => list(&mut node.right, Spread::Store, visit),
+        _ => false,
+    }
 }
 
 /// Offers `visit` each value of `statement` that Lua evaluates on every path
@@ -4509,6 +5267,24 @@ fn value_kind(value: &RValue) -> ValueKind {
         RValue::Call(_) | RValue::Select(Select::Call(_)) => ValueKind::Call,
         RValue::MethodCall(_) | RValue::Select(Select::MethodCall(_)) => ValueKind::MethodCall,
         _ => ValueKind::Other(std::mem::discriminant(value)),
+    }
+}
+
+/// One bit per kind of value, equal for values of an equal [`value_kind`].
+fn kind_bit(value: &RValue) -> u32 {
+    1 << match value {
+        RValue::Call(_) | RValue::Select(Select::Call(_)) => 0,
+        RValue::MethodCall(_) | RValue::Select(Select::MethodCall(_)) => 1,
+        RValue::Binary(_) => 2,
+        RValue::Unary(_) => 3,
+        RValue::Index(_) => 4,
+        RValue::Table(_) => 5,
+        RValue::Closure(_) => 6,
+        RValue::Local(_) => 7,
+        RValue::Literal(_) => 8,
+        RValue::Global(_) => 9,
+        RValue::IfExpression(_) => 10,
+        _ => 11,
     }
 }
 
@@ -6482,6 +7258,7 @@ fn store_returns(stmts: &[Statement], results: &[RcLocal]) -> Vec<Statement> {
 fn collect_targets(
     body: &Block,
     write_counts: &FxHashMap<RcLocal, usize>,
+    single_valued: &FxHashSet<RcLocal>,
     captures: std::rc::Rc<crate::deinline_safety::CaptureSafety>,
 ) -> Vec<Target> {
     // P4: a write-once census (`write_counts`, computed once by the caller — see the
@@ -6731,9 +7508,24 @@ fn collect_targets(
         target.loop_exit_at = loop_exit_at;
         target.returns = returns;
         target.identity_params = identity_params;
+        target.single_valued = single_valued.contains(&f_local);
+        target.hosted = hosted_pattern(&target);
+        // The outer local every leaf returns, if one.
+        let returns_cell = match leaves.split_first() {
+            Some((RValue::Local(cell), rest))
+                if !g.parameters.contains(cell)
+                    && !target.locals.contains(cell)
+                    && rest.iter().all(|leaf| matches!(leaf, RValue::Local(other) if other == cell)) =>
+            {
+                Some(cell.clone())
+            }
+            _ => None,
+        };
         let discard_target = discard.map(|(pattern, raw)| Target {
             discarded: true,
             returns_parameter,
+            returns_cell,
+            single_valued: target.single_valued,
             ..common.target(TKind::Void, pattern, &raw)
         });
         targets.push(target);
@@ -6804,6 +7596,9 @@ impl TargetCommon<'_> {
             discarded: false,
             assigns: false,
             returns_parameter: None,
+            single_valued: false,
+            hosted: None,
+            returns_cell: None,
             captures: self.captures.clone(),
             search: Default::default(),
         }
@@ -7852,6 +8647,9 @@ mod tests {
             discarded: false,
             assigns: false,
             returns_parameter: None,
+            single_valued: false,
+            hosted: None,
+            returns_cell: None,
             captures: Default::default(),
             search: Default::default(),
         }
@@ -8036,7 +8834,8 @@ mod tests {
         };
 
         let output = rebuilt(helper_body(RValue::Literal(Literal::Nil)), site(leave(), Vec::new()));
-        assert!(output.contains("local found = findItem(list, key)"), "{output}");
+        // The value moves into the one statement reading it.
+        assert!(output.contains("print(findItem(list, key))"), "{output}");
         assert!(!output.contains("break"), "{output}");
 
         // The helper's `return fallback` runs where the flag is still set.
@@ -8048,7 +8847,8 @@ mod tests {
             ))
         };
         let output = rebuilt(helper_body(string("none")), site(leave(), vec![fallback(&found)]));
-        assert!(output.contains("local found = findItem(list, key)"), "{output}");
+        // The value moves into the one statement reading it.
+        assert!(output.contains("print(findItem(list, key))"), "{output}");
 
         // A store that keeps looping is not a `return`.
         let keeps_looping = vec![assign_local(&found, local_value(&x), false)];
@@ -8125,7 +8925,7 @@ mod tests {
             use_r(),
         ];
         let output = run(helper_body, site);
-        assert!(output.contains("local r = classify(list)"), "{output}");
+        assert!(output.contains("print(classify(list))"), "{output}");
 
         // for i = 1, #list do if a(i) then return i end end (nothing after)
         let helper_body = vec![numeric(&i, vec![guard(test("a", &i), vec![return_one(local_value(&i))], vec![])])];
@@ -8136,6 +8936,8 @@ mod tests {
             use_r(),
         ];
         let output = run(helper_body, site);
+        // Falling off its end, the helper may return nothing: its call keeps
+        // the local where all of a value's results are taken.
         assert!(output.contains("local r = classify(list)"), "{output}");
     }
 
@@ -8627,6 +9429,9 @@ mod tests {
             discarded: false,
             assigns: false,
             returns_parameter: None,
+            single_valued: false,
+            hosted: None,
+            returns_cell: None,
             captures: Default::default(),
             search: Default::default(),
         };
@@ -8711,6 +9516,9 @@ mod tests {
             discarded: false,
             assigns: false,
             returns_parameter: None,
+            single_valued: false,
+            hosted: None,
+            returns_cell: None,
             captures: Default::default(),
             search: Default::default(),
         };
@@ -8785,6 +9593,9 @@ mod tests {
             discarded: false,
             assigns: false,
             returns_parameter: None,
+            single_valued: false,
+            hosted: None,
+            returns_cell: None,
             captures: Default::default(),
             search: Default::default(),
         };
@@ -8874,6 +9685,9 @@ mod tests {
             discarded: false,
             assigns: false,
             returns_parameter: None,
+            single_valued: false,
+            hosted: None,
+            returns_cell: None,
             captures: Default::default(),
             search: Default::default(),
         };
@@ -9221,6 +10035,9 @@ mod tests {
             discarded: false,
             assigns: false,
             returns_parameter: None,
+            single_valued: false,
+            hosted: None,
+            returns_cell: None,
             captures: Default::default(),
             search: Default::default(),
         };
@@ -9318,6 +10135,9 @@ mod tests {
             discarded: false,
             assigns: false,
             returns_parameter: None,
+            single_valued: false,
+            hosted: None,
+            returns_cell: None,
             captures: Default::default(),
             search: Default::default(),
         }
@@ -9477,6 +10297,9 @@ mod tests {
             discarded: false,
             assigns: false,
             returns_parameter: None,
+            single_valued: false,
+            hosted: None,
+            returns_cell: None,
             captures: Default::default(),
             search: Default::default(),
         }
@@ -9531,6 +10354,9 @@ mod tests {
             discarded: false,
             assigns: false,
             returns_parameter: None,
+            single_valued: false,
+            hosted: None,
+            returns_cell: None,
             captures: Default::default(),
             search: Default::default(),
         }
@@ -9986,6 +10812,7 @@ mod tests {
         let ctx = MatchCtx {
             params: &params,
             locals: &locals,
+            captures: None,
         };
 
         let mut b = Bindings::default();
@@ -10055,6 +10882,7 @@ mod tests {
         let ctx = MatchCtx {
             params: &params,
             locals: &locals,
+            captures: None,
         };
         let mut bindings = Bindings::default();
 
@@ -10090,6 +10918,18 @@ mod tests {
         assert!(body_unsafe(&body(callback(None))));
     }
 
+    /// [`collapse_use`] in the chunk, with `single_valued`: every local of it
+    /// a register that reads the same before and after a call (`stable`), or
+    /// nothing known (an exhausted census).
+    fn collapse_in_chunk(s: &Statement, v: &RcLocal, call: &RValue, single_valued: &FxHashSet<RcLocal>, stable: bool) -> Option<Statement> {
+        let captures = if stable {
+            crate::deinline_safety::CaptureSafety::default()
+        } else {
+            crate::deinline_safety::CaptureSafety::exhausted_for_tests()
+        };
+        collapse_use(s, v, call, &Collapse { single_valued, captures: &captures, function: None })
+    }
+
     /// F2: an indexed-LHS value collapse is refused when it would reorder the
     /// target prefix relative to the moved-in call; a bare-local LHS still
     /// collapses, and so does an address that reads the same either way.
@@ -10107,11 +10947,10 @@ mod tests {
             parallel: false, compound: false,
         });
         let empty = FxHashSet::default();
-        assert!(collapse_use(&indexed, &v, &call, &empty, &|_| false).is_none());
+        assert!(collapse_in_chunk(&indexed, &v, &call, &empty, false).is_none());
         // Store mode: an address that reads the same before and after the call
         // (a register base, a constant key) takes the call in.
-        let stable = |address: &RValue| matches!(address, RValue::Literal(_)) || matches!(address, RValue::Local(l) if *l == t);
-        match collapse_use(&indexed, &v, &call, &empty, &stable).expect("a stable address collapses") {
+        match collapse_in_chunk(&indexed, &v, &call, &empty, true).expect("a stable address collapses") {
             Statement::Assign(a) => assert!(matches!(a.right[0], RValue::Call(_)) && matches!(a.left[0], LValue::Index(_))),
             _ => panic!("expected an Assign"),
         }
@@ -10124,11 +10963,11 @@ mod tests {
             parallel: false, compound: false,
         });
         let proven: FxHashSet<RcLocal> = [local("f")].into_iter().collect();
-        assert!(collapse_use(&two, &v, &call, &proven, &stable).is_none());
+        assert!(collapse_in_chunk(&two, &v, &call, &proven, true).is_none());
 
         let x = local("x");
         let local_lhs = assign_local(&x, local_value(&v), false);
-        match collapse_use(&local_lhs, &v, &call, &empty, &|_| false).expect("local LHS must collapse") {
+        match collapse_in_chunk(&local_lhs, &v, &call, &empty, false).expect("local LHS must collapse") {
             Statement::Assign(a) => assert!(matches!(a.right[0], RValue::Call(_))),
             _ => panic!("expected an Assign"),
         }
@@ -10151,8 +10990,8 @@ mod tests {
 
         // `return v` — multi-value context: only a proven single-value helper.
         let ret = Statement::Return(Return::new(vec![local_value(&v)]));
-        assert!(collapse_use(&ret, &v, &call, &unknown, &|_| false).is_none(), "return v must NOT collapse an unproven helper");
-        assert!(collapse_use(&ret, &v, &call, &proven, &|_| false).is_some(), "return v DOES collapse a single-value helper");
+        assert!(collapse_in_chunk(&ret, &v, &call, &unknown, false).is_none(), "return v must NOT collapse an unproven helper");
+        assert!(collapse_in_chunk(&ret, &v, &call, &proven, false).is_some(), "return v DOES collapse a single-value helper");
 
         // MULTI-LHS `a, b = v` — multi-value context.
         let a = local("a");
@@ -10164,14 +11003,14 @@ mod tests {
             prefix: false,
             parallel: false, compound: false,
         });
-        assert!(collapse_use(&multi_lhs, &v, &call, &unknown, &|_| false).is_none(), "multi-LHS a,b = v must NOT collapse an unproven helper");
+        assert!(collapse_in_chunk(&multi_lhs, &v, &call, &unknown, false).is_none(), "multi-LHS a,b = v must NOT collapse an unproven helper");
 
         // SINGLE-LHS `x = v` and `if v` truncate to one value for any helper.
         let x = local("x");
         let single_lhs = assign_local(&x, local_value(&v), false);
-        assert!(collapse_use(&single_lhs, &v, &call, &unknown, &|_| false).is_some(), "single-LHS x = v collapses any helper (truncates)");
+        assert!(collapse_in_chunk(&single_lhs, &v, &call, &unknown, false).is_some(), "single-LHS x = v collapses any helper (truncates)");
         let if_v = if_stmt(local_value(&v), vec![print_x()], vec![]);
-        assert!(collapse_use(&if_v, &v, &call, &unknown, &|_| false).is_some(), "if v collapses any helper (single-value condition)");
+        assert!(collapse_in_chunk(&if_v, &v, &call, &unknown, false).is_some(), "if v collapses any helper (single-value condition)");
     }
 
     /// Second review, item 1: the arity proof is read off the declarations
@@ -10414,8 +11253,9 @@ mod tests {
     /// Exhaustive equivalence: `canon_top_len(stmts, tail) == canon_top(stmts, tail).len()`
     /// over EVERY sequence of length 0..=4 from a canon-relevant alphabet (Empty
     /// trivia / source comment; plain / void-return / value-return
-    /// statements; foldable + several non-foldable guard shapes; a 2-value return), for
-    /// both tail values — ~41k cases. Computes the real length via `canon_top` directly
+    /// statements; foldable + several non-foldable guard shapes; an `if` a value
+    /// return is distributed into; a 2-value return), for both tail values — ~57k
+    /// cases. Computes the real length via `canon_top` directly
     /// (independent of the in-function debug_assert), pinning the non-allocating length
     /// mirror to `canon_top` even for release builds where the debug_assert is gone.
     #[test]
@@ -10433,6 +11273,8 @@ mod tests {
                 8 => if_stmt(global("c"), vec![void_return()], vec![print_x()]),  // else nonempty
                 9 => if_stmt(global("c"), vec![print_x(), void_return()], vec![]), // then len 2
                 10 => if_stmt(global("c"), vec![print_x()], vec![]),              // then non-return
+                // two open ends and a return: takes a following value return (E1)
+                11 => if_stmt(global("c"), vec![if_stmt(global("d"), vec![return_one(number(3.0))], vec![])], vec![]),
                 _ => if_stmt(
                     global("c"),
                     vec![Statement::Return(Return::new(vec![
@@ -10443,7 +11285,7 @@ mod tests {
                 ), // 2-value return then-block
             }
         };
-        const ALPHA: u8 = 12;
+        const ALPHA: u8 = 13;
         for len in 0..=4usize {
             let mut idx = vec![0u8; len];
             loop {
@@ -10686,6 +11528,9 @@ mod tests {
             discarded: false,
             assigns: false,
             returns_parameter: None,
+            single_valued: false,
+            hosted: None,
+            returns_cell: None,
             captures: Default::default(),
             search: Default::default(),
         };
@@ -10878,5 +11723,178 @@ mod tests {
         assert!(continues_as_returns(&[inner.clone()]).is_none());
         let mixed = continues_as_returns(&[inner.clone(), if_stmt(local_value(&c), vec![Statement::Continue(crate::Continue {})], vec![])]).unwrap();
         assert_eq!(format!("{:?}", mixed[0]), format!("{inner:?}"));
+    }
+
+    /// `local name = function(parameters) body end`.
+    fn helper_with(name: &RcLocal, parameters: &[RcLocal], body: Vec<Statement>) -> Statement {
+        let declaration = helper_decl(name, body);
+        if let Statement::Assign(assign) = &declaration
+            && let RValue::Closure(closure) = &assign.right[0]
+        {
+            closure.function.lock().parameters = parameters.to_vec();
+        }
+        declaration
+    }
+
+    /// `if type(v) == "function" then return true end; if type(v) ==
+    /// "table" then local m = getmetatable(v); if m and m.call then return
+    /// true end end; return false`: `isCallable`'s shape.
+    fn is_callable_body(v: &RcLocal, m: &RcLocal) -> Vec<Statement> {
+        let is_type = |name: &str| bin(call1(global("type"), local_value(v)), BinaryOperation::Equal, string(name));
+        vec![
+            if_stmt(is_type("function"), vec![return_one(boolean(true))], vec![]),
+            if_stmt(
+                is_type("table"),
+                vec![
+                    assign_local(m, call1(global("getmetatable"), local_value(v)), true),
+                    if_stmt(
+                        bin(local_value(m), BinaryOperation::And, field(local_value(m), "call")),
+                        vec![return_one(boolean(true))],
+                        vec![],
+                    ),
+                ],
+                vec![],
+            ),
+            return_one(boolean(false)),
+        ]
+    }
+
+    /// The copy Luau inlines of [`is_callable_body`] for `local r =
+    /// isCallable(x)`, its first test `first`: `if first then r = true
+    /// elseif type(x) == "table" then local m = getmetatable(x); r = m and
+    /// m.call and true or false else r = false end`.
+    fn is_callable_copy(first: RValue, x: &RcLocal, m: &RcLocal, r: &RcLocal) -> Statement {
+        let mut condition = bin(local_value(m), BinaryOperation::And, field(local_value(m), "call"));
+        let select = crate::select_value(&mut condition, boolean(true), boolean(false)).unwrap();
+        let is_table = bin(call1(global("type"), local_value(x)), BinaryOperation::Equal, string("table"));
+        if_stmt(
+            first,
+            vec![assign_local(r, boolean(true), false)],
+            vec![if_stmt(
+                is_table,
+                vec![assign_local(m, call1(global("getmetatable"), local_value(x)), true), assign_local(r, select, false)],
+                vec![assign_local(r, boolean(false), false)],
+            )],
+        )
+    }
+
+    #[test]
+    fn a_return_after_an_if_with_two_open_ends_closes_both() {
+        let (v, m) = (local("value"), local("metatable"));
+        let pattern = canon(&is_callable_body(&v, &m));
+        // One `if`, every path ending in a value `return`: a value leaf
+        // shape, which the copy's stores unify with.
+        assert_eq!(pattern.len(), 1);
+        assert!(value_leaf_shape(&pattern), "{pattern:?}");
+        assert_eq!(canon_top_len(&is_callable_body(&v, &m), true), 1);
+        // An `if` that never returns keeps the `return` after it: its copy
+        // keeps the store after it too.
+        let plain = vec![if_stmt(global("c"), vec![print_x()], vec![print_x()]), return_one(number(1.0))];
+        assert_eq!(canon(&plain).len(), 2);
+        assert_eq!(canon_top_len(&plain, true), 2);
+    }
+
+    #[test]
+    fn a_comparison_before_the_copy_splits_off_as_or() {
+        let (helper, v, m) = (local("isCallable"), local("value"), local("metatable"));
+        let (x, r, mm) = (local("x"), local("r"), local("mm"));
+        let run = |first: RValue| {
+            let mut block = Block(vec![
+                helper_with(&helper, std::slice::from_ref(&v), is_callable_body(&v, &m)),
+                init_less_decl(&r),
+                is_callable_copy(first, &x, &mm, &r),
+                Statement::Call(global_call("print", vec![local_value(&r)])),
+            ]);
+            deinline(&mut block);
+            block.to_string()
+        };
+        let is_function = || bin(call1(global("type"), local_value(&x)), BinaryOperation::Equal, string("function"));
+        let is_nil = bin(local_value(&x), BinaryOperation::Equal, RValue::Literal(Literal::Nil));
+        let output = run(bin(is_nil, BinaryOperation::Or, is_function()));
+        assert!(output.contains("print(x == nil or isCallable(x))"), "{output}");
+        // A field's value is no boolean: `t.flag or isCallable(x)` would be
+        // that value where the copy stores `true`.
+        let output = run(bin(field(global("t"), "flag"), BinaryOperation::Or, is_function()));
+        assert!(!output.contains("isCallable(x)"), "{output}");
+    }
+
+    #[test]
+    fn a_copy_returning_from_its_caller_rebuilds_as_a_return() {
+        let (helper, v, m) = (local("isCallable"), local("value"), local("metatable"));
+        let (x, mm) = (local("x"), local("mm"));
+        let caller = local("check");
+        let mut site = vec![Statement::Call(global_call("print", vec![string("start")]))];
+        site.extend(is_callable_body(&x, &mm));
+        let mut block = Block(vec![
+            helper_with(&helper, std::slice::from_ref(&v), is_callable_body(&v, &m)),
+            helper_with(&caller, std::slice::from_ref(&x), site),
+        ]);
+        deinline(&mut block);
+        let output = block.to_string();
+        assert!(output.contains("return isCallable(x)"), "{output}");
+    }
+
+    #[test]
+    fn a_copy_evaluated_in_place_rebuilds_there() {
+        let (helper, player) = (local("getCharacter"), local("player"));
+        let character = || bin(local_value(&player), BinaryOperation::And, field(local_value(&player), "Character"));
+        let mut block = Block(vec![
+            assign_local(&player, global("LocalPlayer"), true),
+            helper_with(&helper, &[], vec![return_one(character())]),
+            Statement::Call(global_call("print", vec![string("x"), character()])),
+        ]);
+        deinline(&mut block);
+        let output = block.to_string();
+        // A last argument takes every result: the helper gives exactly one.
+        assert!(output.contains("print(\"x\", getCharacter())"), "{output}");
+    }
+
+    #[test]
+    fn a_call_taking_all_results_is_no_copy_of_a_helper_returning_a_call() {
+        let (helper, s, x) = (local("shout"), local("s"), local("x"));
+        let shouted = |of: &RcLocal| RValue::Call(global_call("rep", vec![field(local_value(of), "name"), number(2.0), string("!")]));
+        let run = |arguments: Vec<RValue>| {
+            let mut block = Block(vec![
+                assign_local(&x, global("input"), true),
+                helper_with(&helper, std::slice::from_ref(&s), vec![return_one(shouted(&s))]),
+                Statement::Call(global_call("print", arguments)),
+            ]);
+            deinline(&mut block);
+            block.to_string()
+        };
+        // An operand takes one result: Luau inlines the call there.
+        let output = run(vec![shouted(&x), number(1.0)]);
+        assert!(output.contains("print(shout(x), 1)"), "{output}");
+        // A last argument takes all of them: Luau never inlines a helper
+        // returning a call there, so that is no copy.
+        let output = run(vec![number(1.0), shouted(&x)]);
+        assert!(output.contains("print(1, rep(x.name, 2, \"!\"))"), "{output}");
+    }
+
+    #[test]
+    fn an_upvalue_capture_matches_a_copy_of_a_local_never_reassigned() {
+        let (once, rebound) = (local("once"), local("rebound"));
+        let census = |reassigned: bool| {
+            let mut block = vec![assign_local(&once, number(1.0), true), assign_local(&rebound, number(1.0), true)];
+            if reassigned {
+                block.push(assign_local(&rebound, number(2.0), false));
+            }
+            crate::deinline_safety::CaptureSafety::new(&Block(block))
+        };
+        let function = ByAddress(Arc::new(Mutex::new(Function { bytecode_proto_id: Some(3), ..Function::default() })));
+        let closure = |upvalue: Upvalue| Closure { node_origin: Default::default(), function: function.clone(), upvalues: vec![upvalue] };
+        let (params, locals) = (FxHashSet::default(), FxHashSet::default());
+        let unify = |captures: &crate::deinline_safety::CaptureSafety, pattern: Upvalue, site: Upvalue| {
+            let ctx = MatchCtx { params: &params, locals: &locals, captures: Some(captures) };
+            unify_closure(&ctx, &closure(pattern), &closure(site), &mut Bindings::default()).is_ok()
+        };
+        // The helper's closure reaches it through its own upvalue, the copy
+        // straight from the caller's local.
+        assert!(unify(&census(false), Upvalue::Ref(once.clone()), Upvalue::Copy(once.clone())));
+        assert!(unify(&census(true), Upvalue::Ref(rebound.clone()), Upvalue::Ref(rebound.clone())));
+        assert!(!unify(&census(true), Upvalue::Ref(rebound.clone()), Upvalue::Copy(rebound.clone())));
+        // Nor the other way round, nor between different locals.
+        assert!(!unify(&census(false), Upvalue::Copy(once.clone()), Upvalue::Ref(once.clone())));
+        assert!(!unify(&census(false), Upvalue::Ref(once.clone()), Upvalue::Copy(rebound.clone())));
     }
 }

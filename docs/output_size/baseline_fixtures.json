@@ -664,6 +664,18 @@
       "bytes": 2762,
       "lines": 27
     },
+    "semantic/deinline_closure_factories__O0.luau": {
+      "bytes": 2331,
+      "lines": 139
+    },
+    "semantic/deinline_closure_factories__O1.luau": {
+      "bytes": 2331,
+      "lines": 139
+    },
+    "semantic/deinline_closure_factories__O2.luau": {
+      "bytes": 3140,
+      "lines": 157
+    },
     "semantic/deinline_discarded_result__O0.luau": {
       "bytes": 1021,
       "lines": 64
@@ -687,6 +699,18 @@
     "semantic/deinline_free_cell_read_late__O2.luau": {
       "bytes": 175,
       "lines": 16
+    },
+    "semantic/deinline_hosted_values__O0.luau": {
+      "bytes": 1774,
+      "lines": 82
+    },
+    "semantic/deinline_hosted_values__O1.luau": {
+      "bytes": 1762,
+      "lines": 81
+    },
+    "semantic/deinline_hosted_values__O2.luau": {
+      "bytes": 2083,
+      "lines": 81
     },
     "semantic/deinline_late_register_read_of_a_cell__O0.luau": {
       "bytes": 707,
@@ -736,6 +760,30 @@
       "bytes": 2270,
       "lines": 134
     },
+    "semantic/deinline_returned_cell__O0.luau": {
+      "bytes": 1182,
+      "lines": 75
+    },
+    "semantic/deinline_returned_cell__O1.luau": {
+      "bytes": 1182,
+      "lines": 75
+    },
+    "semantic/deinline_returned_cell__O2.luau": {
+      "bytes": 1485,
+      "lines": 75
+    },
+    "semantic/deinline_returns_distributed_and_short_circuit__O0.luau": {
+      "bytes": 1551,
+      "lines": 72
+    },
+    "semantic/deinline_returns_distributed_and_short_circuit__O1.luau": {
+      "bytes": 1551,
+      "lines": 72
+    },
+    "semantic/deinline_returns_distributed_and_short_circuit__O2.luau": {
+      "bytes": 1818,
+      "lines": 72
+    },
     "semantic/deinline_store_rebuilt_below_its_caller_copy__O0.luau": {
       "bytes": 2011,
       "lines": 93
@@ -747,6 +795,18 @@
     "semantic/deinline_store_rebuilt_below_its_caller_copy__O2.luau": {
       "bytes": 2196,
       "lines": 93
+    },
+    "semantic/deinline_value_moves_into_its_reader__O0.luau": {
+      "bytes": 734,
+      "lines": 39
+    },
+    "semantic/deinline_value_moves_into_its_reader__O1.luau": {
+      "bytes": 734,
+      "lines": 39
+    },
+    "semantic/deinline_value_moves_into_its_reader__O2.luau": {
+      "bytes": 1050,
+      "lines": 40
     },
     "semantic/deinline_written_parameter_alias__O0.luau": {
       "bytes": 1231,

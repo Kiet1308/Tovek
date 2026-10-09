@@ -3226,7 +3226,9 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
     fn interpolation_plan(bytes: &[u8], arguments: &[RValue]) -> Option<(Vec<String>, String)> {
         // An open tail may supply zero values. A placeholder would scalarize
         // it to nil and suppress format's missing-argument error.
-        if matches!(arguments.last(), Some(RValue::Call(_) | RValue::MethodCall(_) | RValue::VarArg(_))) {
+        if matches!(arguments.last(), Some(RValue::Call(call)) if !call.one_result)
+            || matches!(arguments.last(), Some(RValue::MethodCall(_) | RValue::VarArg(_)))
+        {
             return None;
         }
         // Static text re-lexes inside backticks; bytes must be valid UTF-8 so we

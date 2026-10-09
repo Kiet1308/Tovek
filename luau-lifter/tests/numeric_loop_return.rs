@@ -17,7 +17,7 @@ fn numeric_loop_returns_structure_and_rebuild() {
     let source = luau_lifter::try_decompile_bytecode_with_options(BYTECODE, 1, None, Default::default())
         .expect("fixture decompiles");
     assert!(!source.contains("goto"), "{source}");
-    for call in ["= indexOf(", "= lastIndexOf(", "= firstOver(", "= indexOrCount(", "if contains(", "= classify("] {
+    for call in ["= indexOf(", "= lastIndexOf(", "= firstOver(", "= indexOrCount(", "if contains(", "classify(list, p), classify(list, p2)"] {
         assert!(source.contains(call), "{call} not rebuilt:\n{source}");
     }
 }

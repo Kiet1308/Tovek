@@ -169,11 +169,23 @@ impl CaptureSafety {
         }
     }
 
+    /// Whether no code assigns `local` after its declaration: every read of
+    /// it, by value or through a cell, sees the value it was declared with.
+    pub(crate) fn never_reassigned(&self, local: &crate::RcLocal) -> bool {
+        !self.exhausted && !self.rebound.contains(&local.stable_id())
+    }
+
     pub(crate) fn uncaptured(&self, local: &crate::RcLocal) -> bool {
         !self.exhausted && !self.captured.contains(&local.stable_id())
     }
 
     pub(crate) fn complete(&self) -> bool { !self.exhausted }
+
+    /// A census that knows nothing, as one past its budget.
+    #[cfg(test)]
+    pub(crate) fn exhausted_for_tests() -> Self {
+        Self { exhausted: true, ..Self::default() }
+    }
 
     /// The module calls `debug.info`, whose answer depends on the call
     /// frames running: the same code in a helper sees another frame.
