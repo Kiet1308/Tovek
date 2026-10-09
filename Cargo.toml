@@ -36,6 +36,15 @@ codegen-units = 1
 # depends on unwinding.
 # panic = "abort"
 
+# Development builds that behave like release but compile in a fraction of the
+# time: no LTO, parallel codegen, incremental. Output is the same as release;
+# measure performance with `--release` only.
+[profile.fastrel]
+inherits = "release"
+lto = false
+codegen-units = 16
+incremental = true
+
 [profile.release.package.luau-worker]
 # wasm-bindgen needs the target-features/custom sections to select externref
 # tables and generate exception wrappers. Stripping the final wasm first loses
