@@ -14,6 +14,11 @@
 //! or index key (`t[0.5]`) keeps its literal too: the table passes after this
 //! one read such keys as slots (`rebuild_table_literals`, `compound_bases`).
 //!
+//! A fraction prints over the denominator its source most likely divided by
+//! when that is not its lowest one: `190 / 255` (a color channel) rather than
+//! `38 / 51`, `28 / 60` in a chunk whose times are in sixtieths ([`Fractions`]
+//! has the rule). The rationals are equal, so the double is the same.
+//!
 //! The fractions come from the chunk's constant table ([`Fractions`]), so a
 //! chunk without one costs no walk. The pass runs late (`luau-lifter`, before
 //! `library_constants` and the register check): passes before it compare and
@@ -34,6 +39,11 @@ const MAX_NUMERATOR: u64 = 1 << 31;
 /// A decimal with fewer significant digits reads as well as any fraction
 /// (`0.35`, `0.125`).
 const MIN_SIGNIFICANT_DIGITS: usize = 10;
+/// Denominators sources divide by for a reason of their own, in order of
+/// preference: frames or seconds per minute, color channels, degrees, screen
+/// sizes. (A denominator of 100 or 1000 never shows: such a fraction is a
+/// short decimal.)
+const PREFERRED_DENOMINATORS: [u64; 5] = [60, 255, 360, 1080, 1920];
 
 /// `(p, q)` with `p / q` bit-equal to `value`, `q <= 1000`, `|p| < 2^31`, in
 /// lowest terms, when that spelling is shorter than the shortest decimal and
@@ -44,7 +54,12 @@ const MIN_SIGNIFICANT_DIGITS: usize = 10;
 /// by Legendre's theorem it is a convergent of the exact binary value. The
 /// first bit-equal convergent is the one with the smallest denominator.
 pub fn exact_fraction(value: f64) -> Option<(i64, u64)> {
-    let magnitude = value.abs();
+    let (p, q, _) = lowest_fraction(value.abs())?;
+    Some((if value < 0.0 { -(p as i64) } else { p as i64 }, q))
+}
+
+/// [`exact_fraction`] of a magnitude, with the length of its decimal.
+fn lowest_fraction(magnitude: f64) -> Option<(u64, u64, usize)> {
     // `p >= 1` and `q <= 1000` reach no lower than 1/1000; `p < 2^31` no higher.
     if !(1.0 / MAX_DENOMINATOR as f64..MAX_NUMERATOR as f64).contains(&magnitude) || magnitude.fract() == 0.0 {
         return None;
@@ -55,8 +70,11 @@ pub fn exact_fraction(value: f64) -> Option<(i64, u64)> {
         return None;
     }
     let (p, q) = convergent(magnitude)?;
-    let spelled = digits(p) + " / ".len() + digits(q);
-    (spelled < decimal.len()).then(|| (if value < 0.0 { -(p as i64) } else { p as i64 }, q))
+    (spelled_length(p, q) < decimal.len()).then_some((p, q, decimal.len()))
+}
+
+fn spelled_length(p: u64, q: u64) -> usize {
+    digits(p) + " / ".len() + digits(q)
 }
 
 /// Digits of a shortest decimal (`0.016666666666666666`, `1.5e-7`) from its
@@ -99,18 +117,99 @@ fn convergent(magnitude: f64) -> Option<(u64, u64)> {
 /// integer one is `Literal::Integer`, a `LOADN` an integer), so the table
 /// holds every literal the pass can spell, and a chunk with none (most of
 /// them) is not walked at all.
+///
+/// A fraction prints over a multiple `D` of its lowest denominator `q` when
+/// that is the denominator its source most likely divided by. A unit
+/// fraction never moves: `1 / 30` and `1 / 240` are how sources write rates
+/// and steps. Of the others, call a fraction odd when `q` is above 60 or has
+/// a prime factor above 5 (`38 / 51`, `373 / 480`: lowest forms nobody
+/// writes), plain otherwise (`7 / 15`).
+/// 1. An odd fraction takes a [`PREFERRED_DENOMINATORS`] multiple: when `q`
+///    has a prime factor above 5 (`38 / 51` is `190 / 255`), or when at least
+///    two odd fractions of the chunk divide `D` (a layout in 1920x1080
+///    ratios: `373 / 480` is `1492 / 1920` beside `589 / 960`). The most odd
+///    fractions dividing it, then the preferred order, choose among several.
+/// 2. Then a fraction alone with its lowest denominator follows a preferred
+///    or odd denominator at least two other fractions of the chunk now print
+///    with (a cutscene timed in sixtieths: `7 / 15` is `28 / 60` beside
+///    `11 / 60` and `67 / 60`); the most used one wins, then the smaller. A
+///    plain denominator is no source divisor however often it is used:
+///    `2 / 3` beside `1 / 9` and `2 / 9` stays.
+///
+/// The spelling must still be shorter than the decimal. The rationals are
+/// equal, so `p·k / (q·k)` divides to the same double (checked anyway).
 #[derive(Default)]
 pub struct Fractions(FxHashMap<u64, (u64, u64)>);
 
 impl Fractions {
     pub fn of_constants(constants: impl IntoIterator<Item = f64>) -> Self {
-        let mut fractions = FxHashMap::default();
+        // (magnitude bits, lowest p, lowest q, decimal length, spelled p, spelled q)
+        let mut fractions = Vec::new();
+        let mut seen = FxHashSet::default();
         for constant in constants {
-            if let Some((p, q)) = exact_fraction(constant) {
-                fractions.insert(constant.abs().to_bits(), (p.unsigned_abs(), q));
+            let magnitude = constant.abs();
+            if seen.insert(magnitude.to_bits())
+                && let Some((p, q, decimal)) = lowest_fraction(magnitude)
+            {
+                fractions.push((magnitude.to_bits(), p, q, decimal, p, q));
             }
         }
-        Self(fractions)
+        if fractions.len() > 1 || fractions.first().is_some_and(|&(_, _, q, ..)| !five_smooth(q)) {
+            Self::prefer_source_denominators(&mut fractions);
+        }
+        Self(fractions.into_iter().map(|(bits, .., p, q)| (bits, (p, q))).collect())
+    }
+
+    /// The two steps of the rule above, in place on `fractions`' spellings.
+    fn prefer_source_denominators(fractions: &mut [(u64, u64, u64, usize, u64, u64)]) {
+        // `p·(d/q) / d` when that is a shorter, bit-equal spelling.
+        let respelled = |&(bits, p, q, decimal, ..): &(u64, u64, u64, usize, u64, u64), d: u64| {
+            let k = d / q;
+            (p > 1 && d % q == 0 && k >= 2 && p * k < MAX_NUMERATOR && spelled_length(p * k, d) < decimal
+                && ((p * k) as f64 / d as f64).to_bits() == bits)
+                .then_some((p * k, d))
+        };
+        let odd = |q: u64| q > 60 || !five_smooth(q);
+        // The lowest denominators of the odd fractions that may move.
+        let mut odd_lowest: FxHashMap<u64, usize> = FxHashMap::default();
+        for &(_, p, q, ..) in fractions.iter() {
+            if p > 1 && odd(q) {
+                *odd_lowest.entry(q).or_default() += 1;
+            }
+        }
+        // Step 1.
+        for fraction in fractions.iter_mut().filter(|fraction| odd(fraction.2)) {
+            let factor_above_5 = !five_smooth(fraction.2);
+            let best = PREFERRED_DENOMINATORS
+                .iter()
+                .enumerate()
+                .filter_map(|(order, &d)| {
+                    let support: usize = odd_lowest.iter().filter(|&(&q, _)| d % q == 0).map(|(_, &n)| n).sum();
+                    let spelled = respelled(fraction, d).filter(|_| factor_above_5 || support >= 2)?;
+                    Some((support, usize::MAX - order, spelled))
+                })
+                .max_by_key(|&(support, order, _)| (support, order));
+            if let Some((.., (p, d))) = best {
+                (fraction.4, fraction.5) = (p, d);
+            }
+        }
+        // Step 2.
+        let mut used: FxHashMap<u64, usize> = FxHashMap::default();
+        for &(.., d) in fractions.iter() {
+            *used.entry(d).or_default() += 1;
+        }
+        let mut denominators: Vec<(usize, u64)> = used
+            .iter()
+            .filter(|&(&d, &n)| n >= 2 && (odd(d) || PREFERRED_DENOMINATORS.contains(&d)))
+            .map(|(&d, &n)| (n, d))
+            .collect();
+        // The most used first, then the smaller.
+        denominators.sort_unstable_by(|a, b| b.0.cmp(&a.0).then(a.1.cmp(&b.1)));
+        for fraction in fractions.iter_mut().filter(|fraction| fraction.5 == fraction.2 && used[&fraction.2] == 1) {
+            if let Some((p, d)) = denominators.iter().find_map(|&(_, d)| respelled(fraction, d)) {
+                (fraction.4, fraction.5) = (p, d);
+            }
+        }
     }
 
     /// Spell every literal of the tree whose magnitude has a fraction here.
@@ -192,6 +291,17 @@ impl Fractions {
             self.spell_value(key, visited);
         }
     }
+}
+
+/// Whether `n` has no prime factor above 5: the denominators people write
+/// (`3`, `12`, `60`), against `51` or `7`.
+fn five_smooth(mut n: u64) -> bool {
+    for factor in [2, 3, 5] {
+        while n % factor == 0 {
+            n /= factor;
+        }
+    }
+    n == 1
 }
 
 fn for_each_child_block(statement: &mut Statement, visit: &mut impl FnMut(&mut Block)) {
@@ -318,6 +428,67 @@ mod tests {
         let vector = Literal::VectorD(third, 0.5, 2.0);
         assert_eq!(spelled(vector.clone().into()), format!("return {vector}"));
         assert_eq!(spelled(Literal::Integer(7).into()), "return 7i");
+    }
+
+    fn spelled_over(constants: &[f64], value: f64) -> Option<(u64, u64)> {
+        Fractions::of_constants(constants.iter().copied()).0.get(&value.to_bits()).copied()
+    }
+
+    /// A color channel prints over 255 on its own; a layout ratio over the
+    /// screen size once two odd fractions of the chunk agree on it.
+    #[test]
+    fn a_lowest_form_nobody_writes_takes_the_preferred_denominator() {
+        assert_eq!(spelled_over(&[190.0 / 255.0], 190.0 / 255.0), Some((190, 255)));
+        assert_eq!(spelled_over(&[9.0 / 255.0], 9.0 / 255.0), Some((9, 255)));
+        let layout = [1492.0 / 1920.0, 1178.0 / 1920.0, 814.0 / 1080.0, 274.0 / 1080.0, 970.0 / 1080.0, 13.0 / 60.0];
+        assert_eq!(spelled_over(&layout, 1492.0 / 1920.0), Some((1492, 1920)));
+        assert_eq!(spelled_over(&layout, 1178.0 / 1920.0), Some((1178, 1920)));
+        assert_eq!(spelled_over(&layout, 814.0 / 1080.0), Some((814, 1080)));
+        assert_eq!(spelled_over(&layout, 970.0 / 1080.0), Some((970, 1080)));
+        // ... and a plain fraction beside them follows the most used one.
+        assert_eq!(spelled_over(&layout, 13.0 / 60.0), Some((234, 1080)));
+        // Alone, a smooth denominator is as likely the source's own; a unit
+        // fraction never moves, nor counts for another.
+        assert_eq!(spelled_over(&[1492.0 / 1920.0], 1492.0 / 1920.0), Some((373, 480)));
+        assert_eq!(spelled_over(&[1.0 / 240.0, 7.0 / 120.0], 7.0 / 120.0), Some((7, 120)));
+        assert_eq!(spelled_over(&[1.0 / 240.0, 7.0 / 120.0], 1.0 / 240.0), Some((1, 240)));
+        assert_eq!(spelled_over(&[1.0 / 51.0], 1.0 / 51.0), Some((1, 51)));
+        // No preferred multiple: the lowest form stays.
+        assert_eq!(spelled_over(&[8.0 / 11.0], 8.0 / 11.0), Some((8, 11)));
+        assert_eq!(spelled_over(&[1.0 / 7.0], 1.0 / 7.0), Some((1, 7)));
+    }
+
+    /// `1 / 3` stays a third unless the chunk divides by one denominator
+    /// again and again.
+    #[test]
+    fn a_plain_fraction_follows_only_a_denominator_the_chunk_keeps_using() {
+        assert_eq!(spelled_over(&[1.0 / 3.0], 1.0 / 3.0), Some((1, 3)));
+        assert_eq!(spelled_over(&[1.0 / 3.0, 1.0 / 60.0], 1.0 / 3.0), Some((1, 3)));
+        let cutscene = [7.0 / 15.0, 11.0 / 60.0, 67.0 / 60.0, 2.0 / 3.0, 107.0 / 30.0];
+        assert_eq!(spelled_over(&cutscene, 7.0 / 15.0), Some((28, 60)));
+        assert_eq!(spelled_over(&cutscene, 2.0 / 3.0), Some((40, 60)));
+        assert_eq!(spelled_over(&cutscene, 107.0 / 30.0), Some((214, 60)));
+        assert_eq!(spelled_over(&cutscene, 11.0 / 60.0), Some((11, 60)));
+        // Colors in 255ths carry two thirds along, unless a third is there
+        // too (thirds the chunk divides by); a plain denominator others use
+        // is no source divisor.
+        let colors = [190.0 / 255.0, 200.0 / 255.0, 2.0 / 3.0];
+        assert_eq!(spelled_over(&colors, 2.0 / 3.0), Some((170, 255)));
+        assert_eq!(spelled_over(&[190.0 / 255.0, 200.0 / 255.0, 2.0 / 3.0, 1.0 / 3.0], 2.0 / 3.0), Some((2, 3)));
+        assert_eq!(spelled_over(&[2.0 / 9.0, 4.0 / 9.0, 2.0 / 3.0], 2.0 / 3.0), Some((2, 3)));
+    }
+
+    /// Every respelled fraction is the same double, and shorter than the
+    /// decimal it replaces.
+    #[test]
+    fn respelled_fractions_stay_exact_and_short() {
+        let chunk = [190.0 / 255.0, 254.0 / 255.0, 13.0 / 51.0, 1.0 / 3.0, 1492.0 / 1920.0, 1178.0 / 1920.0, 13.0 / 60.0];
+        let fractions = Fractions::of_constants(chunk);
+        for value in chunk {
+            let (p, q) = fractions.0[&value.to_bits()];
+            assert_eq!((p as f64 / q as f64).to_bits(), value.to_bits(), "{p} / {q}");
+            assert!(spelled_length(p, q) < ryu::Buffer::new().format_finite(value).len(), "{p} / {q}");
+        }
     }
 
     /// Spelling twice changes nothing: `8` and `11` are integers. A literal

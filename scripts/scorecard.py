@@ -232,18 +232,33 @@ def census(chunk) -> collections.Counter:
 
 
 def named_copies(copies: collections.Counter) -> collections.Counter:
-    """Copies per helper name, anonymous helpers left out."""
-    by_name = collections.Counter()
+    """Copies per named helper prototype (``name#id`` keys kept), anonymous
+    helpers left out."""
+    return collections.Counter({key: n for key, n in copies.items() if key.rsplit("#", 1)[0] != "?"})
+
+
+def rebuilt_calls(calls_by_helper) -> tuple[collections.Counter, bool]:
+    """Rebuilt calls per helper prototype id (``tovek-stats/2`` lists each
+    helper with its ``proto``; one without cannot match a copy), and False;
+    or, from an older lifter's dict of printed name to calls, per name, and
+    True (helpers that print alike merge there)."""
+    if isinstance(calls_by_helper, dict):
+        return collections.Counter(calls_by_helper), True
+    calls = collections.Counter()
+    for entry in calls_by_helper:
+        if entry.get("proto") is not None:
+            calls[entry["proto"]] += entry["calls"]
+    return calls, False
+
+
+def census_hits(copies: collections.Counter, calls: collections.Counter, by_name: bool = False) -> int:
+    """Rebuilt calls the census accounts for: per helper, at most its copies,
+    joined on the prototype id (or on the name, see ``rebuilt_calls``)."""
+    joined = collections.Counter()
     for key, n in copies.items():
-        name = key.rsplit("#", 1)[0]
-        if name != "?":
-            by_name[name] += n
-    return by_name
-
-
-def census_hits(copies: collections.Counter, calls_by_helper: dict) -> int:
-    """Rebuilt calls the census accounts for: per helper, at most its copies."""
-    return sum(min(n, calls_by_helper.get(name, 0)) for name, n in copies.items())
+        name, proto = key.rsplit("#", 1)
+        joined[name if by_name else int(proto)] += n
+    return sum(min(n, calls.get(key, 0)) for key, n in joined.items())
 
 
 # --------------------------------------------------------------------------
@@ -344,8 +359,8 @@ def census_report(samples: pathlib.Path, index: list, stats: dict) -> dict:
     for x in index:
         chunk = parse_any_key((samples / x["kind"] / x["name"] / "input.bin").read_bytes())
         copies = named_copies(census(chunk))
-        calls_by_helper = stats.get(x["name"], {}).get("calls_by_helper", {})
-        sample_hits = census_hits(copies, calls_by_helper)
+        calls, by_name = rebuilt_calls(stats.get(x["name"], {}).get("calls_by_helper", []))
+        sample_hits = census_hits(copies, calls, by_name)
         copies_total += sum(copies.values())
         hits += sample_hits
         per_sample[x["name"]] = dict(copies=sum(copies.values()), hits=sample_hits)

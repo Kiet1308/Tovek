@@ -556,6 +556,22 @@ mod tests {
         assert_eq!(block.to_string(), before);
     }
 
+    /// Lowering a select out of a call's argument rewrites the call, which
+    /// stays the call a de-inliner rebuilt: its site comment, its helper's
+    /// count and `--stats-json` all read `rebuilt`.
+    #[test]
+    fn a_lowered_call_keeps_its_rebuilt_attribute() {
+        let helper = RcLocal::new(Local::new(Some("helper".into())));
+        let call = crate::Call::new(helper.clone().into(), vec![choose()])
+            .reconstructed(crate::call_origins::Kind::StatementDeinline);
+        let mut block = Block(vec![call.into()]);
+        let report = lower_existing_conditionals(&mut block);
+        assert_eq!(report.lowered_selects, 1);
+        let Some(Statement::Call(lowered)) = block.0.last() else { panic!("{block}") };
+        assert_eq!(lowered.rebuilt, Some(crate::call_origins::Kind::StatementDeinline));
+        assert!(block.to_string().ends_with("helper(selectedValue1) -- inferred equivalent call"), "{block}");
+    }
+
     #[test]
     fn scratch_register_pressure_refuses_even_with_local_headroom() {
         let mut block = Block(
@@ -759,11 +775,20 @@ impl Attempt<'_> {
                 Ok((prefix, node.into()))
             }
             RValue::Call(call) | RValue::Select(Select::Call(call)) => {
-                let values: Vec<_> = std::iter::once(*call.value.clone())
-                    .chain(call.arguments.iter().cloned())
-                    .collect();
-                let (prefix, mut values) = self.sequence(&values, false)?;
-                let call = crate::Call::new(values.remove(0), values);
+                // A rebuilt call names a helper binding no one reassigns (the
+                // de-inliners refuse one that is), so no argument can change
+                // what its callee reads: it needs no snapshot, and the call
+                // keeps naming the helper its definition line counts.
+                let (prefix, call) = if call.rebuilt.is_some() && matches!(*call.value, RValue::Local(_)) {
+                    let (prefix, arguments) = self.sequence(&call.arguments, false)?;
+                    (prefix, call.with_parts(*call.value.clone(), arguments))
+                } else {
+                    let values: Vec<_> = std::iter::once(*call.value.clone())
+                        .chain(call.arguments.iter().cloned())
+                        .collect();
+                    let (prefix, mut values) = self.sequence(&values, false)?;
+                    (prefix, call.with_parts(values.remove(0), values))
+                };
                 Ok((
                     prefix,
                     if matches!(value, RValue::Select(_)) {

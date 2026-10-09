@@ -8,7 +8,7 @@
 use rustc_hash::FxHashSet;
 
 use crate::{
-    Assign, Binary, BinaryOperation, Block, If, LValue, Literal, Local, LocalRw, RValue, RcLocal,
+    Assign, Binary, BinaryOperation, Block, If, LValue, Literal, LocalRw, RValue, RcLocal,
     Statement, Traverse, UnaryOperation,
 };
 
@@ -45,8 +45,7 @@ impl FunctionContext {
             return None;
         }
         self.local_headroom -= 1;
-        let name = crate::rehoist_constants::unique_name("text", &mut self.reserved);
-        Some(RcLocal::new(Local::new(Some(name))))
+        Some(crate::rehoist_constants::unique_local("text", &mut self.reserved))
     }
 }
 

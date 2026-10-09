@@ -14,7 +14,7 @@ use crate::{
     deinline::{
         collect_declared_locals, unify_local, unify_lvalue, unify_rvalue, Bindings, MatchCtx,
     },
-    Block, Continue, LValue, RValue, Return, Statement, Traverse,
+    Block, Call, Continue, LValue, RValue, Return, Select, Statement, Traverse,
 };
 use parking_lot::Mutex;
 use rustc_hash::FxHashSet;
@@ -490,13 +490,14 @@ fn apply_action(stmts: &mut Vec<Statement>, action: Action) {
                 let Statement::If(node) = &mut stmts[at] else {
                     unreachable!()
                 };
-                let hoisted: Vec<Statement> = std::mem::take(&mut node.else_block.lock().0);
+                let mut hoisted: Vec<Statement> = std::mem::take(&mut node.else_block.lock().0);
                 let count = hoisted.len();
                 let mut then_block = node.then_block.lock();
                 for (path, strip) in &leaves {
                     with_leaf(&mut then_block.0, path, &mut |leaf| {
                         if *strip {
                             let len = leaf.len() - count;
+                            carry_rebuilt(&mut hoisted, &leaf[len..]);
                             leaf.truncate(len);
                         } else if !sequence_terminates(leaf) {
                             leaf.push(terminator.statement());
@@ -515,8 +516,9 @@ fn apply_action(stmts: &mut Vec<Statement>, action: Action) {
                 let mut then_block = node.then_block.lock();
                 let mut else_block = node.else_block.lock();
                 let split = then_block.0.len() - count;
-                let moved = then_block.0.split_off(split);
+                let mut moved = then_block.0.split_off(split);
                 let else_len = else_block.0.len() - count;
+                carry_rebuilt(&mut moved, &else_block.0[else_len..]);
                 else_block.0.truncate(else_len);
                 moved
             };
@@ -527,20 +529,87 @@ fn apply_action(stmts: &mut Vec<Statement>, action: Action) {
             then_count,
             else_count,
         } => {
-            let Statement::If(node) = &mut stmts[at] else {
+            let (head, parent) = stmts.split_at_mut(at + 1);
+            let Statement::If(node) = &mut head[at] else {
                 unreachable!()
             };
             if then_count > 0 {
                 let mut block = node.then_block.lock();
                 let len = block.0.len() - then_count;
+                carry_rebuilt(&mut parent[..then_count], &block.0[len..]);
                 block.0.truncate(len);
             }
             if else_count > 0 {
                 let mut block = node.else_block.lock();
                 let len = block.0.len() - else_count;
+                carry_rebuilt(&mut parent[..else_count], &block.0[len..]);
                 block.0.truncate(len);
             }
         }
+    }
+}
+
+/// `kept` and `dropped` are equal copies of a tail, and the merge keeps the
+/// first. Call equality ignores `rebuilt`, so the copy dropped may hold the
+/// calls a de-inliner rebuilt: each kept call takes its twin's `rebuilt`, and
+/// the merged tail keeps their site comments and counts. Equal copies have
+/// equal shapes, so the two walks meet the calls in the same order.
+fn carry_rebuilt(kept: &mut [Statement], dropped: &[Statement]) {
+    let mut producers = Vec::new();
+    calls(dropped, &mut |call| producers.push(call.rebuilt));
+    if producers.iter().all(Option::is_none) {
+        return;
+    }
+    let mut producers = producers.into_iter();
+    calls_mut(kept, &mut |call| {
+        if let Some(Some(producer)) = producers.next() {
+            call.rebuilt.get_or_insert(producer);
+        }
+    });
+}
+
+/// Every call in `stmts`, function bodies included, in tree order.
+fn calls(stmts: &[Statement], visit: &mut dyn FnMut(&Call)) {
+    for statement in stmts {
+        if let Statement::Call(call) = statement {
+            visit(call);
+        }
+        statement.traverse_rvalues_ref(&mut |value| match value {
+            RValue::Call(call) | RValue::Select(Select::Call(call)) => visit(call),
+            RValue::Closure(closure) => calls(&closure.function.lock().body.0, visit),
+            _ => {}
+        });
+        for_each_child(statement, &mut |block| calls(&block.lock().0, visit));
+    }
+}
+
+/// [`calls`], mutable.
+fn calls_mut(stmts: &mut [Statement], visit: &mut dyn FnMut(&mut Call)) {
+    for statement in stmts {
+        if let Statement::Call(call) = statement {
+            visit(call);
+        }
+        statement.traverse_rvalues(&mut |value| match value {
+            RValue::Call(call) | RValue::Select(Select::Call(call)) => visit(call),
+            RValue::Closure(closure) => calls_mut(&mut closure.function.lock().body.0, visit),
+            _ => {}
+        });
+        for_each_child(statement, &mut |block| calls_mut(&mut block.lock().0, visit));
+    }
+}
+
+/// The nested blocks of a block statement.
+fn for_each_child(statement: &Statement, visit: &mut dyn FnMut(&Arc<Mutex<Block>>)) {
+    match statement {
+        Statement::If(node) => {
+            visit(&node.then_block);
+            visit(&node.else_block);
+        }
+        Statement::While(node) => visit(&node.block),
+        Statement::Repeat(node) => visit(&node.block),
+        Statement::NumericFor(node) => visit(&node.block),
+        Statement::GenericFor(node) => visit(&node.block),
+        _ => {}
     }
 }
 
@@ -783,6 +852,21 @@ mod tests {
             Block(then_stmts),
             Block(else_stmts),
         ))
+    }
+
+    /// A merged tail keeps the calls a de-inliner rebuilt, whichever arm
+    /// held them: `Call` equality ignores `rebuilt`, and the merge keeps the
+    /// then arm's copy.
+    #[test]
+    fn a_merged_tail_keeps_the_rebuilt_attribute_of_either_copy() {
+        let helper = RcLocal::new(crate::Local::new(Some("helper".into())));
+        let source = Statement::Call(Call::new(helper.clone().into(), Vec::new()));
+        let rebuilt = Statement::Call(Call::new(helper.clone().into(), Vec::new()).reconstructed(crate::call_origins::Kind::StatementDeinline));
+        let mut body = Block(vec![cond_if(vec![call("left"), source], vec![call("right"), rebuilt])]);
+        assert!(factor_common_tails(&mut body));
+        let Some(Statement::Call(merged)) = body.0.last() else { panic!("{body}") };
+        assert_eq!(merged.rebuilt, Some(crate::call_origins::Kind::StatementDeinline));
+        assert!(body.to_string().ends_with("helper() -- inferred equivalent call"), "{body}");
     }
 
     #[test]

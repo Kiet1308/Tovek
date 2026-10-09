@@ -40,6 +40,7 @@ pub(crate) fn builtin_alternative(name: &str) -> Option<String> {
         "string" => Some("str"),
         "table" => Some("tbl"),
         "select" => Some("selection"),
+        "buffer" => Some("buf"),
         _ => None,
     };
     let alternative = match synonym {
@@ -51,6 +52,18 @@ pub(crate) fn builtin_alternative(name: &str) -> Option<String> {
         }
     };
     (!soft_reserved(&alternative)).then_some(alternative)
+}
+
+/// The name a binding takes from a derived name: the name itself, or, when
+/// it spells a soft-reserved builtin, its [`builtin_alternative`] (counted
+/// past the builtin when there is none). Applied to the final binding name
+/// only: a name composed from the derived one (`types`, `typeByName`) spells
+/// no builtin and keeps the evidence's word.
+pub(crate) fn binding_spelling(name: String) -> String {
+    if !soft_reserved(&name) {
+        return name;
+    }
+    builtin_alternative(&name).unwrap_or_else(|| suffixed(&name, 2))
 }
 
 /// `_queuedReject` -> `queuedReject`: the leading `_` marks a private field,
@@ -81,10 +94,16 @@ pub(crate) fn push_suffixed(out: &mut String, base: &str, counter: usize) {
     let _ = write!(out, "{counter}");
 }
 
-/// The counter [`suffixed`] appended to `base` to spell `name`, if it did.
+/// The counter appended to `base` to spell `name`, if one was: [`suffixed`]'s
+/// (`part2`, `bit32_2`), or the `base_N` a late pass spells
+/// (`rehoist_constants::unique_name`: `clone_2`).
 pub(crate) fn suffix_of(name: &str, base: &str) -> Option<usize> {
     let rest = name.strip_prefix(base)?;
-    let digits = if base.ends_with(|c: char| c.is_ascii_digit()) { rest.strip_prefix('_')? } else { rest };
+    let digits = match rest.strip_prefix('_') {
+        Some(digits) => digits,
+        None if base.ends_with(|c: char| c.is_ascii_digit()) => return None,
+        None => rest,
+    };
     if digits.is_empty() || digits.starts_with('0') || !digits.bytes().all(|b| b.is_ascii_digit()) {
         return None;
     }
@@ -97,7 +116,10 @@ pub(crate) fn suffix_of(name: &str, base: &str) -> Option<usize> {
 ///   the capital that starts the next word (`UIListLayout` -> `uiListLayout`,
 ///   `HTTPService` -> `httpService`, `IDs` -> `ids`);
 /// - a bare acronym is one word (`ID` -> `id`, `GUID` -> `guid`), while a
-///   deliberate SCREAMING_CASE constant stays (`DEFAULT_BRUSH`, `HTTP2`);
+///   deliberate SCREAMING_CASE constant stays (`DEFAULT_BRUSH`, `HTTP2`), and
+///   so does a word that opens with a SCREAMING segment
+///   (`EXTREMELY_DANGEROUS_usedAsValue`, `MAX_retryCount`): lowercasing that
+///   segment alone would invent a hybrid no source spells;
 /// - Roblox types whose two capitals are not an acronym take their
 ///   conventional spelling (`CFrame` -> `cframe`, `UDim2` -> `udim2`).
 ///
@@ -114,6 +136,10 @@ pub(crate) fn lower_camel_in_place(chars: &mut [char]) {
         if !constant {
             word.iter_mut().for_each(|c| c.make_ascii_lowercase());
         }
+        return;
+    }
+    let first_segment = word.split(|&c| c == '_').next().unwrap_or_default();
+    if first_segment.len() < word.len() && !first_segment.iter().any(char::is_ascii_lowercase) {
         return;
     }
     for (prefix, spelled) in [("CFrame", "cframe"), ("UDim", "udim")] {
@@ -176,6 +202,12 @@ mod tests {
         assert_eq!(lower("HTTP2"), "HTTP2");
         assert_eq!(lower("Transparency_Duration"), "transparency_Duration");
         assert_eq!(lower("_Private"), "_private");
+        assert_eq!(lower("EXTREMELY_DANGEROUS_usedAsValue"), "EXTREMELY_DANGEROUS_usedAsValue");
+        assert_eq!(lower("_EXTREMELY_DANGEROUS_usedAsValue"), "_EXTREMELY_DANGEROUS_usedAsValue");
+        assert_eq!(lower("HTTP_requestCount"), "HTTP_requestCount");
+        assert_eq!(lower("MAX_retryCount"), "MAX_retryCount");
+        assert_eq!(lower("X_Offset"), "X_Offset");
+        assert_eq!(lower("UI_Scale"), "UI_Scale");
     }
 
     #[test]
@@ -206,6 +238,8 @@ mod tests {
         assert_eq!(suffix_of("part", "part"), None);
         assert_eq!(suffix_of("part02", "part"), None);
         assert_eq!(suffix_of("part1", "part"), None);
+        assert_eq!(suffix_of("clone_2", "clone"), Some(2));
+        assert_eq!(suffix_of("clone_", "clone"), None);
     }
 
     #[test]
@@ -216,7 +250,11 @@ mod tests {
         assert_eq!(builtin_alternative("error").as_deref(), Some("err"));
         assert_eq!(builtin_alternative("type").as_deref(), Some("kind"));
         assert_eq!(builtin_alternative("shared").as_deref(), Some("Shared"));
+        assert_eq!(builtin_alternative("buffer").as_deref(), Some("buf"));
         assert_eq!(builtin_alternative("Vector3"), None);
         assert_eq!(builtin_alternative("Enum"), None);
+        assert_eq!(binding_spelling("type".into()), "kind");
+        assert_eq!(binding_spelling("types".into()), "types");
+        assert_eq!(binding_spelling("Enum".into()), "Enum2");
     }
 }

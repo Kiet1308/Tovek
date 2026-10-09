@@ -6,7 +6,7 @@ import tempfile
 import unittest
 
 from bytecode_roundtrip import OP_INDEX, parse_chunk
-from scorecard import (census, census_hits, count_lines, declarations, GENERATED, marker_calls, named_copies,
+from scorecard import (census, census_hits, count_lines, declarations, GENERATED, marker_calls, named_copies, rebuilt_calls,
                        parse_any_key, score, tokens)
 
 
@@ -106,10 +106,20 @@ class Census(unittest.TestCase):
     def test_roblox_encoded_opcodes_are_read_with_key_203(self):
         self.assertEqual(census(parse_any_key(helper_and_caller(key=203))), collections.Counter({"helper#0": 2}))
 
-    def test_recall_credits_each_helper_with_at_most_its_copies(self):
+    def test_recall_credits_each_helper_prototype_with_at_most_its_copies(self):
         copies = named_copies(collections.Counter({"expand#3": 5, "sign#4": 2, "?#7": 9, "expand#9": 1}))
-        self.assertEqual(copies, collections.Counter({"expand": 6, "sign": 2}))
-        self.assertEqual(census_hits(copies, {"expand": 4, "sign": 3, "other": 8}), 4 + 2)
+        self.assertEqual(copies, collections.Counter({"expand#3": 5, "sign#4": 2, "expand#9": 1}))
+        # Two helpers printed `expand`: each is credited with its own calls.
+        calls, by_name = rebuilt_calls([dict(proto=3, helper="expand", calls=4), dict(proto=9, helper="expand", calls=3),
+                                        dict(proto=4, helper="sign", calls=3), dict(proto=None, helper="other", calls=8)])
+        self.assertFalse(by_name)
+        self.assertEqual(census_hits(copies, calls), 4 + 1 + 2)
+
+    def test_an_older_lifter_joins_on_the_printed_name(self):
+        copies = named_copies(collections.Counter({"expand#3": 5, "sign#4": 2, "expand#9": 1}))
+        calls, by_name = rebuilt_calls({"expand": 4, "sign": 3, "other": 8})
+        self.assertTrue(by_name)
+        self.assertEqual(census_hits(copies, calls, by_name), 4 + 2)
 
 
 class Score(unittest.TestCase):

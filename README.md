@@ -93,12 +93,14 @@ for scope, methodology and remaining regressions.
 - **Reverses the Luau optimizer.** Tovek undoes `-O2` inlining — single-use temporaries,
   inlined expressions, and exploded table constructors are reassembled. Computed React event
   keys, drained `children` fields, callbacks, props and nested child tables are rebuilt from the
-  leaves upward into declarative UI trees. Every line holding a recovered helper call ends with
-  `-- inferred equivalent call`: Tovek inferred a call that behaves the same, which says nothing
-  about where the source called the helper. The helper's definition line states how many such
-  calls the output holds:
+  leaves upward into declarative UI trees. Every line a recovered helper call starts on ends with
+  `-- inferred equivalent call` (the call's first line when a function or table argument follows):
+  Tovek inferred a call that behaves the same, which says nothing about where the source called
+  the helper. The helper's definition line states how many such calls the output holds:
   `local function emit(part, n) -- 3 equivalent calls inferred from this helper`.
-- **Idiomatic cleanup.** Compound assignments, backtick string interpolation,
+- **Idiomatic cleanup.** Compound assignments, backtick string interpolation (where
+  `("...%*"):format(x)` gives one value; a spreading last argument, constructor tail or `return`
+  keeps `:format`, as a replaced `string.format` may return more),
   left-associated `and`/`or` (far fewer redundant parentheses), exact numeric literals, dropped
   needless `\'` escapes, and removal of redundant local copies, constant-only branches and
   discarded pure expressions. Roblox constructors retain their calls because global
@@ -295,16 +297,22 @@ A number constant that is exactly `p / q` with `q <= 1000` prints as that
 fraction when it reads shorter than its decimal: `task.wait(7 / 60)` instead of
 `task.wait(0.11666666666666667)`, `x * (8 / 11)`. Division is correctly
 rounded, so the fraction compiles back to the identical constant at every
-optimization level, with no library involved; this is the default. Short
-decimals, integers, vector components and literal table keys stay as they are,
-and such numbers are no longer hoisted into named constants (`WAIT_INTERVAL`).
+optimization level, with no library involved; this is the default. A fraction
+prints over the denominator its source most likely divided by when its lowest
+one is no denominator anyone writes, or the script keeps using a larger one:
+`Color3.new(190 / 255, ...)` rather than `38 / 51`, `UDim2.fromScale(1492 / 1920,
+814 / 1080)` in a 1920x1080 layout, `28 / 60` beside other sixtieths; unit
+fractions (`1 / 30`) stay as they are. Short decimals, integers, vector
+components and literal table keys stay as they are, and such numbers are no
+longer hoisted into named constants (`WAIT_INTERVAL`).
 
 `--stats-json stats.json` (single-file and folder modes) writes what the
 de-inliners did per script: the calls they rebuilt, counted in the final tree
-by kind (statement, expression, arithmetic sites), the helpers called, and the
-reasons helpers and sites were refused. `scripts/scorecard.py --lifter <exe>`
-uses it to score the research sample set (lines, rebuilt calls, generated-name
-share, name recall, token similarity, line-info census recall).
+by kind (statement, expression, arithmetic sites), the calls per helper with the
+bytecode prototype it was lifted from, and the reasons helpers and sites were
+refused. `scripts/scorecard.py --lifter <exe>` uses it to score the research
+sample set (lines, rebuilt calls, generated-name share, name recall, token
+similarity, line-info census recall).
 
 `--synthesize-arithmetic-loops` enables an experimental presentation of exact
 4-8-term arithmetic accumulations as finite loops. It is off by default and

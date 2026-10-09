@@ -2,6 +2,10 @@
 //! `f(g())` passes every result of `g`, `f((g()))` only the first. Where
 //! the callee drops the extra values anyway, the parentheses say nothing:
 //! `emit((x:FindFirstChild("Beams")))` reads as `emit(x:FindFirstChild("Beams"))`.
+//! Nor does the adjustment, so a `("...%*"):format(x)` there is adjusted
+//! instead, and prints as the backtick string `` emit(`...{x}`) ``: in a
+//! spreading position it keeps `:format`, as a hooked `string.format` may
+//! return more than one value.
 //!
 //! A callee drops them when the argument sits at or after its last
 //! parameter and it takes no `...`: a local function declared once. A call
@@ -68,13 +72,20 @@ fn block(stmts: &mut [Statement], arity: &impl Fn(&RValue) -> Option<usize>) {
 
 fn untruncate(call: &mut crate::Call, arity: &impl Fn(&RValue) -> Option<usize>) {
     let Some(last) = call.arguments.len().checked_sub(1) else { return };
-    if !matches!(call.arguments[last], RValue::Select(_)) {
+    let argument = &call.arguments[last];
+    // Only parentheses that print are dropped; a format call that prints as
+    // a backtick string is the one form adjusted.
+    let interpolates = matches!(argument, RValue::MethodCall(format) if crate::formatter::prints_as_interpolation(format));
+    if !(interpolates || crate::formatter::needs_truncation_parens(argument))
+        || !arity(&call.value).is_some_and(|parameters| last + 1 >= parameters)
+    {
         return;
     }
-    if arity(&call.value).is_some_and(|parameters| last + 1 >= parameters) {
-        let value = std::mem::replace(&mut call.arguments[last], RValue::Literal(crate::Literal::Nil));
-        call.arguments[last] = crate::untruncated(value);
-    }
+    let value = std::mem::replace(&mut call.arguments[last], RValue::Literal(crate::Literal::Nil));
+    call.arguments[last] = match value {
+        RValue::MethodCall(format) if interpolates => RValue::Select(Select::MethodCall(format)),
+        value => crate::untruncated(value),
+    };
 }
 
 fn for_each_block(statement: &Statement, visit: &mut impl FnMut(&Block)) {
@@ -224,5 +235,22 @@ mod tests {
         ]);
         assert!(output.contains("emit((g()))"), "{output}");
         assert!(output.contains("type((g()))"), "{output}");
+    }
+
+    /// A `%*` format call passed where the callee drops the rest prints as a
+    /// backtick string; elsewhere it spreads and keeps `:format`.
+    #[test]
+    fn a_format_call_the_callee_truncates_prints_as_a_backtick_string() {
+        let emit = local("emit");
+        let format = || -> RValue {
+            crate::MethodCall::new(RValue::Literal(Literal::String(b"id %*".to_vec())), "format".into(), vec![global("x")]).into()
+        };
+        let output = run(vec![
+            declare(function(&emit, 1, false)),
+            Call::new(RValue::Local(emit.clone()), vec![format()]).into(),
+            Call::new(global("print"), vec![format()]).into(),
+        ]);
+        assert!(output.contains("emit(`id {x}`)"), "{output}");
+        assert!(output.contains("print((\"id %*\"):format(x))"), "{output}");
     }
 }

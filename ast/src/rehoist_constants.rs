@@ -263,8 +263,7 @@ fn rehoist_one_scope(
     let mut replacements = FxHashMap::default();
     let mut declarations = Vec::with_capacity(selected.len());
     for candidate in selected {
-        let name = unique_name(candidate.base_name(), &mut used_names);
-        let local = RcLocal::new(Local::new(Some(name)));
+        let local = unique_local(candidate.base_name(), &mut used_names);
         declarations.push(Statement::Assign(Assign {
             node_origin: Default::default(),
             left: vec![LValue::Local(local.clone())],
@@ -281,6 +280,20 @@ fn rehoist_one_scope(
     count
 }
 
+/// A new local named `base`, or `base_2`, `base_3`, ... when the function
+/// already uses `base`. The counter is recorded on the local
+/// ([`Local::set_counted_name`]), so the final namer may compact it back to
+/// `base` where that name is free; a `_N` the evidence spelled (`Wheel_2`)
+/// is never mistaken for one.
+pub(crate) fn unique_local(base: &str, used: &mut FxHashSet<String>) -> RcLocal {
+    let mut local = Local::default();
+    local.set_counted_name(unique_name(base, used), base);
+    RcLocal::new(local)
+}
+
+/// `base`, or the first of `base_2`, `base_3`, ... `used` lacks; reserved in
+/// `used`. A caller naming a local with it records the counter
+/// ([`unique_local`]).
 pub(crate) fn unique_name(base: &str, used: &mut FxHashSet<String>) -> String {
     if used.insert(base.to_string()) {
         return base.to_string();

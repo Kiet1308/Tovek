@@ -10,7 +10,7 @@
 
 use rustc_hash::FxHashSet;
 
-use crate::{Assign, Block, LValue, Literal, Local, RValue, RcLocal, Select, Statement, Traverse};
+use crate::{Assign, Block, LValue, Literal, RValue, RcLocal, Select, Statement, Traverse};
 
 const MAX_ACTIVE_LOCALS: usize = 200;
 
@@ -45,8 +45,7 @@ impl FunctionContext {
         }
         self.local_headroom -= 1;
         let base = hint.as_deref().unwrap_or("instance");
-        let name = crate::rehoist_constants::unique_name(base, &mut self.reserved);
-        Some(RcLocal::new(Local::new(Some(name))))
+        Some(crate::rehoist_constants::unique_local(base, &mut self.reserved))
     }
 }
 

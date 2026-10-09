@@ -58,14 +58,7 @@ fn dc_lvalue(lvalue: &LValue) -> LValue {
 }
 
 fn dc_call(call: &Call) -> Call {
-    Call {
-        node_origin: call.node_origin.clone(),
-        value: Box::new(dc_rvalue(&call.value)),
-        arguments: call.arguments.iter().map(dc_rvalue).collect(),
-        reconstruction_event: call.reconstruction_event,
-        callee_after_arguments: call.callee_after_arguments,
-        rebuilt: call.rebuilt,
-    }
+    call.with_parts(dc_rvalue(&call.value), call.arguments.iter().map(dc_rvalue).collect())
 }
 
 fn dc_method_call(method_call: &MethodCall) -> MethodCall {
@@ -1218,9 +1211,9 @@ fn structure_direct_label_dispatcher(
     // directly.
     let mut reserved = FxHashSet::default();
     crate::rehoist_constants::collect_reserved_identifiers(block, &mut reserved);
-    let state_name = crate::rehoist_constants::unique_name("controlFlowState", &mut reserved);
-    let jumped_name = crate::rehoist_constants::unique_name("controlFlowJumped", &mut reserved);
-    let exit_name = crate::rehoist_constants::unique_name("controlFlowExit", &mut reserved);
+    let state = crate::rehoist_constants::unique_local("controlFlowState", &mut reserved);
+    let jumped = crate::rehoist_constants::unique_local("controlFlowJumped", &mut reserved);
+    let exit_action = crate::rehoist_constants::unique_local("controlFlowExit", &mut reserved);
 
     // This fallback runs after LocalDeclarer.  Pull declarations at this lexical
     // level outside the synthetic loop so a state transition cannot redeclare
@@ -1249,9 +1242,6 @@ fn structure_direct_label_dispatcher(
         }
     }
 
-    let state = RcLocal::new(crate::Local::new(Some(state_name)));
-    let jumped = RcLocal::new(crate::Local::new(Some(jumped_name)));
-    let exit_action = RcLocal::new(crate::Local::new(Some(exit_name)));
     declarations.push(state.clone());
     declarations.push(jumped.clone());
     declarations.push(exit_action.clone());

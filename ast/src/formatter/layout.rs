@@ -241,7 +241,7 @@ impl<W: fmt::Write> Formatter<'_, W> {
         write!(self.output, "{keyword}")?;
         self.indentation_level += 1;
         for (index, &(operand, parenthesized)) in spine.operands.iter().enumerate() {
-            writeln!(self.output)?;
+            self.line_break()?;
             self.indent()?;
             if index != 0 {
                 write!(self.output, "{} ", spine.operation)?;
@@ -250,7 +250,7 @@ impl<W: fmt::Write> Formatter<'_, W> {
         }
         self.indentation_level -= 1;
         if let Some(closer) = closer {
-            writeln!(self.output)?;
+            self.line_break()?;
             self.indent()?;
             write!(self.output, "{closer}")?;
         }
@@ -280,7 +280,7 @@ impl<W: fmt::Write> Formatter<'_, W> {
         };
         for (index, &(operand, parenthesized)) in spine.operands.iter().enumerate() {
             if index != 0 {
-                writeln!(self.output)?;
+                self.line_break()?;
                 self.indent()?;
                 write!(self.output, "{} ", spine.operation)?;
             }

@@ -9,7 +9,7 @@
 use rustc_hash::FxHashMap;
 
 use crate::{
-    Assign, Block, Call, Global, Index, Literal, Local, RValue, RcLocal, Statement, Traverse,
+    Assign, Block, Call, Global, Index, Literal, RValue, RcLocal, Statement, Traverse,
     Upvalue,
 };
 
@@ -43,8 +43,7 @@ pub fn materialize_vectors(
         return Err("no local/register or upvalue headroom for the vector constructor binding");
     }
     let constructor = inventory.filter(|_| has_headroom).map(|mut inventory| {
-        let name = crate::rehoist_constants::unique_name("createVector", &mut inventory.reserved);
-        RcLocal::new(Local::new(Some(name)))
+        crate::rehoist_constants::unique_local("createVector", &mut inventory.reserved)
     });
     let mut context = Context {
         constructor,
@@ -112,6 +111,7 @@ fn register_bound(value: &RValue) -> usize {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::Local;
 
     #[test]
     fn wide_record_tables_reuse_registers_and_reserve_the_constructor_name() {

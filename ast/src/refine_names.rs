@@ -90,6 +90,10 @@ struct Node {
     /// its counter (`part` and 2 for `part2`; `v` and 7 for `v7`): what suffix
     /// compaction may return to.
     stem: Option<(usize, usize)>,
+    /// The spelling compaction tries before counting from the base: the
+    /// private field the base was read from (`_light` for `light2` of
+    /// `self._light`). Never for a recorded source name.
+    alternative: Option<String>,
     /// Clock at which the binding becomes visible: the end of its declaring
     /// statement, or the start of a parameter's or loop variable's body.
     visible_from: Option<u32>,
@@ -175,19 +179,6 @@ fn generated(name: &str) -> bool {
 fn generated_stem(name: &str) -> Option<(usize, usize)> {
     let stem = name.get(..1).filter(|_| generated(name))?;
     Some((1, crate::name_spelling::suffix_of(name, stem)?))
-}
-
-/// `clone_2` counts from `clone`: the spelling later passes give a name
-/// already used anywhere in the function (`rehoist_constants::unique_name`).
-/// Only a camelCase stem counts so: in `LEVEL_2` or `stall_7` the number is
-/// part of the name.
-fn underscore_counted_stem(name: &str) -> Option<(usize, usize)> {
-    let (stem, digits) = name.rsplit_once('_')?;
-    let counter = digits.parse::<usize>().ok().filter(|&n| n >= 2 && !digits.starts_with('0'))?;
-    (digits.bytes().all(|b| b.is_ascii_digit())
-        && !stem.contains('_')
-        && stem.ends_with(|c: char| c.is_ascii_lowercase()))
-    .then_some((stem.len(), counter))
 }
 
 /// A local named only after the Fusion constructor that made it (`computed`
@@ -426,13 +417,18 @@ impl Graph {
             let data = local.0.lock();
             let before = data.0.clone().unwrap_or_default();
             let source_protected = !data.2.is_empty();
-            // A recorded source name only ever compacts back to itself.
+            // Only a counter some pass appended (and recorded) is one: in
+            // `wheel_2` for the child `Wheel_2` the number is evidence. A
+            // recorded source name only ever compacts back to itself.
             let stem = data
                 .namer_stem()
                 .map(|(stem, counter)| (stem.len(), counter))
                 .or_else(|| generated_stem(&before))
-                .or_else(|| underscore_counted_stem(&before))
                 .filter(|&(stem, _)| !source_protected || data.source_name() == Some(&before[..stem]));
+            let alternative = data
+                .namer_stem()
+                .filter(|_| data.4.private_stem && !source_protected)
+                .map(|(stem, _)| format!("_{stem}"));
             let mut candidates = vec![Candidate {
                 name: before.clone(),
                 priority: 20,
@@ -480,6 +476,7 @@ impl Graph {
                     overflow: false,
                     changed_round: 0,
                     stem,
+                    alternative,
                     visible_from: None,
                     region: None,
                     references: Vec::new(),
@@ -1182,6 +1179,9 @@ impl Graph {
                 bases.extend(["j", "k"].map(Cow::Borrowed));
             }
             bases.insert(Cow::Borrowed(stem));
+            if let Some(alternative) = &node.alternative {
+                bases.insert(Cow::Borrowed(alternative));
+            }
         }
         // Every candidate is a base, or a base and a counter (`part2`,
         // `bit32_2`, `clone_2`).
@@ -1235,19 +1235,25 @@ impl Graph {
             let stem = &node.before[..stem];
             // Nested loop counters read `i`, `j`, `k`, as source spells them.
             let ladder: &[&str] = if node.kind == "iteration" && stem == "i" { &["i", "j", "k"] } else { &[stem] };
-            let attempts = ladder.len() + counter.saturating_sub(2);
+            // The base's distinct spelling comes before any counter.
+            let rungs = ladder.len() + usize::from(node.alternative.is_some());
+            let attempts = rungs + counter.saturating_sub(2);
             for attempt in 0..attempts.min(32) {
-                match ladder.get(attempt) {
-                    Some(name) => {
+                match (ladder.get(attempt), &node.alternative) {
+                    (Some(name), _) => {
                         candidate.clear();
                         candidate.push_str(name);
                     }
-                    // A `clone_3` family stays spelled with `_`.
-                    None if node.before.as_bytes()[stem.len()] == b'_' && !stem.ends_with(|c: char| c.is_ascii_digit()) => {
+                    (None, Some(alternative)) if attempt == ladder.len() => {
                         candidate.clear();
-                        let _ = write!(candidate, "{stem}_{}", attempt - ladder.len() + 2);
+                        candidate.push_str(alternative);
                     }
-                    None => spell_counted(&mut candidate, stem, attempt - ladder.len() + 2),
+                    // A `clone_3` family stays spelled with `_`.
+                    _ if node.before.as_bytes()[stem.len()] == b'_' && !stem.ends_with(|c: char| c.is_ascii_digit()) => {
+                        candidate.clear();
+                        let _ = write!(candidate, "{stem}_{}", attempt - rungs + 2);
+                    }
+                    _ => spell_counted(&mut candidate, stem, attempt - rungs + 2),
                 }
                 if candidate == node.before {
                     break;
@@ -2003,8 +2009,8 @@ mod tests {
         // `clone_3` from a late pass's `unique_name`: `clone` is held in its
         // region, `clone_2` is not.
         let held = local("clone");
-        let counted = local("clone_3");
-        let gone = local("clone_2");
+        let gone = counted("clone_2", "clone");
+        let counted = counted("clone_3", "clone");
         let block = Block(vec![
             If::new(global("c"), Block(vec![declare(&gone, global("x")), Return::new(vec![gone.clone().into()]).into()]), Block(vec![])).into(),
             declare(&held, global("y")),
@@ -2013,6 +2019,54 @@ mod tests {
         ]);
         run(&block);
         assert_eq!((held.to_string(), counted.to_string()), ("clone".into(), "clone_2".into()));
+    }
+
+    #[test]
+    fn a_taken_base_falls_back_to_its_private_spelling_before_a_counter() {
+        // `local light2 = self._light` beside a visible `light`: the field's
+        // own spelling reads better than a counter. Another counted name
+        // keeps counting.
+        let light = local("light");
+        let private = counted("light2", "light");
+        private.0 .0.lock().4.private_stem = true;
+        let other = counted("part2", "part");
+        let part = local("part");
+        let block = Block(vec![
+            declare(&light, global("a")),
+            declare(&part, global("c")),
+            declare(&private, global("d")),
+            declare(&other, global("f")),
+            Return::new([&light, &part, &private, &other].map(|l| l.clone().into()).into()).into(),
+        ]);
+        run(&block);
+        assert_eq!((private.to_string(), other.to_string()), ("_light".into(), "part2".into()));
+    }
+
+    #[test]
+    fn a_free_base_still_wins_over_its_private_spelling() {
+        let private = counted("light2", "light");
+        private.0 .0.lock().4.private_stem = true;
+        let block = Block(vec![declare(&private, global("a")), Return::new(vec![private.clone().into()]).into()]);
+        run(&block);
+        assert_eq!(private.to_string(), "light");
+    }
+
+    #[test]
+    fn a_suffix_the_evidence_spelled_is_no_counter() {
+        // `FindFirstChild("Wheel_2")` and `("Wheel_3")` name `wheel_2` and
+        // `wheel_3`: nothing appended those numbers, so nothing renumbers them,
+        // although `wheel` is free.
+        let front = local("wheel_2");
+        let back = local("wheel_3");
+        let level = local("level_10");
+        let block = Block(vec![
+            declare(&front, global("x")),
+            declare(&back, global("y")),
+            declare(&level, global("z")),
+            Return::new(vec![front.clone().into(), back.clone().into(), level.clone().into()]).into(),
+        ]);
+        run(&block);
+        assert_eq!((front.to_string(), back.to_string(), level.to_string()), ("wheel_2".into(), "wheel_3".into(), "level_10".into()));
     }
 
     #[test]

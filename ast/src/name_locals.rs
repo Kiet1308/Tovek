@@ -93,15 +93,13 @@ fn sanitize_with_case(raw: &str, case: IdentifierCase) -> Option<String> {
 }
 
 /// A name derived from evidence (a field key, a child, a callee's noun):
-/// lowerCamelCase, without the private `_` of the token it was read from, and
-/// never a builtin global's spelling (`type` reads as `kind`, `shared` as the
-/// `Shared` folder it names).
+/// lowerCamelCase, without the private `_` of the token it was read from. It
+/// keeps the evidence's word even when that spells a builtin (`type`), so
+/// names composed from it read right (`types`, `typeByName`); only the binding
+/// that finally takes it reads the alternative (`kind`, see
+/// [`crate::name_spelling::binding_spelling`]).
 fn sanitize(raw: &str) -> Option<String> {
-    let name = sanitize_with_case(crate::name_spelling::strip_private(raw), IdentifierCase::LowerCamel)?;
-    if crate::name_spelling::soft_reserved(&name) {
-        return crate::name_spelling::builtin_alternative(&name);
-    }
-    Some(name)
+    sanitize_with_case(crate::name_spelling::strip_private(raw), IdentifierCase::LowerCamel)
 }
 
 /// A local that aliases a global (`local type = type`) is spelled exactly as
@@ -152,10 +150,7 @@ pub(crate) fn param_name_from_field_key(key: &str) -> Option<String> {
         return None;
     }
     // A key spelling a builtin (`.Shared`, `.Error`) names its value as any
-    // other derived name does.
-    if crate::name_spelling::soft_reserved(&name) {
-        return crate::name_spelling::builtin_alternative(&name);
-    }
+    // other derived name does: the binding reads the alternative.
     Some(name)
 }
 
@@ -246,6 +241,21 @@ fn module_name_of(path: &RValue) -> Option<String> {
         _ => return None,
     };
     sanitize_preserve(name)
+}
+
+/// Whether `value` reads a private field (`self._light`, also behind a
+/// default: `self._light or fallback`) whose key spells `name` without its
+/// `_`: the field's own spelling is then the binding's fallback when `name`
+/// is taken (`crate::local::BindingRoles::private_stem`).
+fn reads_private_field(value: &RValue, name: &str) -> bool {
+    let value = match value {
+        RValue::Binary(binary) if binary.operation == BinaryOperation::Or => &*binary.left,
+        value => value,
+    };
+    let RValue::Index(index) = value else { return false };
+    index_key(index).is_some_and(|key| {
+        crate::name_spelling::strip_private(key).len() < key.len() && sanitize(key).as_deref() == Some(name)
+    })
 }
 
 fn index_hint(index: &Index) -> Option<String> {
@@ -4821,6 +4831,7 @@ impl Namer {
         }
     }
 
+    /// `value`: the value a single declaration binds the local to, if any.
     fn name_one(
         &mut self,
         local: &RcLocal,
@@ -4828,6 +4839,7 @@ impl Namer {
         scope: &mut Vec<String>,
         policy: ReusePolicy,
         unused: UnusedSpelling,
+        value: Option<&RValue>,
     ) {
         #[cfg(test)]
         preparation_tests::note_name_owner(local);
@@ -4889,7 +4901,7 @@ impl Namer {
             } else {
                 self.unused_binding_name(ptr, unused)
             };
-            match base {
+            match base.map(crate::name_spelling::binding_spelling) {
                 Some(base) => {
                     let spelled = self.unique(&base, scope, policy);
                     lock.set_counted_name(spelled, &base);
@@ -4902,6 +4914,12 @@ impl Namer {
             Some(hint) => self.spelled(ptr, hint.name.clone()),
             None => default_prefix.to_string(),
         };
+        // A derived name never spells a builtin (`type` reads `kind`), but a
+        // local aliasing a global is spelled as the global it holds (`local
+        // type = type`): `unique` counts it past a global the script reads.
+        if !value.is_some_and(|value| matches!(value, RValue::Global(global) if global.0 == base.as_bytes())) {
+            base = crate::name_spelling::binding_spelling(base);
+        }
         // Nested loop counters read `i`, `j`, `k`, as source spells them.
         if policy == ReusePolicy::LoopReusable
             && base == "i"
@@ -4911,6 +4929,9 @@ impl Namer {
         }
         let spelled = self.unique(&base, scope, policy);
         lock.set_counted_name(spelled, &base);
+        // `light2` for `self._light` beside a visible `light`: the final
+        // namer tries the field's own spelling `_light` before the counter.
+        lock.4.private_stem = lock.4.suffix_stem != 0 && value.is_some_and(|value| reads_private_field(value, &base));
     }
 
     /// First pass: gather reserved globals and per-local naming hints.
@@ -5278,7 +5299,8 @@ impl Namer {
             if let Statement::Assign(assign) = &*statement
                 && assign.prefix
             {
-                for lvalue in &assign.left {
+                let single = assign.left.len() == assign.right.len();
+                for (index, lvalue) in assign.left.iter().enumerate() {
                     if let Some(local) = lvalue.as_local() {
                         // Only an unused local (see `name_one`) needs it.
                         let unused = if Arc::count(&local.0 .0) == 1 {
@@ -5286,7 +5308,8 @@ impl Namer {
                         } else {
                             UnusedSpelling::Underscore
                         };
-                        self.name_one(local, "v", &mut block_scope, ReusePolicy::FileUnique, unused);
+                        let value = assign.right.get(index).filter(|_| single);
+                        self.name_one(local, "v", &mut block_scope, ReusePolicy::FileUnique, unused, value);
                     }
                 }
             }
@@ -5328,7 +5351,7 @@ impl Namer {
                             *slot = Hint { name: hint, score: TYPE_HINT_SCORE, role: NameRole::Noun };
                         }
                     }
-                    self.name_one(param, "p", &mut param_scope, ReusePolicy::FileUnique, UnusedSpelling::Underscore);
+                    self.name_one(param, "p", &mut param_scope, ReusePolicy::FileUnique, UnusedSpelling::Underscore, None);
                 }
                 self.apply(&mut function.body, false);
                 self.release(param_scope);
@@ -5352,6 +5375,7 @@ impl Namer {
                         &mut loop_scope,
                         ReusePolicy::LoopReusable,
                         UnusedSpelling::Underscore,
+                        None,
                     );
                     self.apply(&mut numeric_for.block.lock(), false);
                     self.release(loop_scope);
@@ -5359,7 +5383,7 @@ impl Namer {
                 Statement::GenericFor(generic_for) => {
                     let mut loop_scope: Vec<String> = Vec::new();
                     for res_local in &generic_for.res_locals {
-                        self.name_one(res_local, "v", &mut loop_scope, ReusePolicy::LoopReusable, UnusedSpelling::Underscore);
+                        self.name_one(res_local, "v", &mut loop_scope, ReusePolicy::LoopReusable, UnusedSpelling::Underscore, None);
                     }
                     self.apply(&mut generic_for.block.lock(), false);
                     self.release(loop_scope);
@@ -6671,7 +6695,8 @@ mod tests {
 
         name_locals(&mut block, true);
 
-        assert_eq!(name_of(&value), "script");
+        // `script` itself is a builtin a derived name never spells.
+        assert_eq!(name_of(&value), "Script");
     }
 
     #[test]
@@ -6716,7 +6741,8 @@ mod tests {
 
         name_locals(&mut block, true);
 
-        assert_eq!(name_of(&value), "script");
+        // `script` itself is a builtin a derived name never spells.
+        assert_eq!(name_of(&value), "Script");
     }
 
     #[test]

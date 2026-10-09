@@ -17,6 +17,7 @@ mod layout;
 mod site_comments;
 use layout::Arguments;
 pub(crate) use site_comments::{InferredCalls, SITE_COMMENT};
+use site_comments::Site;
 
 /// The Luau compound-assignment operator for a binary operation, or `None` for
 /// operations that have no compound form (the comparisons and `and`/`or`).
@@ -591,11 +592,11 @@ mod tests {
         let b = local("b");
         let c = local("c");
         let block = Block(vec![
-            Return::new(vec![RValue::MethodCall(MethodCall::new(
+            Return::new(vec![RValue::Select(Select::MethodCall(MethodCall::new(
                 string("[%*] %* [%*kg]"),
                 "format".to_string(),
                 vec![local_value(&a), local_value(&b), local_value(&c)],
-            ))])
+            )))])
             .into(),
         ]);
 
@@ -607,15 +608,40 @@ mod tests {
         // `("100%% %*"):format(x)` -> `` `100% {x}` ``
         let x = local("x");
         let block = Block(vec![
-            Return::new(vec![RValue::MethodCall(MethodCall::new(
+            Return::new(vec![RValue::Select(Select::MethodCall(MethodCall::new(
                 string("100%% %*"),
                 "format".to_string(),
                 vec![local_value(&x)],
-            ))])
+            )))])
             .into(),
         ]);
 
         assert_eq!(block.to_string(), "return `100% {x}`");
+    }
+
+    /// D1: a bare multret `:format` in a spreading position (a call's last
+    /// argument, `return`'s last value, a constructor's tail) gives all its
+    /// results, which a hooked `string.format` may make several of; a
+    /// backtick string is one value. So is the last value assigned to more
+    /// targets, adjusted or not. Adjusted and non-spreading calls interpolate.
+    #[test]
+    fn a_spreading_format_call_keeps_its_method_form() {
+        let x = local("x");
+        let format = || MethodCall::new(string("c%*"), "format".to_string(), vec![local_value(&x)]);
+        let call = |argument: RValue| -> RValue { Call::new(global("print"), vec![argument]).into() };
+        let spreading = Block(vec![
+            Call::new(global("print"), vec![RValue::MethodCall(format())]).into(),
+            Call::new(global("print"), vec![RValue::MethodCall(format()), number(1.0)]).into(),
+            Call::new(global("print"), vec![call(RValue::Select(Select::MethodCall(format())))]).into(),
+            Call::new(global("print"), vec![Table::new(vec![(None, RValue::MethodCall(format()))]).into()]).into(),
+            Assign::new(vec![local("a").into(), local("b").into()], vec![RValue::Select(Select::MethodCall(format()))]).into(),
+            Return::new(vec![RValue::MethodCall(format())]).into(),
+        ]);
+        assert_eq!(
+            spreading.to_string(),
+            "print((\"c%*\"):format(x))\nprint(`c{x}`, 1)\nprint(print(`c{x}`))\nprint({ (\"c%*\"):format(x) })\n\
+             a, b = (\"c%*\"):format(x)\nreturn (\"c%*\"):format(x)"
+        );
     }
 
     #[test]
@@ -708,11 +734,11 @@ mod tests {
         // and `}` stay bare.
         let x = local("x");
         let block = Block(vec![
-            Return::new(vec![RValue::MethodCall(MethodCall::new(
+            Return::new(vec![RValue::Select(Select::MethodCall(MethodCall::new(
                 string("a`b{c} \"d\" 'e' %*"),
                 "format".to_string(),
                 vec![local_value(&x)],
-            ))])
+            )))])
             .into(),
         ]);
 
@@ -1464,10 +1490,10 @@ end");
     #[test]
     fn emission_map_marks_interpolation_subrendering_opaque() {
         let item = local("item");
-        let block = Block(vec![Return::new(vec![RValue::MethodCall(MethodCall {
+        let block = Block(vec![Return::new(vec![RValue::Select(Select::MethodCall(MethodCall {
             node_origin: Default::default(),
             value: Box::new(string("%*")), method: "format".into(), arguments: vec![local_value(&item)],
-        })]).into()]);
+        }))]).into()]);
         let (source, _, map) = format_with_emission_map(&block, IndentationMode::Tab, true).unwrap();
         assert_eq!(source, "return `{item}`");
         assert_eq!(source, block.to_string());
@@ -1592,20 +1618,36 @@ impl Default for IndentationMode {
     }
 }
 
+/// `list` as a call's arguments on one line: the last one spreads (see
+/// `Formatter::format_spread_tail`).
 pub(crate) fn format_arg_list(list: &[RValue]) -> String {
     let mut s = String::new();
-    for (index, rvalue) in list.iter().enumerate() {
-        if index + 1 == list.len() {
-            if matches!(rvalue, RValue::Select(_)) {
-                s += &format!("({})", rvalue);
-            } else {
-                s += &rvalue.to_string();
-            }
-        } else {
-            s += &format!("{}, ", rvalue);
-        }
+    let _ = Formatter {
+        indentation_level: 0,
+        indentation_mode: Default::default(),
+        output: &mut s,
+        colon_method_calls: Default::default(),
+        position_query: None,
+        closure_observer: None,
+        emission_map: None,
+        layout_budget: None,
+        compact_annotations: false,
+        inferred_calls: Default::default(),
     }
+    .format_arg_list(list, Arguments::Flat);
     s
+}
+
+/// Whether a call's last argument prints in truncating parentheses: an
+/// adjust-to-one `Select` that does not print as a backtick string.
+pub(crate) fn needs_truncation_parens(value: &RValue) -> bool {
+    Formatter::<String>::needs_truncation_parens(value)
+}
+
+/// Whether `("...%*"):format(...)` prints as a backtick string where it is
+/// adjusted to one value.
+pub(crate) fn prints_as_interpolation(method_call: &MethodCall) -> bool {
+    Formatter::<String>::prints_as_interpolation(method_call)
 }
 
 #[derive(Debug, Eq, PartialEq, Hash)]
@@ -2049,14 +2091,16 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
             }
             // `local f` then `f = function ... end` is what `local function f`
             // is defined as.
-            let (i, statement) = if let Some(definition) = Self::local_function_definition(block, i) {
+            let definition = Self::local_function_definition(block, i);
+            let (i, statement) = if definition.is_some() { (i + 1, &block[i + 1]) } else { (i, statement) };
+            // A block statement's header line carries its comment instead.
+            let outer = self.inferred_calls.enter(!Self::has_header_line(statement) && self.inferred_calls.holds(statement));
+            if let Some(definition) = definition {
                 self.format_statement(&definition.into())?;
-                defined = Some(i + 1);
-                (i + 1, &block[i + 1])
+                defined = Some(i);
             } else {
                 self.format_statement(statement)?;
-                (i, statement)
-            };
+            }
             if statement.as_comment().is_some() {
                 continue;
             }
@@ -2074,10 +2118,7 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
             {
                 write!(self.output, ";")?;
             }
-            // A block statement's header line carries its comment instead.
-            if !Self::has_header_line(statement) && self.inferred_calls.holds(statement) {
-                self.site_comment()?;
-            }
+            self.end_site(outer)?;
         }
         Ok(())
     }
@@ -2097,12 +2138,32 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
         self.format_comment(&crate::Comment::new(SITE_COMMENT.to_string()))
     }
 
-    /// The site comment for a header whose values hold an inferred call.
-    fn header_site_comment<T>(&mut self, header: &T) -> fmt::Result {
-        if self.inferred_calls.header_holds(header) {
+    /// A block statement's header starts printing: its comment ends the
+    /// header line, after `then`/`do` (see [`Self::end_site`]).
+    fn begin_header_site<T>(&mut self, header: &T) -> Site {
+        let holds = self.inferred_calls.header_holds(header);
+        self.inferred_calls.enter(holds)
+    }
+
+    /// The statement or header printed: the comment its last line still
+    /// needs, if any; then the enclosing statement's state is back.
+    fn end_site(&mut self, outer: Site) -> fmt::Result {
+        if self.inferred_calls.leave(outer) {
             self.site_comment()?;
         }
         Ok(())
+    }
+
+    /// A line break inside a statement (between table entries or arguments,
+    /// around a function body, in a wrapped condition). The line it ends
+    /// takes the site comment of an inferred call that started on it, so a
+    /// call followed by a function or a hugged table keeps its comment on
+    /// its own first line.
+    fn line_break(&mut self) -> fmt::Result {
+        if self.inferred_calls.line_ends() {
+            self.site_comment()?;
+        }
+        writeln!(self.output)
     }
 
     /// A bare `local f` and right after it `f = function ... end`, as the one
@@ -2243,7 +2304,7 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
         let should_space = !table.0.is_empty();
         write!(self.output, "{{")?;
         if should_format {
-            writeln!(self.output)?;
+            self.line_break()?;
         } else if should_space {
             write!(self.output, " ")?;
         }
@@ -2254,14 +2315,7 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
             }
             let is_last = index + 1 == table.0.len();
             if is_last && key.is_none() {
-                let wrap = Self::needs_truncation_parens(value);
-                if wrap {
-                    write!(self.output, "(")?;
-                }
-                self.format_rvalue(value)?;
-                if wrap {
-                    write!(self.output, ")")?;
-                }
+                self.format_spread_tail(value)?;
             } else {
                 if !sequential_keys {
                     if let Some(key) = key {
@@ -2296,13 +2350,13 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
                 }
                 if !is_last {
                     write!(self.output, ",")?;
-                    write!(self.output, "{}", if should_format { "\n" } else { " " })?;
+                    if should_format { self.line_break()?; } else { write!(self.output, " ")?; }
                 }
             }
         }
         self.indentation_level -= 1;
         if should_format {
-            writeln!(self.output)?;
+            self.line_break()?;
             self.indent()?;
         } else if should_space {
             write!(self.output, " ")?;
@@ -2396,9 +2450,9 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
     fn format_closure_body(&mut self, closure: &Closure) -> fmt::Result {
         let function = closure.function.lock();
         if !function.body.is_empty() {
-            writeln!(self.output)?;
+            self.line_break()?;
             self.format_closure_block(&function.body)?;
-            writeln!(self.output)?;
+            self.line_break()?;
             self.indent()
         } else {
             write!(self.output, " ")
@@ -2803,7 +2857,7 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
     fn format_arg_list(&mut self, list: &[RValue], layout: Arguments) -> fmt::Result {
         let multiline = layout == Arguments::Lines;
         if multiline {
-            writeln!(self.output)?;
+            self.line_break()?;
             self.indentation_level += 1;
         }
         for (index, rvalue) in list.iter().enumerate() {
@@ -2813,23 +2867,16 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
                 let sequential_keys = Self::are_table_keys_sequential(table);
                 self.format_rvalue_with(rvalue, |formatter| formatter.format_table_as(table, sequential_keys, true))?;
             } else if index + 1 == list.len() {
-                let wrap = Self::needs_truncation_parens(rvalue);
-                if wrap {
-                    write!(self.output, "(")?;
-                }
-                self.format_rvalue(rvalue)?;
-                if wrap {
-                    write!(self.output, ")")?;
-                }
+                self.format_spread_tail(rvalue)?;
             } else {
                 self.format_rvalue(rvalue)?;
                 write!(self.output, ",")?;
-                if multiline { writeln!(self.output)?; } else { write!(self.output, " ")?; }
+                if multiline { self.line_break()?; } else { write!(self.output, " ")?; }
             }
         }
         if multiline {
             self.indentation_level -= 1;
-            writeln!(self.output)?;
+            self.line_break()?;
             self.indent()?;
         }
         Ok(())
@@ -3040,6 +3087,9 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
     }
 
     fn format_call_as(&mut self, call: &Call, layout: Arguments) -> fmt::Result {
+        if call.is_inferred() {
+            self.inferred_calls.call_printed();
+        }
         let start = self.current_position();
         let wrap = Self::should_wrap_left_rvalue(&call.value);
         if wrap {
@@ -3067,9 +3117,11 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
         self.format_method_call_as(method_call, true)
     }
 
-    /// `interpolate`: the call is an expression, which an interpolated string
-    /// can stand for. A statement keeps `:format`: a string is no statement,
-    /// and the call still runs each argument's `__tostring`.
+    /// `interpolate`: the call is an expression adjusted to one value, which
+    /// an interpolated string can stand for. A statement keeps `:format`: a
+    /// string is no statement, and the call still runs each argument's
+    /// `__tostring`; so does a spreading last position
+    /// ([`Self::format_spread_tail`]).
     fn format_method_call_as(&mut self, method_call: &MethodCall, interpolate: bool) -> fmt::Result {
         // `("...%*..."):format(args)` -> Luau interpolated string `` `...{args}...` ``.
         // `%*` is exactly the tostring-coercion that `{expr}` performs and evaluation
@@ -3130,7 +3182,7 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
             emission_map: None,
             layout_budget: self.layout_budget,
             compact_annotations: self.compact_annotations,
-            inferred_calls: self.inferred_calls.clone(),
+            inferred_calls: self.inferred_calls.detached(),
         };
         sub.format_rvalue(rvalue).ok()?;
         Some(buffer)
@@ -3219,6 +3271,48 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
         }
     }
 
+    /// Whether [`Self::format_spread_tail`] prints `value` otherwise than
+    /// [`Self::format_rvalue`] does.
+    fn is_spread_sensitive(value: &RValue) -> bool {
+        Self::needs_truncation_parens(value) || matches!(value, RValue::MethodCall(_))
+    }
+
+    /// A value in a last position that spreads all its results: a call's
+    /// last argument, a constructor's positional tail, `return`'s last value.
+    /// An adjust-to-one `Select` keeps its truncating parentheses (unless it
+    /// prints as a backtick string, one value already). A bare multret
+    /// `("...%*"):format(x)` keeps its `:format` form: libraries may be hooked,
+    /// and a replaced `string.format` may return several values there, where
+    /// a backtick string is always exactly one.
+    fn format_spread_tail(&mut self, value: &RValue) -> fmt::Result {
+        if let RValue::MethodCall(method_call) = value {
+            return self.format_method_call_as(method_call, false);
+        }
+        let wrap = Self::needs_truncation_parens(value);
+        if wrap {
+            write!(self.output, "(")?;
+        }
+        self.format_rvalue(value)?;
+        if wrap {
+            write!(self.output, ")")?;
+        }
+        Ok(())
+    }
+
+    /// The last value of an assignment to more targets, or of a generic
+    /// `for`'s values: it fills every slot left, so a `Select` there stands
+    /// for a call adjusted to that many values and prints bare. A `:format`
+    /// call keeps its method form, adjusted or not: a hooked `string.format`
+    /// may fill more than the one slot a backtick string does.
+    fn format_filling_tail(&mut self, value: &RValue) -> fmt::Result {
+        match value {
+            RValue::MethodCall(method_call) | RValue::Select(Select::MethodCall(method_call)) => {
+                self.format_method_call_as(method_call, false)
+            }
+            _ => self.format_rvalue(value),
+        }
+    }
+
     /// Try to convert `("<fmt>"):format(<args>)` into a backtick interpolated
     /// string (see [`Self::interpolation_plan`]).
     fn try_format_interpolation(&self, bytes: &[u8], arguments: &[RValue]) -> Option<String> {
@@ -3270,8 +3364,9 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
     }
 
     pub(crate) fn format_if(&mut self, r#if: &If) -> fmt::Result {
+        let outer = self.begin_header_site(r#if);
         self.format_condition_header("if", &r#if.condition, Some("then"))?;
-        self.header_site_comment(r#if)?;
+        self.end_site(outer)?;
         writeln!(self.output)?;
 
         let then_block = r#if.then_block.lock();
@@ -3414,6 +3509,8 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
             }
             if let (RValue::Closure(closure), Some(target)) = (rvalue, assign.left.get(i)) {
                 self.format_assigned_closure(closure, target)?;
+            } else if i + 1 == assign.right.len() && assign.left.len() > assign.right.len() {
+                self.format_filling_tail(rvalue)?;
             } else if assign.left.len() == 1 && assign.right.len() == 1 {
                 self.format_hanging_value(rvalue)?;
             } else {
@@ -3443,8 +3540,9 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
     }
 
     pub(crate) fn format_while(&mut self, r#while: &While) -> fmt::Result {
+        let outer = self.begin_header_site(r#while);
         self.format_condition_header("while", &r#while.condition, Some("do"))?;
-        self.header_site_comment(r#while)?;
+        self.end_site(outer)?;
         writeln!(self.output)?;
 
         self.format_block(&r#while.block.lock())?;
@@ -3462,6 +3560,7 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
     }
 
     pub(crate) fn format_numeric_for(&mut self, numeric_for: &NumericFor) -> fmt::Result {
+        let outer = self.begin_header_site(numeric_for);
         write!(self.output, "for ")?;
         self.format_local(&numeric_for.counter, "iteration_binding")?;
         write!(self.output, " = ")?;
@@ -3478,7 +3577,7 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
             self.format_rvalue(&numeric_for.step)?;
         }
         write!(self.output, " do")?;
-        self.header_site_comment(numeric_for)?;
+        self.end_site(outer)?;
         writeln!(self.output)?;
         self.format_block(&numeric_for.block.lock())?;
         writeln!(self.output)?;
@@ -3487,6 +3586,7 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
     }
 
     pub(crate) fn format_generic_for(&mut self, generic_for: &GenericFor) -> fmt::Result {
+        let outer = self.begin_header_site(generic_for);
         write!(self.output, "for ")?;
         for (index, local) in generic_for.res_locals.iter().enumerate() {
             if index != 0 { write!(self.output, ", ")?; }
@@ -3509,10 +3609,14 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
             if i != 0 {
                 write!(self.output, ", ")?;
             }
-            self.format_rvalue(rvalue)?;
+            if i + 1 == shown {
+                self.format_filling_tail(rvalue)?;
+            } else {
+                self.format_rvalue(rvalue)?;
+            }
         }
         write!(self.output, " do")?;
-        self.header_site_comment(generic_for)?;
+        self.end_site(outer)?;
         writeln!(self.output)?;
         self.format_block(&generic_for.block.lock())?;
         writeln!(self.output)?;
@@ -3528,25 +3632,18 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
         for (i, rvalue) in r#return.values.iter().enumerate() {
             if multiline {
                 if i != 0 { write!(self.output, ",")?; }
-                writeln!(self.output)?;
+                self.line_break()?;
                 self.indent()?;
             } else if i == 0 {
                 write!(self.output, " ")?;
             } else {
                 write!(self.output, ", ")?;
             }
-            // A multret value (`Select`, the adjust-to-one wrapper the lifter mints
-            // for `(call())` / `(...)`) in the FINAL position must keep its
-            // truncating parentheses: `return (two())` yields ONE value, not two
-            // (C5). `return` is the only multret context that omitted this wrap;
-            // mirror `format_arg_list`. Non-last values are already arity-truncated
-            // by the trailing comma, so they need no wrap. A bare `RValue::Call`/
-            // `VarArg` (genuine multret) is not a `Select`, so it stays paren-free.
-            let wrap = i + 1 == r#return.values.len() && Self::needs_truncation_parens(rvalue);
-            if wrap {
-                write!(self.output, "(")?;
-                self.format_rvalue(rvalue)?;
-                write!(self.output, ")")?;
+            // The FINAL value spreads (`return (two())` yields ONE value, not two;
+            // C5): see `format_spread_tail`. Non-last values are already
+            // arity-truncated by the trailing comma.
+            if i + 1 == r#return.values.len() && Self::is_spread_sensitive(rvalue) {
+                self.format_spread_tail(rvalue)?;
             } else if r#return.values.len() == 1 {
                 self.format_hanging_value(rvalue)?;
             } else {

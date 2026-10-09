@@ -9,7 +9,7 @@ use rustc_hash::{FxHashMap, FxHashSet};
 
 use crate::{
     deinline::rvalue_exact_eq, flatten_guards::block_size, BinaryOperation, Block, Global, If,
-    Index, LValue, Literal, Local, NumericFor, RValue, RcLocal, Repeat, Statement,
+    Index, LValue, Literal, NumericFor, RValue, RcLocal, Repeat, Statement,
     Traverse, Unary, UnaryOperation,
 };
 
@@ -308,12 +308,11 @@ fn reroll_two_index_blocks_impl<const PREFILTER: bool>(block: &mut Block, live: 
             continue;
         }
 
-        let counter_name = crate::rehoist_constants::unique_name("i", &mut reserved);
-        let counter = RcLocal::new(Local::new(Some(counter_name)));
+        let counter = crate::rehoist_constants::unique_local("i", &mut reserved);
         if crate::inline_temps::is_generated_temp(&element) {
             let item_base = indexed_item_name(&base);
             let item_name = crate::rehoist_constants::unique_name(&item_base, &mut reserved);
-            element.0 .0.lock().0 = Some(item_name);
+            element.0 .0.lock().set_counted_name(item_name, &item_base);
         }
 
         let mut declaration = block.0.remove(index).into_assign().unwrap();

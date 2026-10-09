@@ -12,7 +12,7 @@ use std::{cell::RefCell, collections::BTreeMap, marker::PhantomData, rc::Rc};
 use rustc_hash::{FxHashMap, FxHashSet};
 use serde::Serialize;
 
-use crate::{Block, RValue, RcLocal, Select, Statement, Traverse, call_origins::Kind};
+use crate::{Block, LValue, RValue, RcLocal, Select, Statement, Traverse, call_origins::Kind};
 
 #[derive(Default)]
 struct State {
@@ -76,8 +76,10 @@ pub struct Stats {
     pub synthesized_calls: usize,
     /// Distinct helpers the calls above call.
     pub helpers: Helpers,
-    /// The calls above per helper, by its printed name (`?` unnamed).
-    pub calls_by_helper: BTreeMap<String, usize>,
+    /// The calls above per helper binding, by the bytecode prototype it was
+    /// lifted from: helpers that print alike (two local `fn`s) stay apart,
+    /// and the census of inlined copies joins on the prototype.
+    pub calls_by_helper: Vec<HelperCalls>,
     /// Helpers the statement de-inliner refused as targets (and never
     /// rebuilt a call of), by reason.
     pub refused_helpers: BTreeMap<&'static str, usize>,
@@ -97,6 +99,18 @@ pub struct Calls {
     pub arithmetic: usize,
 }
 
+/// One helper's rebuilt calls.
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Serialize)]
+pub struct HelperCalls {
+    /// The prototype the helper's function was lifted from; `None` when the
+    /// tree holds no definition of it with one (a parameter, a synthesized
+    /// function).
+    pub proto: Option<usize>,
+    /// Its printed name (`?` unnamed).
+    pub helper: String,
+    pub calls: usize,
+}
+
 #[derive(Debug, Default, Serialize)]
 pub struct Helpers {
     pub reconstructed: usize,
@@ -107,9 +121,13 @@ impl Scope {
     /// The numbers for `body`, the final tree, with the refusals recorded.
     pub fn finish(self, body: &Block) -> Stats {
         let mut stats = Stats::default();
-        let mut callees = FxHashSet::default();
+        // Rebuilt calls per helper binding, with the binding.
+        let mut callees: FxHashMap<u64, (RcLocal, usize)> = FxHashMap::default();
+        let mut unbound = 0;
         let mut synthesized = FxHashSet::default();
-        count_block(body, &mut |call| {
+        // The prototype of each binding defined as a lifted function.
+        let mut protos: FxHashMap<u64, usize> = FxHashMap::default();
+        count_block(body, &mut protos, &mut |call| {
             let callee = match &*call.value {
                 RValue::Local(local) => Some(local),
                 _ => None,
@@ -127,14 +145,22 @@ impl Scope {
                 }
             }
             calls.total += 1;
-            callees.extend(callee.map(RcLocal::stable_id));
-            let name = callee.and_then(|local| local.0.0.lock().0.clone()).unwrap_or_else(|| "?".to_string());
-            *stats.calls_by_helper.entry(name).or_default() += 1;
+            match callee {
+                Some(local) => callees.entry(local.stable_id()).or_insert_with(|| (local.clone(), 0)).1 += 1,
+                None => unbound += 1,
+            }
         });
         stats.helpers = Helpers { reconstructed: callees.len(), synthesized: synthesized.len() };
+        let name = |local: &RcLocal| local.0.0.lock().0.clone().unwrap_or_else(|| "?".to_string());
+        stats.calls_by_helper = callees
+            .iter()
+            .map(|(id, (local, calls))| HelperCalls { proto: protos.get(id).copied(), helper: name(local), calls: *calls })
+            .chain((unbound > 0).then(|| HelperCalls { proto: None, helper: "?".into(), calls: unbound }))
+            .collect();
+        stats.calls_by_helper.sort_unstable();
         if let Some(state) = STATE.with(|state| state.borrow_mut().take()) {
             for (binder, reason) in state.refused_helpers {
-                if !callees.contains(&binder) {
+                if !callees.contains_key(&binder) {
                     *stats.refused_helpers.entry(reason).or_default() += 1;
                 }
             }
@@ -146,26 +172,37 @@ impl Scope {
 }
 
 /// Every call in `block`: nested blocks, and each closure literal's body as
-/// often as it is printed.
-fn count_block(block: &Block, visit: &mut impl FnMut(&crate::Call)) {
+/// often as it is printed. Records, in `protos`, the prototype of every local
+/// defined as a lifted function (`local function f`, `f = function`).
+fn count_block(block: &Block, protos: &mut FxHashMap<u64, usize>, visit: &mut impl FnMut(&crate::Call)) {
     for statement in &block.0 {
-        if let Statement::Call(call) = statement {
-            visit(call);
+        match statement {
+            Statement::Call(call) => visit(call),
+            Statement::Assign(assign) => {
+                for (target, value) in assign.left.iter().zip(&assign.right) {
+                    if let (LValue::Local(local), RValue::Closure(closure)) = (target, value)
+                        && let Some(proto) = closure.function.lock().bytecode_proto_id
+                    {
+                        protos.insert(local.stable_id(), proto);
+                    }
+                }
+            }
+            _ => {}
         }
         statement.traverse_rvalues_ref(&mut |value| match value {
             RValue::Call(call) | RValue::Select(Select::Call(call)) => visit(call),
-            RValue::Closure(closure) => count_block(&closure.function.lock().body, &mut *visit),
+            RValue::Closure(closure) => count_block(&closure.function.lock().body, protos, &mut *visit),
             _ => {}
         });
         match statement {
             Statement::If(r#if) => {
-                count_block(&r#if.then_block.lock(), visit);
-                count_block(&r#if.else_block.lock(), visit);
+                count_block(&r#if.then_block.lock(), protos, visit);
+                count_block(&r#if.else_block.lock(), protos, visit);
             }
-            Statement::While(r#while) => count_block(&r#while.block.lock(), visit),
-            Statement::Repeat(repeat) => count_block(&repeat.block.lock(), visit),
-            Statement::NumericFor(numeric_for) => count_block(&numeric_for.block.lock(), visit),
-            Statement::GenericFor(generic_for) => count_block(&generic_for.block.lock(), visit),
+            Statement::While(r#while) => count_block(&r#while.block.lock(), protos, visit),
+            Statement::Repeat(repeat) => count_block(&repeat.block.lock(), protos, visit),
+            Statement::NumericFor(numeric_for) => count_block(&numeric_for.block.lock(), protos, visit),
+            Statement::GenericFor(generic_for) => count_block(&generic_for.block.lock(), protos, visit),
             _ => {}
         }
     }
@@ -214,7 +251,36 @@ mod tests {
         assert_eq!((calls.statement, calls.expression, calls.arithmetic, calls.total), (4, 1, 1, 6));
         assert_eq!(stats.synthesized_calls, 1);
         assert_eq!((stats.helpers.reconstructed, stats.helpers.synthesized), (2, 1));
-        assert_eq!(stats.calls_by_helper, BTreeMap::from([("helper".to_string(), 5), ("?".to_string(), 1)]));
+        assert_eq!(stats.calls_by_helper, vec![
+            HelperCalls { proto: None, helper: "?".into(), calls: 1 },
+            HelperCalls { proto: None, helper: "helper".into(), calls: 5 },
+        ]);
+    }
+
+    /// Two helpers that print alike stay two entries, each with the
+    /// prototype its definition was lifted from.
+    #[test]
+    fn helpers_that_print_alike_stay_apart_by_prototype() {
+        let named = |name: &str| RcLocal::new(crate::Local::new(Some(name.into())));
+        let define = |helper: &RcLocal, proto: usize| -> Statement {
+            let function = Function { bytecode_proto_id: Some(proto), ..Function::default() };
+            let closure = Closure { node_origin: Default::default(), function: ByAddress(Arc::new(Mutex::new(function))), upvalues: vec![] };
+            Assign { prefix: true, ..Assign::new(vec![helper.clone().into()], vec![closure.into()]) }.into()
+        };
+        let (first, second) = (named("fn"), named("fn"));
+        let block = Block(vec![
+            define(&first, 3),
+            define(&second, 7),
+            Statement::Call(rebuilt(&first, Kind::StatementDeinline)),
+            Statement::Call(rebuilt(&first, Kind::StatementDeinline)),
+            Statement::Call(rebuilt(&second, Kind::ExpressionDeinline)),
+        ]);
+        let stats = enter(true).finish(&block);
+        assert_eq!(stats.calls_by_helper, vec![
+            HelperCalls { proto: Some(3), helper: "fn".into(), calls: 2 },
+            HelperCalls { proto: Some(7), helper: "fn".into(), calls: 1 },
+        ]);
+        assert_eq!(stats.helpers.reconstructed, 2);
     }
 
     /// A helper's last refusal counts, unless it was accepted later or one

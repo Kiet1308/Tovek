@@ -52,6 +52,22 @@ impl Call {
         }
     }
 
+    /// This call with its callee and arguments rewritten by a pass (lowered,
+    /// copied): still the same call, so it keeps every attribute, `rebuilt`
+    /// above all (its site comment, its helper's count and `--stats-json` all
+    /// read it). A pass rewriting a call's parts builds the result here, never
+    /// through [`Call::new`], which starts a new, unattributed call.
+    pub fn with_parts(&self, value: RValue, arguments: Vec<RValue>) -> Self {
+        Self {
+            node_origin: self.node_origin.clone(),
+            value: Box::new(value),
+            arguments,
+            reconstruction_event: self.reconstruction_event,
+            callee_after_arguments: self.callee_after_arguments,
+            rebuilt: self.rebuilt,
+        }
+    }
+
     pub(crate) fn reconstructed(mut self, producer: crate::call_origins::Kind) -> Self {
         self.rebuilt = Some(producer);
         if crate::call_origins::enabled() {

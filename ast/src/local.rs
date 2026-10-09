@@ -30,6 +30,11 @@ pub struct BindingRoles {
     /// otherwise. A later pass may rename the local, so the final namer reads
     /// it only through [`Local::namer_stem`], which checks it still applies.
     pub suffix_stem: u16,
+    /// The counted base was read from a private field (`light` of
+    /// `self._light`): `_` + base is that field's own spelling, the
+    /// binding's fallback before a counter when the base is taken. Read only
+    /// with [`Local::namer_stem`].
+    pub private_stem: bool,
 }
 
 /// Diagnostic ancestry of storage/SSA identities, not an equality or lifetime
@@ -179,6 +184,7 @@ impl Local {
     /// `base` itself was taken (see [`BindingRoles::suffix_stem`]).
     pub fn set_counted_name(&mut self, name: String, base: &str) {
         self.4.suffix_stem = if name != base && name.starts_with(base) { base.len().min(u16::MAX as usize) as u16 } else { 0 };
+        self.4.private_stem = false;
         self.0 = Some(name);
     }
 

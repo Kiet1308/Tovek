@@ -11,7 +11,7 @@ use std::collections::VecDeque;
 use rustc_hash::{FxHashMap, FxHashSet};
 
 use crate::{
-    Assign, Block, Break, Index, LValue, Literal, Local, LocalRw, RValue, RcLocal, Reduce,
+    Assign, Block, Break, Index, LValue, Literal, LocalRw, RValue, RcLocal, Reduce,
     Statement, Table, Traverse,
 };
 
@@ -747,10 +747,7 @@ fn recover_named_module_return(block: &mut Block, script_name: Option<&str>) {
     let base = script_name
         .and_then(crate::name_locals::script_module_hint)
         .unwrap_or_else(|| "Module".to_string());
-    let module = RcLocal::new(Local::new(Some(crate::rehoist_constants::unique_name(
-        &base,
-        &mut reserved,
-    ))));
+    let module = crate::rehoist_constants::unique_local(&base, &mut reserved);
     let mut statements = Vec::with_capacity(table.0.len() + 2);
     let mut declaration = Assign::new(
         vec![LValue::Local(module.clone())],

@@ -48,8 +48,8 @@ pub fn write_json() -> io::Result<()> {
         stats: &'a Stats,
     }
     let export = serde_json::json!({
-        "schema": "tovek-stats/1",
-        "contract": "reconstructed_calls counts the calls the de-inliners rebuilt in the final tree, per printed copy; refused_helpers counts helpers the statement de-inliner refused as targets and never rebuilt a call of; refused_sites counts refused site attempts (one site may be tried more than once).",
+        "schema": "tovek-stats/2",
+        "contract": "reconstructed_calls counts the calls the de-inliners rebuilt in the final tree, per printed copy; calls_by_helper lists them per helper binding with the bytecode prototype its function was lifted from (null when unknown) and its printed name; refused_helpers counts helpers the statement de-inliner refused as targets and never rebuilt a call of; refused_sites counts refused site attempts (one site may be tried more than once).",
         "scripts": scripts.iter().map(|(script, stats)| Script { script, stats }).collect::<Vec<_>>(),
     });
     let mut writer = BufWriter::new(std::fs::File::create(&sink.path)?);

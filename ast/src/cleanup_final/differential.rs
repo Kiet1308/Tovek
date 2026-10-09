@@ -1,7 +1,7 @@
 //! Exact legacy comparison including ancestry, floating bits and owner counts.
 use super::*;
 use crate::{Binary, BinaryOperation as Op, Call, Closure, Function, Global, If,
-    IfExpression, Return, Select, SetList, Unary, UnaryOperation, Upvalue, While};
+    IfExpression, Local, Return, Select, SetList, Unary, UnaryOperation, Upvalue, While};
 use by_address::ByAddress;
 use parking_lot::Mutex;
 use triomphe::Arc;
