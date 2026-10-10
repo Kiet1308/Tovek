@@ -77,7 +77,8 @@ def validate(profile, expected_scripts):
                 errors.append('missing measured AST sample')
         if row['pass'] == 'D_COLLECT_TARGETS':
             counters = row['counters']
-            if counters.get('candidate_binders', 0) != counters.get('accepted_targets', 0) + sum(
+            # One helper may give several targets (variants), so the helpers count.
+            if counters.get('candidate_binders', 0) != counters.get('accepted_helpers', 0) + sum(
                     n for k, n in counters.items() if k.startswith('reject_')):
                 errors.append('candidate/refusal accounting mismatch')
     if set(by_script) != expected_scripts:

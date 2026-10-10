@@ -47,7 +47,7 @@ class ProfileChecks(unittest.TestCase):
     def test_shape_and_target_budgets_preserve_candidate_accounting(self):
         profile = valid_profile()
         row = next(r for r in profile['rows'] if r['pass'] == 'D_COLLECT_TARGETS')
-        row['counters'] = dict(candidate_binders=260, accepted_targets=257,
+        row['counters'] = dict(candidate_binders=260, accepted_helpers=257, accepted_targets=301,
                                reject_shape_budget=3, target_budget_exhausted=1)
         self.assertEqual(validate(profile, {'input.lua'}), [])
         row['counters']['reject_shape_budget'] = 2

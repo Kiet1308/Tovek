@@ -8024,6 +8024,7 @@ fn collect_targets(
     // Orphans: functions only ever called where Luau inlined them, their
     // dead declarations kept aside ([`Orphan`]).
     for orphan in orphans {
+        crate::telemetry::count("candidate_binders", 1);
         helper_targets(&orphan.binder, &orphan.function, single_valued, &captures, Some(orphan.scope), &mut targets, cache);
     }
     targets
@@ -8091,6 +8092,9 @@ fn helper_targets(
         }
         HelperAnalysis::RefusedLater(reason) => deinline_reject!(reason, f_local, g.name.as_deref().unwrap_or("<anon>")),
         HelperAnalysis::Accepted => {
+            // Each candidate binder is accepted or refused once; its targets
+            // (variants, an earlier body) are counted in `accepted_targets`.
+            crate::telemetry::count("accepted_helpers", 1);
             crate::call_origins::register_callee(f_local.stable_id(), g.bytecode_proto_id);
             crate::reconstruction_stats::accept_helper(f_local.stable_id());
             let earlier = cache.earlier.remove(&key).unwrap_or_default();
