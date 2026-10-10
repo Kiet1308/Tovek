@@ -581,9 +581,7 @@ fn collect_expr_targets(body: &Block, arithmetic_only: bool, copies: Option<&cra
                 continue;
             }
         }
-        if !candidate.evidence {
-            crate::call_origins::register_callee(candidate.f_local.stable_id(), candidate.prototype);
-        }
+        crate::call_origins::register_callee(candidate.f_local.stable_id(), candidate.prototype);
         let leading = leading_reads(&candidate.function.lock().body.0, &candidate.parameters, &captures);
         let mut free_cells = Vec::new();
         candidate.expr.visit_local_reads(&mut |local| {
@@ -935,8 +933,20 @@ fn try_rewrite(
     if let Some(cands) = w.by_root.get(&std::mem::discriminant(&*rv)) {
         let mut pick = Pick::default();
         let mut ambiguous = false;
-        let ordered = crate::reconstruction_search::prioritize(cands, current_func.map(|p| p as usize), |i| targets[i].func_ptr as usize);
-        for &idx in &ordered {
+        let mut ordered = crate::reconstruction_search::prioritize(cands, current_func.map(|p| p as usize), |i| targets[i].func_ptr as usize);
+        // In an evidence round the targets that may be rebuilt here come
+        // first, and the rivals are tried only where one of them matches.
+        let rivals_from = if matches!(w.round, Round::Normal) {
+            ordered.len()
+        } else {
+            ordered.retain(|&idx| active.contains(&idx) && w.role(idx, current_func).1);
+            ordered.sort_by_key(|&idx| !w.role(idx, current_func).0);
+            ordered.iter().position(|&idx| !w.role(idx, current_func).0).unwrap_or(ordered.len())
+        };
+        for (at, &idx) in ordered.iter().enumerate() {
+            if at == rivals_from && pick.is_empty() {
+                break; // no target that may be rebuilt here matched
+            }
             if !active.contains(&idx) {
                 continue; // helper not yet in lexical scope here
             }
@@ -1191,6 +1201,11 @@ impl Pick {
     /// Whether no later offer can change the outcome: a tie of stable matches.
     pub(super) fn settled(&self) -> bool {
         self.tied && matches!(self.best, Some((.., Hoist::Stable)))
+    }
+
+    /// Whether nothing was offered yet.
+    pub(super) fn is_empty(&self) -> bool {
+        self.best.is_none()
     }
 
     pub(super) fn take(self) -> Option<(usize, Vec<RValue>)> {
