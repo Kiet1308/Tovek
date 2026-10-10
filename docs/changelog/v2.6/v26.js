@@ -368,11 +368,13 @@ function layIns(sc) {
   // Side by side (bytecode, line, source) where it fits; stacked (source under its instructions) where it does not.
   // The type shrinks to fit, never below 7.4 px.
   const tries = sc.mobile ? [[9, true]] : [[12, false], [10.6, false], [12, true]];
+  // leave room above for the plate's own label on desktop
+  const maxH = sc.P - (sc.mobile ? 12 : 64);
   for (const [fs, stack] of tries) {
     const G = layInsAt(sc, fs, stack);
-    if (G.right <= sc.half || stack) {
-      if (G.right <= sc.half) return G;
-      const k = Math.max(7.4 / fs, (sc.half - 2) / G.right * 0.98);
+    if ((G.right <= sc.half && G.total <= maxH) || stack) {
+      if (G.right <= sc.half && G.total <= maxH) return G;
+      const k = Math.max(7.4 / fs, Math.min((sc.half - 2) / G.right * 0.98, maxH / G.total));
       return layInsAt(sc, fs * Math.min(1, k), stack);
     }
   }
@@ -430,7 +432,7 @@ function layInsAt(sc, fs, m) {
   const srcW = Math.max(...blocks.flatMap((b) => b.src.filter((s) => !s.gap).map((s) => s.text.length)));
   const nRows = Math.max(...blocks.map((b) => b.rows.length));
   const right = m ? Math.max(xt + tagW + cw * (3.6 + 0.9 * (nRows - 1)), xs + cw * (srcW + 2.2)) : xs + cw * (0.6 + srcW);
-  return { geo, blocks, stack: m, right, target: [xi + cw * (bi + (t.length - bi) / 2), bB.rowY[k]] };
+  return { geo, blocks, stack: m, right, total, target: [xi + cw * (bi + (t.length - bi) / 2), bB.rowY[k]] };
 }
 
 // --- 10^0: one expression
