@@ -349,7 +349,7 @@ struct Target {
     /// DeepCopy(t)`): no code can see whether the helper's object or the
     /// copy's runs, so such a literal may match ([`unify_closure`]). The
     /// site's local is the region's own, dead after it, and unifies with
-    /// these reads one for one.
+    /// these reads one for one. Read through [`Target::private_closure`].
     private_closures: FxHashSet<RcLocal>,
     /// An orphan's target ([`Orphan`]): the function whose body its
     /// kept-aside declaration belongs to (`None`: the chunk). Active in all
@@ -488,6 +488,16 @@ pub(crate) struct MatchCtx<'a> {
 }
 
 impl Target {
+    /// Whether `binder` holds a shared literal no code but calls sees
+    /// ([`Target::private_closures`]). The pattern of a helper returning
+    /// several values ends in its results, not in the `return` reading them
+    /// ([`Target::returns`]): a result reaches the caller, whose code may
+    /// compare it (`local a, b = pair(); print(a == b)`), and the helper's
+    /// object is not its inlined copy's.
+    fn private_closure(&self, binder: &RcLocal) -> bool {
+        self.private_closures.contains(binder) && !self.returns.contains(binder)
+    }
+
     fn ctx(&self) -> MatchCtx<'_> {
         MatchCtx {
             params: &self.params,
@@ -2961,7 +2971,7 @@ fn unify_assignment(t: &Target, ctx: &MatchCtx, p: &Statement, ca: &Assign, pref
             // shared closure there is no object any code sees.
             if let ([LValue::Local(binder)], [RValue::Closure(pattern)], [RValue::Closure(site)]) =
                 (pa.left.as_slice(), pa.right.as_slice(), ca.right.as_slice())
-                && t.private_closures.contains(binder)
+                && t.private_closure(binder)
             {
                 return unify_closure(ctx, pattern, site, true, b);
             }

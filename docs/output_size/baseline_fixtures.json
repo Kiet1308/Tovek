@@ -1036,6 +1036,18 @@
       "bytes": 1898,
       "lines": 98
     },
+    "semantic/deinline_tuple_result_shared_closure__O0.luau": {
+      "bytes": 679,
+      "lines": 39
+    },
+    "semantic/deinline_tuple_result_shared_closure__O1.luau": {
+      "bytes": 679,
+      "lines": 39
+    },
+    "semantic/deinline_tuple_result_shared_closure__O2.luau": {
+      "bytes": 859,
+      "lines": 54
+    },
     "semantic/deinline_tuple_returns__O0.luau": {
       "bytes": 1201,
       "lines": 69
