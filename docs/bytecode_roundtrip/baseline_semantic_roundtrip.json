@@ -400,7 +400,7 @@
   {
    "file": "closure_identity_across_inlined_copies",
    "status": "ok",
-   "nonequiv": 3,
+   "nonequiv": 1,
    "protos": 13
   },
   {
@@ -874,7 +874,7 @@
   {
    "file": "interpolated_string_in_last_position",
    "status": "ok",
-   "nonequiv": 1,
+   "nonequiv": 0,
    "protos": 3
   },
   {
@@ -1390,7 +1390,7 @@
   {
    "file": "value_capture_into_its_own_target",
    "status": "ok",
-   "nonequiv": 12,
+   "nonequiv": 8,
    "protos": 28
   },
   {
