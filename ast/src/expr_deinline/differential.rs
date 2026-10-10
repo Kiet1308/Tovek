@@ -214,7 +214,7 @@ fn expression_pass_matches_legacy_targets_rewrites_origins_and_events() {
         for arithmetic_only in [false, true] {
             let mut actual = fixture(seed);
             let scope = crate::call_origins::enter(true);
-            let target_keys = target_snapshot!(collect_expr_targets(&actual.block, false));
+            let target_keys = target_snapshot!(collect_expr_targets(&actual.block, false, None));
             run(&mut actual.block, arithmetic_only);
             let actual_report = format!("{:?}", scope.take_report());
             let actual_shape = shape(&actual.block);
@@ -290,7 +290,7 @@ fn target_count_caps_preserve_every_legacy_eligibility_decision() {
                 block
             };
             let actual = make();
-            let keys = target_snapshot!(collect_expr_targets(&actual, false));
+            let keys = target_snapshot!(collect_expr_targets(&actual, false, None));
             let expected = make();
             assert_eq!(keys, target_snapshot!(reference::collect_expr_targets(&expected)),
                 "arithmetic {arithmetic_family}, count {count}");
@@ -309,7 +309,7 @@ fn common_budget_refusal_still_precedes_target_collection() {
             fixture
         };
         let actual = make();
-        let keys = target_snapshot!(collect_expr_targets(&actual.block, false));
+        let keys = target_snapshot!(collect_expr_targets(&actual.block, false, None));
         let expected = make();
         assert_eq!(keys, target_snapshot!(reference::collect_expr_targets(&expected.block)), "depth {depth}");
     }

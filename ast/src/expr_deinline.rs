@@ -132,6 +132,12 @@ struct ExprTarget {
     captures: std::rc::Rc<crate::deinline_safety::CaptureSafety>,
     search: std::rc::Rc<crate::deinline_safety::SearchBudget>,
     protect_definition: bool,
+    /// Below the floors (anchors, size, saving): matched only where line
+    /// info shows the helper's copies, all of them in a function or none
+    /// (plan E1, [`crate::deinline::evidence`]), in the evidence rounds.
+    evidence: bool,
+    /// The helper's bytecode prototype, which line evidence names.
+    proto: Option<usize>,
 }
 
 impl ExprTarget {
@@ -151,7 +157,8 @@ pub fn expr_deinline(body: &mut Block) { run(body, false); }
 pub fn arithmetic_deinline_early(body: &mut Block) { run(body, true); }
 
 fn run(body: &mut Block, arithmetic_only: bool) {
-    let mut targets = collect_expr_targets(body, arithmetic_only);
+    let copies = crate::deinline::evidence::current();
+    let mut targets = collect_expr_targets(body, arithmetic_only, copies.as_deref());
     if arithmetic_only {
         targets.retain(|t| t.arithmetic.is_some());
         for target in &mut targets { target.protect_definition = true; }
@@ -164,13 +171,13 @@ fn run(body: &mut Block, arithmetic_only: bool) {
     }) {
         return;
     }
-    // f_local -> target index, so we recognise each helper's declaration during
-    // the scan and only activate it for sites in its lexical scope.
-    let decl_map: FxHashMap<RcLocal, usize> = targets
-        .iter()
-        .enumerate()
-        .map(|(i, t)| (t.f_local.clone(), i))
-        .collect();
+    // f_local -> its targets' indices (a helper and its evidence twin sit
+    // side by side), so we recognise each helper's declaration during the
+    // scan and only activate it for sites in its lexical scope.
+    let mut decl_map: FxHashMap<RcLocal, std::ops::Range<usize>> = FxHashMap::default();
+    for (i, t) in targets.iter().enumerate() {
+        decl_map.entry(t.f_local.clone()).and_modify(|range| range.end = i + 1).or_insert(i..i + 1);
+    }
     // E-root discriminant -> candidate target indices. An exact unify requires the
     // candidate node to share `E`'s root variant (the root is always a compound
     // expression — a bare param/local/literal root is refused by the cost gate),
@@ -192,7 +199,237 @@ fn run(body: &mut Block, arithmetic_only: bool) {
                 .push(i);
         }
     }
-    walk_block(&mut body.0, &targets, &by_root, &decl_map, &[], None);
+    let mut walk = Walk {
+        targets: &targets,
+        by_root: &by_root,
+        decl_map: &decl_map,
+        round: Round::Normal,
+        copies: copies.clone(),
+        protos: FxHashMap::default(),
+        probed: FxHashMap::default(),
+        rebuilt: FxHashMap::default(),
+        twinned: targets.iter().filter(|t| t.evidence).map(|t| t.f_local.clone()).collect(),
+    };
+    walk_block(&mut body.0, &mut walk, &[], None);
+    // The helpers below the floors, where line info shows their copies
+    // (E1): a probe counts each one's matches in each function, then the
+    // pairs whose counts are its copies there are rebuilt; again while
+    // that rebuilds anything, as a rebuilt copy may hold others.
+    if copies.is_none() || !targets.iter().any(|t| t.evidence) {
+        return;
+    }
+    let mut rebuilt: FxHashSet<RcLocal> = FxHashSet::default();
+    for _ in 0..4 {
+        walk.round = Round::Probe;
+        walk.probed.clear();
+        walk.rebuilt.clear();
+        walk_block(&mut body.0, &mut walk, &[], None);
+        let admitted = walk.admitted();
+        if admitted.is_empty() {
+            break;
+        }
+        walk.round = Round::Admit(admitted);
+        walk.probed.clear();
+        walk_block(&mut body.0, &mut walk, &[], None);
+        if walk.probed.is_empty() {
+            break;
+        }
+        rebuilt.extend(walk.probed.keys().map(|(_, binder)| binder.clone()));
+    }
+    if !rebuilt.is_empty() {
+        fold_literal_arguments(&mut body.0, &rebuilt);
+    }
+}
+
+/// A literal Luau evaluated into a register for an argument of a copy, left
+/// as `local x = "TypeOrder"` right before the statement holding the call
+/// now rebuilt from that copy (`sorter(x, true)`), goes into the call where
+/// `x` is read nowhere else and never written: evaluating a constant there
+/// or before the statement is the same (`sorter("TypeOrder", true)`). Only
+/// for the calls of `binders` the evidence rounds rebuilt; a local with a
+/// source name keeps its declaration.
+fn fold_literal_arguments(stmts: &mut Vec<Statement>, binders: &FxHashSet<RcLocal>) {
+    fn fill(value: &mut RValue, local: &RcLocal, literal: &RValue, binders: &FxHashSet<RcLocal>) -> bool {
+        if let RValue::Call(call) | RValue::Select(crate::Select::Call(call)) = value
+            && call.rebuilt.is_some()
+            && matches!(call.value.as_ref(), RValue::Local(callee) if binders.contains(callee))
+            && let Some(argument) = call.arguments.iter_mut().find(|argument| matches!(argument, RValue::Local(read) if read == local))
+        {
+            *argument = literal.clone();
+            return true;
+        }
+        if matches!(value, RValue::Closure(_)) {
+            return false;
+        }
+        let mut done = false;
+        value.visit_rvalues_mut(&mut |child| {
+            done = fill(child, local, literal, binders);
+            !done
+        });
+        done
+    }
+    for statement in stmts.iter_mut() {
+        match statement {
+            Statement::If(branch) => {
+                fold_literal_arguments(&mut branch.then_block.lock().0, binders);
+                fold_literal_arguments(&mut branch.else_block.lock().0, binders);
+            }
+            Statement::While(node) => fold_literal_arguments(&mut node.block.lock().0, binders),
+            Statement::Repeat(node) => fold_literal_arguments(&mut node.block.lock().0, binders),
+            Statement::NumericFor(node) => fold_literal_arguments(&mut node.block.lock().0, binders),
+            Statement::GenericFor(node) => fold_literal_arguments(&mut node.block.lock().0, binders),
+            _ => {}
+        }
+        visit_stmt_rvalues_mut(statement, &mut |value| {
+            fold_in_closures(value, binders);
+            true
+        });
+    }
+    fn fold_in_closures(value: &mut RValue, binders: &FxHashSet<RcLocal>) {
+        if let RValue::Closure(closure) = value {
+            fold_literal_arguments(&mut closure.function.0.lock().body.0, binders);
+            return;
+        }
+        value.visit_rvalues_mut(&mut |child| {
+            fold_in_closures(child, binders);
+            true
+        });
+    }
+    let mut index = 1;
+    while index < stmts.len() {
+        let declared = match &stmts[index - 1] {
+            Statement::Assign(assign)
+                if assign.prefix && !assign.parallel && assign.left.len() == 1 && assign.right.len() == 1 =>
+            {
+                match (&assign.left[0], &assign.right[0]) {
+                    (LValue::Local(local), RValue::Literal(_)) if !local.preserve_binding() => {
+                        Some((local.clone(), assign.right[0].clone()))
+                    }
+                    _ => None,
+                }
+            }
+            _ => None,
+        };
+        let folds = declared.as_ref().is_some_and(|(local, _)| {
+            let mut written = FxHashSet::default();
+            crate::deinline::collect_written(&stmts[index..], &mut written);
+            !written.contains(local) && crate::deinline::count_local_reads(&stmts[index..], local) == 1
+        });
+        if folds
+            && let Some((local, literal)) = declared
+            && {
+                let mut filled = false;
+                visit_stmt_rvalues_mut(&mut stmts[index], &mut |value| {
+                    filled = fill(value, &local, &literal, binders);
+                    !filled
+                });
+                filled
+            }
+        {
+            stmts.remove(index - 1);
+            // The statement before may hold another argument's literal.
+            index = index.saturating_sub(1).max(1);
+            continue;
+        }
+        index += 1;
+    }
+}
+
+/// Which targets a walk tries ([`ExprTarget::evidence`]).
+enum Round {
+    /// Every target above the floors, as without line evidence.
+    Normal,
+    /// The evidence targets in each function holding copies of their
+    /// helper, their matches counted, nothing rewritten; the others are
+    /// rivals, never rewritten.
+    Probe,
+    /// The evidence targets of the pairs of a function and a helper the
+    /// count oracle admitted are rebuilt there; the others are rivals. The
+    /// rebuilt ones are counted (`probed`).
+    Admit(FxHashSet<(Option<FnPtr>, RcLocal)>),
+}
+
+/// One walk over the module: its targets and round, and what line evidence
+/// needs counted.
+struct Walk<'a> {
+    targets: &'a [ExprTarget],
+    by_root: &'a FxHashMap<Discriminant<RValue>, Vec<usize>>,
+    decl_map: &'a FxHashMap<RcLocal, std::ops::Range<usize>>,
+    round: Round,
+    copies: Option<std::rc::Rc<crate::deinline::evidence::Copies>>,
+    /// Each function body's prototype, read where the walk enters it.
+    protos: FxHashMap<FnPtr, Option<usize>>,
+    /// Each evidence helper's matches (or rebuilt calls, in an admitting
+    /// round) per function body, with its prototype.
+    probed: FxHashMap<(Option<FnPtr>, RcLocal), (usize, Option<usize>)>,
+    /// The calls of each evidence helper already rebuilt per function body.
+    rebuilt: FxHashMap<(Option<FnPtr>, RcLocal), usize>,
+    /// The helpers with an evidence twin: in an evidence round the twin
+    /// stands for them.
+    twinned: FxHashSet<RcLocal>,
+}
+
+impl Walk<'_> {
+    /// The prototype of `function` (`None`: the chunk's main one).
+    fn caller(&self, function: Option<FnPtr>) -> Option<usize> {
+        match function {
+            None => self.copies.as_ref().map(|copies| copies.main),
+            Some(function) => self.protos.get(&function).copied().flatten(),
+        }
+    }
+
+    /// The copies of target `t`'s helper in `function`'s code.
+    fn copies_in(&self, function: Option<FnPtr>, t: &ExprTarget) -> u32 {
+        match (&self.copies, self.caller(function), t.proto) {
+            (Some(copies), Some(caller), Some(helper)) => copies.copies(Some(caller), helper),
+            _ => 0,
+        }
+    }
+
+    /// How target `idx` takes part at a site in `function`: whether it may
+    /// be rebuilt there, and whether it is tried at all (as a rival).
+    fn role(&self, idx: usize, function: Option<FnPtr>) -> (bool, bool) {
+        let t = &self.targets[idx];
+        match &self.round {
+            Round::Normal => (!t.evidence, !t.evidence),
+            Round::Probe => {
+                let tried = if t.evidence { self.copies_in(function, t) > 0 } else { !self.twinned.contains(&t.f_local) };
+                (t.evidence && tried, tried)
+            }
+            Round::Admit(admitted) => {
+                let admit = t.evidence && admitted.contains(&(function, t.f_local.clone()));
+                let tried = admit
+                    || if t.evidence { self.copies_in(function, t) > 0 } else { !self.twinned.contains(&t.f_local) };
+                (admit, tried)
+            }
+        }
+    }
+
+    /// The count oracle ([`crate::deinline::evidence::admitted`]) over the
+    /// probe's counts.
+    fn admitted(&self) -> FxHashSet<(Option<FnPtr>, RcLocal)> {
+        let Some(copies) = &self.copies else { return FxHashSet::default() };
+        let pairs: Vec<_> = self.probed.iter().collect();
+        let counts: Vec<_> = pairs
+            .iter()
+            .map(|&(key, &(hits, proto))| crate::deinline::evidence::Probed {
+                caller: self.caller(key.0),
+                helper: proto,
+                hits,
+                rebuilt: self.rebuilt.get(key).copied().unwrap_or(0),
+            })
+            .collect();
+        let admit = crate::deinline::evidence::admitted(copies, &counts);
+        if crate::env_flag!("MEDAL_TRACE_EVIDENCE") {
+            for ((key, _), (count, admit)) in pairs.iter().zip(counts.iter().zip(&admit)) {
+                eprintln!(
+                    "EVIDENCE expression caller=p{:?} helper={} proto=p{:?} hits={} rebuilt={} admit={admit}",
+                    count.caller, key.1, count.helper, count.hits, count.rebuilt
+                );
+            }
+        }
+        pairs.into_iter().zip(admit).filter(|(_, admit)| *admit).map(|((key, _), _)| key.clone()).collect()
+    }
 }
 
 // ===================================================================
@@ -210,9 +447,15 @@ struct HelperCandidate {
     prototype: Option<usize>,
     arithmetic: bool,
     function: Arc<Mutex<Function>>,
+    /// [`ExprTarget::evidence`].
+    evidence: bool,
 }
 
-fn helper_candidates(body: &Block, arithmetic_only: bool) -> Vec<HelperCandidate> {
+/// The helper candidates of `body`. With line info (`copies`), a helper
+/// with copies somewhere that the floors refuse is an evidence candidate,
+/// and one they admit gets an evidence twin besides, for the sites whose
+/// call saves less than the floor asks (E1).
+fn helper_candidates(body: &Block, arithmetic_only: bool, copies: Option<&crate::deinline::evidence::Copies>) -> Vec<HelperCandidate> {
     let mut candidates = Vec::new();
     each_closure_decl(&body.0, &mut |l, fa| {
         let g = fa.lock();
@@ -226,7 +469,7 @@ fn helper_candidates(body: &Block, arithmetic_only: bool) -> Vec<HelperCandidate
         if g.is_variadic || body_unsafe(&g.body.0) {
             return;
         }
-        let candidate = |expr, arithmetic| HelperCandidate {
+        let candidate = |expr: RValue, arithmetic, evidence| HelperCandidate {
             f_local: l.clone(),
             func_ptr: Arc::as_ptr(fa),
             expr,
@@ -234,9 +477,16 @@ fn helper_candidates(body: &Block, arithmetic_only: bool) -> Vec<HelperCandidate
             prototype: g.bytecode_proto_id,
             arithmetic,
             function: fa.clone(),
+            evidence,
         };
+        let inlined = g.bytecode_proto_id.is_some_and(|proto| copies.is_some_and(|copies| copies.inlined_anywhere(proto)));
         if let Some(expr) = arithmetic::pattern(&g) {
-            candidates.push(candidate(expr, true));
+            if inlined {
+                candidates.push(candidate(expr.clone(), true, false));
+                candidates.push(candidate(expr, true, true));
+            } else {
+                candidates.push(candidate(expr, true, false));
+            }
             return;
         }
         if arithmetic_only {
@@ -267,29 +517,35 @@ fn helper_candidates(body: &Block, arithmetic_only: bool) -> Vec<HelperCandidate
         if expr.any_local_read(&mut |rl| rl == l) {
             return;
         }
-        // Cost gate (specificity + size). Both reject trivial helpers.
+        // Cost gate (specificity + size). Both reject trivial helpers, but
+        // where line info shows copies: then a compound value is enough.
         let mut anchors = 0usize;
         anchors_in_rvalue(&expr, &mut anchors);
-        if anchors < ANCHOR_FLOOR {
+        if anchors < ANCHOR_FLOOR || node_count(&expr) < NODE_COUNT_FLOOR {
+            if inlined && node_count(&expr) >= 2 {
+                candidates.push(candidate(expr, false, true));
+            }
             return;
         }
-        if node_count(&expr) < NODE_COUNT_FLOOR {
-            return;
+        if inlined {
+            candidates.push(candidate(expr.clone(), false, false));
+            candidates.push(candidate(expr, false, true));
+        } else {
+            candidates.push(candidate(expr, false, false));
         }
-        candidates.push(candidate(expr, false));
     });
     candidates
 }
 
-fn collect_expr_targets(body: &Block, arithmetic_only: bool) -> Vec<ExprTarget> {
+fn collect_expr_targets(body: &Block, arithmetic_only: bool, copies: Option<&crate::deinline::evidence::Copies>) -> Vec<ExprTarget> {
     // The early phase keeps only arithmetic helpers, so without one its result
     // is empty. Other helpers still register callees for call provenance, so
     // that report keeps the complete collection.
     let recording = crate::call_origins::active();
-    if arithmetic_only && !recording && helper_candidates(body, true).is_empty() {
+    if arithmetic_only && !recording && helper_candidates(body, true, None).is_empty() {
         return Vec::new();
     }
-    let candidates = helper_candidates(body, false);
+    let candidates = helper_candidates(body, false, copies);
     if candidates.is_empty() {
         return Vec::new();
     }
@@ -319,13 +575,15 @@ fn collect_expr_targets(body: &Block, arithmetic_only: bool) -> Vec<ExprTarget> 
         {
             continue;
         }
-        if candidate.arithmetic {
+        if candidate.arithmetic && !candidate.evidence {
             arithmetic_targets += 1;
             if arithmetic_targets > arithmetic::MAX_TARGETS {
                 continue;
             }
         }
-        crate::call_origins::register_callee(candidate.f_local.stable_id(), candidate.prototype);
+        if !candidate.evidence {
+            crate::call_origins::register_callee(candidate.f_local.stable_id(), candidate.prototype);
+        }
         let leading = leading_reads(&candidate.function.lock().body.0, &candidate.parameters, &captures);
         let mut free_cells = Vec::new();
         candidate.expr.visit_local_reads(&mut |local| {
@@ -351,9 +609,18 @@ fn collect_expr_targets(body: &Block, arithmetic_only: bool) -> Vec<ExprTarget> 
             // Folding one helper into another would erase the ambiguity
             // that must also block reconstruction in their callers.
             protect_definition: candidate.arithmetic,
+            evidence: candidate.evidence,
+            proto: candidate.prototype,
         });
     }
-    if targets.len() > 256 { return Vec::new(); }
+    // The budgets count the targets above the floors; the evidence ones
+    // have their own, and go as a whole.
+    if targets.iter().filter(|t| !t.evidence).count() > 256 { return Vec::new(); }
+    if targets.iter().filter(|t| t.evidence).count() > 256
+        || targets.iter().filter(|t| t.evidence && t.arithmetic.is_some()).count() > arithmetic::MAX_TARGETS
+    {
+        targets.retain(|t| !t.evidence);
+    }
     // Never silently truncate the ambiguity set: an omitted helper might also
     // match. Budget exhaustion disables the entire new family for this module.
     if arithmetic_targets > arithmetic::MAX_TARGETS {
@@ -432,9 +699,7 @@ pub(crate) fn write_counts_in_closures(rv: &RValue, out: &mut FxHashMap<RcLocal,
 
 fn walk_block(
     stmts: &mut Vec<Statement>,
-    targets: &[ExprTarget],
-    by_root: &FxHashMap<Discriminant<RValue>, Vec<usize>>,
-    decl_map: &FxHashMap<RcLocal, usize>,
+    w: &mut Walk,
     outer_active: &[usize],
     current_func: Option<FnPtr>,
 ) {
@@ -448,61 +713,49 @@ fn walk_block(
                 Statement::If(f) => {
                     walk_block(
                         &mut f.then_block.lock().0,
-                        targets,
-                        by_root,
-                        decl_map,
+                        w,
                         &active,
                         current_func,
                     );
                     walk_block(
                         &mut f.else_block.lock().0,
-                        targets,
-                        by_root,
-                        decl_map,
+                        w,
                         &active,
                         current_func,
                     );
                 }
-                Statement::While(w) => walk_block(
-                    &mut w.block.lock().0,
-                    targets,
-                    by_root,
-                    decl_map,
+                Statement::While(node) => walk_block(
+                    &mut node.block.lock().0,
+                    w,
                     &active,
                     current_func,
                 ),
                 Statement::Repeat(r) => walk_block(
                     &mut r.block.lock().0,
-                    targets,
-                    by_root,
-                    decl_map,
+                    w,
                     &active,
                     current_func,
                 ),
                 Statement::NumericFor(nf) => walk_block(
                     &mut nf.block.lock().0,
-                    targets,
-                    by_root,
-                    decl_map,
+                    w,
                     &active,
                     current_func,
                 ),
                 Statement::GenericFor(gf) => walk_block(
                     &mut gf.block.lock().0,
-                    targets,
-                    by_root,
-                    decl_map,
+                    w,
                     &active,
                     current_func,
                 ),
                 _ => {}
             }
             visit_stmt_rvalues_mut(s, &mut |rv| {
-                recurse_into_closures(rv, targets, by_root, decl_map, &active);
+                recurse_into_closures(rv, w, &active);
                 true
             });
-            if let Some(idx) = target_decl_index(s, decl_map, targets) {
-                active.push(idx);
+            if let Some(range) = target_decl_index(s, w) {
+                active.extend(range);
             }
         }
     }
@@ -510,27 +763,43 @@ fn walk_block(
     // Phase 2: scan this block left to right, matching each statement's own
     // expressions, activating each target after its declaration.
     let mut active: Vec<usize> = outer_active.to_vec();
+    if matches!(w.round, Round::Probe) {
+        // The calls of the evidence helpers tried here already rebuilt in
+        // this block: the count oracle counts them with the matches.
+        let binders: FxHashSet<RcLocal> = w
+            .targets
+            .iter()
+            .filter(|t| t.evidence && w.copies_in(current_func, t) > 0)
+            .map(|t| t.f_local.clone())
+            .collect();
+        if !binders.is_empty() {
+            crate::deinline::count_rebuilt_calls(stmts, &binders, current_func, &mut w.rebuilt);
+        }
+    }
     let mut index = 0;
     while index < stmts.len() {
         // A bounded terminal scalar region has no live continuation. Normalize
         // its lets/guard returns before comparing with named helper patterns.
-        if try_rewrite_region(&mut stmts[index..], targets, &active, current_func) {
-            stmts.truncate(index + 1);
-            break;
+        // (Not in evidence rounds.)
+        if matches!(w.round, Round::Normal) {
+            if try_rewrite_region(&mut stmts[index..], w.targets, &active, current_func) {
+                stmts.truncate(index + 1);
+                break;
+            }
+            try_rewrite_select(stmts, index, w.targets, &active, current_func);
         }
-        try_rewrite_select(stmts, index, targets, &active, current_func);
         let s = &mut stmts[index];
         index += 1;
         // Skip the per-statement rvalue scan (and its allocation) entirely until a
         // helper is in scope.
         if !active.is_empty() {
             visit_stmt_rvalues_mut(s, &mut |rv| {
-                try_rewrite(rv, targets, by_root, &active, current_func);
+                try_rewrite(rv, w, &active, current_func);
                 true
             });
         }
-        if let Some(idx) = target_decl_index(s, decl_map, targets) {
-            active.push(idx);
+        if let Some(range) = target_decl_index(s, w) {
+            active.extend(range);
         }
     }
 }
@@ -541,25 +810,20 @@ fn walk_block(
 /// visible inside it as upvalues).
 fn recurse_into_closures(
     rv: &mut RValue,
-    targets: &[ExprTarget],
-    by_root: &FxHashMap<Discriminant<RValue>, Vec<usize>>,
-    decl_map: &FxHashMap<RcLocal, usize>,
+    w: &mut Walk,
     active: &[usize],
 ) {
     if let RValue::Closure(c) = rv {
         let fp = Arc::as_ptr(&c.function.0);
-        walk_block(
-            &mut c.function.0.lock().body.0,
-            targets,
-            by_root,
-            decl_map,
-            active,
-            Some(fp),
-        );
+        let mut function = c.function.0.lock();
+        if w.copies.is_some() {
+            w.protos.insert(fp, function.bytecode_proto_id);
+        }
+        walk_block(&mut function.body.0, w, active, Some(fp));
         return;
     }
     rv.visit_rvalues_mut(&mut |child| {
-        recurse_into_closures(child, targets, by_root, decl_map, active);
+        recurse_into_closures(child, w, active);
         true
     });
 }
@@ -567,21 +831,17 @@ fn recurse_into_closures(
 /// If `s` is the declaration `local f = function ... end` of one of our targets,
 /// returns that target's index (scope activation, mirroring
 /// `deinline::target_decl_index`).
-fn target_decl_index(
-    s: &Statement,
-    decl_map: &FxHashMap<RcLocal, usize>,
-    targets: &[ExprTarget],
-) -> Option<usize> {
+fn target_decl_index(s: &Statement, w: &Walk) -> Option<std::ops::Range<usize>> {
     if let Statement::Assign(a) = s
         && a.prefix
         && a.left.len() == 1
         && a.right.len() == 1
         && let LValue::Local(l) = &a.left[0]
         && let RValue::Closure(c) = &a.right[0]
-        && let Some(&idx) = decl_map.get(l)
-        && Arc::as_ptr(&c.function.0) == targets[idx].func_ptr
+        && let Some(range) = w.decl_map.get(l)
+        && Arc::as_ptr(&c.function.0) == w.targets[range.start].func_ptr
     {
-        return Some(idx);
+        return Some(range.clone());
     }
     None
 }
@@ -657,11 +917,11 @@ fn try_rewrite_region(
 
 fn try_rewrite(
     rv: &mut RValue,
-    targets: &[ExprTarget],
-    by_root: &FxHashMap<Discriminant<RValue>, Vec<usize>>,
+    w: &mut Walk,
     active: &[usize],
     current_func: Option<FnPtr>,
 ) {
+    let targets = w.targets;
     // No helper is in lexical scope here, so no node in this subtree can match
     // (`active` is monotone-nondecreasing down the descent, and `try_match` only
     // considers `active` targets). Prune the whole subtree — this skips the entire
@@ -672,13 +932,16 @@ fn try_rewrite(
     }
     // Outermost-first: try to match the WHOLE node before descending, so the
     // largest equivalent subtree is collapsed into one call.
-    if let Some(cands) = by_root.get(&std::mem::discriminant(&*rv)) {
+    if let Some(cands) = w.by_root.get(&std::mem::discriminant(&*rv)) {
         let mut pick = Pick::default();
         let mut ambiguous = false;
         let ordered = crate::reconstruction_search::prioritize(cands, current_func.map(|p| p as usize), |i| targets[i].func_ptr as usize);
         for &idx in &ordered {
             if !active.contains(&idx) {
                 continue; // helper not yet in lexical scope here
+            }
+            if !w.role(idx, current_func).1 {
+                continue; // not tried in this round
             }
             let t = &targets[idx];
             if current_func == Some(t.func_ptr) {
@@ -701,6 +964,18 @@ fn try_rewrite(
         if !ambiguous {
             if let Some((idx, args)) = pick.take() {
                 let t = &targets[idx];
+                // In an evidence round only an admitted helper is rebuilt;
+                // a match counts (probe), and any other one keeps its node
+                // as the walk without line evidence left it.
+                let (rebuilt, _) = w.role(idx, current_func);
+                if !matches!(w.round, Round::Normal) {
+                    if rebuilt {
+                        w.probed.entry((current_func, t.f_local.clone())).or_insert((0, t.proto)).0 += 1;
+                    }
+                    if !rebuilt || matches!(w.round, Round::Probe) {
+                        return;
+                    }
+                }
                 let call = Call::new(RValue::Local(t.f_local.clone()), args).reconstructed(
                     if t.arithmetic.is_some() { crate::call_origins::Kind::ArithmeticDeinline }
                     else { crate::call_origins::Kind::ExpressionDeinline });
@@ -716,7 +991,7 @@ fn try_rewrite(
     // sibling, may still match). Closures yield no children here (handled in the
     // phase-1 closure recursion), so we never re-enter a closure body.
     rv.visit_rvalues_mut(&mut |child| {
-        try_rewrite(child, targets, by_root, active, current_func);
+        try_rewrite(child, w, active, current_func);
         true
     });
 }
@@ -829,7 +1104,10 @@ fn try_match(t: &ExprTarget, rv: &RValue, current_func: Option<FnPtr>) -> Option
     let s_nodes = node_count(rv);
     let args_nodes: usize = args.iter().map(node_count).sum();
     let call_nodes = if t.arithmetic.is_some() { 2 } else { 1 };
-    if s_nodes < call_nodes + args_nodes + NET_SAVING_FLOOR {
+    // Where line evidence admits the helper, the call need only be no
+    // larger than the copy.
+    let floor = if t.evidence { 0 } else { NET_SAVING_FLOOR };
+    if s_nodes < call_nodes + args_nodes + floor {
         return None;
     }
     Some((args.into_iter().map(crate::untruncated).collect(), hoist))
@@ -1046,6 +1324,40 @@ mod tests {
     fn is_call_to(rv: &RValue, f: &RcLocal) -> bool {
         matches!(rv, RValue::Call(c) | RValue::Select(crate::Select::Call(c))
             if matches!(c.value.as_ref(), RValue::Local(l) if l == f))
+    }
+
+    #[test]
+    fn a_literal_evaluated_for_an_argument_of_a_rebuilt_call_goes_into_it() {
+        let sorter = local("sorter");
+        let rebuilt = |argument: RValue| {
+            RValue::Call(
+                Call::new(lv(&sorter), vec![argument, RValue::Literal(Literal::Boolean(true))])
+                    .reconstructed(crate::call_origins::Kind::ExpressionDeinline),
+            )
+        };
+        let binders = FxHashSet::from_iter([sorter.clone()]);
+        // `local x = "Order"; t.a = sorter(x, true)` -> `t.a = sorter("Order", true)`.
+        let (x, t) = (RcLocal::default(), local("t"));
+        let store = |value: RValue| {
+            Statement::Assign(Assign::new(
+                vec![LValue::Index(Index::new(lv(&t), string("a")))],
+                vec![value],
+            ))
+        };
+        let mut block = vec![local_decl(&x, string("Order")), store(rebuilt(lv(&x)))];
+        fold_literal_arguments(&mut block, &binders);
+        assert_eq!(block.len(), 1);
+        assert_eq!(rhs_of(&block[0]), &rebuilt(string("Order")));
+        // Read again later, or written: the declaration stays.
+        let y = RcLocal::default();
+        let mut block = vec![local_decl(&y, string("Order")), store(rebuilt(lv(&y))), store(lv(&y))];
+        fold_literal_arguments(&mut block, &binders);
+        assert_eq!(block.len(), 3);
+        // A call no evidence round rebuilt keeps its argument.
+        let z = RcLocal::default();
+        let mut block = vec![local_decl(&z, string("Order")), store(rebuilt(lv(&z)))];
+        fold_literal_arguments(&mut block, &FxHashSet::default());
+        assert_eq!(block.len(), 2);
     }
 
     #[test]

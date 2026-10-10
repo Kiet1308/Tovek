@@ -212,7 +212,8 @@
    "deinline_error_level_reads_the_caller": "m2fix finding 5 (error with a caller's level is a frame read), nonequiv 0",
    "closure_capturing_a_loop_local_function": "m2verify N2 (a loop-body local is no loop write for the C6 snapshot), nonequiv 2 by construction: -O2 unrolls the tick loop into two NEWCLOSUREs of one prototype, printed as two literals (an extra prototype); the two-table local statement prints as two declarations, each NEWTABLE sized for its later stores",
    "deinline_line_evidence_admits_small_helpers": "m3-e1 line evidence (2026-10-10): nonequiv by construction: the test driver in main differs from the source (the module table prints as a constructor whose functions main calls through locals), and in the evidence fixture `tick` merges its two copies of `running()` into one `or` and the `conn` literal folds its constant name; baselined from the introducing commit output.",
-   "deinline_specialization_outside_copies": "m3-e1 line evidence (2026-10-10): nonequiv by construction: the test driver in main differs from the source (the module table prints as a constructor whose functions main calls through locals), and in the evidence fixture `tick` merges its two copies of `running()` into one `or` and the `conn` literal folds its constant name; baselined from the introducing commit output."
+   "deinline_specialization_outside_copies": "m3-e1 line evidence (2026-10-10): nonequiv by construction: the test driver in main differs from the source (the module table prints as a constructor whose functions main calls through locals), and in the evidence fixture `tick` merges its two copies of `running()` into one `or` and the `conn` literal folds its constant name; baselined from the introducing commit output.",
+   "deinline_line_evidence_expression_helpers": "m3-e1 line evidence, expression helpers (2026-10-10): nonequiv 4 by construction: the test driver in main differs from the source; build's sorts are written into one constructor and its `Compare` literals print once per copy as calls of `sorter`, whose recompiled literal Luau compiles inside `sorter` (an outlined body and a missing copy prototype); baselined from the introducing commit output."
   }
  },
  "summary": {
@@ -621,6 +622,12 @@
    "status": "ok",
    "nonequiv": 5,
    "protos": 22
+  },
+  {
+   "file": "deinline_line_evidence_expression_helpers",
+   "status": "ok",
+   "nonequiv": 4,
+   "protos": 10
   },
   {
    "file": "deinline_method_receiver_read_late",

@@ -820,6 +820,18 @@
       "bytes": 3328,
       "lines": 149
     },
+    "semantic/deinline_line_evidence_expression_helpers__O0.luau": {
+      "bytes": 1023,
+      "lines": 49
+    },
+    "semantic/deinline_line_evidence_expression_helpers__O1.luau": {
+      "bytes": 1023,
+      "lines": 49
+    },
+    "semantic/deinline_line_evidence_expression_helpers__O2.luau": {
+      "bytes": 1305,
+      "lines": 48
+    },
     "semantic/deinline_method_receiver_read_late__O0.luau": {
       "bytes": 301,
       "lines": 22

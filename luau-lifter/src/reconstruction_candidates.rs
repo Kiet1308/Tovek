@@ -302,17 +302,34 @@ pub(crate) fn inlined_copies(functions: &[Function], lines: &[Vec<Option<u32>>],
         // The copy going on: its helper, the last of its lines reached, and
         // for a one-line helper, how many of its operations the copy passed.
         let mut current: Option<(u32, u32, usize)> = None;
-        // Where a one-line helper's copy goes on with `opcode` on its line:
-        // the operations it passed then, or `None` where `opcode` is the
-        // first one of the helper's own code, which the copy went past (a
-        // new copy). Any other operation is the copy's or the code using its
-        // value, which may share the line (`if active(x) then`).
-        let advance = |single: &[u8], passed: usize, opcode: OpCode| -> Option<usize> {
-            let Some(kind) = kind(opcode) else { return Some(passed) };
+        // Where a one-line helper's copy goes on with the operation at `pc`
+        // on its line: the operations it passed then, or `None` where the
+        // copy went past the helper's first operation and the next two
+        // operations on the line are the helper's first two again (a new
+        // copy). Any other operation is the copy's or the code using its
+        // value, which Luau leaves on the helper's line (`if active(x)
+        // then`, `(c and ratio(a, b) or ratio(b, a)) + 1`).
+        let advance = |single: &[u8], passed: usize, pc: usize| -> Option<usize> {
+            let Some(here) = instructions.get(pc).and_then(|instruction| kind(opcode_of(instruction))) else { return Some(passed) };
             let passed = passed.min(single.len());
-            match single[passed..].iter().position(|&own| own == kind) {
+            match single[passed..].iter().position(|&own| own == here) {
                 Some(at) => Some(passed + at + 1),
-                None if passed > 0 && single.first() == Some(&kind) => None,
+                None if passed > 0 && single.len() >= 2 && single[0] == here => {
+                    // The next operation on this line.
+                    let mut next = pc + if opcode_of(&instructions[pc]).has_aux() { 2 } else { 1 };
+                    let second = loop {
+                        let Some(instruction) = instructions.get(next) else { break None };
+                        if pcs.get(next).copied().flatten() != pcs[pc] {
+                            break None;
+                        }
+                        let opcode = opcode_of(instruction);
+                        if let Some(kind) = kind(opcode) {
+                            break Some(kind);
+                        }
+                        next += if opcode.has_aux() { 2 } else { 1 };
+                    };
+                    if second == Some(single[1]) { None } else { Some(passed) }
+                }
                 None => Some(passed),
             }
         };
@@ -335,7 +352,7 @@ pub(crate) fn inlined_copies(functions: &[Function], lines: &[Vec<Option<u32>>],
                     if let Some(single) = &copy.single
                         && line == copy.first
                     {
-                        match advance(single, *passed, opcode) {
+                        match advance(single, *passed, pc) {
                             Some(next) => *passed = next,
                             None => restarts = true,
                         }
@@ -362,7 +379,7 @@ pub(crate) fn inlined_copies(functions: &[Function], lines: &[Vec<Option<u32>>],
                 copies.present.insert((caller_id, helper));
                 let copy = helpers[helper as usize].as_ref().unwrap();
                 let passed = match &copy.single {
-                    Some(single) if line == copy.first => advance(single, 0, opcode).unwrap_or(0),
+                    Some(single) if line == copy.first => advance(single, 0, pc).unwrap_or(0),
                     _ => 0,
                 };
                 (helper, line, passed)
@@ -459,6 +476,19 @@ mod tests {
             vec![Some(1), Some(4), Some(7)],
         ];
         let copies = inlined_copies(&[lerp, caller, chunk], &lines, 2).unwrap();
+        assert_eq!(copies.copies(Some(1), 0), 2);
+        // `(c and ratio(a, b) or ratio(b, a)) + 1`: the caller's `+ 1` is an
+        // `ADDK` left on the helper's line, like the helper's first
+        // operation, but the helper's second one does not follow it.
+        let ratio = prototype(1, &[LOP_ADD, LOP_DIV, LOP_RETURN]);
+        let caller = prototype(4, &[LOP_JUMPIFNOT, LOP_ADD, LOP_DIV, LOP_JUMPIF, LOP_ADD, LOP_DIV, LOP_ADDK, LOP_RETURN]);
+        let chunk = prototype(1, &[LOP_NEWCLOSURE, LOP_NEWCLOSURE, LOP_RETURN]);
+        let lines = vec![
+            vec![Some(2), Some(2), Some(2)],
+            vec![Some(5), Some(2), Some(2), Some(2), Some(2), Some(2), Some(2), Some(2)],
+            vec![Some(1), Some(4), Some(7)],
+        ];
+        let copies = inlined_copies(&[ratio, caller, chunk], &lines, 2).unwrap();
         assert_eq!(copies.copies(Some(1), 0), 2);
     }
 
