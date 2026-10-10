@@ -4829,6 +4829,9 @@ fn absorb_arguments(
             break;
         }
         let Some(at) = hit.args.iter().position(|arg| matches!(arg, RValue::Local(read) if read == local)) else { break };
+        if declared_by_source(local, init, t.param_order.get(at)) {
+            break;
+        }
         let read_elsewhere = hit.args.iter().enumerate().any(|(other, arg)| other != at && reads(arg, local))
             || taken.iter().any(|(_, _, later)| reads(later, local))
             || host_reads(local);
@@ -4860,6 +4863,7 @@ fn absorb_arguments(
         && !declaration.parallel
         && !declaration.compound
         && !matches!(address, RValue::Local(_) | RValue::Closure(_))
+        && !declared_by_source(base, address, None)
         && !(is_func_body_top && k == 0 && end == stmts.len())
         && let Some(Statement::Assign(store)) = &hit.host
         && let [LValue::Index(index)] = store.left.as_slice()
@@ -4903,6 +4907,24 @@ fn absorb_arguments(
     }
     hit.absorbed = i - start;
     Some(hit)
+}
+
+/// A declaration `local L = init` the source wrote, which stays declared
+/// (D4): a service or module handle, which the SSA inliner keeps declared
+/// as well, or a local with a debug name other than the helper parameter it
+/// is the argument of (Luau names the register of an argument it evaluates
+/// for an inlined call after the parameter), or an inferred conditional
+/// result.
+fn declared_by_source(local: &RcLocal, init: &RValue, param: Option<&RcLocal>) -> bool {
+    if crate::inline_temps::is_service_or_require_handle(init) {
+        return true;
+    }
+    if !local.preserve_binding() {
+        return false;
+    }
+    let parameter = param.and_then(|param| param.0.lock().source_name().map(str::to_owned));
+    let local = local.0.lock();
+    local.4.conditional_result || local.2.iter().any(|binding| parameter.as_deref() != Some(binding.name.as_str()))
 }
 
 /// A value helper returning from inside a loop (`Target::loop_exit_at`),
@@ -12961,6 +12983,49 @@ mod tests {
         let apart = vec![assign_local(&t, init, true), print_local(&user), window, print_local(&t)];
         let assigned = absorb_arguments(&apart, 2, &target, hit(), &mut Liveness::default(), false).unwrap();
         assert!(assigned.assign && assigned.absorbed == 0 && rvalue_exact_eq(&assigned.args[0], &local_value(&t)));
+    }
+
+    #[test]
+    fn a_handle_or_a_named_local_the_source_declared_stays_declared() {
+        let named = |name: &str, debug: Option<&str>| {
+            let local = local(name);
+            if let Some(debug) = debug {
+                local.0.lock().add_source_binding(crate::SourceBinding {
+                    origin: crate::BindingOrigin::DebugLocal { prototype: 0, register: 0, start_pc: 0, end_pc: 9 },
+                    name: debug.into(),
+                });
+            }
+            local
+        };
+        let s = named("s", Some("s"));
+        let target = helper_target(TKind::Void, &[print_local(&s)], &[s.clone()]);
+        let absorbed = |h: &RcLocal, init: RValue| {
+            let unified = Unified {
+                args: vec![local_value(h)],
+                result: None,
+                callee_locals: FxHashSet::default(),
+                returned: Vec::new(),
+                inferred: None,
+                written: Vec::new(),
+                first_moved: None,
+            };
+            let site = vec![assign_local(h, init, true), print_local(h)];
+            absorb_arguments(&site, 1, &target, Hit::call(&target, 1, unified, Vec::new()), &mut Liveness::default(), false)
+                .unwrap()
+                .absorbed
+        };
+        let service = method_call(global("game"), "GetService", vec![string("Lighting")]);
+        let module = call1(global("require"), global("script"));
+        let made = call1(global("make"), number(1.0));
+        // A service or module handle, as the SSA inliner keeps it (D4).
+        assert_eq!(absorbed(&named("h", None), service), 0);
+        assert_eq!(absorbed(&named("h", None), module), 0);
+        // A local with a debug name of its own.
+        assert_eq!(absorbed(&named("h", Some("Lighting")), made.clone()), 0);
+        // The register Luau named after the parameter, or a temp with no
+        // name: the argument.
+        assert_eq!(absorbed(&named("h", Some("s")), made.clone()), 1);
+        assert_eq!(absorbed(&named("h", None), made), 1);
     }
 
     #[test]
