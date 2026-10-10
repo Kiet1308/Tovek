@@ -315,7 +315,7 @@ function buildScore(Bm, Hm) {
   const sub = (t, gain = 0.12, f0 = 70, f1 = 35, dur = 1.5) => E.push({ t, voice: 'sub', freq: f0, to: f1, gain, dur });
   E.push({ t: 0, voice: 'air', dur: D0, gain: 0.026, cutoff: 760 });
   // I. the dump hums; the dive falls; each scale step is a soft tone
-  E.push({ t: 0.2, voice: 'hum', dur: 25, freq: note('A1'), gain: 0.15, attack: 3, release: 4 });
+  E.push({ t: 0.2, voice: 'hum', dur: 25, freq: note('A1'), gain: 0.11, attack: 3, release: 4 });
   E.push(...ticks(T.hex0, T.hex0 + 3.6, { rate: 30, seed: 2, gain: 0.012 }));
   pulse(T.focus, 'E3', 0.06, 3);
   E.push({ t: T.dive0, voice: 'swell', dur: 3.2, notes: ['A2', 'E3'].map(note), gain: 0.05, attack: 2.4, release: 0.8, open: 1400 });
@@ -389,7 +389,7 @@ function buildScore(Bm, Hm) {
   E.push({ t: T.v251 + 1.5, voice: 'hum', dur: 1.6, freq: note('E2'), gain: 0.05, attack: 0.6, release: 0.8, cutoff: 500 });
   // IV. V2.6: the swell carries the copies home
   E.push({ t: T.flood, voice: 'sub', freq: 60, to: 32, gain: 0.12, dur: 1.6 });
-  E.push({ t: T.flood + 0.1, voice: 'swell', dur: Hm.type1 - T.flood + 3.2, notes: ['A2', 'E3', 'A3', 'C#4', 'E4'].map(note), gain: 0.32, attack: 6.5, release: 4.5, open: 2800 });
+  E.push({ t: T.flood + 0.1, voice: 'swell', dur: Hm.type1 - T.flood + 3.2, notes: ['A2', 'E3', 'A3', 'C#4', 'E4'].map(note), gain: 0.46, attack: 6.5, release: 4.5, open: 2800 });
   pulse(T.title26 + 0.2, 'A3', 0.1);
   Hm.copies.forEach((cp, i) => {
     E.push({ t: cp.depart + 0.05, voice: 'pulse', freq: note(['E4', 'A4', 'C#5'][i % 3]), gain: 0.03, dur: 1.4 });
