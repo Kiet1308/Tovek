@@ -1755,7 +1755,6 @@ function warmUp() {
   const step = (dl) => {
     while (i < samples.length && dl.timeRemaining() > 6) {
       render(R, scene, stateAt(samples[i++]), { intro: 1 });
-      R.ctx.getImageData(0, 0, 1, 1);
     }
     if (i < samples.length) idle(step);
     else { cv.width = cv.height = 0; }
