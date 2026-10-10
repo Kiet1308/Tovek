@@ -151,7 +151,7 @@ pub(crate) fn inlined_copies(functions: &[Function], lines: &[Vec<Option<u32>>],
     // code inside its span is one line, the operations on it in order.
     struct Helper {
         span: (u32, u32),
-        lines: Vec<u32>,
+        lines: LineSet,
         first: u32,
         single: Option<Vec<u8>>,
     }
@@ -182,16 +182,17 @@ pub(crate) fn inlined_copies(functions: &[Function], lines: &[Vec<Option<u32>>],
     };
     let mut helpers: Vec<Option<Helper>> = Vec::with_capacity(functions.len());
     for (id, (function, pcs)) in functions.iter().zip(lines).enumerate() {
-        let mut own: Vec<u32> = pcs.iter().flatten().copied().collect();
-        if id == main || own.is_empty() {
+        if id == main {
             helpers.push(None);
             continue;
         }
-        own.sort_unstable();
-        own.dedup();
+        let Some(own) = LineSet::new(pcs) else {
+            helpers.push(None);
+            continue;
+        };
         let start = u32::try_from(function.line_defined).ok()?;
-        let end = *own.last()?;
-        let first = own.iter().copied().find(|&line| start <= line && line <= end).unwrap_or(start);
+        let end = own.max();
+        let first = (start..=end).find(|&line| own.contains(line)).unwrap_or(start);
         let single = (first == end).then(|| {
             let mut operations = Vec::new();
             let mut pc = 0;
@@ -241,8 +242,10 @@ pub(crate) fn inlined_copies(functions: &[Function], lines: &[Vec<Option<u32>>],
             filled[line as usize] += 1;
         }
     }
+    // Each helper's span, read where every PC needs one.
+    let spans: Vec<(u32, u32)> = helpers.iter().map(|helper| helper.as_ref().map_or((u32::MAX, 0), |helper| helper.span)).collect();
     let width = |id: u32| {
-        let (start, end) = helpers[id as usize].as_ref().unwrap().span;
+        let (start, end) = spans[id as usize];
         end - start
     };
     for line in 0..=last as usize {
@@ -291,14 +294,24 @@ pub(crate) fn inlined_copies(functions: &[Function], lines: &[Vec<Option<u32>>],
         // helper's first line, a caller around it may have the statement
         // defining it (`self.conn = signal:Connect(function() ... end)`).
         let innermost = |line: u32, opcode: OpCode, pc: usize| {
-            helper_at(line).iter().copied().find(|&id| {
-                let (start, end) = helpers[id as usize].as_ref().unwrap().span;
+            let owners = helper_at(line);
+            // The caller's own code: strictly inside its span, where only a
+            // function nested in it, narrower, could come before it.
+            if owners.first() == Some(&caller_id) && own.is_some_and(|(own_start, own_end)| own_start < line && line < own_end) {
+                return None;
+            }
+            owners.iter().copied().find(|&id| {
+                let (start, end) = spans[id as usize];
                 let defines = own.is_none_or(|(own_start, _)| own_start <= start) && line == start;
                 id != caller_id
                     && !own.is_some_and(|(own_start, own_end)| start <= own_start && own_end <= end)
                     && !(defines && (definition(opcode) || creating_at(pc)))
             })
         };
+        // The answer for the line of the PC before, where it holds for any
+        // PC on that line: no helper, or one not starting on it (the
+        // definition rules read the operation only on a helper's first line).
+        let mut last_line: Option<(u32, Option<u32>)> = None;
         // The copy going on: its helper, the last of its lines reached, and
         // for a one-line helper, how many of its operations the copy passed.
         let mut current: Option<(u32, u32, usize)> = None;
@@ -348,7 +361,7 @@ pub(crate) fn inlined_copies(functions: &[Function], lines: &[Vec<Option<u32>>],
             };
             if let Some((helper, reached, passed)) = &mut current {
                 let copy = helpers[*helper as usize].as_ref().unwrap();
-                if copy.lines.binary_search(&line).is_ok() {
+                if copy.lines.contains(line) {
                     let (start, end) = copy.span;
                     let inside = start <= line && line <= end;
                     let mut restarts = inside && line == copy.first && *reached == end && copy.first != end;
@@ -364,8 +377,11 @@ pub(crate) fn inlined_copies(functions: &[Function], lines: &[Vec<Option<u32>>],
                         if inside {
                             *reached = line;
                         }
-                        if let Some(inner) = innermost(line, opcode, pc).filter(|inner| inner != helper) {
-                            // A helper inlined inside this copy.
+                        // A helper inlined inside this copy (the copy's own
+                        // lines have the copy's helper innermost).
+                        if helper_at(line).first() != Some(helper)
+                            && let Some(inner) = innermost(line, opcode, pc).filter(|inner| inner != helper)
+                        {
                             copies.present.insert((caller_id, inner));
                             copies.nested.insert((caller_id, *helper, inner));
                         }
@@ -374,7 +390,16 @@ pub(crate) fn inlined_copies(functions: &[Function], lines: &[Vec<Option<u32>>],
                     }
                 }
             }
-            current = innermost(line, opcode, pc).map(|helper| {
+            let found = match last_line {
+                Some((seen, found)) if seen == line => found,
+                _ => {
+                    let found = innermost(line, opcode, pc);
+                    let reusable = helper_at(line).iter().all(|&id| spans[id as usize].0 != line);
+                    last_line = reusable.then_some((line, found));
+                    found
+                }
+            };
+            current = found.map(|helper| {
                 if ast::env_flag!("MEDAL_TRACE_COPIES") {
                     eprintln!("COPY caller=p{caller_id} helper=p{helper} pc={pc} line={line} op={opcode:?}");
                 }
@@ -391,6 +416,41 @@ pub(crate) fn inlined_copies(functions: &[Function], lines: &[Vec<Option<u32>>],
         }
     }
     Some(copies)
+}
+
+/// The lines a prototype's code has, one bit per line from the least.
+struct LineSet {
+    min: u32,
+    bits: Vec<u64>,
+}
+
+impl LineSet {
+    /// `None` without lines.
+    fn new(lines: &[Option<u32>]) -> Option<LineSet> {
+        let (min, max) = lines.iter().flatten().fold(None, |range: Option<(u32, u32)>, &line| match range {
+            None => Some((line, line)),
+            Some((min, max)) => Some((min.min(line), max.max(line))),
+        })?;
+        let mut bits = vec![0u64; ((max - min) as usize >> 6) + 1];
+        for &line in lines.iter().flatten() {
+            let at = (line - min) as usize;
+            bits[at >> 6] |= 1 << (at & 63);
+        }
+        Some(LineSet { min, bits })
+    }
+
+    fn contains(&self, line: u32) -> bool {
+        line.checked_sub(self.min).is_some_and(|at| {
+            let at = at as usize;
+            self.bits.get(at >> 6).is_some_and(|word| word & (1 << (at & 63)) != 0)
+        })
+    }
+
+    /// The last line.
+    fn max(&self) -> u32 {
+        let (word, bits) = self.bits.iter().enumerate().rev().find(|(_, bits)| **bits != 0).expect("a line");
+        self.min + (word as u32) * 64 + (63 - bits.leading_zeros())
+    }
 }
 
 /// Whether the instruction at `pc` reads the register the instruction right

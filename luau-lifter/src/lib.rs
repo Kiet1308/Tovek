@@ -636,7 +636,10 @@ fn decompile_bytecode_internal(
                 } else {
                     let lines: Vec<Vec<Option<u32>>> = chunk.functions.iter().map(upvalue_analysis::decode_source_lines).collect();
                     inlined_prototypes = reconstruction_candidates::inlined_prototypes(&chunk.functions, &lines);
-                    inlined_copies = reconstruction_candidates::inlined_copies(&chunk.functions, &lines, chunk.main);
+                    inlined_copies = {
+                        let _span = ast::telemetry::Span::new("DESER_INLINED_COPIES");
+                        reconstruction_candidates::inlined_copies(&chunk.functions, &lines, chunk.main)
+                    };
                     if ast::env_flag!("MEDAL_TRACE_COPIES") && let Some(copies) = &inlined_copies {
                         let mut rows: Vec<_> = copies.copies.iter().collect();
                         rows.sort();
