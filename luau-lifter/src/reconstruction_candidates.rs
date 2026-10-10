@@ -1,6 +1,6 @@
 //! Preserve prospective scalar helper binders before parallel child lifting.
 //! The later AST matcher independently proves every accepted reconstruction.
-use crate::{deserializer::function::Function, instruction::Instruction, op_code::OpCode};
+use crate::{deserializer::{constant::Constant, function::Function}, instruction::Instruction, op_code::OpCode};
 
 pub(crate) fn retain(function: &Function, name: Option<&str>) -> bool {
     name.is_some_and(|name| name.len() <= 256 && ast::valid_source_name(name))
@@ -191,7 +191,10 @@ pub(crate) fn inlined_copies(functions: &[Function], lines: &[Vec<Option<u32>>],
             continue;
         };
         let start = u32::try_from(function.line_defined).ok()?;
-        let end = own.max();
+        // A function whose code is all copies of helpers defined before it
+        // (`return function(k) return frames(k) end`) has no line of its
+        // own at or after its first: its span is that line alone.
+        let end = own.max().max(start);
         let first = (start..=end).find(|&line| own.contains(line)).unwrap_or(start);
         let single = (first == end).then(|| {
             let mut operations = Vec::new();
@@ -207,6 +210,15 @@ pub(crate) fn inlined_copies(functions: &[Function], lines: &[Vec<Option<u32>>],
         });
         helpers.push(Some(Helper { span: (start, end), lines: own, first, single }));
     }
+    // The helpers whose fully folded copies are counted (plan E2): one line
+    // of arithmetic on parameters returning one value, and no constant load
+    // of their own, so a number constant loaded on that line in a caller is
+    // a whole copy whose computation the compiler folded.
+    let folds: Vec<bool> = functions
+        .iter()
+        .zip(&helpers)
+        .map(|(function, helper)| helper.as_ref().is_some_and(|helper| helper.single.is_some()) && folding_helper(function))
+        .collect();
     let last = helpers.iter().flatten().map(|helper| helper.span.1).max()?;
     // Every line's helpers, innermost first (the narrowest span, then the
     // lowest prototype), as one flat table indexed by line.
@@ -261,6 +273,9 @@ pub(crate) fn inlined_copies(functions: &[Function], lines: &[Vec<Option<u32>>],
         matches!(opcode, LOP_NEWCLOSURE | LOP_DUPCLOSURE | LOP_CAPTURE | LOP_PREPVARARGS | LOP_SETTABLEKS | LOP_SETGLOBAL | LOP_SETUPVAL | LOP_MOVE)
     };
     let mut copies = ast::deinline::evidence::Copies::new(main);
+    // The callers with a fully folded copy, whose constant references are
+    // counted once every copy is.
+    let mut folded_callers: Vec<usize> = Vec::new();
     for (caller, pcs) in lines.iter().enumerate() {
         if pcs.is_empty() {
             continue;
@@ -268,6 +283,26 @@ pub(crate) fn inlined_copies(functions: &[Function], lines: &[Vec<Option<u32>>],
         let caller_id = caller as u32;
         let own = helpers[caller].as_ref().map(|helper| helper.span);
         let instructions = &functions[caller].instructions;
+        let constants = &functions[caller].constants;
+        // A number constant loaded at `pc` on a line of `owner`, a helper
+        // whose copies fold: a fully folded copy of it, the whole copy,
+        // inside a copy of `around` if that is another helper. Whether it
+        // is one.
+        let mut folded_any = false;
+        let mut fold_copy = |copies: &mut ast::deinline::evidence::Copies, owner: u32, around: u32, pc: usize| -> bool {
+            if !folds[owner as usize] {
+                return false;
+            }
+            let Some(value) = instructions.get(pc).and_then(|instruction| loaded_number(instruction, constants)) else { return false };
+            let entry = copies.constant_copies.entry((caller_id, owner, value.to_bits())).or_default();
+            if owner == around {
+                entry.outermost += 1;
+            } else {
+                entry.nested += 1;
+            }
+            folded_any = true;
+            true
+        };
         // For each PC, whether the run of consecutive PCs on its line creates
         // a closure (the statement defining a function there): read once,
         // where a helper's first line needs it.
@@ -315,6 +350,9 @@ pub(crate) fn inlined_copies(functions: &[Function], lines: &[Vec<Option<u32>>],
         // The copy going on: its helper, the last of its lines reached, and
         // for a one-line helper, how many of its operations the copy passed.
         let mut current: Option<(u32, u32, usize)> = None;
+        // The copy going on is one load of a constant, folded whole: the
+        // next operation on the helper's line is another copy.
+        let mut complete = false;
         // Where a one-line helper's copy goes on with the operation at `pc`
         // on its line: the operations it passed then, or `None` where the
         // copy went past the helper's first operation and that operation
@@ -369,6 +407,7 @@ pub(crate) fn inlined_copies(functions: &[Function], lines: &[Vec<Option<u32>>],
                         && line == copy.first
                     {
                         match advance(single, *passed, pc) {
+                            Some(_) if complete && kind(opcode).is_some() => restarts = true,
                             Some(next) => *passed = next,
                             None => restarts = true,
                         }
@@ -379,11 +418,18 @@ pub(crate) fn inlined_copies(functions: &[Function], lines: &[Vec<Option<u32>>],
                         }
                         // A helper inlined inside this copy (the copy's own
                         // lines have the copy's helper innermost).
-                        if helper_at(line).first() != Some(helper)
-                            && let Some(inner) = innermost(line, opcode, pc).filter(|inner| inner != helper)
-                        {
-                            copies.present.insert((caller_id, inner));
-                            copies.nested.insert((caller_id, *helper, inner));
+                        if helper_at(line).first() != Some(helper) {
+                            if let Some(inner) = innermost(line, opcode, pc).filter(|inner| inner != helper) {
+                                copies.present.insert((caller_id, inner));
+                                copies.nested.insert((caller_id, *helper, inner));
+                                fold_copy(&mut copies, inner, *helper, pc);
+                            }
+                        } else if fold_copy(&mut copies, *helper, *helper, pc) {
+                            // Another copy, folded whole, right after one
+                            // on the helper's line (`f(frames(k), frames(2))`):
+                            // the helper's code loads no constant of its own.
+                            *copies.copies.entry((caller_id, *helper)).or_default() += 1;
+                            complete = true;
                         }
                         pc += step;
                         continue;
@@ -412,10 +458,107 @@ pub(crate) fn inlined_copies(functions: &[Function], lines: &[Vec<Option<u32>>],
                 };
                 (helper, line, passed)
             });
+            // A copy folded whole is that one load: an operation after it on
+            // the helper's line is another copy (`f(frames(2), frames(k))`).
+            complete = matches!(current, Some((helper, ..)) if fold_copy(&mut copies, helper, helper, pc));
             pc += step;
         }
+        if folded_any {
+            folded_callers.push(caller);
+        }
+    }
+    for caller in folded_callers {
+        number_references(&functions[caller], |value| {
+            *copies.constant_refs.entry((caller as u32, value.to_bits())).or_default() += 1;
+        });
     }
     Some(copies)
+}
+
+/// Whether a helper's copies may fold whole to one constant (plan E2): a
+/// fixed number of parameters, arithmetic on them (`n / 60`, `-(a + b)`;
+/// `^` aside), and one value returned. Its own code then loads no
+/// constant, so one loaded on its line in a caller is a whole copy.
+fn folding_helper(function: &Function) -> bool {
+    use OpCode::*;
+    if function.is_vararg || function.num_parameters == 0 {
+        return false;
+    }
+    let mut operations = 0;
+    for instruction in &function.instructions {
+        match instruction {
+            Instruction::BC { op_code: LOP_RETURN, b: 2, .. } => {}
+            Instruction::BC { op_code: LOP_MOVE | LOP_NOP, .. } | Instruction::AD { op_code: LOP_MOVE | LOP_NOP, .. } => {}
+            Instruction::BC {
+                op_code:
+                    LOP_ADD | LOP_SUB | LOP_MUL | LOP_DIV | LOP_MOD | LOP_IDIV | LOP_ADDK | LOP_SUBK | LOP_MULK | LOP_DIVK
+                    | LOP_MODK | LOP_IDIVK | LOP_SUBRK | LOP_DIVRK | LOP_MINUS,
+                ..
+            } => operations += 1,
+            _ => return false,
+        }
+    }
+    operations > 0
+}
+
+/// The number `instruction` loads into a register: `LOADN`, or `LOADK` and
+/// `LOADKX` of a number constant.
+fn loaded_number(instruction: &Instruction, constants: &[Constant]) -> Option<f64> {
+    use OpCode::*;
+    let index = match instruction {
+        Instruction::AD { op_code: LOP_LOADN, d, .. } => return Some(f64::from(*d)),
+        Instruction::AD { op_code: LOP_LOADK, d, .. } => usize::try_from(*d).ok()?,
+        Instruction::BC { op_code: LOP_LOADKX, aux, .. } => *aux as usize,
+        _ => return None,
+    };
+    match constants.get(index) {
+        Some(Constant::Number(value)) => Some(*value),
+        _ => None,
+    }
+}
+
+/// Calls `found` with every number constant `function` refers to, once per
+/// reference: loads (`LOADN`, `LOADK`, `LOADKX`), constant operands
+/// (`ADDK`...`IDIVK`, `ANDK`, `ORK`, `SUBRK`, `DIVRK`), comparisons
+/// (`JUMPXEQKN`), table indexes (`GETTABLEN`, `SETTABLEN`) and the values
+/// of a `DUPTABLE` template. A `FASTCALL2K` constant is loaded again for
+/// the call it stands before, and counted there.
+fn number_references(function: &Function, mut found: impl FnMut(f64)) {
+    use OpCode::*;
+    let constants = &function.constants;
+    let constant = |index: usize, found: &mut dyn FnMut(f64)| {
+        if let Some(Constant::Number(value)) = constants.get(index) {
+            found(*value);
+        }
+    };
+    for instruction in &function.instructions {
+        if let Some(value) = loaded_number(instruction, constants) {
+            found(value);
+            continue;
+        }
+        match instruction {
+            Instruction::BC {
+                op_code: LOP_ADDK | LOP_SUBK | LOP_MULK | LOP_DIVK | LOP_MODK | LOP_POWK | LOP_IDIVK | LOP_ANDK | LOP_ORK,
+                c,
+                ..
+            } => constant(usize::from(*c), &mut found),
+            Instruction::BC { op_code: LOP_SUBRK | LOP_DIVRK, b, .. } => constant(usize::from(*b), &mut found),
+            Instruction::BC { op_code: LOP_GETTABLEN | LOP_SETTABLEN, c, .. } => found(f64::from(*c) + 1.0),
+            Instruction::AD { op_code: LOP_JUMPXEQKN, aux, .. } => constant((*aux & 0x00FF_FFFF) as usize, &mut found),
+            Instruction::AD { op_code: LOP_DUPTABLE, d, .. } => {
+                if let Ok(index) = usize::try_from(*d)
+                    && let Some(Constant::TableWithConstants(entries)) = constants.get(index)
+                {
+                    for &(_, value) in entries {
+                        if let Ok(value) = usize::try_from(value) {
+                            constant(value, &mut found);
+                        }
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
 }
 
 /// The lines a prototype's code has, one bit per line from the least.
@@ -666,6 +809,102 @@ mod tests {
         assert_eq!(inlined_prototypes(&[helper(), caller(), chunk()], &lines), vec![false, false, false]);
         // No line info, no evidence.
         assert_eq!(inlined_prototypes(&[helper(), chunk()], &[vec![], vec![]]), vec![false, false]);
+    }
+
+    /// Plan E2: `frames(n) = n / 60` on line 2. Each load of a number on its
+    /// line in a caller is a whole copy, folded: counted per value, outside
+    /// other copies or inside one (`linear`, lines 4-6, holding a copy), and
+    /// every reference to the value in that caller beside.
+    #[test]
+    fn fully_folded_copies_are_counted_per_value_and_every_reference_beside() {
+        use OpCode::*;
+        let bc = |op_code, a, b, c| Instruction::BC { op_code, a, b, c, aux: 0 };
+        let ad = |op_code, a, d| Instruction::AD { op_code, a, d, aux: 0 };
+        let with = |line_defined, instructions: Vec<Instruction>, constants: Vec<Constant>| Function {
+            instructions,
+            constants,
+            ..prototype(line_defined, &[])
+        };
+        let frames = with(1, vec![bc(LOP_DIVK, 1, 0, 0), bc(LOP_RETURN, 1, 2, 0)], vec![Constant::Number(60.0)]);
+        // (`NEWTABLE` and `SETTABLEKS` have an auxiliary word.)
+        let nop = || bc(LOP_NOP, 0, 0, 0);
+        let linear = with(4, vec![bc(LOP_NEWTABLE, 1, 0, 0), nop(), bc(LOP_DIVK, 2, 0, 0), bc(LOP_SETTABLEKS, 2, 1, 0), nop(), bc(LOP_RETURN, 1, 2, 0)], vec![]);
+        // p2 at line 8: `wait(frames(15))`, `wait(0.25)` by hand, a copy of
+        // `linear(15)` (its `frames` copy folded inside), `wait(frames(30))`
+        // twice back to back, and `x * 0.25` by hand.
+        let caller = with(8, vec![
+            ad(LOP_LOADK, 1, 0),
+            ad(LOP_LOADK, 1, 0),
+            bc(LOP_NEWTABLE, 1, 0, 0), nop(), ad(LOP_LOADK, 2, 0), bc(LOP_SETTABLEKS, 2, 1, 0), nop(), bc(LOP_CALL, 0, 2, 1),
+            ad(LOP_LOADK, 1, 1), ad(LOP_LOADK, 2, 1),
+            bc(LOP_MULK, 3, 0, 0),
+            bc(LOP_RETURN, 0, 1, 0),
+        ], vec![Constant::Number(0.25), Constant::Number(0.5)]);
+        let chunk = prototype(1, &[LOP_NEWCLOSURE, LOP_NEWCLOSURE, LOP_NEWCLOSURE, LOP_RETURN]);
+        let lines = vec![
+            vec![Some(2), Some(2)],
+            vec![Some(5), Some(5), Some(2), Some(5), Some(5), Some(6)],
+            vec![Some(2), Some(9), Some(5), Some(5), Some(2), Some(5), Some(5), Some(9), Some(2), Some(2), Some(10), Some(11)],
+            vec![Some(1), Some(4), Some(8), Some(12)],
+        ];
+        let copies = inlined_copies(&[frames, linear, caller, chunk], &lines, 3).unwrap();
+        let quarter = 0.25f64.to_bits();
+        let half = 0.5f64.to_bits();
+        let counted = |helper: u32, bits: u64| copies.constant_copies.get(&(2, helper, bits)).copied().unwrap_or_default();
+        assert_eq!(counted(0, quarter), ast::deinline::evidence::ConstantCopies { outermost: 1, nested: 1 });
+        assert_eq!(counted(0, half), ast::deinline::evidence::ConstantCopies { outermost: 2, nested: 0 });
+        assert_eq!(copies.constant_refs.get(&(2, quarter)), Some(&4), "two copies, a load and a MULK by hand");
+        assert_eq!(copies.constant_refs.get(&(2, half)), Some(&2));
+        // The two folded copies back to back are two copies of `frames`.
+        assert_eq!(copies.copies(Some(2), 0), 3);
+        assert_eq!(copies.copies(Some(2), 1), 1);
+        // `linear`'s own code loads no constant on `frames`' line: nothing
+        // folded there.
+        assert!(copies.constant_copies.keys().all(|&(caller, ..)| caller == 2));
+    }
+
+    /// A copy of a one-line helper and one folded whole on its line, either
+    /// way round, are two copies; the caller's own `return` after a folded
+    /// copy is no copy. A function whose code is all copies of helpers
+    /// defined before it (`return function(k) return frames(k), frames(90)
+    /// end`) holds them: its span is its first line alone.
+    #[test]
+    fn folded_copies_end_where_they_load_and_functions_made_of_copies_hold_theirs() {
+        use OpCode::*;
+        let bc = |op_code, a, b, c| Instruction::BC { op_code, a, b, c, aux: 0 };
+        let ad = |op_code, a, d| Instruction::AD { op_code, a, d, aux: 0 };
+        let with = |line_defined, instructions: Vec<Instruction>, constants: Vec<Constant>| Function {
+            instructions,
+            constants,
+            ..prototype(line_defined, &[])
+        };
+        let frames = || with(1, vec![bc(LOP_DIVK, 1, 0, 0), bc(LOP_RETURN, 1, 2, 0)], vec![Constant::Number(60.0)]);
+        let chunk = || prototype(1, &[LOP_NEWCLOSURE, LOP_NEWCLOSURE, LOP_RETURN]);
+        // p1 at line 10, every PC on `frames`' line 2.
+        for instructions in [
+            vec![bc(LOP_DIVK, 1, 0, 0), ad(LOP_LOADK, 2, 0), bc(LOP_RETURN, 1, 3, 0)],
+            vec![ad(LOP_LOADK, 2, 0), bc(LOP_DIVK, 1, 0, 0), bc(LOP_RETURN, 1, 3, 0)],
+        ] {
+            let caller = with(10, instructions, vec![Constant::Number(1.5)]);
+            let lines = vec![vec![Some(2), Some(2)], vec![Some(2), Some(2), Some(2)], vec![Some(1), Some(10), Some(12)]];
+            let copies = inlined_copies(&[frames(), caller, chunk()], &lines, 2).unwrap();
+            assert_eq!(copies.copies(Some(1), 0), 2);
+            assert_eq!(copies.constant_copies.get(&(1, 0, 1.5f64.to_bits())).map(|counted| counted.outermost), Some(1));
+        }
+        let caller = with(10, vec![ad(LOP_LOADK, 2, 0), bc(LOP_RETURN, 2, 2, 0)], vec![Constant::Number(1.5)]);
+        let lines = vec![vec![Some(2), Some(2)], vec![Some(2), Some(2)], vec![Some(1), Some(10), Some(12)]];
+        let copies = inlined_copies(&[frames(), caller, chunk()], &lines, 2).unwrap();
+        assert_eq!(copies.copies(Some(1), 0), 1);
+        // A helper with a constant load or a `^` of its own never folds
+        // whole as far as the census tells.
+        let loads = with(1, vec![ad(LOP_LOADN, 1, 2), bc(LOP_DIV, 1, 1, 0), bc(LOP_RETURN, 1, 2, 0)], vec![]);
+        let pow = with(1, vec![bc(LOP_POWK, 1, 0, 0), bc(LOP_RETURN, 1, 2, 0)], vec![Constant::Number(2.0)]);
+        for helper in [loads, pow] {
+            let caller = with(10, vec![ad(LOP_LOADN, 2, 9), bc(LOP_RETURN, 2, 2, 0)], vec![]);
+            let lines = vec![vec![Some(2); helper.instructions.len()], vec![Some(2), Some(11)], vec![Some(1), Some(10), Some(12)]];
+            let copies = inlined_copies(&[helper, caller, chunk()], &lines, 2).unwrap();
+            assert!(copies.constant_copies.is_empty());
+        }
     }
 
     #[test]

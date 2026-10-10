@@ -30,8 +30,29 @@ pub struct Copies {
     /// `(caller, outer, inner)`: a copy of `inner` inside a copy of `outer`
     /// in the caller's code.
     pub nested: FxHashSet<(u32, u32, u32)>,
+    /// Fully folded copies (plan E2): `(caller, helper, value bits)` -> the
+    /// copies of a one-line arithmetic helper that are one load of the
+    /// number constant with those bits, its whole computation folded
+    /// (`frames(13)` as `0.21666666666666667`): outside other copies, and
+    /// inside a copy of another helper.
+    pub constant_copies: FxHashMap<(u32, u32, u64), ConstantCopies>,
+    /// `(caller, value bits)` -> the caller's references to that number
+    /// constant, every instruction loading it, operating with it or
+    /// comparing with it, and every value of a table template: only for
+    /// callers with a [`Copies::constant_copies`] entry.
+    pub constant_refs: FxHashMap<(u32, u64), u32>,
     /// The helpers with a copy somewhere, read off `copies` by [`enter`].
     inlined: FxHashSet<u32>,
+}
+
+/// The fully folded copies of one helper producing one constant in one
+/// function ([`Copies::constant_copies`]).
+#[derive(Default, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ConstantCopies {
+    /// Copies outside any other copy.
+    pub outermost: u32,
+    /// Copies inside a copy of another helper.
+    pub nested: u32,
 }
 
 impl Copies {

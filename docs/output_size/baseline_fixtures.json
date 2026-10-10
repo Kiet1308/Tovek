@@ -712,6 +712,18 @@
       "bytes": 3140,
       "lines": 157
     },
+    "semantic/deinline_constant_folded_helper_copies__O0.luau": {
+      "bytes": 1146,
+      "lines": 76
+    },
+    "semantic/deinline_constant_folded_helper_copies__O1.luau": {
+      "bytes": 1146,
+      "lines": 76
+    },
+    "semantic/deinline_constant_folded_helper_copies__O2.luau": {
+      "bytes": 1707,
+      "lines": 78
+    },
     "semantic/deinline_constant_parameter_still_captured__O0.luau": {
       "bytes": 418,
       "lines": 31

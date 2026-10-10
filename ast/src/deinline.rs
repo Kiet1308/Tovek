@@ -21,7 +21,9 @@
 //! (upvalues by pointer identity, globals, method/field names, literals,
 //! operators, node kinds) to match exactly.
 
+mod constant_copies;
 pub mod evidence;
+pub(crate) mod fold;
 mod statement_values;
 pub(crate) use statement_values::{visit_stmt_rvalues, visit_stmt_rvalues_mut};
 
@@ -887,6 +889,10 @@ pub fn deinline_orphans_in(body: &mut Block, chunk_orphans: &mut Vec<(RcLocal, C
     // rebuilding the inner call first would hide the outer copy.
     let mut assign_phase = false;
     let mut entering_assign_phase = false;
+    // The fully folded copies of pure helpers are rebuilt once, when every
+    // other target is stable, before the evidence rounds
+    // ([`constant_copies`]).
+    let mut constant_copies_done = false;
     // The targets of an iteration that rewrote nothing, and the census of the
     // tree as it stands while no rewrite followed it: collecting on the same
     // tree gives them again. What that iteration's scan tried goes to the
@@ -1059,6 +1065,26 @@ pub fn deinline_orphans_in(body: &mut Block, chunk_orphans: &mut Vec<(RcLocal, C
                 unchanged_targets = Some(targets);
                 previous = Some(newly);
                 continue;
+            }
+            // Every other target is stable: the literals line info shows to
+            // be whole copies of pure helpers become their calls, which the
+            // targets reading those helpers may then match.
+            if !constant_copies_done && let Some(lines) = &lines {
+                constant_copies_done = true;
+                let rebuilt = {
+                    let _span = crate::telemetry::Span::new("D_CONSTANT_COPIES");
+                    constant_copies::rebuild(body, &lines.copies, &write_counts)
+                };
+                if !rebuilt.binders.is_empty() {
+                    current_captures = None;
+                    converted.extend(rebuilt.binders.iter().cloned());
+                    helper_cache.forget_rewritten(&rebuilt.bodies);
+                    last_targets = Some(targets);
+                    newly.binders = rebuilt.binders;
+                    newly.bodies = rebuilt.bodies;
+                    previous = Some(newly);
+                    continue;
+                }
             }
             // Every other target is stable: the helpers below the floor
             // get their evidence rounds.
