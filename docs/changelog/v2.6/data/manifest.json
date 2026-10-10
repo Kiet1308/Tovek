@@ -10,6 +10,7 @@
     "compare",
     "expression",
     "field",
+    "fuzz",
     "opcode",
     "script",
     "story"
