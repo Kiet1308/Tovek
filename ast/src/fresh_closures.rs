@@ -136,7 +136,12 @@ pub fn keep_fresh_closures(block: &mut Block) {
             continue;
         }
         let pointer = Arc::as_ptr(function);
-        match captured.iter().min_by_key(constant_first) {
+        // Never the literal's own binder (`local function f` capturing `f`),
+        // not yet declared before the statement making it.
+        let own_binder = |local: &&RcLocal| {
+            matches!(facts.declarations.get(*local), Some(Declaration { init: Init::Closure(bound), .. }) if *bound == pointer)
+        };
+        match captured.iter().filter(|local| !own_binder(local)).min_by_key(constant_first) {
             Some(local)
                 if facts.literals.get(&pointer) == Some(&1)
                     && only_literals_of_their_functions(&function.lock().body, &facts.literals) =>
@@ -603,5 +608,24 @@ mod tests {
         assert_eq!(shared.upvalues, vec![Upvalue::Copy(tag.clone())]);
         let Statement::Return(inner) = &fresh.function.lock().body.0[0] else { panic!() };
         assert_eq!(inner.values, vec![RValue::Local(copy_local.clone())]);
+    }
+
+    /// `function() local function f() return f end; return f end`: the
+    /// literal captures only its own binder, declared by the statement making
+    /// it, which no copy before that statement can read.
+    #[test]
+    fn a_literal_capturing_only_its_own_binder_gets_no_copy() {
+        let f = RcLocal::new(Local::new(Some("f".into())));
+        let literal = closure(1, None, vec![Upvalue::Copy(f.clone())]);
+        if let RValue::Closure(closure) = &literal {
+            closure.function.lock().body = Block(vec![Return::new(vec![f.clone().into()]).into()]);
+        }
+        let outer = closure(0, Some(0), vec![]);
+        if let RValue::Closure(closure) = &outer {
+            closure.function.lock().body = Block(vec![declare(&f, literal), Return::new(vec![f.clone().into()]).into()]);
+        }
+        let mut block = Block(vec![declare(&RcLocal::default(), outer)]);
+        keep_fresh_closures(&mut block);
+        assert_eq!(inner_body(&block).0.len(), 2);
     }
 }
