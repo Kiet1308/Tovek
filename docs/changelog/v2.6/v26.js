@@ -548,6 +548,10 @@ function makeGLField(canvas) {
       float lit = after ? a_lit.y : a_lit.x;
       float r = lit > 0.0 ? (after ? a_rad.z : a_rad.y) : a_rad.x;
       if (w > 0.0 && w < 1.0 && a_lit.y > 0.0) r *= 1.0 + 0.75 * sin(3.14159265 * w);
+      // a faint ring travels out from the dive point while you wait at the top
+      float ring = u_live > 0.0 && u_ping >= 0.0 ? exp(-pow((a_lit.z - u_ping) / 0.048, 2.0)) * u_live : 0.0;
+      // the scripts V2.6 rebuilds take their V2.6 size as it passes: the finale, for a moment
+      if (!after && a_lit.y > 0.0) r = mix(r, a_rad.z, ring);
       float rd = max(u_minR, r * u_k);
       vec2 p = u_off + a_pos * u_k;
       gl_Position = vec4(p.x / u_res.x * 2.0 - 1.0, 1.0 - p.y / u_res.y * 2.0, 0.0, 1.0);
@@ -564,12 +568,9 @@ function makeGLField(canvas) {
         float h2 = fract(h * 7.123 + 0.31);
         float breath = sin(u_time * (0.85 + 0.55 * h2) + h * 6.2831853);
         a *= 1.0 + u_live * (lit > 0.0 ? 0.14 + 0.3 * lit : 0.16) * breath;
-        // a faint ring travels out from the dive point; the scripts V2.6 rebuilds catch it in the accent
-        if (u_ping >= 0.0) {
-          float ring = exp(-pow((a_lit.z - u_ping) / 0.075, 2.0)) * u_live;
-          a += ring * (0.08 + 0.2 * a_lit.y);
-          if (!after && a_lit.y > 0.0) c = mix(c, u_sig, ring * 0.5);
-        }
+        // ... and catch the ring in the accent, clean, at the brightness the finale gives them
+        if (a_lit.y > 0.0) { c = mix(c, u_sig, ring); a = mix(a, 0.5 + 0.45 * a_lit.y, ring * 0.9); }
+        else a += ring * 0.07;
         a = clamp(a, 0.0, 1.0);
       }
       // on load the field appears outward from the dot the camera will dive into
@@ -691,7 +692,7 @@ function render(R, sc, st, extra = {}) {
       ctx.save();
       drawWindow(R, w);
       ctx.beginPath();
-      ctx.rect(w.x - w.h, w.y - w.h, w.h * 2, w.h * 2); // drawWindow left the transform in CSS pixels
+      ctx.rect(w.x - w.clip, w.y - w.clip, w.clip * 2, w.clip * 2); // drawWindow left the transform in CSS pixels
       ctx.clip();
     }
     D[pl.i](R, sc, st, pl, use, view(pl), intro * recede[pl.i] * (w ? w.open : 1), life, intro);
@@ -702,7 +703,7 @@ function render(R, sc, st, extra = {}) {
   ctx.globalAlpha = 1;
   for (const pl of plates) drawFrame(R, sc, st, pl, intro, life, wins[pl.i]);
   if (sc.lv[2].pan > 0 && st.z === 2) drawPanCue(R, sc, st, pan);
-  drawMasks(R, sc);
+  drawMasks(R, sc, 1 - smooth(0.3, 0.9, zc));
 }
 
 // how far the 10^2 pan has gone, by progress through that level's rest: out after the copies are home, then back
@@ -720,16 +721,17 @@ function lifeAt(st, zc, extra) {
   return { clock: extra.clock, live, ping, since: since >= 0 ? since : 99 };
 }
 
-// The window a framed square opens into its child: paper fills the square and the child shows inside it; as the
-// camera dives the window grows, and near the end it lets go of its edges so the child becomes the whole view.
+// The window a framed square opens into its child: paper fills the square and the child shows inside it. The square
+// is the child's own plate, so it grows exactly with the camera and lands on the corners the level keeps at rest:
+// the frame becomes the new viewport. Outside it the parent recedes, still in view, until it falls away.
 // u runs from 0 (the parent at rest) to 1 (this level at rest) with the camera, in both directions.
 function windowOf(sc, pl, zc) {
   const u = zc - (pl.i - 1);
   if (!WINDOWED[pl.i] || u <= 0.002 || u >= 1) return null;
   const open = smooth(0.002, 0.13, u);
   const half = (sc.P * pl.s) / 2;
-  const grow = 1 + 2.4 * Math.pow(smooth(0.68, 1, u), 1.5);
-  return { open, u, shade: open * (1 - smooth(0.5, 0.85, u)), x: pl.X, y: pl.Y, half, h: half * grow };
+  // the clip lets go a little at the very end, so nothing at the plate's edge can pop when the window closes
+  return { open, u, shade: open * (1 - smooth(0.5, 0.85, u)), x: pl.X, y: pl.Y, half, h: half, clip: half * (1 + 0.08 * smooth(0.8, 1, u)) };
 }
 
 function drawWindow(R, w) {
@@ -822,7 +824,7 @@ function drawFrame(R, sc, st, pl, intro, life, win) {
   a *= intro;
   if (a <= 0.003 || draw <= 0) return;
   const half = (sc.P * pl.s) / 2;
-  // while a window is open the square is its edge, and follows it as it lets go
+  // while a window is open the square is its edge
   const edge = win ? win.h : half;
   const x0 = pl.X - edge, y0 = pl.Y - edge, sz = edge * 2;
   if (x0 > R.W + 40 || y0 > R.H + 40 || x0 + sz < -40 || y0 + sz < -40) return;
@@ -881,11 +883,12 @@ function drawFrame(R, sc, st, pl, intro, life, win) {
     ctx.stroke();
   }
   // label: power of ten and unit, constant size
-  const la = (sc.mobile && crop > full ? 0 : Math.max(full, crop)) * (i === 0 ? 1 : draw);
+  // it rides the square's corner and settles, without a jump, where the level keeps it at rest
+  const cf = crop + full > 0.003 ? crop / (crop + full) : 0;
+  const la = Math.max(full, crop) * (sc.mobile ? 1 - smooth(0.35, 0.65, cf) : 1) * (i === 0 ? 1 : draw);
   if (la > 0.01 && sz > 18) {
     const [b, e, unit] = LABELS[i];
-    const asCrop = crop > full;
-    const lx = asCrop ? x0 + 12 : x0, ly = asCrop ? y0 - 9 : y0 - 7;
+    const lx = x0 + 12 * cf, ly = y0 - 7 - 2 * cf;
     if (ly > -10 && ly < R.H + 10 && lx < R.W - 40 && lx > -200) {
       ctx.textBaseline = 'alphabetic';
       setFont(ctx, `600 11px ${DISPLAY}`);
@@ -910,8 +913,9 @@ function drawFrame(R, sc, st, pl, intro, life, win) {
   }
 }
 
-// keep the world out from under the header, the ruler and the captions
-function drawMasks(R, sc) {
+// keep the world out from under the header, the ruler and the captions; `soft` (0..1) widens the fade before the
+// captions while the field is in view, so its dots fall away before the title instead of being cut
+function drawMasks(R, sc, soft = 0) {
   const m = sc.mask;
   if (!m) return;
   const { ctx, dpr, W, H } = R;
@@ -927,8 +931,9 @@ function drawMasks(R, sc) {
     return g;
   };
   if (m.right) {
-    ctx.fillStyle = band(m.right - 34, 0, m.right - 4, 0, 'x');
-    ctx.fillRect(m.right - 34, 0, 30, H);
+    const bw = 30 + 58 * soft;
+    ctx.fillStyle = band(m.right - 4 - bw, 0, m.right - 4, 0, 'x');
+    ctx.fillRect(m.right - 4 - bw, 0, bw, H);
     ctx.fillStyle = paper;
     ctx.fillRect(m.right - 4, 0, W - m.right + 4, H);
   }
