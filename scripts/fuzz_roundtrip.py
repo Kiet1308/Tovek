@@ -167,7 +167,7 @@ PARAM_WRITES = (("{v} > 100", "{v} = {v} - 100"), ("{v} < 0", "{v} = -{v}"), ("{
 # The statement reading what the uniform-cell helper returns.
 CELL_HOSTS = ("tag-first", "count-first", "cell-first", "concat", "constructor", "length", "direct")
 ERROR_LEVELS = ("", ", 1", ", 2", ", 3", ", 0")
-IDENTITY_SHAPES = ("chunk", "computed", "function")
+IDENTITY_SHAPES = ("chunk", "constant", "computed", "function")
 HANDLE_SITES = ("declared", "statement-between", "declaration-between", "argument", "require", "twice")
 
 REFUSALS = ("headroom for the vector constructor", "a method name no identifier spells",
@@ -804,26 +804,24 @@ class Generator:
     def closure_identity(self):
         """Closures made in a loop, compared with `==`. From -O1, DUPCLOSURE
         shares a literal whose captures are all unwritten main-chunk locals
-        (or locals bound to such a literal); NEWCLOSURE makes one per trip.
-        A local initialized once (a computed constant, or a local function)
-        is captured beside a capture-free literal, and the -O2 copy of a
+        (or locals bound to such a literal); a constant local is folded away
+        below -g2. NEWCLOSURE makes one per trip. A local initialized once (a
+        literal constant, a computed constant, or a local function) is
+        captured beside a capture-free literal, and the -O2 copy of a
         closure-making helper (always NEWCLOSURE: it captures the helper's
-        parameter) beside a literal over the same local. M2 review finding 3
-        needs that local to be a register of the main chunk, so the `chunk`
-        shape runs there (a `ChunkUnit`) and the body records what it made.
-        `run_seed` recompiles these seeds within their bytecode's regime:
-        below -O1 nothing is shared.
-
-        A local initialized with a literal (`local tag = 7`) is left out
-        while the decompiler loses its capture at -g2: Luau keeps the
-        capture (NEWCLOSURE) but folds the constant into the closure body,
-        and the printed `function() return 7 end` is shared once recompiled
-        (pre-existing; M2 fuzz report, N1)."""
+        parameter) beside a literal over the same local. With -g2 Luau keeps
+        the capture of a literal constant (NEWCLOSURE) but folds the
+        constant into the closure body (M2 fuzz report, N1). M2 review
+        finding 3 needs the local to be a register of the main chunk, so the
+        `chunk` shape runs there (a `ChunkUnit`) and the body records what
+        it made. `run_seed` recompiles these seeds within their bytecode's
+        regime: below -O1 nothing is shared."""
         rng = self.deinline_rng
         shape = rng.choice(IDENTITY_SHAPES)
         bind, made, kept, free = self.fresh("bind"), self.fresh("made"), self.fresh("kept"), self.fresh("free")
         captured = self.fresh("tag")
-        initial = {"chunk": "tostring(#{1, 2, 3} + 7)", "computed": "tostring(7)", "function": None}[shape]
+        initial = {"chunk": "tostring(#{1, 2, 3} + 7)", "constant": rng.choice(["7", "\"k\"", "true"]),
+                   "computed": "tostring(7)", "function": None}[shape]
         declaration = f"local {captured} = {initial}" if initial else f"local function {captured}() return 3 end"
         loop = rng.choice(["for i = 1, 2 do", "for _, i in {1, 2} do" if shape == "chunk" else "for i in iterate(2) do"])
         returned = rng.choice(["5", "nil", '"free"'])

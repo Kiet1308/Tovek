@@ -400,6 +400,30 @@
       "bytes": 689,
       "lines": 55
     },
+    "semantic/closure_capturing_a_folded_constant__O0.luau": {
+      "bytes": 1224,
+      "lines": 86
+    },
+    "semantic/closure_capturing_a_folded_constant__O1.luau": {
+      "bytes": 1055,
+      "lines": 74
+    },
+    "semantic/closure_capturing_a_folded_constant__O2.luau": {
+      "bytes": 1011,
+      "lines": 70
+    },
+    "semantic/closure_capturing_a_folded_constant_in_a_chunk_loop__O0.luau": {
+      "bytes": 116,
+      "lines": 11
+    },
+    "semantic/closure_capturing_a_folded_constant_in_a_chunk_loop__O1.luau": {
+      "bytes": 100,
+      "lines": 9
+    },
+    "semantic/closure_capturing_a_folded_constant_in_a_chunk_loop__O2.luau": {
+      "bytes": 86,
+      "lines": 6
+    },
     "semantic/closure_capturing_a_loop_local_function__O0.luau": {
       "bytes": 402,
       "lines": 37

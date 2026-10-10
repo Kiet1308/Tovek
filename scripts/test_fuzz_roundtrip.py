@@ -224,9 +224,10 @@ class FuzzRoundtripTests(unittest.TestCase):
             else:
                 initial = re.search(r"local (function )?tag\d+( = (.*))?", source)
                 shapes.add("function" if initial.group(1) else initial.group(3))
-        # No local starts as a literal constant (N1: its capture is lost at -g2).
-        self.assertEqual(shapes, {"chunk", "function", "tostring(7)"})
-        self.assertEqual(set(IDENTITY_SHAPES), {"chunk", "function", "computed"})
+        # A literal constant too: with -g2 Luau keeps its capture but folds
+        # its reads (N1).
+        self.assertEqual(shapes, {"chunk", "function", "tostring(7)", "7", "\"k\"", "true"})
+        self.assertEqual(set(IDENTITY_SHAPES), {"chunk", "constant", "function", "computed"})
 
     def test_main_chunk_units_stay_unindented(self):
         for seed in range(300):

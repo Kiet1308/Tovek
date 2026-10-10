@@ -48,6 +48,7 @@ pub mod terminal_returns;
 pub mod copy_cleanup;
 pub mod deinline;
 pub mod fold_function_names;
+pub mod folded_captures;
 pub mod fold_import_callees;
 pub mod fold_tuple_copies;
 pub mod reconstruction_search;

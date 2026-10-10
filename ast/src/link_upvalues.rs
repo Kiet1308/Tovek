@@ -9,7 +9,8 @@ use triomphe::Arc;
 
 use crate::{Block, Function, LocalRw, RValue, RcLocal, Statement, Traverse, Upvalue};
 
-type Inputs = FxHashMap<ByAddress<Arc<Mutex<Function>>>, Vec<RcLocal>>;
+/// The locals each lifted function reads its upvalues through, by slot.
+pub type Inputs = FxHashMap<ByAddress<Arc<Mutex<Function>>>, Vec<RcLocal>>;
 
 pub fn link_upvalues(body: &mut Block, upvalues: &Inputs) {
     link_block(body, upvalues, &FxHashMap::default());

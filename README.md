@@ -206,7 +206,12 @@ exception: no code can tell those objects apart. A literal the bytecode makes
 anew on every run keeps doing so: where a copy left inline captures a local
 holding a constant (an `-O2` copy of `bind("y")`), that local is declared
 first and assigned after (`local tag` / `tag = "y"`), since Luau would fold
-the constant into the literal and share one closure object.
+the constant into the literal and share one closure object. With `-g2` Luau
+keeps capturing a local declared with a constant (one new closure per run)
+while it folds every read of it into the literal's body; that literal reads
+the local again where its body holds the constant (`return tag`), or names it
+first where the body holds it nowhere (`local _ = DEBUG`, as for `if DEBUG
+then` folded away).
 
 Bytecode that no source spells is refused rather than approximated: a NAMECALL
 method that is no identifier, a FASTCALL whose fallback names another function
