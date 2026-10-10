@@ -503,12 +503,19 @@ html:not(.js) .cap--hero, .static .cap--hero { border-top: 0; padding-top: 48px;
 
   html:not(.js) .cap, .static .cap { padding: 40px 16px; }
   .parts { padding: 72px 16px 32px; }
+  .block-lead { font-size: 16px; }
+  .parts-lead { font-size: 16px; }
   .parts-head h2 { font-size: 52px; }
   .spec-meta { grid-template-columns: 1fr; }
   .block { padding: 40px 0 48px; }
   .dl-grid { grid-template-columns: 1fr; }
   .earlier a { grid-template-columns: 76px minmax(0, 1fr) auto; }
-  .spec th, .spec td { padding-right: 10px; font-size: 14px; }
+  .spec th, .spec td { padding-right: 8px; font-size: 13.5px; }
+  .spec tbody th { padding-right: 10px; }
+  .spec:not(.spec--fuzz):not(.spec--compare) .chg, .spec:not(.spec--fuzz):not(.spec--compare) thead th:nth-child(4) { display: none; }
+  .spec--games tbody th { white-space: nowrap; }
+  .spec--games td:nth-child(4), .spec--games th:nth-child(4) { display: none; }
+  .spec--games td.barcell { width: auto; }
   .foot-inner { grid-template-columns: 1fr; }
 }
 
