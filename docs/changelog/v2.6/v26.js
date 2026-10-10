@@ -493,7 +493,8 @@ function layBits(sc) {
   const c = (P * (m ? 0.96 : 0.92)) / (64 + 1.6);
   const x0 = -(c * 65.6) / 2;
   const cellX = (i) => x0 + i * c + (i >= 1 ? c * 0.8 : 0) + (i >= 12 ? c * 0.8 : 0);
-  const gapY = Math.max(c * 5.2, m ? 36 : 56);
+  // on a phone the rows stand far enough apart for the 1-bit frame's label to sit between them
+  const gapY = Math.max(c * 5.2, m ? 46 : 56);
   const big = m ? 17 : P < 600 ? 24 : 30;
   const y0 = -gapY * 0.55;
   const ys = rows.map((_, i) => y0 + i * gapY);
@@ -1707,11 +1708,13 @@ function drawBit(R, sc, st, pl, use, vw, intro) {
     { bits: N.neighbours.next_down.bits, value: N.neighbours.next_down.value, label: 'one bit down', off: 1 },
   ];
   const spread = outQuint(smooth(0.06, 0.4, q));
+  // rows stand a little further apart on a phone, where each row's label and value sit between them
+  const pitch = sq * (sc.mobile ? 1.62 : 1.45);
   const fsz = Math.max(10, c * 0.13);
   rows.forEach((row) => {
     const ra = row.off === 0 ? a : a * spread * 0.9;
     if (ra <= 0.003) return;
-    const y = yMid + row.off * sq * 1.45 * spread;
+    const y = yMid + row.off * pitch * spread;
     for (let b = 58; b < 64; b++) {
       const [x] = toL6(B5.cellX(b), 0);
       const one = row.bits[b] === '1';
@@ -1761,7 +1764,7 @@ function drawBit(R, sc, st, pl, use, vw, intro) {
   const v = smooth(0.5, 0.64, q);
   if (v > 0) {
     const [lx] = toL6(B5.cellX(58), 0);
-    const y = yMid + sq * 1.45 * 2 + fsz * 1.2;
+    const y = yMid + pitch * 2 + fsz * 1.2;
     ctx.globalAlpha = a * v;
     setFont(ctx, `500 ${fsz * 0.95}px ${MONO}`);
     ctx.fillStyle = COL.signalDeep;
