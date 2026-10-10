@@ -436,6 +436,18 @@
       "bytes": 429,
       "lines": 40
     },
+    "semantic/closure_constant_cached_by_another_copy__O0.luau": {
+      "bytes": 1115,
+      "lines": 91
+    },
+    "semantic/closure_constant_cached_by_another_copy__O1.luau": {
+      "bytes": 1115,
+      "lines": 91
+    },
+    "semantic/closure_constant_cached_by_another_copy__O2.luau": {
+      "bytes": 1210,
+      "lines": 106
+    },
     "semantic/closure_identity_across_inlined_copies__O0.luau": {
       "bytes": 1048,
       "lines": 77

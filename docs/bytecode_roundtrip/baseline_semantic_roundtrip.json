@@ -203,7 +203,8 @@
    "deinline_error_level_reads_the_caller": "m2fix finding 5 (error with a caller's level is a frame read), nonequiv 0",
    "closure_capturing_a_loop_local_function": "m2verify N2 (a loop-body local is no loop write for the C6 snapshot), nonequiv 2 by construction: -O2 unrolls the tick loop into two NEWCLOSUREs of one prototype, printed as two literals (an extra prototype); the two-table local statement prints as two declarations, each NEWTABLE sized for its later stores",
    "closure_capturing_a_folded_constant": "m3-closure N1 (a capture whose reads Luau folded reads its local again; only -g2 bytecode has such captures), nonequiv 6 at the oracle's -O2 -g1, the same as the parent commit's output: -O2 unrolls make's loop into two NEWCLOSUREs, printed as a table of two literals; `record.Name = \"x\"` folds into its constructor, after which Luau folds `record[key]` to `\"x\"` and named's literal no longer captures record, which shifts the pairing of the closures after it",
-   "closure_capturing_a_folded_constant_in_a_chunk_loop": "m3-closure N1 (a folded capture marks the chunk as -O1 code), nonequiv 1 by construction at -O2 -g1: -O2 unrolls the loop into two NEWCLOSUREs, printed as a table of two literals (SETLIST)"
+   "closure_capturing_a_folded_constant_in_a_chunk_loop": "m3-closure N1 (a folded capture marks the chunk as -O1 code), nonequiv 1 by construction at -O2 -g1: -O2 unrolls the loop into two NEWCLOSUREs, printed as a table of two literals (SETLIST)",
+   "closure_constant_cached_by_another_copy": "m3-closure N3 (a copy of a shared closure constant whose cache another copy fills with other values is made anew), nonequiv 7 by construction at -O2 -g1: the copies in the two repeat loops and in make's second loop capture a private copy of their `h` (LOADNIL + CAPTURE ref) where the bytecode captured `h` by value into the one constant, and every copy prints as a literal of its own (proto-count: the first loop's two copies become one local function, -O2's unrolled gather copies one)"
   }
  },
  "summary": {
@@ -420,6 +421,12 @@
    "status": "ok",
    "nonequiv": 2,
    "protos": 5
+  },
+  {
+   "file": "closure_constant_cached_by_another_copy",
+   "status": "ok",
+   "nonequiv": 7,
+   "protos": 11
   },
   {
    "file": "closure_identity_across_inlined_copies",

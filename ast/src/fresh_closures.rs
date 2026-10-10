@@ -32,7 +32,7 @@
 //! holds the value the literal captured, as the local is never written.
 //!
 //! Only a literal that can run more than once matters (in a function, or in a
-//! loop of the chunk). The caller runs this only for a chunk whose bytecode
+//! loop or a loop condition of the chunk). The caller runs this only for a chunk whose bytecode
 //! shares some closure: at `-O0` every literal is new, and a recompiled one
 //! capturing nothing is shared whatever the spelling.
 
@@ -268,13 +268,30 @@ fn spelled_names(block: &Block, names: &mut FxHashSet<String>) {
 /// read afterwards, and only when some literal remains.
 fn census(block: &Block, function_depth: usize, loop_depth: usize, facts: &mut Facts) {
     let top_level = function_depth == 0 && loop_depth == 0;
-    let repeats = !top_level;
     for statement in &block.0 {
         if let Statement::Assign(assign) = statement
             && assign.prefix
         {
             declare(assign, top_level, facts);
         }
+        let inner_loop = loop_depth + usize::from(matches!(
+            statement,
+            Statement::While(_) | Statement::Repeat(_) | Statement::NumericFor(_) | Statement::GenericFor(_)
+        ));
+        let blocks = |facts: &mut Facts| {
+            let mut child = 0;
+            while let Some(block) = child_block(statement, child) {
+                census(&block.lock(), function_depth, inner_loop, facts);
+                child += 1;
+            }
+        };
+        // `until` reads the locals of the body before it.
+        let condition_last = matches!(statement, Statement::Repeat(_));
+        if condition_last {
+            blocks(facts);
+        }
+        // A loop's condition runs on every trip, a `for` loop's values once.
+        let repeats = !top_level || matches!(statement, Statement::While(_) | Statement::Repeat(_));
         let mut nested = Vec::new();
         crate::inline_temps::collect_closures_in_statement(statement, &mut |closure| {
             *facts.literals.entry(Arc::as_ptr(&closure.function.0)).or_default() += 1;
@@ -300,14 +317,8 @@ fn census(block: &Block, function_depth: usize, loop_depth: usize, facts: &mut F
                 census(&function.lock().body, function_depth + 1, 0, facts);
             }
         }
-        let inner_loop = loop_depth + usize::from(matches!(
-            statement,
-            Statement::While(_) | Statement::Repeat(_) | Statement::NumericFor(_) | Statement::GenericFor(_)
-        ));
-        let mut child = 0;
-        while let Some(block) = child_block(statement, child) {
-            census(&block.lock(), function_depth, inner_loop, facts);
-            child += 1;
+        if !condition_last {
+            blocks(facts);
         }
     }
 }
@@ -542,7 +553,21 @@ fn alias_captures(block: &mut Block, aliased: &FxHashMap<FnPtr, (RcLocal, RcLoca
             });
             let mut declaration = Assign::new(vec![copy.clone().into()], Vec::new());
             declaration.prefix = true;
-            let assignment = Assign::new(vec![copy.into()], vec![RValue::Local(local)]);
+            let assignment = Assign::new(vec![copy.into()], vec![RValue::Local(local.clone())]);
+            // A literal in `until` sees the locals of the loop body, which
+            // the copy of one must follow: right after its declaration (a
+            // `continue` skips only the rest of the body).
+            if let Statement::Repeat(repeat) = &block.0[index] {
+                let mut body = repeat.block.lock();
+                let declared_at = body.0.iter().position(|statement| {
+                    matches!(statement, Statement::Assign(assign) if assign.prefix
+                        && assign.left.iter().any(|left| matches!(left, LValue::Local(declared) if *declared == local)))
+                });
+                if let Some(at) = declared_at {
+                    body.0.splice(at + 1..at + 1, [declaration.into(), assignment.into()]);
+                    continue;
+                }
+            }
             block.0.splice(index..index, [declaration.into(), assignment.into()]);
             index += 2;
         }
@@ -807,6 +832,33 @@ mod tests {
         assert_eq!(body.0.len(), 3, "`local tag`, `tag = \"y\"`, the return");
         let Statement::Assign(assignment) = &body.0[1] else { panic!() };
         assert_eq!(assignment.left, vec![LValue::Local(tag)]);
+    }
+
+    /// `repeat local function h() end until f(function() return h end)`: the
+    /// literal in `until` runs on every trip and reads the body's `h`, a
+    /// local function, which keeps it shareable; its private copy follows
+    /// `h` inside the body.
+    #[test]
+    fn a_fresh_literal_in_until_copies_a_body_local_inside_the_body() {
+        let h = RcLocal::new(Local::new(Some("h".into())));
+        let literal = closure(1, None, vec![Upvalue::Copy(h.clone())]);
+        if let RValue::Closure(closure) = &literal {
+            closure.function.lock().body = Block(vec![Return::new(vec![h.clone().into()]).into()]);
+        }
+        let condition = crate::Call::new(RValue::Global(crate::Global::from("f")), vec![literal]);
+        let body = Block(vec![declare(&h, closure(2, Some(0), vec![]))]);
+        let mut block = Block(vec![crate::Repeat::new(condition.into(), body).into()]);
+        keep_fresh_closures(&mut block);
+        assert_eq!(block.0.len(), 1, "nothing before the loop");
+        let Statement::Repeat(repeat) = &block.0[0] else { panic!() };
+        let body = repeat.block.lock();
+        assert_eq!(body.0.len(), 3, "`local function h`, `local h2`, `h2 = h`");
+        let Statement::Assign(copy) = &body.0[2] else { panic!() };
+        assert_eq!(copy.right, vec![RValue::Local(h.clone())]);
+        let LValue::Local(copy_local) = &copy.left[0] else { panic!() };
+        let RValue::Call(call) = &repeat.condition else { panic!() };
+        let RValue::Closure(literal) = &call.arguments[0] else { panic!() };
+        assert_eq!(literal.upvalues, vec![Upvalue::Copy(copy_local.clone())]);
     }
 
     /// `function() local function f() return f end; return f end`: the

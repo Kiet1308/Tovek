@@ -903,11 +903,15 @@ fn decompile_bytecode_internal(
                 (orphans || !function.orphans.is_empty(), folds || function.named_store_fold)
             });
             let folded_slots = folded_capture_slots(&chunk);
+            let fresh_copies;
             let mut linked_upvalue_bindings = BTreeMap::new();
             {
                 ptime!(S_LINK_UPVALUES);
                 link_upvalues(&mut body, &mut upvalues);
-                // Literals whose captured constant Luau folded read it again.
+                // Copies of one shared closure constant its cache makes anew
+                // on every run, then literals whose captured constant Luau
+                // folded, read it again.
+                fresh_copies = loaded_constants.mark_uncached_copies(&body);
                 ast::folded_captures::read_folded_captures(&mut body, &folded_slots, &upvalues);
                 if emit_upvalue_analysis {
                     collect_linked_upvalue_bindings(&mut body, &mut linked_upvalue_bindings);
@@ -1244,7 +1248,7 @@ fn decompile_bytecode_internal(
             }
             // A closure the bytecode makes anew stays new where the output
             // would share it (`fresh_closures`).
-            if may_print_shared_fresh_closures(&chunk, !folded_slots.is_empty()) {
+            if fresh_copies > 0 || may_print_shared_fresh_closures(&chunk, !folded_slots.is_empty()) {
                 let _span = ast::telemetry::Span::new("S_FRESH_CLOSURES");
                 ast::fresh_closures::keep_fresh_closures(&mut body);
             }

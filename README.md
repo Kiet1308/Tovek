@@ -211,7 +211,12 @@ keeps capturing a local declared with a constant (one new closure per run)
 while it folds every read of it into the literal's body; that literal reads
 the local again where its body holds the constant (`return tag`), or names it
 first where the body holds it nowhere (`local _ = DEBUG`, as for `if DEBUG
-then` folded away).
+then` folded away). The shared constant also caches: the first copy to run
+fills it with its captures, and a copy whose captures differ makes a new
+closure on every run. Where one copy runs before every other and another
+captures a value that can never equal its own (a local bound to a different
+function, such as each loop's `local function h` passed to an inlined
+`bind(h)`), that copy stays new on every run too.
 
 Bytecode that no source spells is refused rather than approximated: a NAMECALL
 method that is no identifier, a FASTCALL whose fallback names another function
