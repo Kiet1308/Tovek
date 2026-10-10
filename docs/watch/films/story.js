@@ -316,7 +316,12 @@ function flowOf(L) {
   const gotos = [];
   lines.forEach((s, i) => {
     const m = s.match(/\bgoto (\w+)/);
-    if (m && labels.has(m[1])) gotos.push({ from: i, to: labels.get(m[1]), c0: indent(s), c1: indent(lines[labels.get(m[1])]) });
+    if (!m || !labels.has(m[1])) return;
+    const to = labels.get(m[1]);
+    // the least-indented line the arrow passes, so the arc can swing clear of its text
+    let cMin = Math.min(indent(s), indent(lines[to]));
+    for (let j = Math.min(i, to) + 1; j < Math.max(i, to); j++) if (lines[j].trim()) cMin = Math.min(cMin, indent(lines[j]));
+    gotos.push({ from: i, to, c0: indent(s), c1: indent(lines[to]), cMin });
   });
   const loops = [];
   lines.forEach((s, i) => {
@@ -362,7 +367,9 @@ function drawFlow(ctx, L, cam, t, color, { gotoA = 1, loopA = 1, innerA = 1 } = 
     for (const g of F.gotos) {
       const xa = x(g.c0) - 8, xb = x(g.c1) - 8;
       const bend = 26 + Math.min(40, Math.abs(g.to - g.from) * 6) * Math.max(0.5, cam.s);
-      const xm = Math.min(xa, xb) - bend;
+      // a cubic with both handles at xm reaches 3/4 of the way out: place xm so the arc clears cMin
+      const near = Math.min(xa, xb);
+      const xm = Math.min(near - bend, near + (x(g.cMin) - 12 - near) / 0.75);
       ctx.beginPath();
       ctx.moveTo(xa, y(g.from));
       ctx.bezierCurveTo(xm, y(g.from), xm, y(g.to), xb, y(g.to));
@@ -1693,7 +1700,7 @@ function buildChaptersCaptionsScore() {
     { t: 63.4, title: `${s('v2-v0.1').name}: ${hl('v2-v0.1')}`, still: 70.6 },
     { t: 72.4, title: `${s('v2.1').name}: ${hl('v2.1')}`, still: 77.2 },
     { t: 82.6, title: `${s('v2.5').name}: ${hl('v2.5')}`, still: 88.4 },
-    { t: 96.6, title: `${v26.name}: ${hl('last')}`, still: 104.6 },
+    { t: 96.6, title: `${v26.name}: ${hl('last')}`, still: 108.8 },
     { t: T.orig, title: 'Beside the original', still: 126.4 },
     { t: 128.6, title: `${cap(word(D.totals.releases))} releases`, still: 135.6 },
   ];
@@ -1785,7 +1792,7 @@ function buildChaptersCaptionsScore() {
   for (const tw of [63.4, 72.4, 82.6, 96.6]) E.push({ t: tw + 0.35, voice: 'sub', freq: 64, to: 34, gain: 0.11, dur: 1.4 });
   E.push({ t: 82.6, voice: 'hum', dur: 15, freq: note('E1'), gain: 0.08, attack: 3, release: 3 });
   if (N.v25) E.push({ t: HEAD['v2.5'] + 3.9, voice: 'chime', freq: note('B5'), gain: 0.045, dur: 3 });
-  E.push({ t: 96.6, voice: 'swell', dur: 25, notes: ['A2', 'E3', 'A3', 'C#4', 'E4'].map(note), gain: 0.1, attack: 5, release: 5, open: 2200 });
+  E.push({ t: 96.6, voice: 'swell', dur: 31, notes: ['A2', 'E3', 'A3', 'C#4', 'E4'].map(note), gain: 0.34, attack: 5, release: 6.5, open: 2600 });
   HOMING.copies.forEach((cp, i) => E.push({ t: T.homing0 + cp.arrive * (T.homing1 - T.homing0), voice: 'chime', freq: note(['A5', 'C#6', 'E6', 'A6'][i % 4]), gain: 0.032, dur: 2.4 }));
   E.push(...ticks(T.homing0 + 0.66 * (T.homing1 - T.homing0), T.homing1 - 0.4, { rate: 16, seed: 31, gain: 0.024 }));
   HOMING.exprs.forEach((x) => E.push(...ticks(x.t0 + 0.45, x.t0 + 1.0, { rate: 14, seed: 40 + x.line, gain: 0.022 })));
