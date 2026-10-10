@@ -8,7 +8,8 @@ const W = Math.max(16, Math.round(+q.get('w') || 1920));
 const H = Math.max(16, Math.round(+q.get('h') || 1080));
 const canvas = document.getElementById('frame');
 const status = document.getElementById('status');
-const stage = createStage(canvas);
+// CPU rasterisation by default: bit-exact frames across runs (pass &gpu=1 to compare)
+const stage = createStage(canvas, { software: !q.has('gpu') });
 let film = null;
 
 function toBase64(bytes) {

@@ -130,7 +130,7 @@ export function drawOdometer(ctx, t, o) {
     for (let k = 0; k <= 1; k++) {
       const dy = (k - frac) * lineH;
       // a digit fades as it leaves the baseline, so mid-roll reads as an exchange, not a cut
-      const near = Math.pow(1 - Math.min(1, Math.abs(dy) / lineH), 1.6);
+      const near = Math.pow(1 - Math.min(1, Math.abs(dy) / lineH), 2.5);
       if (near <= 0.002) continue;
       ctx.globalAlpha = base * alpha * near * (1 - 0.3 * fast);
       ctx.fillText(String((((whole + k) % 10) + 10) % 10), cx, y + dy);

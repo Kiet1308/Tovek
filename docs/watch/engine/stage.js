@@ -8,8 +8,13 @@ export const DESIGN_H = 1080;
 /** Largest backing store we allow (4K UHD), so a huge fullscreen window cannot stall the GPU. */
 const MAX_PIXELS = 3840 * 2160;
 
-export function createStage(canvas, { opaque = true } = {}) {
-  const ctx = canvas.getContext('2d', { alpha: !opaque });
+/**
+ * `software: true` asks for a CPU-backed canvas (willReadFrequently). GPU canvases rasterise text
+ * through a glyph atlas whose packing can shift antialiasing by a level between page loads; the
+ * CPU path is bit-exact, so exports and determinism checks use it. Playback uses the GPU.
+ */
+export function createStage(canvas, { opaque = true, software = false } = {}) {
+  const ctx = canvas.getContext('2d', { alpha: !opaque, willReadFrequently: software });
   const stage = {
     canvas,
     ctx,

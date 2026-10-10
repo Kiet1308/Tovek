@@ -48,7 +48,7 @@ const clock = {
 };
 
 // optional frame statistics for testing: watch/?film=demo&stats
-const stats = params.has('stats') ? { frames: [], render: [] } : null;
+const stats = params.has('stats') ? { frames: [], render: [], t: [] } : null;
 if (stats) window.__watchStats = stats;
 
 // ---------------------------------------------------------------- page setup
@@ -180,6 +180,7 @@ function draw(t) {
     const a = performance.now();
     stage.draw(film, t);
     stats.render.push(performance.now() - a);
+    stats.t.push(t);
   } else stage.draw(film, t);
   updateUI(t);
 }
@@ -480,11 +481,19 @@ el.volRange.addEventListener('input', () => {
   applySound();
 });
 
-// clicking the picture toggles playback; a double click toggles full screen
-el.canvas.addEventListener('click', () => { if (started && !ended) togglePlay(); });
+// clicking the picture toggles playback; a double click toggles full screen. On touch screens the
+// first tap on a playing film only brings the controls back.
+let tapWakes = false;
+el.screen.addEventListener('pointerdown', (e) => {
+  tapWakes = e.pointerType !== 'mouse' && el.screen.classList.contains('is-idle');
+  wake();
+});
+el.canvas.addEventListener('click', () => {
+  if (tapWakes) { tapWakes = false; return; }
+  if (started && !ended) togglePlay();
+});
 el.canvas.addEventListener('dblclick', toggleFullscreen);
-el.screen.addEventListener('pointermove', wake);
-el.screen.addEventListener('pointerdown', wake);
+el.screen.addEventListener('pointermove', (e) => { if (e.pointerType === 'mouse') wake(); });
 
 document.addEventListener('keydown', (e) => {
   if (!film || e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey) return;
@@ -577,15 +586,31 @@ reducedMotion.addEventListener('change', buildStills);
 // ---------------------------------------------------------------- boot
 
 function observeSize() {
-  const fit = (pw, ph) => { if (stage.resize(pw, ph, 1)) requestDraw(); };
+  let last = null;
+  // Size the backing store to the device pixels under the canvas. The device-pixel box is exact
+  // (it snaps to the physical grid), but trust it only when it agrees with CSS size × DPR: some
+  // emulated and zoomed setups report a CSS-sized box.
+  const fit = () => {
+    if (!last) return;
+    const dpr = devicePixelRatio || 1;
+    const ew = last.w * dpr, eh = last.h * dpr;
+    const ok = last.dw && Math.abs(last.dw - ew) <= 2 && Math.abs(last.dh - eh) <= 2;
+    if (stage.resize(ok ? last.dw : ew, ok ? last.dh : eh, 1)) requestDraw();
+  };
   const ro = new ResizeObserver((entries) => {
     const e = entries[entries.length - 1];
     const box = e.devicePixelContentBoxSize && e.devicePixelContentBoxSize[0];
-    if (box) fit(box.inlineSize, box.blockSize);
-    else fit(e.contentRect.width * devicePixelRatio, e.contentRect.height * devicePixelRatio);
+    last = { w: e.contentRect.width, h: e.contentRect.height, dw: box ? box.inlineSize : 0, dh: box ? box.blockSize : 0 };
+    fit();
     if (film) { layoutScrub(); trackRect = null; previewW = 0; }
   });
   try { ro.observe(el.canvas, { box: 'device-pixel-content-box' }); } catch { ro.observe(el.canvas); }
+  // moving the window to a screen with another pixel density
+  const watchDpr = () => {
+    const mq = matchMedia(`(resolution: ${devicePixelRatio}dppx)`);
+    mq.addEventListener('change', () => { fit(); watchDpr(); }, { once: true });
+  };
+  watchDpr();
   new ResizeObserver(() => { if (film) { layoutScrub(); trackRect = null; requestDraw(); } }).observe(el.track);
 }
 

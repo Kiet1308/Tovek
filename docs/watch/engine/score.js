@@ -1,7 +1,8 @@
 // A deterministic score. The music is a list of timed events played by a few small synth voices.
 // The same list plays in real time in sync with the picture (ScorePlayer) and renders offline to a
 // WAV for the file export (renderScoreWav). Noise and the reverb tail come from a seeded generator,
-// so two renders are sample-identical.
+// so the score is a pure schedule. Two offline renders agree to within one least significant bit:
+// WebAudio does not fix the order in which it sums parallel voices, so float rounding can differ.
 //
 //   export const score = defineScore({
 //     duration: 18, seed: 26,
@@ -73,12 +74,18 @@ function envelope(param, points, when, offset, curve = 'lin') {
   };
   param.cancelScheduledValues(when);
   param.setValueAtTime(Math.max(curve === 'exp' ? floor : 0, valueAt(offset)), when);
+  let lastAt = when;
   for (const [t, v] of points) {
     if (t <= offset) continue;
-    const at = when + (t - offset);
-    if (curve === 'exp') param.exponentialRampToValueAtTime(Math.max(floor, v), at);
-    else param.linearRampToValueAtTime(v, at);
+    lastAt = when + (t - offset);
+    if (curve === 'exp') param.exponentialRampToValueAtTime(Math.max(floor, v), lastAt);
+    else param.linearRampToValueAtTime(v, lastAt);
   }
+  // An exponential fade cannot reach 0, so land it on exact silence. Otherwise a filter's tail
+  // leaks through at 1e-4 until the browser stops processing it, at a render quantum that varies
+  // from run to run, and two offline renders would differ in the last bit.
+  const last = points[points.length - 1][1];
+  if (curve === 'exp' && last <= floor) param.setValueAtTime(0, Math.max(when, lastAt));
 }
 
 // ---------------------------------------------------------------------------------------- the bus
