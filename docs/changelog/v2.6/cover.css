@@ -1,0 +1,27 @@
+/* The V2.6 card on the changelog index: the release page's paper, a game's scripts as dots lit by V2.6, and the
+   frames of the dive closing in on one of them. */
+
+.cover--v26 .cover-inner { background: #f2f0eb; }
+.cover--v26 .dive-svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.cover--v26 .dots { fill: rgba(18, 18, 16, 0.24); }
+.cover--v26 .lit { fill: #ff4d1a; }
+.cover--v26 .l0 { opacity: 0.62; }
+.cover--v26 .l1 { opacity: 0.82; }
+.cover--v26 .f { fill: none; stroke: rgba(18, 18, 16, 0.55); stroke-width: 1; vector-effect: non-scaling-stroke; }
+.cover--v26 .bit { fill: #ff4d1a; }
+.cover--v26 .dive-g { transition: transform 1.4s cubic-bezier(0.16, 1, 0.3, 1); }
+.release:hover .cover--v26 .dive-g { transform: scale(1.7); }
+.cover--v26 .title {
+  position: absolute; left: 7%; bottom: 10%;
+  display: flex; flex-direction: column; color: #121210;
+  font: 720 clamp(40px, 4.6vw, 62px)/0.86 "Bricolage Grotesque", "Archivo", system-ui, sans-serif;
+  font-variation-settings: "opsz" 96, "wdth" 88; letter-spacing: -0.04em;
+}
+.cover--v26 .title small {
+  margin-bottom: 14px; font: 500 11px/1 "Geist Mono", ui-monospace, monospace; letter-spacing: 0.1em;
+  text-transform: uppercase; color: #8b8980;
+}
+@media (prefers-reduced-motion: reduce) {
+  .cover--v26 .dive-g { transition: none; }
+  .release:hover .cover--v26 .dive-g { transform: none; }
+}
