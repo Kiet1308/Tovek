@@ -9,10 +9,12 @@
   "parts": [
     "changes",
     "compare",
+    "dive",
     "expression",
     "field",
     "fuzz",
     "opcode",
+    "page",
     "script",
     "story"
   ]

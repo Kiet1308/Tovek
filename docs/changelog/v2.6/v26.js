@@ -885,7 +885,7 @@ function drawDiscLabels(R, pl, F, a) {
 // --- 10^3 (and the code you read at 10^2)
 function drawSil(R, sc, st, pl, use, vw, intro) {
   const d = pl.d;
-  const a = smooth(-0.9, -0.32, d) * (1 - smooth(1.3, 1.8, d)) * intro;
+  const a = smooth(-0.9, -0.32, d) * (1 - smooth(1.4, 1.98, d)) * intro;
   if (a <= 0.003) return;
   const { ctx } = R;
   const G = sc.lv[1], S = PRE.sil;
@@ -1031,7 +1031,7 @@ function callGlow(sc, st) {
 
 function drawFn(R, sc, st, pl, use, vw, intro) {
   const d = pl.d;
-  const a = env(d, -0.6, -0.15, 0.25, 0.7) * intro;
+  const a = env(d, -0.6, -0.15, 0.3, 0.92) * intro;
   if (a <= 0.003) return;
   const { ctx } = R;
   const G = sc.lv[2], S = PRE.sil;
@@ -1141,7 +1141,7 @@ function roundRect(ctx, x, y, w, h, r) {
 // --- 10^1
 function drawIns(R, sc, st, pl, use, vw, intro) {
   const d = pl.d;
-  const a = env(d, -0.75, -0.2, 0.3, 0.8) * intro;
+  const a = env(d, -0.75, -0.2, 0.4, 0.97) * intro;
   if (a <= 0.003) return;
   const { ctx } = R;
   const G = sc.lv[3], g = G.geo, m = sc.mobile;
@@ -1272,7 +1272,7 @@ function hex(c) {
 // --- 10^0
 function drawExpr(R, sc, st, pl, use, vw, intro) {
   const d = pl.d;
-  const a = env(d, -0.7, -0.2, 0.3, 0.8) * intro;
+  const a = env(d, -0.7, -0.2, 0.4, 0.97) * intro;
   if (a <= 0.003) return;
   const { ctx } = R;
   const G = sc.lv[4], g = G.g, L = G.lines;
@@ -1381,7 +1381,7 @@ function drawExpr(R, sc, st, pl, use, vw, intro) {
 // --- 64 bits
 function drawBits(R, sc, st, pl, use, vw, intro) {
   const d = pl.d;
-  const a = env(d, -0.75, -0.2, 0.3, 0.75) * intro;
+  const a = env(d, -0.75, -0.2, 0.4, 0.95) * intro;
   if (a <= 0.003) return;
   const { ctx } = R;
   const G = sc.lv[5];
@@ -1617,7 +1617,7 @@ function frame(now) {
   if (Math.abs(tTarget - tCur) > 0.0004 || (ready && intro < 1)) kick();
 }
 
-function kick() { if (!running) { running = true; requestAnimationFrame(frame); } }
+function kick() { if (!running && mode === 'motion') { running = true; requestAnimationFrame(frame); } }
 
 function draw(t, intro) {
   const st = stateAt(t);
@@ -1691,7 +1691,7 @@ function flyTo(id) {
   requestAnimationFrame(step);
 }
 ['wheel', 'touchstart', 'pointerdown'].forEach((ev) => addEventListener(ev, cancelFlight, { passive: true }));
-addEventListener('keydown', (e) => { if (!['Enter', ' '].includes(e.key) || !e.target.closest || !e.target.closest('.ruler')) cancelFlight(); });
+addEventListener('keydown', (e) => { if (!(e.target.closest && e.target.closest('.ruler'))) cancelFlight(); });
 
 function bindRuler() {
   els.ruler.addEventListener('click', (e) => {
@@ -1779,6 +1779,11 @@ function renderStatic() {
 function setMode() {
   mode = reduceMQ.matches ? 'static' : 'motion';
   root.classList.toggle('static', mode === 'static');
+  // in the moving version every caption sits in the same place, so the browser must not jump to them by itself
+  for (const c of els.caps) {
+    if (mode === 'motion' && c.id) { c.dataset.id = c.id; c.removeAttribute('id'); }
+    else if (mode === 'static' && c.dataset.id) c.id = c.dataset.id;
+  }
 }
 
 async function start() {
@@ -1824,6 +1829,10 @@ async function start() {
       tCur = tTarget = tFromScroll();
       kick();
     });
+  });
+  addEventListener('hashchange', () => {
+    const id = location.hash.slice(1);
+    if (mode === 'motion' && (REST[id] || id === 'intro')) flyTo(id === 'intro' ? 'hero' : id);
   });
   reduceMQ.addEventListener('change', () => {
     setMode();

@@ -47,19 +47,6 @@
     <div class="stage" id="stage">
       <canvas class="world" id="world" aria-hidden="true"></canvas>
 
-      <nav class="ruler" id="ruler" aria-label="Scale">
-        <ol class="ruler-ticks">
-          <li><a href="#l0" data-level="0"><span class="pow">10<sup>4</sup></span><span class="unit">scripts</span></a></li>
-          <li><a href="#l1" data-level="1"><span class="pow">10<sup>3</sup></span><span class="unit">lines</span></a></li>
-          <li><a href="#l2" data-level="2"><span class="pow">10<sup>2</sup></span><span class="unit">lines</span></a></li>
-          <li><a href="#l3" data-level="3"><span class="pow">10<sup>1</sup></span><span class="unit">instructions</span></a></li>
-          <li><a href="#l4" data-level="4"><span class="pow">10<sup>0</sup></span><span class="unit">expression</span></a></li>
-          <li><a href="#l5" data-level="5"><span class="pow">64</span><span class="unit">bits</span></a></li>
-          <li><a href="#l6" data-level="6"><span class="pow">1</span><span class="unit">bit</span></a></li>
-        </ol>
-        <div class="ruler-rail" aria-hidden="true"><span class="ruler-fill" id="ruler-fill"></span><span class="ruler-head" id="ruler-head"></span></div>
-        <a class="ruler-out" href="#lit" data-level="lit"><span aria-hidden="true">↥</span> Back out</a>
-      </nav>
 
       <div class="captions" id="captions">
         <article class="cap cap--hero is-on" id="intro" data-seg="hero">
@@ -137,6 +124,20 @@
           <figure class="plate-fig" data-plate="lit"><canvas></canvas></figure>
         </article>
       </div>
+
+      <nav class="ruler" id="ruler" aria-label="Scale">
+        <ol class="ruler-ticks">
+          <li><a href="#l0" data-level="0"><span class="pow">10<sup>4</sup></span><span class="unit">scripts</span></a></li>
+          <li><a href="#l1" data-level="1"><span class="pow">10<sup>3</sup></span><span class="unit">lines</span></a></li>
+          <li><a href="#l2" data-level="2"><span class="pow">10<sup>2</sup></span><span class="unit">lines</span></a></li>
+          <li><a href="#l3" data-level="3"><span class="pow">10<sup>1</sup></span><span class="unit">instructions</span></a></li>
+          <li><a href="#l4" data-level="4"><span class="pow">10<sup>0</sup></span><span class="unit">expression</span></a></li>
+          <li><a href="#l5" data-level="5"><span class="pow">64</span><span class="unit">bits</span></a></li>
+          <li><a href="#l6" data-level="6"><span class="pow">1</span><span class="unit">bit</span></a></li>
+        </ol>
+        <div class="ruler-rail" aria-hidden="true"><span class="ruler-fill" id="ruler-fill"></span><span class="ruler-head" id="ruler-head"></span></div>
+        <a class="ruler-out" href="#lit" data-level="lit"><span aria-hidden="true">↥</span> Back out</a>
+      </nav>
 
       <p class="readout" id="readout" aria-hidden="true">×1</p>
     </div>
