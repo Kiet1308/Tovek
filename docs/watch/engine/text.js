@@ -95,7 +95,7 @@ export function metrics(f) {
 const segmenter = typeof Intl !== 'undefined' && Intl.Segmenter ? new Intl.Segmenter('en', { granularity: 'grapheme' }) : null;
 const graphemes = (s) => (segmenter ? Array.from(segmenter.segment(s), (x) => x.segment) : Array.from(s));
 
-function layoutLine(text, f, around) {
+function layoutLine(text, f, around, pairs) {
   const chars = graphemes(text);
   const xs = new Float64Array(chars.length + 1);
   let prefix = '';
@@ -116,6 +116,16 @@ function layoutLine(text, f, around) {
     }
     xs[chars.length] += off;
   }
+  // extra space between particular pairs (em), for a display face whose kerning lets two glyphs
+  // touch ("ov" in a condensed bold): only that pair opens, the rest of the word keeps its kerning
+  if (pairs) {
+    let off = 0;
+    for (let i = 1; i < chars.length; i++) {
+      off += (pairs[chars[i - 1] + chars[i]] || 0) * f.size;
+      xs[i] += off;
+    }
+    xs[chars.length] += off;
+  }
   const words = [];
   let i = 0;
   while (i < chars.length) {
@@ -132,12 +142,13 @@ const layoutCache = new Map();
 
 /**
  * Lay out text. `\n` breaks lines; with `maxWidth` words wrap greedily. `around: { '.': 0.03 }` adds
- * that many em on both sides of a character (to open a display face's tight pairs).
+ * that many em on both sides of a character (to open a display face's tight pairs); `pairs:
+ * { ov: 0.035 }` adds that many em between that one pair only.
  * Returns `{ font, lines: [{ text, chars, xs, width, words, y }], width, height, lineGap, glyphCount, wordCount }`
  * where `y` is each line's baseline offset from the first baseline and `xs[i]` the pen x of glyph i.
  */
-export function layoutText(text, f, { maxWidth = Infinity, lineHeight = 1.12, around = null } = {}) {
-  const key = `${f.css}\u0000${maxWidth}\u0000${lineHeight}\u0000${around ? JSON.stringify(around) : ''}\u0000${text}`;
+export function layoutText(text, f, { maxWidth = Infinity, lineHeight = 1.12, around = null, pairs = null } = {}) {
+  const key = `${f.css}\u0000${maxWidth}\u0000${lineHeight}\u0000${around ? JSON.stringify(around) : ''}\u0000${pairs ? JSON.stringify(pairs) : ''}\u0000${text}`;
   const hit = layoutCache.get(key);
   if (hit) return hit;
   const rows = [];
@@ -154,7 +165,7 @@ export function layoutText(text, f, { maxWidth = Infinity, lineHeight = 1.12, ar
   const lineGap = f.size * lineHeight;
   let glyphCount = 0, wordCount = 0;
   const lines = rows.map((r, i) => {
-    const L = layoutLine(r, f, around);
+    const L = layoutLine(r, f, around, pairs);
     L.y = i * lineGap;
     L.glyphBase = glyphCount;
     L.wordBase = wordCount;
@@ -163,7 +174,7 @@ export function layoutText(text, f, { maxWidth = Infinity, lineHeight = 1.12, ar
     return L;
   });
   const out = {
-    font: f, lines, lineGap, glyphCount, wordCount, spaced: !!around,
+    font: f, lines, lineGap, glyphCount, wordCount, spaced: !!(around || pairs),
     width: Math.max(0, ...lines.map((l) => l.width)),
     height: (lines.length - 1) * lineGap,
     metrics: metrics(f),
