@@ -50,7 +50,7 @@ code, pre { font-family: var(--font-mono); font-size: 0.9em; }
   height: var(--top-h); padding: 0 var(--gutter);
   transition: background-color 0.35s var(--ease-out), box-shadow 0.35s var(--ease-out);
 }
-.top.is-solid { background: rgba(250, 249, 246, 0.92); box-shadow: 0 1px 0 var(--rule); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
+.top.is-solid { background: var(--sheet); box-shadow: 0 1px 0 var(--rule); }
 .brand { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; }
 .brand-mark { width: 21px; height: 20px; fill: var(--ink); }
 .brand-name { font: 650 17px/1 var(--font-text); letter-spacing: -0.02em; }
@@ -393,7 +393,7 @@ code, pre { font-family: var(--font-mono); font-size: 0.9em; }
 
 html:not(.js) .dive, .static .dive { height: auto !important; }
 html:not(.js) .stage, .static .stage { position: relative; height: auto; overflow: visible; padding-top: var(--top-h); }
-html:not(.js) .world, .static .world,
+html:not(.js) .world, .static .world, .static .world-gl,
 html:not(.js) .ruler, .static .ruler,
 html:not(.js) .cue, .static .cue,
 html:not(.js) .readout, .static .readout { display: none; }

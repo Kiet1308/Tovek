@@ -259,7 +259,7 @@ function layField(sc) {
   let maxD = 0;
   for (let i = 0; i < n; i++) { dist[i] = Math.hypot(x[i] - tx, y[i] - ty); if (dist[i] > maxD) maxD = dist[i]; }
   for (let i = 0; i < n; i++) dist[i] /= maxD;
-  return { x, y, r, r1, r2, l1, l2, dist, n, labels, spacing, targetIdx: target, target: [tx, ty] };
+  return { x, y, r, r1, r2, l1, l2, dist, n, labels, spacing, maxD, targetIdx: target, target: [tx, ty] };
 }
 
 // --- 10^3: one script as a silhouette
@@ -453,17 +453,115 @@ function layBit(sc) {
 
 // ------------------------------------------------------------------ drawing
 
-function makeRenderer(canvas) {
-  const ctx = canvas.getContext('2d', { alpha: false });
-  const R = { canvas, ctx, dpr: 1, W: 0, H: 0, fieldCache: null, fieldKey: '' };
+function makeRenderer(canvas, glCanvas) {
+  const glField = glCanvas ? makeGLField(glCanvas) : null;
+  const ctx = canvas.getContext('2d', { alpha: !!glField });
+  const R = { canvas, ctx, dpr: 1, W: 0, H: 0, fieldCam: '', lastFieldCam: '', layers: {}, glField };
+  if (glField) {
+    glCanvas.addEventListener('webglcontextlost', (e) => { e.preventDefault(); R.glField = null; glCanvas.hidden = true; kick(); });
+  }
   R.resize = (W, H) => {
     const dpr = Math.min(2, window.devicePixelRatio || 1);
     R.dpr = dpr; R.W = W; R.H = H;
     canvas.width = Math.round(W * dpr);
     canvas.height = Math.round(H * dpr);
-    R.fieldKey = '';
+    if (R.glField) R.glField.resize(canvas.width, canvas.height);
+    R.fieldCam = ''; R.layers = {};
   };
   return R;
+}
+
+// The field on the GPU: one point per script. The wave of the finale runs in the vertex shader, so a moving camera
+// or a running wave costs the same as a still frame.
+function makeGLField(canvas) {
+  let gl = null;
+  try { gl = canvas.getContext('webgl', { alpha: false, antialias: false, premultipliedAlpha: true, depth: false, stencil: false }); } catch (e) { gl = null; }
+  if (!gl) return null;
+  const VS = `
+    precision highp float;
+    attribute vec2 a_pos; attribute vec3 a_rad; attribute vec3 a_lit;
+    uniform float u_k; uniform vec2 u_off; uniform vec2 u_res; uniform float u_fin; uniform float u_minR; uniform float u_alpha;
+    uniform vec3 u_ink; uniform vec3 u_sig;
+    varying float v_r; varying vec4 v_col;
+    void main() {
+      float W = 0.14;
+      float front = u_fin * (1.0 + W);
+      float w = u_fin > 0.0 ? clamp((front - a_lit.z) / W, 0.0, 1.0) : 0.0;
+      bool after = w >= 0.5;
+      float lit = after ? a_lit.y : a_lit.x;
+      float r = lit > 0.0 ? (after ? a_rad.z : a_rad.y) : a_rad.x;
+      if (w > 0.0 && w < 1.0 && a_lit.y > 0.0) r *= 1.0 + 0.75 * sin(3.14159265 * w);
+      float rd = max(u_minR, r * u_k);
+      vec2 p = u_off + a_pos * u_k;
+      gl_Position = vec4(p.x / u_res.x * 2.0 - 1.0, 1.0 - p.y / u_res.y * 2.0, 0.0, 1.0);
+      gl_PointSize = 2.0 * rd + 2.0;
+      v_r = rd;
+      float a; vec3 c;
+      if (lit <= 0.0) { a = 0.17; c = u_ink; }
+      else if (!after) { a = 0.34 + 0.5 * lit; c = u_ink; }
+      else { a = 0.5 + 0.5 * lit; c = u_sig; }
+      v_col = vec4(c, a * u_alpha);
+    }`;
+  const FS = `
+    precision mediump float;
+    varying float v_r; varying vec4 v_col;
+    void main() {
+      float d = length((gl_PointCoord - 0.5) * (2.0 * v_r + 2.0));
+      float cov = clamp(v_r - d + 0.5, 0.0, 1.0);
+      if (cov <= 0.0) discard;
+      gl_FragColor = vec4(v_col.rgb * v_col.a * cov, v_col.a * cov);
+    }`;
+  const sh = (type, src) => { const o = gl.createShader(type); gl.shaderSource(o, src); gl.compileShader(o); if (!gl.getShaderParameter(o, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(o)); return o; };
+  let prog;
+  try {
+    prog = gl.createProgram();
+    gl.attachShader(prog, sh(gl.VERTEX_SHADER, VS));
+    gl.attachShader(prog, sh(gl.FRAGMENT_SHADER, FS));
+    gl.linkProgram(prog);
+    if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(prog));
+  } catch (e) { console.warn('V2.6 field: WebGL unavailable', e); return null; }
+  const loc = (n) => gl.getUniformLocation(prog, n);
+  const U = { k: loc('u_k'), off: loc('u_off'), res: loc('u_res'), fin: loc('u_fin'), minR: loc('u_minR'), alpha: loc('u_alpha'), ink: loc('u_ink'), sig: loc('u_sig') };
+  const A = { pos: gl.getAttribLocation(prog, 'a_pos'), rad: gl.getAttribLocation(prog, 'a_rad'), lit: gl.getAttribLocation(prog, 'a_lit') };
+  const buf = gl.createBuffer();
+  const rgb = (c) => hex(c).map((v) => v / 255);
+  let uploaded = null, count = 0;
+  const G = {
+    resize(w, h) { canvas.width = w; canvas.height = h; gl.viewport(0, 0, w, h); },
+    clear() {
+      const p = rgb(COL.paper);
+      gl.clearColor(p[0], p[1], p[2], 1);
+      gl.clear(gl.COLOR_BUFFER_BIT);
+    },
+    draw(F, pl, dpr, fin, alpha) {
+      if (uploaded !== F) {
+        // unlit first, so lit dots sit on top
+        const order = Array.from({ length: F.n }, (_, i) => i).sort((a, b) => Math.max(F.l1[a], F.l2[a]) - Math.max(F.l1[b], F.l2[b]) || a - b);
+        const data = new Float32Array(F.n * 8);
+        order.forEach((i, j) => { data.set([F.x[i], F.y[i], F.r[i], F.r1[i], F.r2[i], F.l1[i], F.l2[i], F.dist[i]], j * 8); });
+        gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+        gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
+        uploaded = F; count = F.n;
+      }
+      gl.useProgram(prog);
+      gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+      gl.enableVertexAttribArray(A.pos); gl.vertexAttribPointer(A.pos, 2, gl.FLOAT, false, 32, 0);
+      gl.enableVertexAttribArray(A.rad); gl.vertexAttribPointer(A.rad, 3, gl.FLOAT, false, 32, 8);
+      gl.enableVertexAttribArray(A.lit); gl.vertexAttribPointer(A.lit, 3, gl.FLOAT, false, 32, 20);
+      gl.uniform1f(U.k, dpr * pl.s);
+      gl.uniform2f(U.off, dpr * pl.X, dpr * pl.Y);
+      gl.uniform2f(U.res, canvas.width, canvas.height);
+      gl.uniform1f(U.fin, fin);
+      gl.uniform1f(U.minR, 0.55 * dpr);
+      gl.uniform1f(U.alpha, alpha);
+      gl.uniform3fv(U.ink, rgb(COL.ink));
+      gl.uniform3fv(U.sig, rgb(COL.signal));
+      gl.enable(gl.BLEND);
+      gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+      gl.drawArrays(gl.POINTS, 0, count);
+    },
+  };
+  return G;
 }
 
 let fontCur = '';
@@ -474,8 +572,13 @@ function render(R, sc, st, extra = {}) {
   fontCur = '';
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.globalAlpha = 1;
-  ctx.fillStyle = COL.paper;
-  ctx.fillRect(0, 0, R.canvas.width, R.canvas.height);
+  if (R.glField) {
+    R.glField.clear();
+    ctx.clearRect(0, 0, R.canvas.width, R.canvas.height);
+  } else {
+    ctx.fillStyle = COL.paper;
+    ctx.fillRect(0, 0, R.canvas.width, R.canvas.height);
+  }
   if (!sc) return;
   const cam = camera(sc, st.z);
   const intro = extra.intro === undefined ? 1 : extra.intro;
@@ -628,82 +731,155 @@ function drawMasks(R, sc) {
 }
 
 // --- 10^4
+// The dots of each state are built once into a few Path2D objects in plate space (one per colour and alpha step),
+// so a moving camera costs one transform and a dozen fills. While the camera rests, each state is kept as a bitmap.
+// During the finale the wave front is a circle around the dive point: the old bitmap shows outside it, the new one
+// inside, and only the dots on the front are drawn live with their small pop.
+const BK = 6;
+const FILLS = [['ink', 0.17]].concat(
+  Array.from({ length: BK }, (_, b) => ['ink', 0.34 + 0.5 * ((b + 0.5) / BK)]),
+  Array.from({ length: BK }, (_, b) => ['signal', 0.5 + 0.5 * ((b + 0.5) / BK)]));
+
+function dotGroup(F, i, after) {
+  const lit = after ? F.l2[i] : F.l1[i];
+  if (lit <= 0) return 0;
+  return (after ? 1 + BK : 1) + Math.min(BK - 1, Math.floor(lit * BK - 0.0001));
+}
+function dotRadius(F, i, after) {
+  const lit = after ? F.l2[i] : F.l1[i];
+  return lit > 0 ? (after ? F.r2[i] : F.r1[i]) : F.r[i];
+}
+
+function fieldPaths(F, after) {
+  const key = after ? 'pNew' : 'pOld';
+  if (F[key]) return F[key];
+  const paths = FILLS.map(() => new Path2D());
+  const minR = F.spacing * 0.09;
+  for (let i = 0; i < F.n; i++) {
+    const g = dotGroup(F, i, after), rr = Math.max(minR, dotRadius(F, i, after));
+    paths[g].moveTo(F.x[i] + rr, F.y[i]);
+    paths[g].arc(F.x[i], F.y[i], rr, 0, Math.PI * 2);
+  }
+  F[key] = paths;
+  return paths;
+}
+
+function fillField(x, R, pl, F, after) {
+  x.setTransform(R.dpr * pl.s, 0, 0, R.dpr * pl.s, R.dpr * pl.X, R.dpr * pl.Y);
+  const paths = fieldPaths(F, after);
+  for (let g = 0; g < FILLS.length; g++) {
+    x.fillStyle = COL[FILLS[g][0]];
+    x.globalAlpha = FILLS[g][1];
+    x.fill(paths[g]);
+  }
+  x.globalAlpha = 1;
+}
+
+function fieldLayer(R, pl, F, after) {
+  const c = document.createElement('canvas');
+  c.width = R.canvas.width; c.height = R.canvas.height;
+  fillField(c.getContext('2d'), R, pl, F, after);
+  return c;
+}
+
+function waveDots(x, R, pl, F, front, W) {
+  const paths = FILLS.map(() => null);
+  for (let i = 0; i < F.n; i++) {
+    const w = (front - F.dist[i]) / W;
+    if (w < 0.5 || w >= 1) continue;
+    const g = dotGroup(F, i, true);
+    const rr = dotRadius(F, i, true) * (F.l2[i] > 0 ? 1 + 0.75 * Math.sin(Math.PI * w) : 1);
+    const p = paths[g] || (paths[g] = new Path2D());
+    p.moveTo(F.x[i] + rr, F.y[i]);
+    p.arc(F.x[i], F.y[i], rr, 0, Math.PI * 2);
+  }
+  x.setTransform(R.dpr * pl.s, 0, 0, R.dpr * pl.s, R.dpr * pl.X, R.dpr * pl.Y);
+  for (let g = 0; g < FILLS.length; g++) {
+    if (!paths[g]) continue;
+    x.fillStyle = COL[FILLS[g][0]];
+    x.globalAlpha = FILLS[g][1];
+    x.fill(paths[g]);
+  }
+  x.globalAlpha = 1;
+}
+
 function drawField(R, sc, st, pl, use, vw, intro) {
   const a = env(pl.d, -0.9, -0.35, 0.28, 0.8) * intro;
   if (a <= 0.003) return;
-  const { ctx, dpr } = R;
+  const { ctx } = R;
   const F = sc.lv[0];
   const fin = st.fin;
-  const key = `${pl.X.toFixed(2)}|${pl.Y.toFixed(2)}|${pl.s.toFixed(5)}|${fin.toFixed(4)}|${R.W}x${R.H}`;
-  if (!R.fieldCache || R.fieldCache.width !== R.canvas.width || R.fieldCache.height !== R.canvas.height) {
-    R.fieldCache = document.createElement('canvas');
-    R.fieldCache.width = R.canvas.width; R.fieldCache.height = R.canvas.height;
-    R.fieldKey = '';
+  if (R.glField) {
+    R.glField.draw(F, pl, R.dpr, fin, a);
+    drawDiscLabels(R, pl, F, a);
+    return;
   }
-  if (key !== R.fieldKey) {
-    const c = R.fieldCache.getContext('2d');
-    c.setTransform(1, 0, 0, 1, 0, 0);
-    c.clearRect(0, 0, R.fieldCache.width, R.fieldCache.height);
-    c.setTransform(dpr * pl.s, 0, 0, dpr * pl.s, dpr * pl.X, dpr * pl.Y);
-    paintField(c, F, fin, vw, pl.s);
-    // labels under the discs
-    const la = smooth(-0.45, -0.05, pl.d) * (1 - smooth(0.05, 0.3, pl.d));
-    if (la > 0.01) {
-      c.globalAlpha = la;
-      c.textAlign = 'center';
-      c.textBaseline = 'top';
-      for (const L of F.labels) {
-        c.fillStyle = COL.ink3;
-        c.font = `500 ${9.5}px ${MONO}`;
-        c.fillText(`${L.text} · ${L.sub}`, L.x, L.y);
-      }
-      c.textAlign = 'left';
-      c.globalAlpha = 1;
+  const camKey = `${pl.X.toFixed(2)}|${pl.Y.toFixed(2)}|${pl.s.toFixed(6)}|${R.canvas.width}x${R.canvas.height}`;
+  const still = R.lastFieldCam === camKey;
+  R.lastFieldCam = camKey;
+  if (!still && R.fieldCam !== camKey) {
+    // the camera is moving: fill the cached paths under the new transform
+    ctx.save();
+    ctx.globalAlpha = a;
+    const paths = fieldPaths(F, fin >= 0.5);
+    ctx.setTransform(R.dpr * pl.s, 0, 0, R.dpr * pl.s, R.dpr * pl.X, R.dpr * pl.Y);
+    for (let g = 0; g < FILLS.length; g++) {
+      ctx.fillStyle = COL[FILLS[g][0]];
+      ctx.globalAlpha = FILLS[g][1] * a;
+      ctx.fill(paths[g]);
     }
-    R.fieldKey = key;
+    ctx.restore();
+    drawDiscLabels(R, pl, F, a);
+    return;
   }
+  if (R.fieldCam !== camKey) { R.fieldCam = camKey; R.layers = {}; }
+  const layer = (after) => (R.layers[after ? 1 : 0] || (R.layers[after ? 1 : 0] = fieldLayer(R, pl, F, after)));
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.globalAlpha = a;
-  ctx.drawImage(R.fieldCache, 0, 0);
+  if (fin <= 0) ctx.drawImage(layer(false), 0, 0);
+  else if (fin >= 1) ctx.drawImage(layer(true), 0, 0);
+  else {
+    const W = 0.14, front = fin * (1 + W);
+    const k = R.dpr * pl.s;
+    const cx = R.dpr * pl.X + F.target[0] * k, cy = R.dpr * pl.Y + F.target[1] * k;
+    const rIn = Math.max(0, (front - W) * F.maxD * k);
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(0, 0, R.canvas.width, R.canvas.height);
+    ctx.arc(cx, cy, rIn, 0, Math.PI * 2);
+    ctx.clip('evenodd');
+    ctx.drawImage(layer(false), 0, 0);
+    ctx.restore();
+    if (rIn > 0) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(cx, cy, rIn, 0, Math.PI * 2);
+      ctx.clip();
+      ctx.drawImage(layer(true), 0, 0);
+      ctx.restore();
+    }
+    ctx.save();
+    ctx.globalAlpha = a;
+    waveDots(ctx, R, pl, F, front, W);
+    ctx.restore();
+  }
   ctx.globalAlpha = 1;
+  drawDiscLabels(R, pl, F, a);
 }
 
-// Before the dive the field shows V2.5.1 in ink: the larger and darker a dot, the more calls were rebuilt.
-// On the way back out a wave from the dive point relights every dot by V2.6, in the accent.
-const BK = 6;
-function paintField(c, F, fin, vw, s) {
-  const { x, y, r, r1, r2, l1, l2, dist, n } = F;
-  const pad = 6 / s;
-  const x0 = vw.x0 - pad, x1 = vw.x1 + pad, y0 = vw.y0 - pad, y1 = vw.y1 + pad;
-  const minR = 0.5 / s;
-  const W = 0.14;
-  const front = fin * (1 + W);
-  const plain = new Path2D();
-  const ink = [], sig = [];
-  for (let b = 0; b < BK; b++) { ink.push(new Path2D()); sig.push(new Path2D()); }
-  const TWO_PI = Math.PI * 2;
-  for (let i = 0; i < n; i++) {
-    const xi = x[i], yi = y[i];
-    if (xi < x0 || xi > x1 || yi < y0 || yi > y1) continue;
-    const w = fin > 0 ? clamp((front - dist[i]) / W) : 0;
-    const after = w >= 0.5;
-    const lit = after ? l2[i] : l1[i];
-    let rr = lit > 0 ? (after ? r2[i] : r1[i]) : r[i];
-    if (w > 0 && w < 1 && l2[i] > 0) rr *= 1 + 0.75 * Math.sin(Math.PI * w);
-    if (rr < minR) rr = minR;
-    let p;
-    if (lit <= 0) p = plain;
-    else p = (after ? sig : ink)[Math.min(BK - 1, Math.floor(lit * BK - 0.0001))];
-    p.moveTo(xi + rr, yi);
-    p.arc(xi, yi, rr, 0, TWO_PI);
-  }
-  c.fillStyle = COL.ink;
-  c.globalAlpha = 0.17;
-  c.fill(plain);
-  for (let b = 0; b < BK; b++) { c.globalAlpha = 0.34 + 0.5 * ((b + 0.5) / BK); c.fill(ink[b]); }
-  c.fillStyle = COL.signal;
-  for (let b = 0; b < BK; b++) { c.globalAlpha = 0.5 + 0.5 * ((b + 0.5) / BK); c.fill(sig[b]); }
-  c.globalAlpha = 1;
+function drawDiscLabels(R, pl, F, a) {
+  const la = smooth(-0.45, -0.05, pl.d) * (1 - smooth(0.05, 0.3, pl.d)) * a;
+  if (la <= 0.01) return;
+  const { ctx, dpr } = R;
+  ctx.setTransform(dpr * pl.s, 0, 0, dpr * pl.s, dpr * pl.X, dpr * pl.Y);
+  ctx.globalAlpha = la;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+  ctx.fillStyle = COL.ink3;
+  setFont(ctx, `500 9.5px ${MONO}`);
+  for (const L of F.labels) ctx.fillText(`${L.text} · ${L.sub}`, L.x, L.y);
+  ctx.textAlign = 'left';
+  ctx.globalAlpha = 1;
 }
 
 // --- 10^3 (and the code you read at 10^2)
@@ -867,15 +1043,16 @@ function drawFn(R, sc, st, pl, use, vw, intro) {
   const lift = (1 - outCubic(smooth(0.0, 0.14, q))) * p2 * 0.8;
   const cy = card.y + lift;
   // card
+  ctx.fillStyle = COL.ink;
+  for (const [dy, grow, al] of [[0.5, 0.35, 0.025], [0.28, 0.16, 0.035], [0.1, 0.04, 0.05]]) {
+    ctx.globalAlpha = show * al;
+    roundRect(ctx, card.x - p2 * grow, cy - p2 * grow * 0.5 + p2 * dy, card.w + p2 * grow * 2, card.h + p2 * grow, p2 * (0.42 + grow));
+    ctx.fill();
+  }
   ctx.globalAlpha = show;
   ctx.fillStyle = COL.sheet;
-  ctx.shadowColor = 'rgba(18,18,16,0.09)';
-  ctx.shadowBlur = 28 * pl.s;
-  ctx.shadowOffsetY = 8 * pl.s;
   roundRect(ctx, card.x, cy, card.w, card.h, p2 * 0.42);
   ctx.fill();
-  ctx.shadowColor = 'transparent';
-  ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
   ctx.lineWidth = 1 / pl.s;
   ctx.strokeStyle = 'rgba(18,18,16,0.14)';
   ctx.stroke();
@@ -1444,8 +1621,11 @@ function kick() { if (!running) { running = true; requestAnimationFrame(frame); 
 
 function draw(t, intro) {
   const st = stateAt(t);
+  const perf = window.__divePerf;
+  const t0 = perf ? performance.now() : 0;
   render(main, ready ? scene : null, st, { intro: outCubic(intro) });
   ui(st, t);
+  if (perf) { perf.push([t, performance.now() - t0]); if (window.__diveMarks) performance.mark(`t=${t.toFixed(2)}`); }
 }
 
 function ui(st, t) {
@@ -1554,6 +1734,27 @@ function jumpToHash() {
 
 // ------------------------------------------------------------------ the static version (reduced motion)
 
+// Draw every level once off screen while the page is idle, so the first real pass finds its glyphs, shadows and
+// paths already prepared and does not stutter.
+function warmUp() {
+  const samples = [];
+  for (const s of TL) samples.push(s.t0 + s.len * 0.5, s.t0 + s.len * 0.92);
+  const cv = document.createElement('canvas');
+  const R = makeRenderer(cv);
+  R.resize(main.W, main.H);
+  let i = 0;
+  const idle = window.requestIdleCallback || ((f) => setTimeout(() => f({ timeRemaining: () => 8 }), 60));
+  const step = (dl) => {
+    while (i < samples.length && dl.timeRemaining() > 6) {
+      render(R, scene, stateAt(samples[i++]), { intro: 1 });
+      R.ctx.getImageData(0, 0, 1, 1);
+    }
+    if (i < samples.length) idle(step);
+    else { cv.width = cv.height = 0; }
+  };
+  idle(step);
+}
+
 function renderStatic() {
   const figs = [...document.querySelectorAll('.plate-fig')];
   for (const fig of figs) {
@@ -1583,7 +1784,12 @@ function setMode() {
 async function start() {
   readColors();
   setMode();
-  main = makeRenderer(els.world);
+  const glCanvas = document.createElement('canvas');
+  glCanvas.className = 'world world-gl';
+  glCanvas.setAttribute('aria-hidden', 'true');
+  els.world.before(glCanvas);
+  main = makeRenderer(els.world, glCanvas);
+  if (!main.glField) glCanvas.remove();
   if (mode === 'motion') { layout(); draw(0, 0); }
   bindRuler();
   try {
@@ -1604,6 +1810,7 @@ async function start() {
     jumpToHash();
     introStart = performance.now();
     kick();
+    setTimeout(warmUp, 1300);
   }
   addEventListener('scroll', onScroll, { passive: true });
   let rz = 0;
