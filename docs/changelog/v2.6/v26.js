@@ -1772,7 +1772,7 @@ const els = {
   ruler: document.getElementById('ruler'), fill: document.getElementById('ruler-fill'), head: document.getElementById('ruler-head'),
   readout: document.getElementById('readout'), cue: document.getElementById('cue'), top: document.getElementById('top'),
   caps: [...document.querySelectorAll('.cap')], litCount: document.getElementById('lit-count'),
-  links: [...document.querySelectorAll('.ruler a[data-level]')], rail: document.querySelector('.ruler-rail'),
+  links: [...document.querySelectorAll('.ruler a[data-level]')], rail: document.querySelector('.ruler-rail'), capBox: document.getElementById('captions'),
 };
 let railLen = 0; // measured once per layout, so the frame loop never reads layout
 const capById = Object.fromEntries(els.caps.map((c) => [c.dataset.seg, c]));
@@ -1922,6 +1922,7 @@ function ui(st, t) {
   if (cap !== lastCap) {
     if (lastCap && capById[lastCap]) capById[lastCap].classList.remove('is-on');
     if (cap && capById[cap]) capById[cap].classList.add('is-on');
+    els.capBox.classList.toggle('is-empty', !cap);
     lastCap = cap;
   }
   // finale count

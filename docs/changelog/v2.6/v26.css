@@ -536,7 +536,10 @@ html:not(.js) .cap--hero, .static .cap--hero { border-top: 0; padding-top: 48px;
   .captions {
     top: auto; bottom: 0; left: 0; right: 0; width: auto; height: var(--sheet-h);
     background: var(--paper); box-shadow: 0 -1px 0 var(--rule);
+    transition: background-color 0.45s var(--ease-out), box-shadow 0.45s var(--ease-out);
   }
+  /* between captions the sheet steps aside and the dive fills the screen */
+  .captions.is-empty { background-color: rgba(242, 240, 235, 0); box-shadow: 0 -1px 0 rgba(18, 18, 16, 0); }
   .cap { top: 0; padding: 18px 16px 20px; transform: translate3d(0, 12px, 0); }
   .cap.is-on { transform: translate3d(0, 0, 0); }
   .cap--hero { padding-top: 16px; }
