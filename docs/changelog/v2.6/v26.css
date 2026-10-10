@@ -469,7 +469,7 @@ html:not(.js) .cap--hero, .static .cap--hero { border-top: 0; padding-top: 48px;
   .block-chips {
     display: block; position: sticky; top: var(--top-h); z-index: 6;
     margin: -8px calc(-1 * var(--gutter)) 24px; padding: 10px var(--gutter);
-    background: rgba(250, 249, 246, 0.94); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+    background: rgba(250, 249, 246, 0.97);
     box-shadow: 0 1px 0 var(--rule);
   }
   .block-chips .block-index {

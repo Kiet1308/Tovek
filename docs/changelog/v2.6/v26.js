@@ -1835,6 +1835,8 @@ function frame(now) {
   const tau = coarse ? 0 : 75;
   if (tau > 0 && Math.abs(tTarget - tCur) > 0.0004) tCur += (tTarget - tCur) * (1 - Math.exp(-dt / tau));
   else tCur = tTarget;
+  // while the parts list is read the stage is off screen: nothing to draw
+  if (ready && scrollY > diveTop + diveH + 40 && Math.abs(tTarget - tCur) <= 0.0004) return;
   peekSchedule(now);
   const intro = introAt(now);
   const live = draw(tCur, intro, now);
@@ -1854,7 +1856,7 @@ function draw(t, intro, now = performance.now()) {
   const t0 = perf ? performance.now() : 0;
   const pk = peekAt(now);
   const clock = typeof window.__diveClock === 'number' ? window.__diveClock : now / 1000;
-  render(main, ready ? scene : null, st, { intro: outCubic(intro), peek: pk, clock, live: mode === 'motion' ? 1 : 0 });
+  render(main, ready ? scene : null, st, { intro: outCubic(intro), peek: pk, clock, live: mode === 'motion' && !window.__diveStill ? 1 : 0 });
   ui(st, t);
   if (perf) { perf.push([t, performance.now() - t0]); if (window.__diveMarks) performance.mark(`t=${t.toFixed(2)}`); }
   return ready && Math.max(st.z, PEEK_Z * pk) < 0.5 && (!st.risen || st.fin > 0.9);
