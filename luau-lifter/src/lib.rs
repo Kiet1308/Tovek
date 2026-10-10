@@ -262,20 +262,51 @@ fn dotted(names: &[&[u8]]) -> String {
 /// Libraries whose folded constants compile back unchanged from their library
 /// spelling: the chunk never writes the global and never names getfenv or
 /// setfenv, exactly the conditions under which the compiler folds them.
+/// Per prototype, the upvalue slots its code never reads, writes or passes
+/// on (GETUPVAL, SETUPVAL, CAPTURE UPVAL): captures of a constant whose
+/// every read Luau folded, which only `-O1` and above do
+/// ([`ast::folded_captures`]). Most chunks have none.
+fn folded_capture_slots(chunk: &deserializer::chunk::Chunk) -> ast::folded_captures::FoldedSlots {
+    use instruction::Instruction::BC;
+    use op_code::OpCode::{LOP_CAPTURE, LOP_GETUPVAL, LOP_SETUPVAL};
+    let mut folded = ast::folded_captures::FoldedSlots::default();
+    for (index, function) in chunk.functions.iter().enumerate() {
+        if function.num_upvalues == 0 {
+            continue;
+        }
+        let mut touched = [0u64; 4];
+        for instruction in &function.instructions {
+            if let BC { op_code: LOP_GETUPVAL | LOP_SETUPVAL, b: slot, .. } | BC { op_code: LOP_CAPTURE, a: 2, b: slot, .. } =
+                *instruction
+            {
+                touched[usize::from(slot) / 64] |= 1 << (slot % 64);
+            }
+        }
+        let slots = (0..function.num_upvalues).filter(|&slot| touched[usize::from(slot) / 64] & (1 << (slot % 64)) == 0).collect::<Vec<_>>();
+        if !slots.is_empty() {
+            folded.insert(index, slots);
+        }
+    }
+    folded
+}
+
 /// Whether some NEWCLOSURE literal of the chunk may print as one Luau
 /// shares, which `fresh_closures` keeps new; most chunks have none, and the
-/// walk is skipped. The chunk must share some closure (DUPCLOSURE: compiled
-/// at `-O1` or above), and some NEWCLOSURE must capture nothing by reference
-/// and only values that may print as a constant, a top-level local or a
-/// literal ([`capture_may_print_shared`]). A literal capturing a parameter or
-/// a computed value never prints shared.
-fn may_print_shared_fresh_closures(chunk: &deserializer::chunk::Chunk) -> bool {
+/// walk is skipped. The chunk must be compiled at `-O1` or above (some
+/// closure is shared with DUPCLOSURE, or some capture folded:
+/// `optimized`), and some NEWCLOSURE must capture nothing by reference and
+/// only values that may print as a constant, a top-level local or a literal
+/// ([`capture_may_print_shared`]). A literal capturing a parameter or a
+/// computed value never prints shared.
+fn may_print_shared_fresh_closures(chunk: &deserializer::chunk::Chunk, optimized: bool) -> bool {
     use instruction::Instruction::AD;
     use op_code::OpCode::{LOP_DUPCLOSURE, LOP_NEWCLOSURE};
     let functions = &chunk.functions;
-    if !functions.iter().any(|function| {
-        function.instructions.iter().any(|instruction| matches!(instruction, AD { op_code: LOP_DUPCLOSURE, .. }))
-    }) {
+    if !optimized
+        && !functions.iter().any(|function| {
+            function.instructions.iter().any(|instruction| matches!(instruction, AD { op_code: LOP_DUPCLOSURE, .. }))
+        })
+    {
         return false;
     }
     // The closure instructions making each prototype: (function, pc).
@@ -886,10 +917,17 @@ fn decompile_bytecode_internal(
                 let function = function.0.lock();
                 (orphans || !function.orphans.is_empty(), folds || function.named_store_fold)
             });
+            let folded_slots = folded_capture_slots(&chunk);
+            let fresh_copies;
             let mut linked_upvalue_bindings = BTreeMap::new();
             {
                 ptime!(S_LINK_UPVALUES);
                 link_upvalues(&mut body, &mut upvalues);
+                // Copies of one shared closure constant its cache makes anew
+                // on every run, then literals whose captured constant Luau
+                // folded, read it again.
+                fresh_copies = loaded_constants.mark_uncached_copies(&body);
+                ast::folded_captures::read_folded_captures(&mut body, &folded_slots, &upvalues);
                 if emit_upvalue_analysis {
                     collect_linked_upvalue_bindings(&mut body, &mut linked_upvalue_bindings);
                 }
@@ -1225,7 +1263,7 @@ fn decompile_bytecode_internal(
             }
             // A closure the bytecode makes anew stays new where the output
             // would share it (`fresh_closures`).
-            if may_print_shared_fresh_closures(&chunk) {
+            if fresh_copies > 0 || may_print_shared_fresh_closures(&chunk, !folded_slots.is_empty()) {
                 let _span = ast::telemetry::Span::new("S_FRESH_CLOSURES");
                 ast::fresh_closures::keep_fresh_closures(&mut body);
             }
@@ -4086,18 +4124,29 @@ mod fresh_closure_gate_tests {
     #[test]
     fn a_constant_captured_by_value_may_print_shared() {
         let body = makes_closure(vec![ad(LOP_LOADK, 2, 0)], bc(LOP_CAPTURE, 0, 2));
-        assert!(may_print_shared_fresh_closures(&chunk(body.clone(), true)));
+        assert!(may_print_shared_fresh_closures(&chunk(body.clone(), true), false));
         // Without sharing anywhere (-O0), no literal is told apart.
-        assert!(!may_print_shared_fresh_closures(&chunk(body, false)));
+        assert!(!may_print_shared_fresh_closures(&chunk(body.clone(), false), false));
+        // A capture whose reads Luau folded is -O1 code all the same.
+        assert!(may_print_shared_fresh_closures(&chunk(body, false), true));
+    }
+
+    #[test]
+    fn an_upvalue_the_code_never_touches_is_folded() {
+        let body = makes_closure(vec![ad(LOP_LOADK, 2, 0)], bc(LOP_CAPTURE, 0, 2));
+        let mut chunk = chunk(body, false);
+        assert_eq!(folded_capture_slots(&chunk).into_iter().collect::<Vec<_>>(), vec![(2, vec![0])]);
+        chunk.functions[2].instructions.insert(0, bc(LOP_GETUPVAL, 0, 0));
+        assert!(folded_capture_slots(&chunk).is_empty());
     }
 
     #[test]
     fn a_parameter_a_computed_value_or_a_reference_never_prints_shared() {
         let parameter = makes_closure(Vec::new(), bc(LOP_CAPTURE, 0, 0));
-        assert!(!may_print_shared_fresh_closures(&chunk(parameter, true)));
+        assert!(!may_print_shared_fresh_closures(&chunk(parameter, true), false));
         let computed = makes_closure(vec![ad(LOP_LOADK, 2, 0), bc(LOP_CALL, 2, 1)], bc(LOP_CAPTURE, 0, 2));
-        assert!(!may_print_shared_fresh_closures(&chunk(computed, true)));
+        assert!(!may_print_shared_fresh_closures(&chunk(computed, true), false));
         let reference = makes_closure(vec![ad(LOP_LOADK, 2, 0)], bc(LOP_CAPTURE, 1, 2));
-        assert!(!may_print_shared_fresh_closures(&chunk(reference, true)));
+        assert!(!may_print_shared_fresh_closures(&chunk(reference, true), false));
     }
 }

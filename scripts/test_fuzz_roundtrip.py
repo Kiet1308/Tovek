@@ -224,9 +224,10 @@ class FuzzRoundtripTests(unittest.TestCase):
             else:
                 initial = re.search(r"local (function )?tag\d+( = (.*))?", source)
                 shapes.add("function" if initial.group(1) else initial.group(3))
-        # No local starts as a literal constant (N1: its capture is lost at -g2).
-        self.assertEqual(shapes, {"chunk", "function", "tostring(7)"})
-        self.assertEqual(set(IDENTITY_SHAPES), {"chunk", "function", "computed"})
+        # A literal constant too: with -g2 Luau keeps its capture but folds
+        # its reads (N1).
+        self.assertEqual(shapes, {"chunk", "function", "tostring(7)", "7", "\"k\"", "true"})
+        self.assertEqual(set(IDENTITY_SHAPES), {"chunk", "constant", "function", "computed"})
 
     def test_main_chunk_units_stay_unindented(self):
         for seed in range(300):
@@ -251,7 +252,8 @@ class FuzzRoundtripTests(unittest.TestCase):
             calls = []
             args = mock.Mock(work=work, profiles=9, mutate=True, reduce=False)
             with mock.patch.object(fuzz_roundtrip, "check",
-                                   lambda args, units, case, *profile: calls.append(profile) or ("passed", None)):
+                                   lambda args, units, case, *profile: calls.append(profile) or ("passed", None)), \
+                    mock.patch.object(fuzz_roundtrip, "source_differs", lambda *_: False):
                 fuzz_roundtrip.run_seed(args, seed)
             return calls
 
@@ -267,6 +269,50 @@ class FuzzRoundtripTests(unittest.TestCase):
             with mock.patch.object(fuzz_roundtrip, "generate", lambda seed: ([], [])):
                 self.assertEqual(profiles(seed), calls)
         self.assertGreater(crossing, 0)
+
+    def test_level_dependent_sources_recompile_minus_o0_bytecode_at_minus_o0(self):
+        # Where the program itself prints differently at -O0 and -O1, -O0
+        # bytecode is compiled again at -O0, and its row says so. Only -O0
+        # bytecode drawn another level asks; nothing else changes.
+        work = pathlib.Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, work, ignore_errors=True)
+
+        def run(seed, differs):
+            calls, asked = [], []
+            args = mock.Mock(work=work, profiles=9, mutate=True, reduce=False)
+
+            def source_differs(args, units, case, out_opt, debug):
+                asked.append((case.name, out_opt))
+                return differs
+            with mock.patch.object(fuzz_roundtrip, "check",
+                                   lambda args, units, case, *profile: calls.append(profile) or ("passed", None)), \
+                    mock.patch.object(fuzz_roundtrip, "source_differs", source_differs):
+                rows = fuzz_roundtrip.run_seed(args, seed)
+            return calls, asked, rows
+
+        seed = next(seed for seed in range(200) if "closure-identity" not in generate(seed)[1]
+                    and any(opt == 0 and out_opt != 0 for opt, _, out_opt, _ in run(seed, False)[0]))
+        same, asked, rows = run(seed, False)
+        self.assertTrue(asked and all(name.startswith("O0") and out_opt != 0 for name, out_opt in asked))
+        self.assertFalse(any("source_differs" in row for row in rows))
+        clamped, _, rows = run(seed, True)
+        for before, after, row in zip(same, clamped, rows):
+            expected = (before[0], before[1], 0, before[3]) if before[0] == 0 else before
+            self.assertEqual(after, expected)
+            self.assertEqual(row.get("source_differs", False), before[0] == 0 and before[2] != 0)
+
+    def test_source_differs_compares_the_two_levels(self):
+        work = pathlib.Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, work, ignore_errors=True)
+        args = mock.Mock(timeout=5)
+        outputs = {}
+        with mock.patch.object(fuzz_roundtrip, "compile_luau", lambda args, path, opt, debug: bytes([opt])), \
+                mock.patch.object(fuzz_roundtrip, "run",
+                                  lambda command, timeout: (0, outputs[pathlib.Path(command[1]).read_bytes()[0]], "")):
+            outputs.update({0: "1:6,6 table: 0x1", 1: "1:6,6 table: 0x2"})
+            self.assertFalse(fuzz_roundtrip.source_differs(args, [], work / "a", 1, 1))
+            outputs[1] = "1:6,6.5 table: 0x2"
+            self.assertTrue(fuzz_roundtrip.source_differs(args, [], work / "b", 1, 1))
 
     def test_service_handles_use_global_stubs(self):
         sites = set()

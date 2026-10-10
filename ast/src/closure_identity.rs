@@ -29,6 +29,21 @@
 //! one object only while the values happen to be equal, which no source
 //! spells without the helper (README, "Output and validation").
 //!
+//! The constant also caches: the first run of any copy fills it with that
+//! copy's captured values, and a later run reuses the closure only while its
+//! own values stay rawequal to those, making a new closure otherwise. Copies
+//! capturing different values are thus unlike separate literals, each with
+//! a constant of its own. Where one copy runs before every other (it runs
+//! whenever its statement does, and that statement comes first), another
+//! copy whose captures can never equal the first one's values (bound to a
+//! different constant, or to a literal of a different function) makes a new
+//! closure on every run. [`LoadedConstants::mark_uncached_copies`] marks such
+//! a copy made anew right after linking (its `closure_constant` cleared), so
+//! every later pass treats it as the NEWCLOSURE it behaves as: the
+//! de-inliner may rebuild it into a call of its helper, which makes a new
+//! closure too, and [`crate::fresh_closures`] keeps it new where it stays a
+//! literal.
+//!
 //! Most chunks have no copies at all. [`LoadedConstants`], filled while
 //! lifting, tells so without walking the tree.
 
@@ -87,6 +102,19 @@ impl LoadedConstants {
         let copied = self.functions.iter().any(|function| Arc::strong_count(function) > 2);
         crate::telemetry::count("closure_identity_copied_literals", u64::from(copied));
         copied
+    }
+
+    /// Clear the constant of each copy the constant's cache makes a new
+    /// closure on every run of (module documentation), when some prototype
+    /// loads one closure constant at two instructions. Returns how many.
+    pub fn mark_uncached_copies(&self, block: &Block) -> usize {
+        if !self.repeated {
+            return 0;
+        }
+        let mut marked = 0;
+        mark_in_function(block, &[], &mut FxHashSet::default(), &mut marked);
+        crate::telemetry::count("closure_identity_uncached_copies", marked as u64);
+        marked
     }
 
     /// [`share_closure_constants`], when some copies may exist. Consumes the
@@ -250,6 +278,240 @@ fn share_copies(body: &mut Block, key: Key, facts: &FunctionFacts) {
         block.0.splice(index..index, declaration.take().unwrap());
     });
     declare_copies(body, &shared);
+}
+
+/// What a capture holds whenever a copy runs, as far as telling copies apart
+/// goes: a local declared with a constant, or with a literal of a function,
+/// and never written.
+#[derive(Clone)]
+enum Held {
+    Constant(crate::Literal),
+    /// A closure of this bytecode prototype.
+    Closure(usize),
+}
+
+impl Held {
+    /// Whether no value `self` holds is ever rawequal to one `other` holds.
+    fn never_equals(&self, other: &Held) -> bool {
+        use crate::Literal::*;
+        match (self, other) {
+            (Held::Closure(a), Held::Closure(b)) => a != b,
+            (Held::Constant(a), Held::Constant(b)) => match (a, b) {
+                (Nil, Nil) => false,
+                (Boolean(a), Boolean(b)) => a != b,
+                // `0 == -0`, and NaN equals nothing, itself included.
+                (Number(a), Number(b)) => a != b,
+                (Integer(a), Integer(b)) => a != b,
+                (String(a), String(b)) => a != b,
+                (Vector(a, b, c), Vector(x, y, z)) => a != x || b != y || c != z,
+                (VectorD(a, b, c), VectorD(x, y, z)) => a != x || b != y || c != z,
+                // A number and an integer, or a vector in each encoding.
+                (Number(_) | Integer(_), Number(_) | Integer(_)) | (Vector(..) | VectorD(..), Vector(..) | VectorD(..)) => {
+                    false
+                }
+                _ => true,
+            },
+            _ => true,
+        }
+    }
+}
+
+fn mark_in_function(body: &Block, parameters: &[RcLocal], visited: &mut FxHashSet<usize>, marked: &mut usize) {
+    let (counts, nested) = census(body);
+    for function in nested {
+        if visited.insert(Arc::as_ptr(&function.0) as usize) {
+            let function = function.lock();
+            mark_in_function(&function.body, &function.parameters, visited, marked);
+        }
+    }
+    let mut keys = counts.into_iter().filter(|&(_, count)| count >= 2).map(|(key, _)| key).collect::<Vec<_>>();
+    if keys.is_empty() {
+        return;
+    }
+    keys.sort_unstable();
+    // Which copy runs first is read off the nesting of blocks, which a
+    // `goto` would bypass.
+    let mut jumps = false;
+    walk(body, &mut Vec::new(), &mut |statement, _| {
+        jumps |= matches!(statement, Statement::Goto(_) | Statement::Label(_));
+    });
+    if jumps {
+        return;
+    }
+    let facts = FunctionFacts::new(body, parameters);
+    let mut held = FxHashMap::default();
+    walk(body, &mut Vec::new(), &mut |statement, _| {
+        let Statement::Assign(assign) = statement else { return };
+        if !assign.prefix || assign.left.len() != assign.right.len() {
+            return;
+        }
+        for (left, right) in assign.left.iter().zip(&assign.right) {
+            let Some(local) = left.as_local().filter(|local| facts.writes(local) == 0) else { continue };
+            let value = match right {
+                RValue::Literal(literal) => Held::Constant(literal.clone()),
+                RValue::Closure(closure) => match closure.function.lock().bytecode_proto_id {
+                    Some(prototype) => Held::Closure(prototype),
+                    None => continue,
+                },
+                _ => continue,
+            };
+            held.insert(local.clone(), value);
+        }
+    });
+    for key in keys {
+        mark_copies(body, key, &held, marked);
+    }
+}
+
+/// One closure literal loading the constant, and whether it runs every time
+/// its statement does (no `and`, `or` or `if` expression arm holds it).
+struct Load {
+    path: Vec<Step>,
+    upvalues: Vec<Upvalue>,
+    function: Arc<Mutex<Function>>,
+    always: bool,
+}
+
+fn mark_copies(body: &Block, key: Key, held: &FxHashMap<RcLocal, Held>, marked: &mut usize) {
+    let mut loads = Vec::new();
+    walk(body, &mut Vec::new(), &mut |statement, path| {
+        closures_with_guards(statement, &mut |closure, always| {
+            if key_matches(closure, key) {
+                loads.push(Load {
+                    path: path.to_vec(),
+                    upvalues: closure.upvalues.clone(),
+                    function: closure.function.0.clone(),
+                    always,
+                });
+            }
+        });
+    });
+    let Some((first, rest)) = loads.split_first() else { return };
+    if !first.always
+        || rest.iter().all(|load| load.upvalues == first.upvalues)
+        || !rest.iter().all(|load| runs_before(body, &first.path, &load.path))
+    {
+        return;
+    }
+    let holds = |upvalue: &Upvalue| match upvalue {
+        Upvalue::Copy(local) => held.get(local),
+        Upvalue::Ref(_) => None,
+    };
+    for load in rest {
+        let never_cached = load.upvalues.iter().zip(&first.upvalues).any(|(upvalue, cached)| {
+            matches!((holds(upvalue), holds(cached)), (Some(value), Some(cached)) if value.never_equals(cached))
+        });
+        if never_cached {
+            load.function.lock().closure_constant = None;
+            *marked += 1;
+        }
+    }
+}
+
+/// Every closure literal of a statement's own values, and whether it is
+/// evaluated whenever the statement is: neither the right operand of `and`
+/// or `or` nor an arm of an `if` expression holds it.
+fn closures_with_guards(statement: &Statement, visit: &mut impl FnMut(&Closure, bool)) {
+    fn values(value: &RValue, always: bool, visit: &mut impl FnMut(&Closure, bool)) {
+        match value {
+            RValue::Closure(closure) => visit(closure, always),
+            RValue::Binary(binary)
+                if matches!(binary.operation, crate::BinaryOperation::And | crate::BinaryOperation::Or) =>
+            {
+                values(&binary.left, always, visit);
+                values(&binary.right, false, visit);
+            }
+            RValue::IfExpression(expression) => {
+                values(&expression.condition, always, visit);
+                values(&expression.then_value, false, visit);
+                values(&expression.else_value, false, visit);
+            }
+            _ => {
+                value.visit_rvalues(&mut |child| {
+                    values(child, always, visit);
+                    true
+                });
+            }
+        }
+    }
+    statement.visit_lvalues(&mut |lvalue| {
+        lvalue.visit_rvalues(&mut |value| {
+            values(value, true, visit);
+            true
+        })
+    });
+    statement.visit_rvalues(&mut |value| {
+        values(value, true, visit);
+        true
+    });
+}
+
+/// Whether the copy at `first` runs before the one at `other` can, on every
+/// path: `first` runs whenever its statement does, and either that statement
+/// comes first in the innermost block holding both, reached through blocks
+/// that always run (a `repeat` body, a numeric `for` that makes a trip, a
+/// `while true`) with no `break` or `continue` before it, or it is the
+/// condition (or the loop's values) of the statement holding `other` in a
+/// block.
+fn runs_before(body: &Block, first: &[Step], other: &[Step]) -> bool {
+    let common = first.iter().zip(other).take_while(|(a, b)| a == b && a.1.is_some()).count();
+    let (Some(&(at, child)), Some(&(other_at, other_child))) = (first.get(common), other.get(common)) else {
+        return false;
+    };
+    let mut before = false;
+    with_block_ref(body, &first[..common], &mut |block| {
+        before = if at < other_at {
+            always_reaches(block, &first[common..])
+        } else {
+            at == other_at
+                && child.is_none()
+                && other_child.is_some()
+                && first.len() == common + 1
+                && !matches!(block.0[at], Statement::Repeat(_))
+        };
+    });
+    before
+}
+
+/// Whether running the statement `steps[0]` names in `block` always reaches
+/// the copy `steps` lead to.
+fn always_reaches(block: &Block, steps: &[Step]) -> bool {
+    let Some((&(index, child), rest)) = steps.split_first() else { return false };
+    let statement = &block.0[index];
+    let Some(child) = child else {
+        // The copy is in this statement's own values. A `repeat` reads its
+        // condition only after a body that may break out.
+        return rest.is_empty() && !matches!(statement, Statement::Repeat(_));
+    };
+    let enters = match statement {
+        Statement::Repeat(_) => true,
+        Statement::While(node) => matches!(node.condition, RValue::Literal(crate::Literal::Boolean(true))),
+        Statement::NumericFor(node) => match (&node.initial, &node.limit, &node.step) {
+            (
+                RValue::Literal(crate::Literal::Number(initial)),
+                RValue::Literal(crate::Literal::Number(limit)),
+                RValue::Literal(crate::Literal::Number(step)),
+            ) => (*step > 0.0 && initial <= limit) || (*step < 0.0 && initial >= limit),
+            _ => false,
+        },
+        _ => false,
+    };
+    let Some(nested) = child_block(statement, child).filter(|_| enters) else { return false };
+    let nested = nested.lock();
+    let next = rest.first().map_or(0, |&(index, _)| index);
+    !nested.0[..next].iter().any(leaves_loop) && always_reaches(&nested, rest)
+}
+
+/// Whether a statement can leave the loop around it other than by leaving
+/// the function: a `break` or `continue` outside any inner loop (or a goto).
+fn leaves_loop(statement: &Statement) -> bool {
+    match statement {
+        Statement::Break(_) | Statement::Continue(_) | Statement::Goto(_) => true,
+        Statement::If(node) => {
+            node.then_block.lock().0.iter().any(leaves_loop) || node.else_block.lock().0.iter().any(leaves_loop)
+        }
+        _ => false,
+    }
 }
 
 /// Where the first copy's definition starts: its own statement for `local
@@ -689,5 +951,69 @@ mod tests {
         ]);
         share_closure_constants(&mut block);
         assert_eq!(block.to_string().matches("function").count(), 2);
+    }
+
+    /// `local function h() end` for a prototype, then `t = <copy of K
+    /// capturing h>`: one loop body of `bindk(h)` -O2 inlined.
+    fn bound_copy(prototype: usize) -> (Block, Arc<Mutex<Function>>) {
+        let h = RcLocal::default();
+        let bound = Function { bytecode_proto_id: Some(prototype), ..Function::default() };
+        let bound = Closure { node_origin: Default::default(), function: ByAddress(Arc::new(Mutex::new(bound))), upvalues: vec![] };
+        let mut declaration = Assign::new(vec![h.clone().into()], vec![bound.into()]);
+        declaration.prefix = true;
+        let copy = Function { bytecode_proto_id: Some(1), closure_constant: Some(3), ..Function::default() };
+        let copy = Arc::new(Mutex::new(copy));
+        let literal = Closure { node_origin: Default::default(), function: ByAddress(copy.clone()), upvalues: vec![Upvalue::Copy(h)] };
+        (Block(vec![declaration.into(), print(vec![literal.into()])]), copy)
+    }
+
+    fn numeric_for(limit: RValue, body: Block) -> Statement {
+        crate::NumericFor::new(Literal::Number(1.0).into(), limit, Literal::Number(1.0).into(), RcLocal::default(), body).into()
+    }
+
+    /// `for i = 1, 2 do <bindk(h1)> end; repeat <bindk(h2)> until true`: the
+    /// first copy fills the constant's cache with `h1`; `h2`, a closure of
+    /// another function, never equals it, so the second copy is made anew.
+    #[test]
+    fn a_copy_another_copy_cached_differently_is_made_anew() {
+        let loaded = LoadedConstants { repeated: true, functions: Vec::new() };
+        let (first_body, first) = bound_copy(2);
+        let (second_body, second) = bound_copy(3);
+        let block = Block(vec![
+            numeric_for(Literal::Number(2.0).into(), first_body),
+            crate::Repeat::new(Literal::Boolean(true).into(), second_body).into(),
+        ]);
+        assert_eq!(loaded.mark_uncached_copies(&block), 1);
+        assert_eq!(first.lock().closure_constant, Some(3));
+        assert_eq!(second.lock().closure_constant, None);
+    }
+
+    /// Unmarked: the first copy in a loop that may make no trip (no copy is
+    /// known to run first), copies of one prototype's closures, or no
+    /// repeated load at all.
+    #[test]
+    fn a_copy_may_share_when_the_first_run_or_the_values_are_unknown() {
+        let unknown_trips = || {
+            let (first_body, _) = bound_copy(2);
+            let (second_body, second) = bound_copy(3);
+            let block = Block(vec![numeric_for(RcLocal::default().into(), first_body), second_body.0[0].clone(), second_body.0[1].clone()]);
+            (block, second)
+        };
+        let loaded = LoadedConstants { repeated: true, functions: Vec::new() };
+        let (block, second) = unknown_trips();
+        assert_eq!(loaded.mark_uncached_copies(&block), 0);
+        assert_eq!(second.lock().closure_constant, Some(3));
+
+        let (first_body, _) = bound_copy(2);
+        let (second_body, second) = bound_copy(2);
+        let block = Block(vec![numeric_for(Literal::Number(2.0).into(), first_body), numeric_for(Literal::Number(2.0).into(), second_body)]);
+        assert_eq!(loaded.mark_uncached_copies(&block), 0);
+        assert_eq!(second.lock().closure_constant, Some(3));
+
+        let (first_body, _) = bound_copy(2);
+        let (second_body, second) = bound_copy(3);
+        let block = Block(vec![numeric_for(Literal::Number(2.0).into(), first_body), numeric_for(Literal::Number(2.0).into(), second_body)]);
+        assert_eq!(LoadedConstants::default().mark_uncached_copies(&block), 0);
+        assert_eq!(second.lock().closure_constant, Some(3));
     }
 }
