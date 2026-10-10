@@ -159,7 +159,8 @@ following `drawCode(..., { highlight: plan.inserted })` continues seamlessly). I
 
 - tokens both versions share glide from their old cell to their new one, rippling down the lines
   (`wave`);
-- tokens only A has fade, drift up and blur (`blur`, one composited layer per frame);
+- tokens only A has fade, drift up and soften (`blur`; drawn as offset copies, never `ctx.filter`, which
+  would change how the canvas rasterises later frames and break exact scrubbing);
 - tokens only B type in, run by run, in the accent (`inserted: 'base'` or `insertedMix` to settle it;
   `highlight: Set | (i) => bool` gives the accent only to the inserted B tokens that show what was
   recovered, and the rest type in in their base tone);

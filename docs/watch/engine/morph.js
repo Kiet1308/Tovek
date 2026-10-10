@@ -149,16 +149,8 @@ export function withCamera(ctx, cam, fn) {
   ctx.restore();
 }
 
-let layerCanvas = null;
-function layerFor(ctx) {
-  const W = ctx.canvas.width, H = ctx.canvas.height;
-  if (!layerCanvas) layerCanvas = typeof OffscreenCanvas !== 'undefined' ? new OffscreenCanvas(W, H) : document.createElement('canvas');
-  if (layerCanvas.width !== W || layerCanvas.height !== H) { layerCanvas.width = W; layerCanvas.height = H; }
-  const lctx = layerCanvas.getContext('2d');
-  lctx.setTransform(1, 0, 0, 1, 0, 0);
-  lctx.clearRect(0, 0, W, H);
-  return lctx;
-}
+// six taps around a circle: the soft copies of a leaving token
+const TAPS = [0, 1, 2, 3, 4, 5].map((k) => [Math.cos((k * Math.PI) / 3), Math.sin((k * Math.PI) / 3)]);
 
 /**
  * Draw the morph at progress `p` (0 = exactly A, 1 = exactly B).
@@ -171,7 +163,7 @@ function layerFor(ctx) {
  *   clip           clip drawing to the box (use with line windows)
  *   timing         { out: [a, b], move: [a, b], in: [a, b] } windows inside 0..1
  *   wave           0..1, how much the motion ripples down the lines (default 0.35)
- *   blur           max blur (design px) on leaving tokens (default 6; 0 to skip the blur layer)
+ *   blur           how far leaving tokens soften (design px, default 6; 0 for none)
  *   inserted       'accent' (default) | 'base': tone of typed-in tokens at the end
  *   insertedMix    0..1, accent amount for inserted tokens (animate it to let the accent settle)
  *   highlight      optional Set of B token indices (or (index) => bool): only these inserted tokens
@@ -203,42 +195,34 @@ export function drawMorph(ctx, plan, p, o = {}) {
     ctx.clip();
   }
   const parentAlpha = ctx.globalAlpha;
-  const dev = ctx.getTransform();
-  const devScale = Math.hypot(dev.a, dev.b) || 1;
   ctx.translate(cam.x, cam.y);
   ctx.scale(cam.s, cam.s);
   setFont(ctx, f);
   ctx.textBaseline = 'alphabetic';
   ctx.textAlign = 'left';
 
-  // 1. leaving tokens
+  // 1. leaving tokens fade, drift up and soften. The softening is a few offset copies of each
+  //    token, not ctx.filter: once a canvas has drawn through a filter, Chrome rasterises later
+  //    frames slightly differently, so the same t would no longer give the same pixels.
   const po = clamp((P - o0) / (o1 - o0));
   if (po < 1 && plan.removed.length) {
     const blurMax = o.blur ?? 6;
-    const useLayer = blurMax > 0 && po > 0.02 && 'filter' in ctx;
-    const target = useLayer ? layerFor(ctx) : ctx;
-    if (useLayer) {
-      target.setTransform(ctx.getTransform());
-      setFont(target, f);
-      target.textBaseline = 'alphabetic';
-      target.textAlign = 'left';
-    }
+    const rad = blurMax > 0 ? E.inQuad(po) * blurMax * 0.8 : 0; // code units: it scales with the camera
+    const soft = clamp(rad / 1.5);
     let lastStyle = '';
     for (const r of plan.removed) {
       const q = E.inOut(clamp((po - r.wave * wave * 0.5) / (1 - wave * 0.5)));
       if (q >= 1) continue;
       const color = pal[r.k] || pal.id;
-      if (color !== lastStyle) { target.fillStyle = color; lastStyle = color; }
-      target.globalAlpha = (useLayer ? 1 : parentAlpha) * (1 - q);
-      target.fillText(r.text, r.col * cw, r.line * lh + baseline - q * lh * 0.35);
-    }
-    if (useLayer) {
-      ctx.save();
-      ctx.setTransform(1, 0, 0, 1, 0, 0);
-      ctx.globalAlpha = parentAlpha;
-      ctx.filter = `blur(${(E.inQuad(po) * blurMax * cam.s * devScale).toFixed(2)}px)`;
-      ctx.drawImage(target.canvas, 0, 0);
-      ctx.restore();
+      if (color !== lastStyle) { ctx.fillStyle = color; lastStyle = color; }
+      const a = parentAlpha * (1 - q);
+      const x = r.col * cw, y = r.line * lh + baseline - q * lh * 0.35;
+      ctx.globalAlpha = a * lerp(1, 0.34, soft);
+      ctx.fillText(r.text, x, y);
+      if (soft > 0) {
+        ctx.globalAlpha = a * 0.2 * soft;
+        for (const [dx, dy] of TAPS) ctx.fillText(r.text, x + dx * rad, y + dy * rad);
+      }
     }
   }
 
