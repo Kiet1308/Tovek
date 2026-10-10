@@ -19,7 +19,7 @@
         },
         {
           "title": "More copy shapes",
-          "text": "Copies whose result is assigned to an existing local, stored into a field or thrown away; helpers that return from both branches or return several values (`local right, up = perpBasis(dir)`); copies specialized for a constant; unnamed functions that are only ever called; helpers also stored under their own name; and value copies after any number of statements."
+          "text": "Copies whose result is assigned to an existing local, stored into a field or thrown away; helpers that return from both branches or return several values (`local width, height = measure(frame)`); copies specialized for a constant; unnamed functions that are only ever called; helpers also stored under their own name; and value copies after any number of statements."
         },
         {
           "title": "The larger copy wins",
@@ -110,7 +110,7 @@
         },
         {
           "title": "Names",
-          "text": "Acronyms as one word, a private `_` prefix dropped, the source's own spelling for aliases and unused imports, `xpcall` named like `pcall`, nested loop counters `i`, `j`, `k`, suffixes such as `Wheel_2` kept, and a recursive call no longer blocks the name another caller gives a parameter."
+          "text": "Acronyms as one word, a private `_` prefix dropped, the source's own spelling for aliases and unused imports, `xpcall` named like `pcall`, nested loop counters `i`, `j`, `k`, suffixes the source wrote, such as `Part_2`, kept, and a recursive call no longer blocks the name another caller gives a parameter."
         }
       ],
       "numbers": [
