@@ -1,0 +1,305 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>Tovek V2.6: helpers come back, with proof</title>
+  <meta name="description" data-vc="meta_description" content="Tovek V2.6 rebuilds 8,842 inlined helper calls in four real Roblox games, up from 4,260, each proven by the bytecode&#x27;s own line numbers or by Luau&#x27;s own constant folding, with 0 wrong outputs in 3,000 fresh fuzz programs.">
+  <meta name="theme-color" content="#f2f0eb">
+  <meta property="og:title" content="Tovek V2.6: helpers come back, with proof">
+  <meta property="og:description" data-vc="og_description" content="Inlined helpers come back, proven by line numbers and by Luau&#x27;s own arithmetic. Zoom from 8,822 scripts down to one bit.">
+  <meta property="og:type" content="article">
+  <meta property="og:url" content="https://kiet1308.github.io/Tovek/changelog/v2.6/">
+  <meta property="og:image" content="https://kiet1308.github.io/Tovek/changelog/v2.6/og.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Tovek V2.6: a field of dots, one per script, lit where helper calls came back.">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="canonical" href="https://kiet1308.github.io/Tovek/changelog/v2.6/">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,200..800&family=Geist:wght@300..800&family=Geist+Mono:wght@400..600&display=swap">
+  <link rel="stylesheet" href="../../assets/v26/tokens.css">
+  <link rel="stylesheet" href="v26.css">
+  <link rel="preload" href="data/field.json" as="fetch" crossorigin>
+  <script>document.documentElement.classList.add('js')</script>
+  <script type="module" src="v26.js"></script>
+</head>
+<body>
+<a class="skip" href="#parts">Skip to the parts list</a>
+
+<header class="top" id="top">
+  <a class="brand" href="../../index.html" aria-label="Tovek overview">
+    <svg class="brand-mark" viewBox="64 72 384 360" aria-hidden="true"><path d="M100 88H412a20 20 0 0 1 20 20V160a20 20 0 0 1-20 20H320V320H192V180H100a20 20 0 0 1-20-20V108a20 20 0 0 1 20-20Z"/><rect x="196" y="328" width="24" height="24" rx="5"/><rect x="228" y="328" width="24" height="24" rx="5"/><rect x="260" y="328" width="24" height="24" rx="5"/><rect x="292" y="328" width="24" height="24" rx="5"/><rect x="196" y="360" width="24" height="24" rx="5"/><rect x="260" y="360" width="24" height="24" rx="5"/><rect x="292" y="360" width="24" height="24" rx="5"/><rect x="228" y="392" width="24" height="24" rx="5"/></svg>
+    <span class="brand-name">tovek</span>
+  </a>
+  <nav class="top-nav" aria-label="Site">
+    <a href="../../index.html">Overview</a>
+    <a href="../../changelog.html" aria-current="page">Changelog</a>
+    <a class="hide-s" href="../../watch/?film=story">Films</a>
+  </nav>
+  <a class="top-cta" href="#download">Download V2.6</a>
+</header>
+
+<main id="main">
+  <section class="dive" id="dive" aria-label="Every scale">
+    <div class="stage" id="stage">
+      <canvas class="world" id="world" aria-hidden="true"></canvas>
+
+      <nav class="ruler" id="ruler" aria-label="Scale">
+        <ol class="ruler-ticks">
+          <li><a href="#l0" data-level="0"><span class="pow">10<sup>4</sup></span><span class="unit">scripts</span></a></li>
+          <li><a href="#l1" data-level="1"><span class="pow">10<sup>3</sup></span><span class="unit">lines</span></a></li>
+          <li><a href="#l2" data-level="2"><span class="pow">10<sup>2</sup></span><span class="unit">lines</span></a></li>
+          <li><a href="#l3" data-level="3"><span class="pow">10<sup>1</sup></span><span class="unit">instructions</span></a></li>
+          <li><a href="#l4" data-level="4"><span class="pow">10<sup>0</sup></span><span class="unit">expression</span></a></li>
+          <li><a href="#l5" data-level="5"><span class="pow">64</span><span class="unit">bits</span></a></li>
+          <li><a href="#l6" data-level="6"><span class="pow">1</span><span class="unit">bit</span></a></li>
+        </ol>
+        <div class="ruler-rail" aria-hidden="true"><span class="ruler-fill" id="ruler-fill"></span><span class="ruler-head" id="ruler-head"></span></div>
+        <a class="ruler-out" href="#lit" data-level="lit"><span aria-hidden="true">↥</span> Back out</a>
+      </nav>
+
+      <div class="captions" id="captions">
+        <article class="cap cap--hero is-on" id="intro" data-seg="hero">
+          <p class="eyebrow"><span>Release notes</span><span class="dot" aria-hidden="true"></span><time datetime="2026-10">October 2026</time></p>
+          <h1><span>Tovek</span> <span>V2.6</span></h1>
+          <p class="promise">Helpers come back, with proof.</p>
+          <p class="lead">Luau pastes small helpers into the code that calls them. V2.6 finds the copies, checks each one against the bytecode&rsquo;s own line numbers and Luau&rsquo;s own arithmetic, and writes the calls back: <b data-v="calls_v26">8,842</b> in four real games, up from <span data-v="calls_v251">4,260</span>.</p>
+          <p class="actions"><a class="btn btn--ink" href="#download">Download V2.6</a><a class="btn" href="#parts">The parts list</a></p>
+          <p class="cue" id="cue" aria-hidden="true"><i></i><span>Scroll to zoom in</span></p>
+        </article>
+
+        <article class="cap" id="l0" data-seg="l0">
+          <p class="kicker"><span class="pow">10<sup>4</sup></span> scripts</p>
+          <h2>Every script in four games.</h2>
+          <p><span data-v="scripts">8,822</span> scripts from four real Roblox games, one dot each. The larger and darker a dot, the more helper calls Tovek rebuilt in it.</p>
+          <p class="stat"><b data-v="calls_v251">4,260</b> calls in <span data-v="scripts_with_calls_v251">848</span> scripts <span class="tag">V2.5.1</span></p>
+          <figure class="plate-fig" data-plate="0"><canvas></canvas></figure>
+        </article>
+
+        <article class="cap" id="l1" data-seg="l1">
+          <p class="kicker"><span class="pow">10<sup>3</sup></span> lines</p>
+          <h2>One script gets shorter.</h2>
+          <p>Here, Roblox&rsquo;s own <code>ClickToMoveController</code>, part of the PlayerModule every game ships. Its source is public. Twelve pasted blocks of five lines become twelve calls.</p>
+          <p class="stat"><span data-v="ctm_lines_v251">1,395</span> <span class="arrow" aria-hidden="true">→</span><span class="sr-only">to</span> <b data-v="ctm_lines_v26">1,301</b> lines</p>
+          <figure class="plate-fig" data-plate="1"><canvas></canvas></figure>
+        </article>
+
+        <article class="cap" id="l2" data-seg="l2">
+          <p class="kicker"><span class="pow">10<sup>2</sup></span> lines</p>
+          <h2>Twelve copies, one helper.</h2>
+          <p>Luau <code>-O2</code> pasted <code data-v="helper_name">DisconnectEvent</code> into its callers <span data-v="ctm_copies_word">twelve</span> times. V2.6 writes each copy back as a call that ends in a quiet <code class="seam">-- inferred equivalent call</code>, and the helper says how many it found.</p>
+          <p class="stat"><b data-v="ctm_copies">12</b> copies in the bytecode <span class="sep" aria-hidden="true">·</span> <b data-v="ctm_rebuilt">12</b> calls rebuilt</p>
+          <figure class="plate-fig" data-plate="2"><canvas></canvas></figure>
+        </article>
+
+        <article class="cap" id="l3" data-seg="l3">
+          <p class="kicker"><span class="pow">10<sup>1</sup></span> instructions</p>
+          <h2>The bytecode remembers its lines.</h2>
+          <p>With line info (<code>-g1</code>), every instruction keeps the source line it came from. The call on line <span data-v="call_site_line">893</span> runs instructions from lines <span data-v="helper_code_lines">851 and 852</span>: the helper&rsquo;s own. So V2.6 can count the copies of helpers too small to prove by shape, and rebuilds them only when its matches equal that count.</p>
+          <p class="more">The smallest copy is one instruction. In <code>SpawnShield</code>, a sample we wrote, Luau folded <code>frames(1)</code> into one number and kept line <span data-v="folded_line">11</span>.</p>
+          <figure class="plate-fig" data-plate="3"><canvas></canvas></figure>
+        </article>
+
+        <article class="cap" id="l4" data-seg="l4">
+          <p class="kicker"><span class="pow">10<sup>0</sup></span> expression</p>
+          <h2>A number becomes a call again.</h2>
+          <dl class="pair">
+            <dt>V2.5.1</dt><dd><code data-v="frames_v251">task.wait(0.016666666666666666)</code></dd>
+            <dt>V2.6</dt><dd><code data-v="frames_v26_code">task.wait(frames(1))</code></dd>
+          </dl>
+          <p>V2.6 folds <code>frames(1)</code> the way Luau does, gets the same number and writes the call back. A number that is exactly a fraction prints as one: <code data-v="fraction_v26_value">2 / 3</code>.</p>
+          <figure class="plate-fig" data-plate="4"><canvas></canvas></figure>
+        </article>
+
+        <article class="cap" id="l5" data-seg="l5">
+          <p class="kicker"><span class="pow">64</span> bits</p>
+          <h2>Bit for bit.</h2>
+          <p>The constant in the bytecode, Luau&rsquo;s own fold of <code>1 / 60</code>, and IEEE division agree on all 64 bits: <code data-v="bits_hex">0x3F91111111111111</code>.</p>
+          <figure class="plate-fig" data-plate="5"><canvas></canvas></figure>
+        </article>
+
+        <article class="cap" id="l6" data-seg="l6">
+          <p class="kicker"><span class="pow">1</span> bit</p>
+          <h2>One bit is the difference.</h2>
+          <p>One bit lower is <code data-v="bits_down">0.016666666666666663</code>. One higher is <code data-v="bits_up">0.01666666666666667</code>. Neither would match. V2.6 rebuilds a folded call only when every bit is the same: proven, not guessed.</p>
+          <figure class="plate-fig" data-plate="6"><canvas></canvas></figure>
+        </article>
+
+        <article class="cap cap--finale" id="lit" data-seg="lit">
+          <p class="kicker"><span class="pow">10<sup>4</sup></span> scripts, lit by V2.6</p>
+          <h2><b class="count" id="lit-count" data-v="calls_v26">8,842</b> calls rebuilt.</h2>
+          <p>Back at every script in the four games. V2.6 rebuilds <span data-v="calls_v26">8,842</span> helper calls in <span data-v="scripts_with_calls_v26">1,088</span> scripts, up from <span data-v="calls_v251">4,260</span> in <span data-v="scripts_with_calls_v251">848</span>, and prints <span data-v="nonblank_pct">11.6%</span> fewer lines.</p>
+          <p class="stat"><b data-v="fuzz_v26_failed">0</b> wrong outputs in <span data-v="fuzz_programs">3,000</span> fresh fuzz programs <span class="tag">V2.5.1: <span data-v="fuzz_v251_failed">615</span></span></p>
+          <p class="actions"><a class="btn btn--ink" href="#parts">Read the parts list</a><a class="btn" href="../../watch/?film=story">Watch the story</a></p>
+          <figure class="plate-fig" data-plate="lit"><canvas></canvas></figure>
+        </article>
+      </div>
+
+      <p class="readout" id="readout" aria-hidden="true">×1</p>
+    </div>
+  </section>
+
+  <section class="parts" id="parts" aria-labelledby="parts-title">
+    <header class="parts-head">
+      <p class="kicker">Tovek V2.6</p>
+      <h2 id="parts-title">The parts list</h2>
+      <p class="parts-lead">Every change in this release, the measurements behind it, and the downloads.</p>
+      <dl class="spec-meta">
+        <div><dt>Release</dt><dd>V2.6, <time datetime="2026-10">October 2026</time></dd></div>
+        <div><dt>Programs</dt><dd><code>luau-lifter</code>, <code>web-server</code></dd></div>
+        <div><dt>Platforms</dt><dd>Windows, Linux, Linux ARM64, macOS</dd></div>
+        <div><dt>Licence</dt><dd>MIT</dd></div>
+      </dl>
+      <nav class="parts-toc" aria-label="Parts list">
+        <a href="#changes">Changes</a><a href="#benchmarks">Benchmarks</a><a href="#compared">Compared</a><a href="#download">Download</a><a href="#more">More</a>
+      </nav>
+    </header>
+
+    <section class="block" id="changes" aria-labelledby="changes-title">
+      <h3 class="block-title" id="changes-title"><span class="no">A</span>Changes</h3>
+<!-- gen:changes -->
+<p class="block-lead">Inlined helpers come back, proven by the bytecode's own line numbers and by Luau's own constant folding.</p>
+<article class="theme" id="theme-helpers"><header class="theme-head"><p class="theme-no">01</p><h4>Inlined helpers come back</h4><p class="theme-sum">Luau -O2 pastes small helpers into their callers. V2.6 finds and rebuilds about twice as many of them.</p></header><dl class="figures"><div><dt>rebuilt helper calls, four real games</dt><dd><span class="from">4,260</span><span class="to" aria-hidden="true">→</span><span class="sr-only">to</span><b>8,842</b></dd></div><div><dt>rebuilt helper calls, 51-script comparison set</dt><dd><span class="from">229</span><span class="to" aria-hidden="true">→</span><span class="sr-only">to</span><b>637</b></dd></div><div><dt>inlined copies found from line info that came back as calls (51-script set)</dt><dd><b>633 of 780</b></dd></div></dl><ol class="items"><li><span class="item-no">1.1</span><h5>Line evidence</h5><div class="item-text"><p>Luau keeps a helper's own line numbers on the code it inlines. V2.6 reads them to count the copies of each helper in each function, and rebuilds helpers too small to prove by shape alone, such as <code>if c then c:Disconnect() end</code>, when the matches it finds equal that count exactly.</p><p class="eg">DisconnectEvent in Roblox's ClickToMoveController: 12 copies in the bytecode, 12 calls rebuilt.</p></div></li><li><span class="item-no">1.2</span><h5>Folded constants solved back</h5><div class="item-text"><p>When Luau folds a copy of a pure helper into one number, V2.6 redoes Luau's constant folding bit for bit and writes the call back: <code>task.wait(0.016666666666666666)</code> becomes <code>task.wait(frames(1))</code>. Constant arguments folded into a larger copy are solved from equations, such as <code>fade(part, 0.5)</code>.</p><p class="eg">task.wait(0.016666666666666666) becomes task.wait(frames(1))</p></div></li><li><span class="item-no">1.3</span><h5>More copy shapes</h5><div class="item-text"><p>Copies whose result is assigned to an existing local, stored into a field or thrown away; helpers that return from both branches or return several values (<code>local width, height = measure(frame)</code>); copies specialized for a constant; unnamed functions that are only ever called; helpers also stored under their own name; and value copies after any number of statements.</p></div></li><li><span class="item-no">1.4</span><h5>The larger copy wins</h5><div class="item-text"><p>Where two helpers match the same code, the one that stands for more of it is rebuilt instead of neither.</p></div></li><li><span class="item-no">1.5</span><h5>Exact counts in the output</h5><div class="item-text"><p>Every line holding a rebuilt call ends with <code class="seam">-- inferred equivalent call</code>, and each helper's definition line states how many calls were rebuilt from it.</p></div></li></ol></article>
+<article class="theme" id="theme-exact"><header class="theme-head"><p class="theme-no">02</p><h4>Exact where it was not</h4><p class="theme-sum">A new fuzzer checks random programs against their own bytecode. Every bug it and the code reviews found is fixed at its cause.</p></header><dl class="figures"><div><dt>wrong outputs in 3,000 fresh fuzz programs</dt><dd><span class="from">615</span><span class="to" aria-hidden="true">→</span><span class="sr-only">to</span><b>0</b></dd></div><div><dt>scripts decompiled, four real games</dt><dd><b>8,822 of 8,822</b></dd></div></dl><ol class="items"><li><span class="item-no">2.1</span><h5>Closures keep their identity</h5><div class="item-text"><p>Two functions stay the same object only where the original made them the same object. A loop that made a new function each time no longer prints code that shares one (DUPCLOSURE against NEWCLOSURE).</p><p class="eg">original prints false; V2.5.1's output prints true; V2.6's prints false</p></div></li><li><span class="item-no">2.2</span><h5>Captured values stay captured</h5><div class="item-text"><p>A closure always sees the value it captured, also where a local is copied, swapped or written later. One such case made a popular Promise library recurse forever.</p></div></li><li><span class="item-no">2.3</span><h5>Error positions and call frames</h5><div class="item-text"><p>A helper that reports an error at its caller's position (<code>error(message, 2)</code>, <code>debug.info</code>) is not rebuilt, because the position would move. A method that only reads its own frame no longer turns rebuilding off for its whole script.</p></div></li><li><span class="item-no">2.4</span><h5>Evaluation order</h5><div class="item-text"><p>Luau reads a local's register when the operation runs, after the other operands. Rebuilt calls, snapshots and stores now keep that order (<code>x + change()</code>, <code>t[saved] = change()</code>).</p></div></li><li><span class="item-no">2.5</span><h5>Your handles stay</h5><div class="item-text"><p><code>local Lighting = game:GetService("Lighting")</code> and <code>require</code> handles stay declared; a rebuilt call never swallows them.</p></div></li><li><span class="item-no">2.6</span><h5>Big functions compile</h5><div class="item-text"><p>Output that would need more registers or locals than Luau allows shares storage until it compiles, including -g2 code with hundreds of <code>do local a = ... end</code> blocks.</p></div></li><li><span class="item-no">2.7</span><h5>Loops and tables</h5><div class="item-text"><p>Loops that only break after a swap, <code>for _ in t do break end</code>, a swap right before a generic <code>for</code>, and <code>[0]</code> beside <code>[-0]</code> table keys all decompile to code that behaves like the original.</p></div></li></ol><figure class="case"><figcaption><b>Closure identity.</b> In <code>ClosureIdentity.luau</code>, a sample we wrote, each button gets its own new function. Compiled with <code>-O2 -g1</code>; each output compiled again and run.</figcaption><div class="case-grid"><div class="case-col case-col--ref"><p class="case-label">Source</p><pre class="code code--light"><code><span class="k">local</span> <span class="k">function</span> makeHandler(state)
+    <span class="k">return</span> <span class="k">function</span>()
+        <span class="k">return</span> state
+    <span class="k">end</span>
+<span class="k">end</span>
+
+<span class="k">local</span> handlers = {}
+<span class="k">for</span> _, button <span class="k">in</span> { <span class="s">"Play"</span>, <span class="s">"Shop"</span> } <span class="k">do</span>
+    handlers[button] = makeHandler(<span class="s">"idle"</span>)
+<span class="k">end</span>
+print(handlers.Play == handlers.Shop)</code></pre><p class="case-out">prints <b>false</b><span class="op">NEWCLOSURE</span></p></div><div class="case-col case-col--bad"><p class="case-label">V2.5.1 output</p><pre class="code code--light"><code><span class="k">local</span> <span class="k">function</span> makeHandler(p)
+    <span class="k">return</span> <span class="k">function</span>()
+        <span class="k">return</span> p
+    <span class="k">end</span>
+<span class="k">end</span>
+
+<span class="k">local</span> v = {}
+
+<span class="k">for</span> _, v2 <span class="k">in</span> { <span class="s">"Play"</span>, <span class="s">"Shop"</span> } <span class="k">do</span>
+    <span class="k">local</span> v4 = <span class="s">"idle"</span>
+
+    v[v2] = <span class="k">function</span>()
+        <span class="k">return</span> v4
+    <span class="k">end</span>
+<span class="k">end</span>
+
+print(v.Play == v.Shop)</code></pre><p class="case-out">prints <b>true</b><span class="op">DUPCLOSURE</span><span class="verdict">differs from the source</span></p></div><div class="case-col case-col--ok"><p class="case-label">V2.6 output</p><pre class="code code--light"><code><span class="k">local</span> <span class="k">function</span> makeHandler(p) <span class="seam">-- 1 equivalent call inferred from this helper</span>
+    <span class="k">return</span> <span class="k">function</span>()
+        <span class="k">return</span> p
+    <span class="k">end</span>
+<span class="k">end</span>
+
+<span class="k">local</span> v = {}
+
+<span class="k">for</span> _, v2 <span class="k">in</span> { <span class="s">"Play"</span>, <span class="s">"Shop"</span> } <span class="k">do</span>
+    v[v2] = makeHandler(<span class="s">"idle"</span>) <span class="seam">-- inferred equivalent call</span>
+<span class="k">end</span>
+
+print(v.Play == v.Shop)</code></pre><p class="case-out">prints <b>false</b><span class="op">NEWCLOSURE</span><span class="verdict">same as the source</span></p></div></div></figure></article>
+<article class="theme" id="theme-reads"><header class="theme-head"><p class="theme-no">03</p><h4>Reads more like the source</h4><p class="theme-sum">Shorter, tidier output with names closer to what people write.</p></header><dl class="figures"><div><dt>non-blank output lines, four real games</dt><dd><span class="from">1,168,956</span><span class="to" aria-hidden="true">→</span><span class="sr-only">to</span><b>1,033,044</b></dd></div><div><dt>output lines, 51-script set</dt><dd><span class="from">28,813</span><span class="to" aria-hidden="true">→</span><span class="sr-only">to</span><b>26,664</b></dd></div><div><dt>source names recovered, 13 public modules</dt><dd><span class="from">282</span><span class="to" aria-hidden="true">→</span><span class="sr-only">to</span><b>317</b> <span class="of">of 1,039</span></dd></div></dl><ol class="items"><li><span class="item-no">3.1</span><h5>Exact fractions</h5><div class="item-text"><p>A number that is exactly p / q prints as that fraction when it is bit-equal and shorter, over the denominator the source most likely used: <code>2 / 3</code>, <code>190 / 255</code>, frames over 60.</p><p class="eg">clone.Transparency = 0.6666666666666666 becomes clone.Transparency = 2 / 3</p></div></li><li><span class="item-no">3.2</span><h5>Layout</h5><div class="item-text"><p>Short tables on one line, call arguments within a width budget, long conditions wrapped, one multi-line list element per line, <code>--!native</code> and <code>@native</code> restored, and a comparison inside a comparison in parentheses.</p></div></li><li><span class="item-no">3.3</span><h5>Names</h5><div class="item-text"><p>Acronyms as one word, a private <code>_</code> prefix dropped, the source's own spelling for aliases and unused imports, <code>xpcall</code> named like <code>pcall</code>, nested loop counters <code>i</code>, <code>j</code>, <code>k</code>, suffixes the source wrote, such as <code>Part_2</code>, kept, and a recursive call no longer blocks the name another caller gives a parameter.</p></div></li></ol></article>
+<article class="theme" id="theme-tools"><header class="theme-head"><p class="theme-no">04</p><h4>Tools</h4><p class="theme-sum">One new flag and faster formatting.</p></header><ol class="items"><li><span class="item-no">4.1</span><h5>--stats-json</h5><div class="item-text"><p><code>decompile-folder --stats-json &lt;file&gt;</code> writes, per script, the calls V2.6 rebuilt (by kind), the helpers, and why a helper or a site was refused.</p></div></li><li><span class="item-no">4.2</span><h5>Faster formatting</h5><div class="item-text"><p>Repeated formatter work is gone and cached batches run in parallel. A pathological script of twenty nested string formats went from 7.6 s to 0.15 s.</p></div></li></ol></article>
+<!-- /gen:changes -->
+    </section>
+
+    <section class="block" id="benchmarks" aria-labelledby="bench-title">
+      <h3 class="block-title" id="bench-title"><span class="no">B</span>Benchmarks</h3>
+<!-- gen:bench -->
+<p class="block-lead">Measured on every script with bytecode in four real Roblox games, 8,822 scripts, with the published V2.5.1 binary and V2.6.</p>
+<div class="table-wrap"><table class="spec">
+<caption class="sr-only">V2.5.1 and V2.6 on 8,822 scripts from four games</caption>
+<thead><tr><th scope="col"><span class="sr-only">Measure</span></th><th scope="col">V2.5.1</th><th scope="col" class="v26">V2.6</th><th scope="col">Change</th></tr></thead>
+<tbody><tr><th scope="row">Scripts decompiled</th><td>8,822 of 8,822</td><td class="v26">8,822 of 8,822</td><td class="chg">all</td></tr><tr><th scope="row">Rebuilt helper calls</th><td>4,260</td><td class="v26">8,842</td><td class="chg">+4,582 <small>×2.08</small></td></tr><tr><th scope="row">Scripts with a rebuilt call</th><td>848</td><td class="v26">1,088</td><td class="chg">+240</td></tr><tr><th scope="row">Non-blank output lines</th><td>1,168,956</td><td class="v26">1,033,044</td><td class="chg">−11.6%</td></tr><tr><th scope="row">All output lines</th><td>1,290,091</td><td class="v26">1,150,337</td><td class="chg">−10.8%</td></tr></tbody></table></div>
+<div class="table-wrap"><table class="spec spec--games">
+<caption>By game</caption>
+<thead><tr><th scope="col">Game</th><th scope="col">Scripts</th><th scope="col">Rebuilt calls, V2.5.1 → V2.6</th><th scope="col">Non-blank lines</th></tr></thead>
+<tbody><tr><th scope="row">Game 1</th><td>3,936</td><td class="barcell"><span class="bars"><span class="bar" style="--w:41.19%" aria-hidden="true"></span><span class="bar bar--accent" style="--w:100.00%" aria-hidden="true"></span></span><span class="pair-n">1,300 <span aria-hidden="true">→</span><span class="sr-only">to</span> <b>3,156</b></span></td><td>451,166 <span aria-hidden="true">→</span><span class="sr-only">to</span> 404,456</td></tr><tr><th scope="row">Game 2</th><td>3,327</td><td class="barcell"><span class="bars"><span class="bar" style="--w:30.77%" aria-hidden="true"></span><span class="bar bar--accent" style="--w:81.46%" aria-hidden="true"></span></span><span class="pair-n">971 <span aria-hidden="true">→</span><span class="sr-only">to</span> <b>2,571</b></span></td><td>376,075 <span aria-hidden="true">→</span><span class="sr-only">to</span> 340,047</td></tr><tr><th scope="row">Game 3</th><td>1,252</td><td class="barcell"><span class="bars"><span class="bar" style="--w:21.01%" aria-hidden="true"></span><span class="bar bar--accent" style="--w:33.65%" aria-hidden="true"></span></span><span class="pair-n">663 <span aria-hidden="true">→</span><span class="sr-only">to</span> <b>1,062</b></span></td><td>240,729 <span aria-hidden="true">→</span><span class="sr-only">to</span> 192,178</td></tr><tr><th scope="row">Game 4</th><td>307</td><td class="barcell"><span class="bars"><span class="bar" style="--w:42.02%" aria-hidden="true"></span><span class="bar bar--accent" style="--w:65.05%" aria-hidden="true"></span></span><span class="pair-n">1,326 <span aria-hidden="true">→</span><span class="sr-only">to</span> <b>2,053</b></span></td><td>100,986 <span aria-hidden="true">→</span><span class="sr-only">to</span> 96,363</td></tr></tbody></table></div>
+<p class="fine">V2.6 counts rebuilt calls with <code>--stats-json</code>; V2.5.1 by its printed call-site comments, the rule behind the 4,260 in its release notes. Counted the same way for both, by printed comments: 4,260 → 8,472.</p>
+<div class="table-wrap"><table class="spec spec--fuzz">
+<caption>Fuzzing: 3,000 fresh programs</caption>
+<thead><tr><th scope="col"><span class="sr-only">Version</span></th><th scope="col">Passed</th><th scope="col">Wrong output</th><th scope="col">Refused</th><th scope="col">Invalid</th></tr></thead>
+<tbody><tr><th scope="row">V2.5.1</th><td>2,253</td><td class="wrong">615</td><td>0</td><td>132</td></tr><tr><th scope="row">V2.6</th><td>2,582</td><td class="wrong zero">0</td><td>286</td><td>132</td></tr></tbody></table></div>
+<p class="fine">Typed random Luau programs, 1,000 seeds at <code>-O0</code>, <code>-O1</code> and <code>-O2</code>, half of them with patched bytecode, each decompiled, compiled again and run beside its own bytecode. Refused: the decompiler declined (only expected on patched bytecode). Invalid: the generated program itself does not compile (e.g. register limit). The families of the grammar come from bug classes that reviews found, many of them during V2.6 work, so these programs are harder for V2.5.1 than ordinary game code.</p>
+<p class="fine">Roblox&rsquo;s public <code>ClickToMoveController</code>: 1,395 → 1,301 lines, 14 → 36 rebuilt calls. Speed was not measured for this page.</p>
+<!-- /gen:bench -->
+    </section>
+
+    <section class="block" id="compared" aria-labelledby="compared-title">
+      <h3 class="block-title" id="compared-title"><span class="no">C</span>Compared</h3>
+<!-- gen:compare -->
+<p class="block-lead">51 Luau scripts: 14 public open-source modules and 37 scripts from real games, decompiled by Tovek V2.5.1, Tovek V2.6 and luacid. luacid&rsquo;s outputs were saved with each sample.</p>
+<div class="table-wrap"><table class="spec spec--compare">
+<caption class="sr-only">Tovek V2.5.1, Tovek V2.6 and luacid on 51 scripts</caption>
+<thead><tr><th scope="col"><span class="sr-only">Measure</span></th><th scope="col">Tovek V2.5.1</th><th scope="col" class=v26>Tovek V2.6</th><th scope="col">luacid</th></tr></thead>
+<tbody><tr><th scope="row">Rebuilt helper calls<small>more is better</small></th><td class="">229</td><td class="lead v26">637<span class=sr-only> (leads)</span></td><td class="">509</td></tr><tr><th scope="row">Non-blank lines<small>fewer is shorter</small></th><td class="">28,813</td><td class="v26">26,664</td><td class="lead ">25,566<span class=sr-only> (leads)</span></td></tr><tr><th scope="row">Generated names (<code>v1</code>, <code>p2</code>)<small>share of declared names, lower is better</small></th><td class="">30.5%</td><td class="lead v26">29.9%<span class=sr-only> (leads)</span></td><td class="">46.2%</td></tr><tr><th scope="row">Source names recovered<small>13 public modules</small></th><td class="">27.1%</td><td class="lead v26">30.5%<span class=sr-only> (leads)</span></td><td class="">24.0%</td></tr><tr><th scope="row">Token similarity to the source<small>13 public modules</small></th><td class="">0.724</td><td class="v26">0.716</td><td class="lead ">0.730<span class=sr-only> (leads)</span></td></tr></tbody></table></div>
+<div class="honest">
+<p><b>Where V2.6 leads:</b> rebuilt calls, fewer generated names, source names. Of the inlined copies of named helpers that line info shows, 633 of 780 came back as calls (81%).</p>
+<p><b>Where it does not:</b> luacid on shorter output; luacid on token similarity to the source. V2.6&rsquo;s token similarity is also a little below V2.5.1&rsquo;s (0.716 against 0.724).</p>
+</div>
+<!-- /gen:compare -->
+    </section>
+
+    <section class="block" id="download" aria-labelledby="download-title">
+      <h3 class="block-title" id="download-title"><span class="no">D</span>Download</h3>
+      <div class="dl-grid">
+        <a class="dl" href="https://github.com/Kiet1308/Tovek/releases/download/v2.6/Tovek-V2.6-windows-x86_64.zip"><b>Windows</b><span>x86_64 · ZIP</span><i aria-hidden="true">↓</i></a>
+        <a class="dl" href="https://github.com/Kiet1308/Tovek/releases/download/v2.6/Tovek-V2.6-linux-x86_64.tar.gz"><b>Linux</b><span>x86_64 · glibc 2.35+</span><i aria-hidden="true">↓</i></a>
+        <a class="dl" href="https://github.com/Kiet1308/Tovek/releases/download/v2.6/Tovek-V2.6-linux-aarch64.tar.gz"><b>Linux ARM64</b><span>aarch64 · glibc 2.35+</span><i aria-hidden="true">↓</i></a>
+        <a class="dl" href="https://github.com/Kiet1308/Tovek/releases/download/v2.6/Tovek-V2.6-macos-aarch64.tar.gz"><b>macOS</b><span>Apple silicon · aarch64</span><i aria-hidden="true">↓</i></a>
+      </div>
+      <div class="dl-notes">
+        <p>Each download holds <code>luau-lifter</code>, <code>web-server</code> and the licence. Check them against <a href="https://github.com/Kiet1308/Tovek/releases/download/v2.6/SHA256SUMS.txt">SHA256SUMS.txt</a>.</p>
+        <pre class="code code--light"><code>luau-lifter decompile-folder &lt;in&gt; &lt;out&gt; --stats-json stats.json</code></pre>
+        <p class="fine">New in V2.6: <code>--stats-json &lt;file&gt;</code> writes, per script, the calls V2.6 rebuilt, the helpers, and why a helper or a call site was refused. On macOS, if Gatekeeper blocks the files, run <code>xattr -d com.apple.quarantine luau-lifter web-server</code> in the extracted folder.</p>
+      </div>
+    </section>
+
+    <section class="block" id="more" aria-labelledby="more-title">
+      <h3 class="block-title" id="more-title"><span class="no">E</span>More</h3>
+      <div class="more-grid">
+        <a class="film-card" href="../../watch/?film=story">
+          <span class="film-kicker">Film</span>
+          <b>The story of Tovek</b>
+          <span>One function, decompiled by medal and by every release since beta 0.1.</span>
+          <i class="play" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 5.6v12.8a.8.8 0 0 0 1.2.7l10.2-6.4a.8.8 0 0 0 0-1.4L9.2 4.9A.8.8 0 0 0 8 5.6Z"/></svg></i>
+        </a>
+        <nav class="earlier" aria-label="Earlier releases">
+          <p class="earlier-title">Earlier releases</p>
+          <a href="../v2.5/"><b>V2.5</b><span>Faithful decompilation, fuzz 198 → 0</span><time datetime="2026-10-02">Oct 2</time></a>
+          <a href="../v2.1/"><b>V2.1</b><span>Twice as fast, bytecode v14</span><time datetime="2026-09-28">Sep 28</time></a>
+          <a href="../v2/"><b>V2</b><span>A new generation</span><time datetime="2026-09-19">Sep 19</time></a>
+          <a href="https://github.com/Kiet1308/Tovek/releases?q=beta"><b>Betas</b><span>0.1 to 0.9, on GitHub</span><time datetime="2026-06-19">Jun 19</time></a>
+          <a href="../../changelog.html"><b>All releases</b><span>The changelog</span><i aria-hidden="true">→</i></a>
+        </nav>
+      </div>
+<!-- gen:provenance -->
+<div class="provenance">
+<p class="prov-title">Where the numbers come from</p>
+<p>Every number and every code sample on this page is read from these files, which one script produces from real runs: <a href="data/changes.json">changes.json</a> <a href="data/compare.json">compare.json</a> <a href="data/dive.json">dive.json</a> <a href="data/expression.json">expression.json</a> <a href="data/field.json">field.json</a> <a href="data/fuzz.json">fuzz.json</a> <a href="data/lines.json">lines.json</a> <a href="data/manifest.json">manifest.json</a> <a href="data/number.json">number.json</a> <a href="data/opcode.json">opcode.json</a> <a href="data/script.json">script.json</a> <a href="data/script_text.json">script_text.json</a>.</p>
+<p class="fine">V2.5.1 binary: <code>8df15ad38731a1b1…</code> (github.com/Kiet1308/Tovek/releases/tag/v2.5.1 (Windows zip)). V2.6 binary: <code>0d59f6e3592e6c40…</code>.</p>
+</div>
+<!-- /gen:provenance -->
+    </section>
+  </section>
+</main>
+
+<footer class="foot">
+  <div class="foot-inner">
+    <p>Built on <a href="https://github.com/Stefanuk12/medal-decompiler">medal</a>, originally by Jujhar Singh and Mathias Pedersen. In memory of Jujhar Singh (KowalskiFX) and Mathias Pedersen (Costomality).</p>
+    <nav aria-label="Footer">
+      <a href="../../index.html">Overview</a>
+      <a href="../../changelog.html">Changelog</a>
+      <a href="../../watch/?film=story">Films</a>
+      <a href="https://github.com/Kiet1308/Tovek">GitHub ↗</a>
+      <a href="https://discord.gg/phY6VUDSF7">Discord ↗</a>
+    </nav>
+    <p class="fine">© 2026 Tovek · <a href="https://github.com/Kiet1308/Tovek/blob/main/LICENSE.txt">MIT licensed</a> · Tovek V2.6</p>
+  </div>
+</footer>
+</body>
+</html>
