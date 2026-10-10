@@ -1,0 +1,1828 @@
+{
+  "schema": "tovek-story/1",
+  "sample": {
+    "file": "SpawnShield.luau",
+    "origin": "Written for this film by the Tovek project (not taken from any game). Public.",
+    "source": "-- SpawnShield: a new character gets a short glow while it is safe to fight.\nlocal Players = game:GetService(\"Players\")\nlocal ReplicatedStorage = game:GetService(\"ReplicatedStorage\")\n\nlocal SHIELD_SECONDS = 3\nlocal MAX_TINTED = 12\nlocal COOLDOWN = 30\nlocal GLOW_TEMPLATE = ReplicatedStorage:WaitForChild(\"ShieldGlow\")\n\nlocal function frames(count)\n\treturn count / 60\nend\n\nlocal function isAlive(humanoid)\n\treturn humanoid ~= nil and humanoid.Health > 0\nend\n\nlocal function shield(character)\n\tlocal humanoid = character:FindFirstChildOfClass(\"Humanoid\")\n\tif not isAlive(humanoid) then\n\t\treturn\n\tend\n\n\tlocal glow = GLOW_TEMPLATE:Clone()\n\tglow.Transparency = 2 / 3\n\tglow.Parent = character\n\n\tlocal tinted = 0\n\tfor _, part in character:GetDescendants() do\n\t\tif part:IsA(\"BasePart\") then\n\t\t\tif part.Transparency == 1 then\n\t\t\t\tcontinue\n\t\t\tend\n\t\t\tpart.Color = glow.Color\n\t\t\ttinted += 1\n\t\tend\n\t\tif tinted >= MAX_TINTED then\n\t\t\tbreak\n\t\tend\n\tend\n\n\tlocal started = os.clock()\n\twhile os.clock() - started < SHIELD_SECONDS do\n\t\tif not isAlive(humanoid) then\n\t\t\tbreak\n\t\tend\n\t\ttask.wait(frames(1))\n\tend\n\tglow:Destroy()\nend\n\nlocal function onPlayerAdded(player)\n\tlocal character = player.Character or player.CharacterAdded:Wait()\n\tif character:IsDescendantOf(workspace) then\n\t\tshield(character)\n\tend\n\n\tlocal lastUse = 0\n\tlocal connection\n\tif player.MembershipType == Enum.MembershipType.Premium then\n\t\tconnection = player.Chatted:Connect(function(message)\n\t\t\tif message == \"/stop\" then\n\t\t\t\tconnection:Disconnect()\n\t\t\telseif not (os.clock() - lastUse < COOLDOWN) then\n\t\t\t\tlastUse = os.clock()\n\t\t\t\tshield(player.Character)\n\t\t\tend\n\t\tend)\n\tend\nend\n\nPlayers.PlayerAdded:Connect(onPlayerAdded)\n",
+    "lines": 72,
+    "nonblank_lines": 62,
+    "compiler": "Luau 0.607 luau-compile --binary -O2 -g1 (github.com/luau-lang/luau/releases/tag/0.607)",
+    "why_this_compiler": "medal reads Luau bytecode versions 4 to 6 only; every Tovek release reads v5 too, so all stages decompile the same bytes.",
+    "bytecode_version": 5,
+    "bytecode_bytes": 1550,
+    "bytecode_sha256": "5727a0e069a50f4eab2a53d786089d8b6dd0db533fc6e5c0a8966b9babdf5dc6",
+    "bytecode_hex": "050126066672616d6573064865616c7468076973416c6976650848756d616e6f69641546696e6446697273744368696c644f66436c61737305436c6f6e650c5472616e73706172656e637906506172656e740e47657444657363656e64616e74730842617365506172740349734105436f6c6f72026f7305636c6f636b047461736b04776169740744657374726f7906736869656c64052f73746f700a446973636f6e6e656374094368617261637465720e4368617261637465724164646564045761697409776f726b73706163650e497344657363656e64616e744f660e4d656d626572736869705479706504456e756d075072656d69756d074368617474656407436f6e6e6563740d6f6e506c6179657241646465640467616d6507506c61796572730a47657453657276696365115265706c69636174656453746f726167650a536869656c64476c6f770c57616974466f724368696c640b506c61796572416464656406020100000000022a0100001601020001020000000000004e40000a01011800000b000000000401000000000b030100004d000800000000000f02005a00000000040300001d03020002000000030100010301010016010200010302000e03011800000000000000000000000f000000000c01010000004f05030000140100b80100000015010302030200004d010800000000000f03015a02000000040400001d0402000300000003020001030201001902010016000100090200001402023a030000001502020205030400100302d9050000001000022406000000040300001404004707000000150402044c041100050b0800140908fe09000000150903021a0909000f0908d9050000004f0909000a0000000f0902a40b000000100908a40b0000002703030a04090c001c090300030000003a04eeff020000000c040e000034c080150401020c060e000034c0801506010222050604040603002005110006000000030500004d010800000000000f06015a02000000040700001d0702000600000003050001030501001a0505000c0511000040f08005061200150502011800e9ff1405025013000000150502011600010014030403050302030602555555555555e53f030703080309030a030b02000000000000f03f030c030d030e040034c080030f0310040040f08002111111111111913f0311001212011808000000fc000000000000000000000603000000010000010002010000000100000000010000000300000001020000f8000d000001000000000000e4000000000000000000002000dc24fc060000010b00000000040104000000195000060000000080090100001401011a0100000015010201160001000c020400000c208015020102090301002201020304021e001d010a00020000000c010400000c2080150101020a01010009010200090303000f0203690500000015010201160001000603130314030d030e04000c20800315003d00011800000100000005fc00000000000000010000000100000000023e00000000070101000000260f01006900000000190105000f01009701000000140101f702000000150102020c04040000003040140201ad05000000150203021a02030009020000060301001502020104020000020300000f0400d9060000000c050900081870c01e040c00050000000f0400740a0000001306000046010300460102004602000046000000140404c70b00000015040302060304000b020000160001000c031503160317031804000030400319031a031b031c04081870c0031d031e0103341f0118000000000000000001000000000001000003010100000000000100000000000000000000090035000000000a00000102001e410000000c00010000000040050202001400001603000000150003020c010100000000400503040014010116030000001501030205040500140201d306000000150203024003070040040800400509004600020040060a00460005000f0700280b00000006090600140707c70c00000015070301160001000d032004000000400321032203230324032506000601060206040326031e040001020401000118000100000000000100000000000500000002040400220014000000000001010000000005",
+    "inlined_by_luau": {
+      "copies": 3,
+      "helpers": {
+        "isAlive": 2,
+        "frames": 1
+      },
+      "remarks": [
+        "-- remark: inlining succeeded (cost 4, profit 1.75x, depth 0)",
+        "-- remark: inlining succeeded (cost 4, profit 1.75x, depth 0)",
+        "-- remark: inlining succeeded (cost 0, profit 3.00x, depth 0)",
+        "-- remark: inlining failed: too expensive (cost 127, profit 1.02x)",
+        "-- remark: allocation: closure with 4 upvalues",
+        "-- remark: inlining failed: too expensive (cost 127, profit 1.02x)"
+      ]
+    },
+    "focus_function": "shield",
+    "focus_source": {
+      "text": "local function shield(character)\n\tlocal humanoid = character:FindFirstChildOfClass(\"Humanoid\")\n\tif not isAlive(humanoid) then\n\t\treturn\n\tend\n\n\tlocal glow = GLOW_TEMPLATE:Clone()\n\tglow.Transparency = 2 / 3\n\tglow.Parent = character\n\n\tlocal tinted = 0\n\tfor _, part in character:GetDescendants() do\n\t\tif part:IsA(\"BasePart\") then\n\t\t\tif part.Transparency == 1 then\n\t\t\t\tcontinue\n\t\t\tend\n\t\t\tpart.Color = glow.Color\n\t\t\ttinted += 1\n\t\tend\n\t\tif tinted >= MAX_TINTED then\n\t\t\tbreak\n\t\tend\n\tend\n\n\tlocal started = os.clock()\n\twhile os.clock() - started < SHIELD_SECONDS do\n\t\tif not isAlive(humanoid) then\n\t\t\tbreak\n\t\tend\n\t\ttask.wait(frames(1))\n\tend\n\tglow:Destroy()\nend",
+      "first_line": 18,
+      "last_line": 50,
+      "lines": 33,
+      "nonblank": 30
+    },
+    "join_source": {
+      "text": "local function onPlayerAdded(player)\n\tlocal character = player.Character or player.CharacterAdded:Wait()\n\tif character:IsDescendantOf(workspace) then\n\t\tshield(character)\n\tend\n\n\tlocal lastUse = 0\n\tlocal connection\n\tif player.MembershipType == Enum.MembershipType.Premium then\n\t\tconnection = player.Chatted:Connect(function(message)\n\t\t\tif message == \"/stop\" then\n\t\t\t\tconnection:Disconnect()\n\t\t\telseif not (os.clock() - lastUse < COOLDOWN) then\n\t\t\t\tlastUse = os.clock()\n\t\t\t\tshield(player.Character)\n\t\t\tend\n\t\tend)\n\tend\nend",
+      "first_line": 52,
+      "last_line": 70,
+      "lines": 19,
+      "nonblank": 18
+    },
+    "shield_bytecode": [
+      {
+        "pc": 0,
+        "op": "LOADK",
+        "word": "00000305",
+        "aux": null,
+        "line": 19
+      },
+      {
+        "pc": 1,
+        "op": "NAMECALL",
+        "word": "b8000114",
+        "aux": "00000001",
+        "line": 19
+      },
+      {
+        "pc": 3,
+        "op": "CALL",
+        "word": "02030115",
+        "aux": null,
+        "line": 19
+      },
+      {
+        "pc": 4,
+        "op": "LOADB",
+        "word": "00000203",
+        "aux": null,
+        "line": 15
+      },
+      {
+        "pc": 5,
+        "op": "JUMPXEQKNIL",
+        "word": "0008014d",
+        "aux": "00000000",
+        "line": 15
+      },
+      {
+        "pc": 7,
+        "op": "GETTABLEKS",
+        "word": "5a01030f",
+        "aux": "00000002",
+        "line": 15
+      },
+      {
+        "pc": 9,
+        "op": "LOADN",
+        "word": "00000404",
+        "aux": null,
+        "line": 15
+      },
+      {
+        "pc": 10,
+        "op": "JUMPIFLT",
+        "word": "0002041d",
+        "aux": "00000003",
+        "line": 15
+      },
+      {
+        "pc": 12,
+        "op": "LOADB",
+        "word": "01000203",
+        "aux": null,
+        "line": 15
+      },
+      {
+        "pc": 13,
+        "op": "LOADB",
+        "word": "00010203",
+        "aux": null,
+        "line": 15
+      },
+      {
+        "pc": 14,
+        "op": "JUMPIF",
+        "word": "00010219",
+        "aux": null,
+        "line": 15
+      },
+      {
+        "pc": 15,
+        "op": "RETURN",
+        "word": "00010016",
+        "aux": null,
+        "line": 21
+      },
+      {
+        "pc": 16,
+        "op": "GETUPVAL",
+        "word": "00000209",
+        "aux": null,
+        "line": 24
+      },
+      {
+        "pc": 17,
+        "op": "NAMECALL",
+        "word": "3a020214",
+        "aux": "00000003",
+        "line": 24
+      },
+      {
+        "pc": 19,
+        "op": "CALL",
+        "word": "02020215",
+        "aux": null,
+        "line": 24
+      },
+      {
+        "pc": 20,
+        "op": "LOADK",
+        "word": "00040305",
+        "aux": null,
+        "line": 25
+      },
+      {
+        "pc": 21,
+        "op": "SETTABLEKS",
+        "word": "d9020310",
+        "aux": "00000005",
+        "line": 25
+      },
+      {
+        "pc": 23,
+        "op": "SETTABLEKS",
+        "word": "24020010",
+        "aux": "00000006",
+        "line": 26
+      },
+      {
+        "pc": 25,
+        "op": "LOADN",
+        "word": "00000304",
+        "aux": null,
+        "line": 28
+      },
+      {
+        "pc": 26,
+        "op": "NAMECALL",
+        "word": "47000414",
+        "aux": "00000007",
+        "line": 29
+      },
+      {
+        "pc": 28,
+        "op": "CALL",
+        "word": "04020415",
+        "aux": null,
+        "line": 29
+      },
+      {
+        "pc": 29,
+        "op": "FORGPREP",
+        "word": "0011044c",
+        "aux": null,
+        "line": 29
+      },
+      {
+        "pc": 30,
+        "op": "LOADK",
+        "word": "00080b05",
+        "aux": null,
+        "line": 30
+      },
+      {
+        "pc": 31,
+        "op": "NAMECALL",
+        "word": "fe080914",
+        "aux": "00000009",
+        "line": 30
+      },
+      {
+        "pc": 33,
+        "op": "CALL",
+        "word": "02030915",
+        "aux": null,
+        "line": 30
+      },
+      {
+        "pc": 34,
+        "op": "JUMPIFNOT",
+        "word": "0009091a",
+        "aux": null,
+        "line": 30
+      },
+      {
+        "pc": 35,
+        "op": "GETTABLEKS",
+        "word": "d908090f",
+        "aux": "00000005",
+        "line": 31
+      },
+      {
+        "pc": 37,
+        "op": "JUMPXEQKN",
+        "word": "0009094f",
+        "aux": "0000000a",
+        "line": 31
+      },
+      {
+        "pc": 39,
+        "op": "GETTABLEKS",
+        "word": "a402090f",
+        "aux": "0000000b",
+        "line": 34
+      },
+      {
+        "pc": 41,
+        "op": "SETTABLEKS",
+        "word": "a4080910",
+        "aux": "0000000b",
+        "line": 34
+      },
+      {
+        "pc": 43,
+        "op": "ADDK",
+        "word": "0a030327",
+        "aux": null,
+        "line": 35
+      },
+      {
+        "pc": 44,
+        "op": "LOADN",
+        "word": "000c0904",
+        "aux": null,
+        "line": 37
+      },
+      {
+        "pc": 45,
+        "op": "JUMPIFLE",
+        "word": "0003091c",
+        "aux": "00000003",
+        "line": 37
+      },
+      {
+        "pc": 47,
+        "op": "FORGLOOP",
+        "word": "ffee043a",
+        "aux": "00000002",
+        "line": 29
+      },
+      {
+        "pc": 49,
+        "op": "GETIMPORT",
+        "word": "000e040c",
+        "aux": "80c03400",
+        "line": 42
+      },
+      {
+        "pc": 51,
+        "op": "CALL",
+        "word": "02010415",
+        "aux": null,
+        "line": 42
+      },
+      {
+        "pc": 52,
+        "op": "GETIMPORT",
+        "word": "000e060c",
+        "aux": "80c03400",
+        "line": 43
+      },
+      {
+        "pc": 54,
+        "op": "CALL",
+        "word": "02010615",
+        "aux": null,
+        "line": 43
+      },
+      {
+        "pc": 55,
+        "op": "SUB",
+        "word": "04060522",
+        "aux": null,
+        "line": 43
+      },
+      {
+        "pc": 56,
+        "op": "LOADN",
+        "word": "00030604",
+        "aux": null,
+        "line": 43
+      },
+      {
+        "pc": 57,
+        "op": "JUMPIFNOTLT",
+        "word": "00110520",
+        "aux": "00000006",
+        "line": 43
+      },
+      {
+        "pc": 59,
+        "op": "LOADB",
+        "word": "00000503",
+        "aux": null,
+        "line": 15
+      },
+      {
+        "pc": 60,
+        "op": "JUMPXEQKNIL",
+        "word": "0008014d",
+        "aux": "00000000",
+        "line": 15
+      },
+      {
+        "pc": 62,
+        "op": "GETTABLEKS",
+        "word": "5a01060f",
+        "aux": "00000002",
+        "line": 15
+      },
+      {
+        "pc": 64,
+        "op": "LOADN",
+        "word": "00000704",
+        "aux": null,
+        "line": 15
+      },
+      {
+        "pc": 65,
+        "op": "JUMPIFLT",
+        "word": "0002071d",
+        "aux": "00000006",
+        "line": 15
+      },
+      {
+        "pc": 67,
+        "op": "LOADB",
+        "word": "01000503",
+        "aux": null,
+        "line": 15
+      },
+      {
+        "pc": 68,
+        "op": "LOADB",
+        "word": "00010503",
+        "aux": null,
+        "line": 15
+      },
+      {
+        "pc": 69,
+        "op": "JUMPIFNOT",
+        "word": "0005051a",
+        "aux": null,
+        "line": 15
+      },
+      {
+        "pc": 70,
+        "op": "GETIMPORT",
+        "word": "0011050c",
+        "aux": "80f04000",
+        "line": 47
+      },
+      {
+        "pc": 72,
+        "op": "LOADK",
+        "word": "00120605",
+        "aux": null,
+        "line": 11
+      },
+      {
+        "pc": 73,
+        "op": "CALL",
+        "word": "01020515",
+        "aux": null,
+        "line": 47
+      },
+      {
+        "pc": 74,
+        "op": "JUMPBACK",
+        "word": "ffe90018",
+        "aux": null,
+        "line": 43
+      },
+      {
+        "pc": 75,
+        "op": "NAMECALL",
+        "word": "50020514",
+        "aux": "00000013",
+        "line": 49
+      },
+      {
+        "pc": 77,
+        "op": "CALL",
+        "word": "01020515",
+        "aux": null,
+        "line": 49
+      },
+      {
+        "pc": 78,
+        "op": "RETURN",
+        "word": "00010016",
+        "aux": null,
+        "line": 50
+      }
+    ]
+  },
+  "medal_history": {
+    "authors": [
+      "Jujhar Singh",
+      "Mathias Pedersen"
+    ],
+    "first_commit": {
+      "author": "Mathias",
+      "date": "2022-04-01T15:56:12Z",
+      "message": "initial",
+      "sha": "8e5f4a48"
+    },
+    "last_upstream_commit": {
+      "author": "Malachi Francesco Acri",
+      "date": "2024-11-26T06:56:30Z",
+      "message": "<3\n\n<3",
+      "sha": "92a4e03b"
+    },
+    "upstream_repo": {
+      "archived": true,
+      "created_at": "2024-09-12T19:16:35Z",
+      "html_url": "https://github.com/shrimp-nz/medal",
+      "pushed_at": "2024-11-26T06:56:31Z"
+    },
+    "fork_repo": {
+      "created_at": "2024-12-24T15:29:09Z",
+      "html_url": "https://github.com/Stefanuk12/medal-decompiler",
+      "parent": "shrimp-nz/medal"
+    },
+    "fork_releases": [
+      {
+        "published": "2025-06-15T18:49:41Z",
+        "tag": "v0.1.1"
+      },
+      {
+        "published": "2024-12-24T16:23:51Z",
+        "tag": "v0.1.0"
+      }
+    ],
+    "contributors": [
+      {
+        "contributions": 453,
+        "login": "jujhar16"
+      },
+      {
+        "contributions": 248,
+        "login": "mathiaslpedersen"
+      },
+      {
+        "contributions": 47,
+        "login": "amitbashan"
+      },
+      {
+        "contributions": 4,
+        "login": "toxamin"
+      },
+      {
+        "contributions": 2,
+        "login": "Pidova"
+      }
+    ],
+    "readme_dedication": "All credits to this project goes to in honor and memory of: Jujhar Singh (KowalskiFX), Mathias Pedersen (Costomality)",
+    "source": "GitHub API: shrimp-nz/medal (archived) and Stefanuk12/medal-decompiler"
+  },
+  "stages": [
+    {
+      "tag": "medal",
+      "name": "medal",
+      "era": "medal",
+      "date": "2022-04-01",
+      "released": true,
+      "headline": "It began as medal.",
+      "points": [
+        "A Luau decompiler written in Rust by Jujhar Singh and Mathias Pedersen.",
+        "Published as open source in their honour and memory.",
+        "Its output was correct in spirit but raw: v1, p3, goto."
+      ],
+      "numbers": [],
+      "lines": 67,
+      "nonblank_lines": 67,
+      "excerpt": "local function v_u_11(p3)\n\t-- upvalues: (copy) v_u_2\n\tlocal v4 = p3:FindFirstChildOfClass(\"Humanoid\")\n\tlocal v5\n\tif v4 == nil then\n\t\tv5 = false\n\telse\n\t\tv5 = v4.Health > 0\n\tend\n\tif not v5 then\n\t\treturn\n\tend\n\tlocal v6 = v_u_2:Clone()\n\tv6.Transparency = 0.6666666666666666\n\tv6.Parent = p3\n\tlocal v7 = 0\n\tfor _, v8 in p3:GetDescendants() do\n\t\tif v8:IsA(\"BasePart\") then\n\t\t\tif v8.Transparency ~= 1 then\n\t\t\t\tv8.Color = v6.Color\n\t\t\t\tv7 = v7 + 1\n\t\t\t\tgoto l10\n\t\t\tend\n\t\telse\n\t\t\t::l10::\n\t\t\tif v7 >= 12 then\n\t\t\t\tbreak\n\t\t\tend\n\t\tend\n\tend\n\tlocal v9 = os.clock()\n\twhile os.clock() - v9 < 3 do\n\t\tlocal v10\n\t\tif v4 == nil then\n\t\t\tv10 = false\n\t\telse\n\t\t\tv10 = v4.Health > 0\n\t\tend\n\t\tif not v10 then\n\t\t\tbreak\n\t\tend\n\t\ttask.wait(0.016666666666666666)\n\tend\n\tv6:Destroy()\nend",
+      "excerpt_lines": 45,
+      "excerpts": {
+        "shield": {
+          "text": "local function v_u_11(p3)\n\t-- upvalues: (copy) v_u_2\n\tlocal v4 = p3:FindFirstChildOfClass(\"Humanoid\")\n\tlocal v5\n\tif v4 == nil then\n\t\tv5 = false\n\telse\n\t\tv5 = v4.Health > 0\n\tend\n\tif not v5 then\n\t\treturn\n\tend\n\tlocal v6 = v_u_2:Clone()\n\tv6.Transparency = 0.6666666666666666\n\tv6.Parent = p3\n\tlocal v7 = 0\n\tfor _, v8 in p3:GetDescendants() do\n\t\tif v8:IsA(\"BasePart\") then\n\t\t\tif v8.Transparency ~= 1 then\n\t\t\t\tv8.Color = v6.Color\n\t\t\t\tv7 = v7 + 1\n\t\t\t\tgoto l10\n\t\t\tend\n\t\telse\n\t\t\t::l10::\n\t\t\tif v7 >= 12 then\n\t\t\t\tbreak\n\t\t\tend\n\t\tend\n\tend\n\tlocal v9 = os.clock()\n\twhile os.clock() - v9 < 3 do\n\t\tlocal v10\n\t\tif v4 == nil then\n\t\t\tv10 = false\n\t\telse\n\t\t\tv10 = v4.Health > 0\n\t\tend\n\t\tif not v10 then\n\t\t\tbreak\n\t\tend\n\t\ttask.wait(0.016666666666666666)\n\tend\n\tv6:Destroy()\nend",
+          "first_line": 3,
+          "last_line": 47,
+          "lines": 45,
+          "nonblank": 45
+        },
+        "join": {
+          "text": "v1.PlayerAdded:Connect(function(p_u_12)\n\t-- upvalues: (copy) v_u_11\n\tlocal v13 = p_u_12.Character or p_u_12.CharacterAdded:Wait()\n\tif v13:IsDescendantOf(workspace) then\n\t\tv_u_11(v13)\n\tend\n\tlocal v_u_14 = 0\n\tlocal v_u_15 = nil\n\tif p_u_12.MembershipType == Enum.MembershipType.Premium then\n\t\tlocal _ = p_u_12.Chatted:Connect(function(p16)\n\t\t\t-- upvalues: (ref) v_u_15, (ref) v_u_14, (ref) v_u_11, (copy) p_u_12\n\t\t\tif p16 == \"/stop\" then\n\t\t\t\tv_u_15:Disconnect()\n\t\t\telseif os.clock() - v_u_14 >= 30 then\n\t\t\t\tv_u_14 = os.clock()\n\t\t\t\tv_u_11(p_u_12.Character)\n\t\t\tend\n\t\tend)\n\tend\nend)",
+          "first_line": 48,
+          "last_line": 67,
+          "lines": 20,
+          "nonblank": 20
+        }
+      },
+      "features": {
+        "goto": 1,
+        "labels": 1,
+        "dispatcher_states": 0,
+        "generated_names": 16,
+        "rebuilt_calls": 0,
+        "nil_stores": 1,
+        "long_decimals": 2,
+        "fractions": 0
+      },
+      "output": "local v1 = game:GetService(\"Players\")\nlocal v_u_2 = game:GetService(\"ReplicatedStorage\"):WaitForChild(\"ShieldGlow\")\nlocal function v_u_11(p3)\n\t-- upvalues: (copy) v_u_2\n\tlocal v4 = p3:FindFirstChildOfClass(\"Humanoid\")\n\tlocal v5\n\tif v4 == nil then\n\t\tv5 = false\n\telse\n\t\tv5 = v4.Health > 0\n\tend\n\tif not v5 then\n\t\treturn\n\tend\n\tlocal v6 = v_u_2:Clone()\n\tv6.Transparency = 0.6666666666666666\n\tv6.Parent = p3\n\tlocal v7 = 0\n\tfor _, v8 in p3:GetDescendants() do\n\t\tif v8:IsA(\"BasePart\") then\n\t\t\tif v8.Transparency ~= 1 then\n\t\t\t\tv8.Color = v6.Color\n\t\t\t\tv7 = v7 + 1\n\t\t\t\tgoto l10\n\t\t\tend\n\t\telse\n\t\t\t::l10::\n\t\t\tif v7 >= 12 then\n\t\t\t\tbreak\n\t\t\tend\n\t\tend\n\tend\n\tlocal v9 = os.clock()\n\twhile os.clock() - v9 < 3 do\n\t\tlocal v10\n\t\tif v4 == nil then\n\t\t\tv10 = false\n\t\telse\n\t\t\tv10 = v4.Health > 0\n\t\tend\n\t\tif not v10 then\n\t\t\tbreak\n\t\tend\n\t\ttask.wait(0.016666666666666666)\n\tend\n\tv6:Destroy()\nend\nv1.PlayerAdded:Connect(function(p_u_12)\n\t-- upvalues: (copy) v_u_11\n\tlocal v13 = p_u_12.Character or p_u_12.CharacterAdded:Wait()\n\tif v13:IsDescendantOf(workspace) then\n\t\tv_u_11(v13)\n\tend\n\tlocal v_u_14 = 0\n\tlocal v_u_15 = nil\n\tif p_u_12.MembershipType == Enum.MembershipType.Premium then\n\t\tlocal _ = p_u_12.Chatted:Connect(function(p16)\n\t\t\t-- upvalues: (ref) v_u_15, (ref) v_u_14, (ref) v_u_11, (copy) p_u_12\n\t\t\tif p16 == \"/stop\" then\n\t\t\t\tv_u_15:Disconnect()\n\t\t\telseif os.clock() - v_u_14 >= 30 then\n\t\t\t\tv_u_14 = os.clock()\n\t\t\t\tv_u_11(p_u_12.Character)\n\t\t\tend\n\t\tend)\n\tend\nend)",
+      "tool": "medal web server v0.1.0 (Stefanuk12/medal-decompiler; decompiler = shrimp-nz/medal at 92a4e03b)",
+      "binary_sha256": "b24830d8fcc26a31c13653f7e6cf48dc889f2a5bc90cfe25856bb55aa7327cfc",
+      "cli": null,
+      "changed_from_previous": true,
+      "excerpt_changed_from_previous": true
+    },
+    {
+      "tag": "v0.1.0-beta",
+      "name": "beta 0.1",
+      "era": "beta",
+      "date": "2026-06-19",
+      "released": true,
+      "headline": "Tovek begins as a fork of medal.",
+      "points": [
+        "Locals and parameters get names from how they are used.",
+        "GetService and require handles stay as named locals.",
+        "Methods come back as function T:method() with a real self."
+      ],
+      "numbers": [
+        {
+          "text": "about 2x faster on one file",
+          "quote": "~2× faster"
+        },
+        {
+          "text": "up to 32x faster on a whole game",
+          "quote": "up to **32× faster**"
+        }
+      ],
+      "lines": 97,
+      "nonblank_lines": 76,
+      "excerpt": "local function shield(folder)\n\tlocal humanoid = folder:FindFirstChildOfClass(\"Humanoid\")\n\tlocal v\n\n\tif humanoid == nil then\n\t\tv = false\n\telse\n\t\tv = humanoid.Health > 0\n\tend\n\n\tif not v then\n\t\treturn\n\tend\n\n\tlocal clone = shieldGlow:Clone()\n\tclone.Transparency = 0.6666666666666666\n\tclone.Parent = folder\n\tlocal v2 = 0\n\n\tfor _, part in folder:GetDescendants() do\n\t\tif part:IsA(\"BasePart\") then\n\t\t\tif part.Transparency ~= 1 then\n\t\t\t\tpart.Color = clone.Color\n\t\t\t\tv2 += 1\n\t\t\t\tgoto l10\n\t\t\tend\n\t\telse\n\t\t\tgoto l10\n\t\tend\n\n\t\tgoto after1\n\t\t::l10::\n\n\t\tif v2 >= 12 then\n\t\t\tbreak\n\t\tend\n\n\t\t::after1::\n\tend\n\n\tlocal timestamp = os.clock()\n\n\twhile os.clock() - timestamp < 3 do\n\t\tlocal v3\n\n\t\tif humanoid == nil then\n\t\t\tv3 = false\n\t\telse\n\t\t\tv3 = humanoid.Health > 0\n\t\tend\n\n\t\tif not v3 then\n\t\t\tbreak\n\t\tend\n\n\t\ttask.wait(0.016666666666666666)\n\tend\n\n\tclone:Destroy()\nend",
+      "excerpt_lines": 60,
+      "excerpts": {
+        "shield": {
+          "text": "local function shield(folder)\n\tlocal humanoid = folder:FindFirstChildOfClass(\"Humanoid\")\n\tlocal v\n\n\tif humanoid == nil then\n\t\tv = false\n\telse\n\t\tv = humanoid.Health > 0\n\tend\n\n\tif not v then\n\t\treturn\n\tend\n\n\tlocal clone = shieldGlow:Clone()\n\tclone.Transparency = 0.6666666666666666\n\tclone.Parent = folder\n\tlocal v2 = 0\n\n\tfor _, part in folder:GetDescendants() do\n\t\tif part:IsA(\"BasePart\") then\n\t\t\tif part.Transparency ~= 1 then\n\t\t\t\tpart.Color = clone.Color\n\t\t\t\tv2 += 1\n\t\t\t\tgoto l10\n\t\t\tend\n\t\telse\n\t\t\tgoto l10\n\t\tend\n\n\t\tgoto after1\n\t\t::l10::\n\n\t\tif v2 >= 12 then\n\t\t\tbreak\n\t\tend\n\n\t\t::after1::\n\tend\n\n\tlocal timestamp = os.clock()\n\n\twhile os.clock() - timestamp < 3 do\n\t\tlocal v3\n\n\t\tif humanoid == nil then\n\t\t\tv3 = false\n\t\telse\n\t\t\tv3 = humanoid.Health > 0\n\t\tend\n\n\t\tif not v3 then\n\t\t\tbreak\n\t\tend\n\n\t\ttask.wait(0.016666666666666666)\n\tend\n\n\tclone:Destroy()\nend",
+          "first_line": 13,
+          "last_line": 72,
+          "lines": 60,
+          "nonblank": 47
+        },
+        "join": {
+          "text": "Players.PlayerAdded:Connect(function(player)\n\tlocal v = player.Character or player.CharacterAdded:Wait()\n\n\tif v:IsDescendantOf(workspace) then\n\t\tshield(v)\n\tend\n\n\tlocal timestamp = 0\n\tlocal v2 = nil\n\n\tif player.MembershipType == Enum.MembershipType.Premium then\n\t\tlocal _ = player.Chatted:Connect(function(p)\n\t\t\tif p == \"/stop\" then\n\t\t\t\tv2:Disconnect()\n\t\t\t\treturn\n\t\t\tend\n\n\t\t\tif os.clock() - timestamp >= 30 then\n\t\t\t\ttimestamp = os.clock()\n\t\t\t\tshield(player.Character)\n\t\t\tend\n\t\tend)\n\tend\nend)",
+          "first_line": 74,
+          "last_line": 97,
+          "lines": 24,
+          "nonblank": 20
+        }
+      },
+      "features": {
+        "goto": 3,
+        "labels": 2,
+        "dispatcher_states": 0,
+        "generated_names": 4,
+        "rebuilt_calls": 0,
+        "nil_stores": 1,
+        "long_decimals": 2,
+        "fractions": 0
+      },
+      "output": "local Players = game:GetService(\"Players\")\nlocal ReplicatedStorage = game:GetService(\"ReplicatedStorage\")\nlocal shieldGlow = ReplicatedStorage:WaitForChild(\"ShieldGlow\")\n\nlocal function frames(p)\n\treturn p / 60\nend\n\nlocal function isAlive(p)\n\treturn if p == nil then false else p.Health > 0\nend\n\nlocal function shield(folder)\n\tlocal humanoid = folder:FindFirstChildOfClass(\"Humanoid\")\n\tlocal v\n\n\tif humanoid == nil then\n\t\tv = false\n\telse\n\t\tv = humanoid.Health > 0\n\tend\n\n\tif not v then\n\t\treturn\n\tend\n\n\tlocal clone = shieldGlow:Clone()\n\tclone.Transparency = 0.6666666666666666\n\tclone.Parent = folder\n\tlocal v2 = 0\n\n\tfor _, part in folder:GetDescendants() do\n\t\tif part:IsA(\"BasePart\") then\n\t\t\tif part.Transparency ~= 1 then\n\t\t\t\tpart.Color = clone.Color\n\t\t\t\tv2 += 1\n\t\t\t\tgoto l10\n\t\t\tend\n\t\telse\n\t\t\tgoto l10\n\t\tend\n\n\t\tgoto after1\n\t\t::l10::\n\n\t\tif v2 >= 12 then\n\t\t\tbreak\n\t\tend\n\n\t\t::after1::\n\tend\n\n\tlocal timestamp = os.clock()\n\n\twhile os.clock() - timestamp < 3 do\n\t\tlocal v3\n\n\t\tif humanoid == nil then\n\t\t\tv3 = false\n\t\telse\n\t\t\tv3 = humanoid.Health > 0\n\t\tend\n\n\t\tif not v3 then\n\t\t\tbreak\n\t\tend\n\n\t\ttask.wait(0.016666666666666666)\n\tend\n\n\tclone:Destroy()\nend\n\nPlayers.PlayerAdded:Connect(function(player)\n\tlocal v = player.Character or player.CharacterAdded:Wait()\n\n\tif v:IsDescendantOf(workspace) then\n\t\tshield(v)\n\tend\n\n\tlocal timestamp = 0\n\tlocal v2 = nil\n\n\tif player.MembershipType == Enum.MembershipType.Premium then\n\t\tlocal _ = player.Chatted:Connect(function(p)\n\t\t\tif p == \"/stop\" then\n\t\t\t\tv2:Disconnect()\n\t\t\t\treturn\n\t\t\tend\n\n\t\t\tif os.clock() - timestamp >= 30 then\n\t\t\t\ttimestamp = os.clock()\n\t\t\t\tshield(player.Character)\n\t\t\tend\n\t\tend)\n\tend\nend)\n",
+      "tool": "Tovek beta 0.1 release binary (github.com/Kiet1308/Tovek/releases/tag/v0.1.0-beta)",
+      "binary_sha256": "8f35a9a2f0dbc822f48babfe189ab06ff0609ffbef2ac619fa86f612f7aaa162",
+      "cli": {
+        "version": "luau-lifter 0.1.0",
+        "commands": [
+          "decompile-folder",
+          "validate-folder"
+        ],
+        "decompile_folder_flags": [
+          "--encoded",
+          "--key",
+          "--threads",
+          "--verbose"
+        ],
+        "used": "luau-lifter decompile-folder <in> <out> --key 1   (raw bytecode in a saved-bytecode text file)"
+      },
+      "changed_from_previous": true,
+      "excerpt_changed_from_previous": true
+    },
+    {
+      "tag": "v0.2.0-beta",
+      "name": "beta 0.2",
+      "era": "beta",
+      "date": "2026-06-19",
+      "released": true,
+      "headline": "Names follow the value an and/or expression yields.",
+      "points": [
+        "local character = player.Character or ... is named character.",
+        "Redundant x = nil stores are removed."
+      ],
+      "numbers": [
+        {
+          "text": "about 567 fewer output lines on the test corpus",
+          "quote": "~567 lines smaller"
+        }
+      ],
+      "lines": 97,
+      "nonblank_lines": 76,
+      "excerpt": "local function shield(folder)\n\tlocal humanoid = folder:FindFirstChildOfClass(\"Humanoid\")\n\tlocal v\n\n\tif humanoid == nil then\n\t\tv = false\n\telse\n\t\tv = humanoid.Health > 0\n\tend\n\n\tif not v then\n\t\treturn\n\tend\n\n\tlocal clone = shieldGlow:Clone()\n\tclone.Transparency = 0.6666666666666666\n\tclone.Parent = folder\n\tlocal v2 = 0\n\n\tfor _, part in folder:GetDescendants() do\n\t\tif part:IsA(\"BasePart\") then\n\t\t\tif part.Transparency ~= 1 then\n\t\t\t\tpart.Color = clone.Color\n\t\t\t\tv2 += 1\n\t\t\t\tgoto l10\n\t\t\tend\n\t\telse\n\t\t\tgoto l10\n\t\tend\n\n\t\tgoto after1\n\t\t::l10::\n\n\t\tif v2 >= 12 then\n\t\t\tbreak\n\t\tend\n\n\t\t::after1::\n\tend\n\n\tlocal timestamp = os.clock()\n\n\twhile os.clock() - timestamp < 3 do\n\t\tlocal v3\n\n\t\tif humanoid == nil then\n\t\t\tv3 = false\n\t\telse\n\t\t\tv3 = humanoid.Health > 0\n\t\tend\n\n\t\tif not v3 then\n\t\t\tbreak\n\t\tend\n\n\t\ttask.wait(0.016666666666666666)\n\tend\n\n\tclone:Destroy()\nend",
+      "excerpt_lines": 60,
+      "excerpts": {
+        "shield": {
+          "text": "local function shield(folder)\n\tlocal humanoid = folder:FindFirstChildOfClass(\"Humanoid\")\n\tlocal v\n\n\tif humanoid == nil then\n\t\tv = false\n\telse\n\t\tv = humanoid.Health > 0\n\tend\n\n\tif not v then\n\t\treturn\n\tend\n\n\tlocal clone = shieldGlow:Clone()\n\tclone.Transparency = 0.6666666666666666\n\tclone.Parent = folder\n\tlocal v2 = 0\n\n\tfor _, part in folder:GetDescendants() do\n\t\tif part:IsA(\"BasePart\") then\n\t\t\tif part.Transparency ~= 1 then\n\t\t\t\tpart.Color = clone.Color\n\t\t\t\tv2 += 1\n\t\t\t\tgoto l10\n\t\t\tend\n\t\telse\n\t\t\tgoto l10\n\t\tend\n\n\t\tgoto after1\n\t\t::l10::\n\n\t\tif v2 >= 12 then\n\t\t\tbreak\n\t\tend\n\n\t\t::after1::\n\tend\n\n\tlocal timestamp = os.clock()\n\n\twhile os.clock() - timestamp < 3 do\n\t\tlocal v3\n\n\t\tif humanoid == nil then\n\t\t\tv3 = false\n\t\telse\n\t\t\tv3 = humanoid.Health > 0\n\t\tend\n\n\t\tif not v3 then\n\t\t\tbreak\n\t\tend\n\n\t\ttask.wait(0.016666666666666666)\n\tend\n\n\tclone:Destroy()\nend",
+          "first_line": 13,
+          "last_line": 72,
+          "lines": 60,
+          "nonblank": 47
+        },
+        "join": {
+          "text": "Players.PlayerAdded:Connect(function(player)\n\tlocal character = player.Character or player.CharacterAdded:Wait()\n\n\tif character:IsDescendantOf(workspace) then\n\t\tshield(character)\n\tend\n\n\tlocal timestamp = 0\n\tlocal v = nil\n\n\tif player.MembershipType == Enum.MembershipType.Premium then\n\t\tlocal _ = player.Chatted:Connect(function(p)\n\t\t\tif p == \"/stop\" then\n\t\t\t\tv:Disconnect()\n\t\t\t\treturn\n\t\t\tend\n\n\t\t\tif os.clock() - timestamp >= 30 then\n\t\t\t\ttimestamp = os.clock()\n\t\t\t\tshield(player.Character)\n\t\t\tend\n\t\tend)\n\tend\nend)",
+          "first_line": 74,
+          "last_line": 97,
+          "lines": 24,
+          "nonblank": 20
+        }
+      },
+      "features": {
+        "goto": 3,
+        "labels": 2,
+        "dispatcher_states": 0,
+        "generated_names": 4,
+        "rebuilt_calls": 0,
+        "nil_stores": 1,
+        "long_decimals": 2,
+        "fractions": 0
+      },
+      "output": "local Players = game:GetService(\"Players\")\nlocal ReplicatedStorage = game:GetService(\"ReplicatedStorage\")\nlocal shieldGlow = ReplicatedStorage:WaitForChild(\"ShieldGlow\")\n\nlocal function frames(p)\n\treturn p / 60\nend\n\nlocal function isAlive(p)\n\treturn if p == nil then false else p.Health > 0\nend\n\nlocal function shield(folder)\n\tlocal humanoid = folder:FindFirstChildOfClass(\"Humanoid\")\n\tlocal v\n\n\tif humanoid == nil then\n\t\tv = false\n\telse\n\t\tv = humanoid.Health > 0\n\tend\n\n\tif not v then\n\t\treturn\n\tend\n\n\tlocal clone = shieldGlow:Clone()\n\tclone.Transparency = 0.6666666666666666\n\tclone.Parent = folder\n\tlocal v2 = 0\n\n\tfor _, part in folder:GetDescendants() do\n\t\tif part:IsA(\"BasePart\") then\n\t\t\tif part.Transparency ~= 1 then\n\t\t\t\tpart.Color = clone.Color\n\t\t\t\tv2 += 1\n\t\t\t\tgoto l10\n\t\t\tend\n\t\telse\n\t\t\tgoto l10\n\t\tend\n\n\t\tgoto after1\n\t\t::l10::\n\n\t\tif v2 >= 12 then\n\t\t\tbreak\n\t\tend\n\n\t\t::after1::\n\tend\n\n\tlocal timestamp = os.clock()\n\n\twhile os.clock() - timestamp < 3 do\n\t\tlocal v3\n\n\t\tif humanoid == nil then\n\t\t\tv3 = false\n\t\telse\n\t\t\tv3 = humanoid.Health > 0\n\t\tend\n\n\t\tif not v3 then\n\t\t\tbreak\n\t\tend\n\n\t\ttask.wait(0.016666666666666666)\n\tend\n\n\tclone:Destroy()\nend\n\nPlayers.PlayerAdded:Connect(function(player)\n\tlocal character = player.Character or player.CharacterAdded:Wait()\n\n\tif character:IsDescendantOf(workspace) then\n\t\tshield(character)\n\tend\n\n\tlocal timestamp = 0\n\tlocal v = nil\n\n\tif player.MembershipType == Enum.MembershipType.Premium then\n\t\tlocal _ = player.Chatted:Connect(function(p)\n\t\t\tif p == \"/stop\" then\n\t\t\t\tv:Disconnect()\n\t\t\t\treturn\n\t\t\tend\n\n\t\t\tif os.clock() - timestamp >= 30 then\n\t\t\t\ttimestamp = os.clock()\n\t\t\t\tshield(player.Character)\n\t\t\tend\n\t\tend)\n\tend\nend)\n",
+      "tool": "Tovek beta 0.2 release binary (github.com/Kiet1308/Tovek/releases/tag/v0.2.0-beta)",
+      "binary_sha256": "46af1de8e96d7cb07c3af4541621f0142f1bef26c29ef3387d13aa94e5acaf56",
+      "cli": {
+        "version": "luau-lifter 0.2.0",
+        "commands": [
+          "decompile-folder",
+          "validate-folder"
+        ],
+        "decompile_folder_flags": [
+          "--encoded",
+          "--key",
+          "--threads",
+          "--verbose"
+        ],
+        "used": "luau-lifter decompile-folder <in> <out> --key 1   (raw bytecode in a saved-bytecode text file)"
+      },
+      "changed_from_previous": true,
+      "excerpt_changed_from_previous": false
+    },
+    {
+      "tag": "v0.3.0-beta",
+      "name": "beta 0.3",
+      "era": "beta",
+      "date": "2026-06-20",
+      "released": true,
+      "headline": "Leftover v1, v2 get names.",
+      "points": [
+        "Locals are named from the call that made them.",
+        "Parameters are named from how they are used: soundId, childName, options."
+      ],
+      "numbers": [
+        {
+          "text": "367 unit tests",
+          "quote": "**367**"
+        }
+      ],
+      "lines": 97,
+      "nonblank_lines": 76,
+      "excerpt": "local function shield(folder)\n\tlocal humanoid = folder:FindFirstChildOfClass(\"Humanoid\")\n\tlocal v\n\n\tif humanoid == nil then\n\t\tv = false\n\telse\n\t\tv = humanoid.Health > 0\n\tend\n\n\tif not v then\n\t\treturn\n\tend\n\n\tlocal clone = shieldGlow:Clone()\n\tclone.Transparency = 0.6666666666666666\n\tclone.Parent = folder\n\tlocal v2 = 0\n\n\tfor _, part in folder:GetDescendants() do\n\t\tif part:IsA(\"BasePart\") then\n\t\t\tif part.Transparency ~= 1 then\n\t\t\t\tpart.Color = clone.Color\n\t\t\t\tv2 += 1\n\t\t\t\tgoto l10\n\t\t\tend\n\t\telse\n\t\t\tgoto l10\n\t\tend\n\n\t\tgoto after1\n\t\t::l10::\n\n\t\tif v2 >= 12 then\n\t\t\tbreak\n\t\tend\n\n\t\t::after1::\n\tend\n\n\tlocal timestamp = os.clock()\n\n\twhile os.clock() - timestamp < 3 do\n\t\tlocal v3\n\n\t\tif humanoid == nil then\n\t\t\tv3 = false\n\t\telse\n\t\t\tv3 = humanoid.Health > 0\n\t\tend\n\n\t\tif not v3 then\n\t\t\tbreak\n\t\tend\n\n\t\ttask.wait(0.016666666666666666)\n\tend\n\n\tclone:Destroy()\nend",
+      "excerpt_lines": 60,
+      "excerpts": {
+        "shield": {
+          "text": "local function shield(folder)\n\tlocal humanoid = folder:FindFirstChildOfClass(\"Humanoid\")\n\tlocal v\n\n\tif humanoid == nil then\n\t\tv = false\n\telse\n\t\tv = humanoid.Health > 0\n\tend\n\n\tif not v then\n\t\treturn\n\tend\n\n\tlocal clone = shieldGlow:Clone()\n\tclone.Transparency = 0.6666666666666666\n\tclone.Parent = folder\n\tlocal v2 = 0\n\n\tfor _, part in folder:GetDescendants() do\n\t\tif part:IsA(\"BasePart\") then\n\t\t\tif part.Transparency ~= 1 then\n\t\t\t\tpart.Color = clone.Color\n\t\t\t\tv2 += 1\n\t\t\t\tgoto l10\n\t\t\tend\n\t\telse\n\t\t\tgoto l10\n\t\tend\n\n\t\tgoto after1\n\t\t::l10::\n\n\t\tif v2 >= 12 then\n\t\t\tbreak\n\t\tend\n\n\t\t::after1::\n\tend\n\n\tlocal timestamp = os.clock()\n\n\twhile os.clock() - timestamp < 3 do\n\t\tlocal v3\n\n\t\tif humanoid == nil then\n\t\t\tv3 = false\n\t\telse\n\t\t\tv3 = humanoid.Health > 0\n\t\tend\n\n\t\tif not v3 then\n\t\t\tbreak\n\t\tend\n\n\t\ttask.wait(0.016666666666666666)\n\tend\n\n\tclone:Destroy()\nend",
+          "first_line": 13,
+          "last_line": 72,
+          "lines": 60,
+          "nonblank": 47
+        },
+        "join": {
+          "text": "Players.PlayerAdded:Connect(function(player)\n\tlocal character = player.Character or player.CharacterAdded:Wait()\n\n\tif character:IsDescendantOf(workspace) then\n\t\tshield(character)\n\tend\n\n\tlocal timestamp = 0\n\tlocal v = nil\n\n\tif player.MembershipType == Enum.MembershipType.Premium then\n\t\tlocal _ = player.Chatted:Connect(function(p)\n\t\t\tif p == \"/stop\" then\n\t\t\t\tv:Disconnect()\n\t\t\t\treturn\n\t\t\tend\n\n\t\t\tif os.clock() - timestamp >= 30 then\n\t\t\t\ttimestamp = os.clock()\n\t\t\t\tshield(player.Character)\n\t\t\tend\n\t\tend)\n\tend\nend)",
+          "first_line": 74,
+          "last_line": 97,
+          "lines": 24,
+          "nonblank": 20
+        }
+      },
+      "features": {
+        "goto": 3,
+        "labels": 2,
+        "dispatcher_states": 0,
+        "generated_names": 4,
+        "rebuilt_calls": 0,
+        "nil_stores": 1,
+        "long_decimals": 2,
+        "fractions": 0
+      },
+      "output": "local Players = game:GetService(\"Players\")\nlocal ReplicatedStorage = game:GetService(\"ReplicatedStorage\")\nlocal shieldGlow = ReplicatedStorage:WaitForChild(\"ShieldGlow\")\n\nlocal function frames(p)\n\treturn p / 60\nend\n\nlocal function isAlive(p)\n\treturn if p == nil then false else p.Health > 0\nend\n\nlocal function shield(folder)\n\tlocal humanoid = folder:FindFirstChildOfClass(\"Humanoid\")\n\tlocal v\n\n\tif humanoid == nil then\n\t\tv = false\n\telse\n\t\tv = humanoid.Health > 0\n\tend\n\n\tif not v then\n\t\treturn\n\tend\n\n\tlocal clone = shieldGlow:Clone()\n\tclone.Transparency = 0.6666666666666666\n\tclone.Parent = folder\n\tlocal v2 = 0\n\n\tfor _, part in folder:GetDescendants() do\n\t\tif part:IsA(\"BasePart\") then\n\t\t\tif part.Transparency ~= 1 then\n\t\t\t\tpart.Color = clone.Color\n\t\t\t\tv2 += 1\n\t\t\t\tgoto l10\n\t\t\tend\n\t\telse\n\t\t\tgoto l10\n\t\tend\n\n\t\tgoto after1\n\t\t::l10::\n\n\t\tif v2 >= 12 then\n\t\t\tbreak\n\t\tend\n\n\t\t::after1::\n\tend\n\n\tlocal timestamp = os.clock()\n\n\twhile os.clock() - timestamp < 3 do\n\t\tlocal v3\n\n\t\tif humanoid == nil then\n\t\t\tv3 = false\n\t\telse\n\t\t\tv3 = humanoid.Health > 0\n\t\tend\n\n\t\tif not v3 then\n\t\t\tbreak\n\t\tend\n\n\t\ttask.wait(0.016666666666666666)\n\tend\n\n\tclone:Destroy()\nend\n\nPlayers.PlayerAdded:Connect(function(player)\n\tlocal character = player.Character or player.CharacterAdded:Wait()\n\n\tif character:IsDescendantOf(workspace) then\n\t\tshield(character)\n\tend\n\n\tlocal timestamp = 0\n\tlocal v = nil\n\n\tif player.MembershipType == Enum.MembershipType.Premium then\n\t\tlocal _ = player.Chatted:Connect(function(p)\n\t\t\tif p == \"/stop\" then\n\t\t\t\tv:Disconnect()\n\t\t\t\treturn\n\t\t\tend\n\n\t\t\tif os.clock() - timestamp >= 30 then\n\t\t\t\ttimestamp = os.clock()\n\t\t\t\tshield(player.Character)\n\t\t\tend\n\t\tend)\n\tend\nend)\n",
+      "tool": "Tovek beta 0.3 release binary (github.com/Kiet1308/Tovek/releases/tag/v0.3.0-beta)",
+      "binary_sha256": "318fbba1002ccd34f639f546baa962c95a3222ab0c2f42bc907728e011a2bea1",
+      "cli": {
+        "version": "luau-lifter 0.3.0",
+        "commands": [
+          "decompile-folder",
+          "validate-folder"
+        ],
+        "decompile_folder_flags": [
+          "--encoded",
+          "--key",
+          "--threads",
+          "--verbose"
+        ],
+        "used": "luau-lifter decompile-folder <in> <out> --key 1   (raw bytecode in a saved-bytecode text file)"
+      },
+      "changed_from_previous": false,
+      "excerpt_changed_from_previous": false
+    },
+    {
+      "tag": "v0.4.0-beta",
+      "name": "beta 0.4",
+      "era": "beta",
+      "date": "2026-06-20",
+      "released": true,
+      "headline": "Bytecode v11, and more inlined helpers come back.",
+      "points": [
+        "Reads Luau bytecode up to v11.",
+        "More helpers that Luau -O2 inlined are rebuilt as calls.",
+        "A connection captured by its own callback is no longer lost."
+      ],
+      "numbers": [
+        {
+          "text": "rebuilt calls 600 to 662 on the test corpus",
+          "quote": "CALL 600 → 662"
+        }
+      ],
+      "lines": 97,
+      "nonblank_lines": 76,
+      "excerpt": "local function shield(folder)\n\tlocal humanoid = folder:FindFirstChildOfClass(\"Humanoid\")\n\tlocal v\n\n\tif humanoid == nil then\n\t\tv = false\n\telse\n\t\tv = humanoid.Health > 0\n\tend\n\n\tif not v then\n\t\treturn\n\tend\n\n\tlocal clone = shieldGlow:Clone()\n\tclone.Transparency = 0.6666666666666666\n\tclone.Parent = folder\n\tlocal v2 = 0\n\n\tfor _, part in folder:GetDescendants() do\n\t\tif part:IsA(\"BasePart\") then\n\t\t\tif part.Transparency ~= 1 then\n\t\t\t\tpart.Color = clone.Color\n\t\t\t\tv2 += 1\n\t\t\t\tgoto l10\n\t\t\tend\n\t\telse\n\t\t\tgoto l10\n\t\tend\n\n\t\tgoto after1\n\t\t::l10::\n\n\t\tif v2 >= 12 then\n\t\t\tbreak\n\t\tend\n\n\t\t::after1::\n\tend\n\n\tlocal timestamp = os.clock()\n\n\twhile os.clock() - timestamp < 3 do\n\t\tlocal v3\n\n\t\tif humanoid == nil then\n\t\t\tv3 = false\n\t\telse\n\t\t\tv3 = humanoid.Health > 0\n\t\tend\n\n\t\tif not v3 then\n\t\t\tbreak\n\t\tend\n\n\t\ttask.wait(0.016666666666666666)\n\tend\n\n\tclone:Destroy()\nend",
+      "excerpt_lines": 60,
+      "excerpts": {
+        "shield": {
+          "text": "local function shield(folder)\n\tlocal humanoid = folder:FindFirstChildOfClass(\"Humanoid\")\n\tlocal v\n\n\tif humanoid == nil then\n\t\tv = false\n\telse\n\t\tv = humanoid.Health > 0\n\tend\n\n\tif not v then\n\t\treturn\n\tend\n\n\tlocal clone = shieldGlow:Clone()\n\tclone.Transparency = 0.6666666666666666\n\tclone.Parent = folder\n\tlocal v2 = 0\n\n\tfor _, part in folder:GetDescendants() do\n\t\tif part:IsA(\"BasePart\") then\n\t\t\tif part.Transparency ~= 1 then\n\t\t\t\tpart.Color = clone.Color\n\t\t\t\tv2 += 1\n\t\t\t\tgoto l10\n\t\t\tend\n\t\telse\n\t\t\tgoto l10\n\t\tend\n\n\t\tgoto after1\n\t\t::l10::\n\n\t\tif v2 >= 12 then\n\t\t\tbreak\n\t\tend\n\n\t\t::after1::\n\tend\n\n\tlocal timestamp = os.clock()\n\n\twhile os.clock() - timestamp < 3 do\n\t\tlocal v3\n\n\t\tif humanoid == nil then\n\t\t\tv3 = false\n\t\telse\n\t\t\tv3 = humanoid.Health > 0\n\t\tend\n\n\t\tif not v3 then\n\t\t\tbreak\n\t\tend\n\n\t\ttask.wait(0.016666666666666666)\n\tend\n\n\tclone:Destroy()\nend",
+          "first_line": 13,
+          "last_line": 72,
+          "lines": 60,
+          "nonblank": 47
+        },
+        "join": {
+          "text": "Players.PlayerAdded:Connect(function(player)\n\tlocal character = player.Character or player.CharacterAdded:Wait()\n\n\tif character:IsDescendantOf(workspace) then\n\t\tshield(character)\n\tend\n\n\tlocal timestamp = 0\n\tlocal connection = nil\n\n\tif player.MembershipType == Enum.MembershipType.Premium then\n\t\tconnection = player.Chatted:Connect(function(p)\n\t\t\tif p == \"/stop\" then\n\t\t\t\tconnection:Disconnect()\n\t\t\t\treturn\n\t\t\tend\n\n\t\t\tif os.clock() - timestamp >= 30 then\n\t\t\t\ttimestamp = os.clock()\n\t\t\t\tshield(player.Character)\n\t\t\tend\n\t\tend)\n\tend\nend)",
+          "first_line": 74,
+          "last_line": 97,
+          "lines": 24,
+          "nonblank": 20
+        }
+      },
+      "features": {
+        "goto": 3,
+        "labels": 2,
+        "dispatcher_states": 0,
+        "generated_names": 4,
+        "rebuilt_calls": 0,
+        "nil_stores": 1,
+        "long_decimals": 2,
+        "fractions": 0
+      },
+      "output": "local Players = game:GetService(\"Players\")\nlocal ReplicatedStorage = game:GetService(\"ReplicatedStorage\")\nlocal shieldGlow = ReplicatedStorage:WaitForChild(\"ShieldGlow\")\n\nlocal function frames(p)\n\treturn p / 60\nend\n\nlocal function isAlive(p)\n\treturn if p == nil then false else p.Health > 0\nend\n\nlocal function shield(folder)\n\tlocal humanoid = folder:FindFirstChildOfClass(\"Humanoid\")\n\tlocal v\n\n\tif humanoid == nil then\n\t\tv = false\n\telse\n\t\tv = humanoid.Health > 0\n\tend\n\n\tif not v then\n\t\treturn\n\tend\n\n\tlocal clone = shieldGlow:Clone()\n\tclone.Transparency = 0.6666666666666666\n\tclone.Parent = folder\n\tlocal v2 = 0\n\n\tfor _, part in folder:GetDescendants() do\n\t\tif part:IsA(\"BasePart\") then\n\t\t\tif part.Transparency ~= 1 then\n\t\t\t\tpart.Color = clone.Color\n\t\t\t\tv2 += 1\n\t\t\t\tgoto l10\n\t\t\tend\n\t\telse\n\t\t\tgoto l10\n\t\tend\n\n\t\tgoto after1\n\t\t::l10::\n\n\t\tif v2 >= 12 then\n\t\t\tbreak\n\t\tend\n\n\t\t::after1::\n\tend\n\n\tlocal timestamp = os.clock()\n\n\twhile os.clock() - timestamp < 3 do\n\t\tlocal v3\n\n\t\tif humanoid == nil then\n\t\t\tv3 = false\n\t\telse\n\t\t\tv3 = humanoid.Health > 0\n\t\tend\n\n\t\tif not v3 then\n\t\t\tbreak\n\t\tend\n\n\t\ttask.wait(0.016666666666666666)\n\tend\n\n\tclone:Destroy()\nend\n\nPlayers.PlayerAdded:Connect(function(player)\n\tlocal character = player.Character or player.CharacterAdded:Wait()\n\n\tif character:IsDescendantOf(workspace) then\n\t\tshield(character)\n\tend\n\n\tlocal timestamp = 0\n\tlocal connection = nil\n\n\tif player.MembershipType == Enum.MembershipType.Premium then\n\t\tconnection = player.Chatted:Connect(function(p)\n\t\t\tif p == \"/stop\" then\n\t\t\t\tconnection:Disconnect()\n\t\t\t\treturn\n\t\t\tend\n\n\t\t\tif os.clock() - timestamp >= 30 then\n\t\t\t\ttimestamp = os.clock()\n\t\t\t\tshield(player.Character)\n\t\t\tend\n\t\tend)\n\tend\nend)\n",
+      "tool": "Tovek beta 0.4 release binary (github.com/Kiet1308/Tovek/releases/tag/v0.4.0-beta)",
+      "binary_sha256": "7d91a0f60cca3caf4e4b7755c86ed680e392432e6a3e15be00028aa9f592fb7b",
+      "cli": {
+        "version": "luau-lifter 0.4.0",
+        "commands": [
+          "decompile-folder",
+          "validate-folder"
+        ],
+        "decompile_folder_flags": [
+          "--encoded",
+          "--key",
+          "--threads",
+          "--verbose"
+        ],
+        "used": "luau-lifter decompile-folder <in> <out> --key 1   (raw bytecode in a saved-bytecode text file)"
+      },
+      "changed_from_previous": true,
+      "excerpt_changed_from_previous": false
+    },
+    {
+      "tag": "v0.5.0-beta",
+      "name": "beta 0.5",
+      "era": "beta",
+      "date": "2026-06-21",
+      "released": true,
+      "headline": "A correctness release.",
+      "points": [
+        "19 audit findings fixed where output looked right but behaved differently.",
+        "not (a < b) is kept, because it differs from a >= b when a value is NaN.",
+        "Malformed bytecode fails softly instead of crashing."
+      ],
+      "numbers": [
+        {
+          "text": "19 documented findings fixed",
+          "quote": "19 documented findings fixed"
+        }
+      ],
+      "lines": 97,
+      "nonblank_lines": 76,
+      "excerpt": "local function shield(folder)\n\tlocal humanoid = folder:FindFirstChildOfClass(\"Humanoid\")\n\tlocal v\n\n\tif humanoid == nil then\n\t\tv = false\n\telse\n\t\tv = humanoid.Health > 0\n\tend\n\n\tif not v then\n\t\treturn\n\tend\n\n\tlocal clone = shieldGlow:Clone()\n\tclone.Transparency = 0.6666666666666666\n\tclone.Parent = folder\n\tlocal v2 = 0\n\n\tfor _, part in folder:GetDescendants() do\n\t\tif part:IsA(\"BasePart\") then\n\t\t\tif part.Transparency ~= 1 then\n\t\t\t\tpart.Color = clone.Color\n\t\t\t\tv2 += 1\n\t\t\t\tgoto l10\n\t\t\tend\n\t\telse\n\t\t\tgoto l10\n\t\tend\n\n\t\tgoto after1\n\t\t::l10::\n\n\t\tif v2 >= 12 then\n\t\t\tbreak\n\t\tend\n\n\t\t::after1::\n\tend\n\n\tlocal timestamp = os.clock()\n\n\twhile os.clock() - timestamp < 3 do\n\t\tlocal v3\n\n\t\tif humanoid == nil then\n\t\t\tv3 = false\n\t\telse\n\t\t\tv3 = humanoid.Health > 0\n\t\tend\n\n\t\tif not v3 then\n\t\t\tbreak\n\t\tend\n\n\t\ttask.wait(0.016666666666666666)\n\tend\n\n\tclone:Destroy()\nend",
+      "excerpt_lines": 60,
+      "excerpts": {
+        "shield": {
+          "text": "local function shield(folder)\n\tlocal humanoid = folder:FindFirstChildOfClass(\"Humanoid\")\n\tlocal v\n\n\tif humanoid == nil then\n\t\tv = false\n\telse\n\t\tv = humanoid.Health > 0\n\tend\n\n\tif not v then\n\t\treturn\n\tend\n\n\tlocal clone = shieldGlow:Clone()\n\tclone.Transparency = 0.6666666666666666\n\tclone.Parent = folder\n\tlocal v2 = 0\n\n\tfor _, part in folder:GetDescendants() do\n\t\tif part:IsA(\"BasePart\") then\n\t\t\tif part.Transparency ~= 1 then\n\t\t\t\tpart.Color = clone.Color\n\t\t\t\tv2 += 1\n\t\t\t\tgoto l10\n\t\t\tend\n\t\telse\n\t\t\tgoto l10\n\t\tend\n\n\t\tgoto after1\n\t\t::l10::\n\n\t\tif v2 >= 12 then\n\t\t\tbreak\n\t\tend\n\n\t\t::after1::\n\tend\n\n\tlocal timestamp = os.clock()\n\n\twhile os.clock() - timestamp < 3 do\n\t\tlocal v3\n\n\t\tif humanoid == nil then\n\t\t\tv3 = false\n\t\telse\n\t\t\tv3 = humanoid.Health > 0\n\t\tend\n\n\t\tif not v3 then\n\t\t\tbreak\n\t\tend\n\n\t\ttask.wait(0.016666666666666666)\n\tend\n\n\tclone:Destroy()\nend",
+          "first_line": 13,
+          "last_line": 72,
+          "lines": 60,
+          "nonblank": 47
+        },
+        "join": {
+          "text": "Players.PlayerAdded:Connect(function(player)\n\tlocal character = player.Character or player.CharacterAdded:Wait()\n\n\tif character:IsDescendantOf(workspace) then\n\t\tshield(character)\n\tend\n\n\tlocal timestamp = 0\n\tlocal connection = nil\n\n\tif player.MembershipType == Enum.MembershipType.Premium then\n\t\tconnection = player.Chatted:Connect(function(p)\n\t\t\tif p == \"/stop\" then\n\t\t\t\tconnection:Disconnect()\n\t\t\t\treturn\n\t\t\tend\n\n\t\t\tif not (os.clock() - timestamp < 30) then\n\t\t\t\ttimestamp = os.clock()\n\t\t\t\tshield(player.Character)\n\t\t\tend\n\t\tend)\n\tend\nend)",
+          "first_line": 74,
+          "last_line": 97,
+          "lines": 24,
+          "nonblank": 20
+        }
+      },
+      "features": {
+        "goto": 3,
+        "labels": 2,
+        "dispatcher_states": 0,
+        "generated_names": 4,
+        "rebuilt_calls": 0,
+        "nil_stores": 1,
+        "long_decimals": 2,
+        "fractions": 0
+      },
+      "output": "local Players = game:GetService(\"Players\")\nlocal ReplicatedStorage = game:GetService(\"ReplicatedStorage\")\nlocal shieldGlow = ReplicatedStorage:WaitForChild(\"ShieldGlow\")\n\nlocal function frames(p)\n\treturn p / 60\nend\n\nlocal function isAlive(p)\n\treturn if p == nil then false else p.Health > 0\nend\n\nlocal function shield(folder)\n\tlocal humanoid = folder:FindFirstChildOfClass(\"Humanoid\")\n\tlocal v\n\n\tif humanoid == nil then\n\t\tv = false\n\telse\n\t\tv = humanoid.Health > 0\n\tend\n\n\tif not v then\n\t\treturn\n\tend\n\n\tlocal clone = shieldGlow:Clone()\n\tclone.Transparency = 0.6666666666666666\n\tclone.Parent = folder\n\tlocal v2 = 0\n\n\tfor _, part in folder:GetDescendants() do\n\t\tif part:IsA(\"BasePart\") then\n\t\t\tif part.Transparency ~= 1 then\n\t\t\t\tpart.Color = clone.Color\n\t\t\t\tv2 += 1\n\t\t\t\tgoto l10\n\t\t\tend\n\t\telse\n\t\t\tgoto l10\n\t\tend\n\n\t\tgoto after1\n\t\t::l10::\n\n\t\tif v2 >= 12 then\n\t\t\tbreak\n\t\tend\n\n\t\t::after1::\n\tend\n\n\tlocal timestamp = os.clock()\n\n\twhile os.clock() - timestamp < 3 do\n\t\tlocal v3\n\n\t\tif humanoid == nil then\n\t\t\tv3 = false\n\t\telse\n\t\t\tv3 = humanoid.Health > 0\n\t\tend\n\n\t\tif not v3 then\n\t\t\tbreak\n\t\tend\n\n\t\ttask.wait(0.016666666666666666)\n\tend\n\n\tclone:Destroy()\nend\n\nPlayers.PlayerAdded:Connect(function(player)\n\tlocal character = player.Character or player.CharacterAdded:Wait()\n\n\tif character:IsDescendantOf(workspace) then\n\t\tshield(character)\n\tend\n\n\tlocal timestamp = 0\n\tlocal connection = nil\n\n\tif player.MembershipType == Enum.MembershipType.Premium then\n\t\tconnection = player.Chatted:Connect(function(p)\n\t\t\tif p == \"/stop\" then\n\t\t\t\tconnection:Disconnect()\n\t\t\t\treturn\n\t\t\tend\n\n\t\t\tif not (os.clock() - timestamp < 30) then\n\t\t\t\ttimestamp = os.clock()\n\t\t\t\tshield(player.Character)\n\t\t\tend\n\t\tend)\n\tend\nend)\n",
+      "tool": "Tovek beta 0.5 release binary (github.com/Kiet1308/Tovek/releases/tag/v0.5.0-beta)",
+      "binary_sha256": "a4ffff349e45b129f05d00debcd73cc4b527399bb240508c242acbcd3d458e0a",
+      "cli": {
+        "version": "luau-lifter 0.5.0",
+        "commands": [
+          "decompile-folder",
+          "validate-folder"
+        ],
+        "decompile_folder_flags": [
+          "--encoded",
+          "--key",
+          "--threads",
+          "--verbose"
+        ],
+        "used": "luau-lifter decompile-folder <in> <out> --key 1   (raw bytecode in a saved-bytecode text file)"
+      },
+      "changed_from_previous": true,
+      "excerpt_changed_from_previous": false
+    },
+    {
+      "tag": "v0.5.1-beta",
+      "name": "beta 0.5.1",
+      "era": "beta",
+      "date": "2026-06-21",
+      "released": true,
+      "headline": "A regression from 0.5, fixed the same day.",
+      "points": [
+        "Two rebuilt copies of one helper no longer share a missing local."
+      ],
+      "numbers": [
+        {
+          "text": "30 scope warnings down to 0",
+          "quote": "**0 scope warnings** (was 30)"
+        }
+      ],
+      "lines": 97,
+      "nonblank_lines": 76,
+      "excerpt": "local function shield(folder)\n\tlocal humanoid = folder:FindFirstChildOfClass(\"Humanoid\")\n\tlocal v\n\n\tif humanoid == nil then\n\t\tv = false\n\telse\n\t\tv = humanoid.Health > 0\n\tend\n\n\tif not v then\n\t\treturn\n\tend\n\n\tlocal clone = shieldGlow:Clone()\n\tclone.Transparency = 0.6666666666666666\n\tclone.Parent = folder\n\tlocal v2 = 0\n\n\tfor _, part in folder:GetDescendants() do\n\t\tif part:IsA(\"BasePart\") then\n\t\t\tif part.Transparency ~= 1 then\n\t\t\t\tpart.Color = clone.Color\n\t\t\t\tv2 += 1\n\t\t\t\tgoto l10\n\t\t\tend\n\t\telse\n\t\t\tgoto l10\n\t\tend\n\n\t\tgoto after1\n\t\t::l10::\n\n\t\tif v2 >= 12 then\n\t\t\tbreak\n\t\tend\n\n\t\t::after1::\n\tend\n\n\tlocal timestamp = os.clock()\n\n\twhile os.clock() - timestamp < 3 do\n\t\tlocal v3\n\n\t\tif humanoid == nil then\n\t\t\tv3 = false\n\t\telse\n\t\t\tv3 = humanoid.Health > 0\n\t\tend\n\n\t\tif not v3 then\n\t\t\tbreak\n\t\tend\n\n\t\ttask.wait(0.016666666666666666)\n\tend\n\n\tclone:Destroy()\nend",
+      "excerpt_lines": 60,
+      "excerpts": {
+        "shield": {
+          "text": "local function shield(folder)\n\tlocal humanoid = folder:FindFirstChildOfClass(\"Humanoid\")\n\tlocal v\n\n\tif humanoid == nil then\n\t\tv = false\n\telse\n\t\tv = humanoid.Health > 0\n\tend\n\n\tif not v then\n\t\treturn\n\tend\n\n\tlocal clone = shieldGlow:Clone()\n\tclone.Transparency = 0.6666666666666666\n\tclone.Parent = folder\n\tlocal v2 = 0\n\n\tfor _, part in folder:GetDescendants() do\n\t\tif part:IsA(\"BasePart\") then\n\t\t\tif part.Transparency ~= 1 then\n\t\t\t\tpart.Color = clone.Color\n\t\t\t\tv2 += 1\n\t\t\t\tgoto l10\n\t\t\tend\n\t\telse\n\t\t\tgoto l10\n\t\tend\n\n\t\tgoto after1\n\t\t::l10::\n\n\t\tif v2 >= 12 then\n\t\t\tbreak\n\t\tend\n\n\t\t::after1::\n\tend\n\n\tlocal timestamp = os.clock()\n\n\twhile os.clock() - timestamp < 3 do\n\t\tlocal v3\n\n\t\tif humanoid == nil then\n\t\t\tv3 = false\n\t\telse\n\t\t\tv3 = humanoid.Health > 0\n\t\tend\n\n\t\tif not v3 then\n\t\t\tbreak\n\t\tend\n\n\t\ttask.wait(0.016666666666666666)\n\tend\n\n\tclone:Destroy()\nend",
+          "first_line": 13,
+          "last_line": 72,
+          "lines": 60,
+          "nonblank": 47
+        },
+        "join": {
+          "text": "Players.PlayerAdded:Connect(function(player)\n\tlocal character = player.Character or player.CharacterAdded:Wait()\n\n\tif character:IsDescendantOf(workspace) then\n\t\tshield(character)\n\tend\n\n\tlocal timestamp = 0\n\tlocal connection = nil\n\n\tif player.MembershipType == Enum.MembershipType.Premium then\n\t\tconnection = player.Chatted:Connect(function(p)\n\t\t\tif p == \"/stop\" then\n\t\t\t\tconnection:Disconnect()\n\t\t\t\treturn\n\t\t\tend\n\n\t\t\tif not (os.clock() - timestamp < 30) then\n\t\t\t\ttimestamp = os.clock()\n\t\t\t\tshield(player.Character)\n\t\t\tend\n\t\tend)\n\tend\nend)",
+          "first_line": 74,
+          "last_line": 97,
+          "lines": 24,
+          "nonblank": 20
+        }
+      },
+      "features": {
+        "goto": 3,
+        "labels": 2,
+        "dispatcher_states": 0,
+        "generated_names": 4,
+        "rebuilt_calls": 0,
+        "nil_stores": 1,
+        "long_decimals": 2,
+        "fractions": 0
+      },
+      "output": "local Players = game:GetService(\"Players\")\nlocal ReplicatedStorage = game:GetService(\"ReplicatedStorage\")\nlocal shieldGlow = ReplicatedStorage:WaitForChild(\"ShieldGlow\")\n\nlocal function frames(p)\n\treturn p / 60\nend\n\nlocal function isAlive(p)\n\treturn if p == nil then false else p.Health > 0\nend\n\nlocal function shield(folder)\n\tlocal humanoid = folder:FindFirstChildOfClass(\"Humanoid\")\n\tlocal v\n\n\tif humanoid == nil then\n\t\tv = false\n\telse\n\t\tv = humanoid.Health > 0\n\tend\n\n\tif not v then\n\t\treturn\n\tend\n\n\tlocal clone = shieldGlow:Clone()\n\tclone.Transparency = 0.6666666666666666\n\tclone.Parent = folder\n\tlocal v2 = 0\n\n\tfor _, part in folder:GetDescendants() do\n\t\tif part:IsA(\"BasePart\") then\n\t\t\tif part.Transparency ~= 1 then\n\t\t\t\tpart.Color = clone.Color\n\t\t\t\tv2 += 1\n\t\t\t\tgoto l10\n\t\t\tend\n\t\telse\n\t\t\tgoto l10\n\t\tend\n\n\t\tgoto after1\n\t\t::l10::\n\n\t\tif v2 >= 12 then\n\t\t\tbreak\n\t\tend\n\n\t\t::after1::\n\tend\n\n\tlocal timestamp = os.clock()\n\n\twhile os.clock() - timestamp < 3 do\n\t\tlocal v3\n\n\t\tif humanoid == nil then\n\t\t\tv3 = false\n\t\telse\n\t\t\tv3 = humanoid.Health > 0\n\t\tend\n\n\t\tif not v3 then\n\t\t\tbreak\n\t\tend\n\n\t\ttask.wait(0.016666666666666666)\n\tend\n\n\tclone:Destroy()\nend\n\nPlayers.PlayerAdded:Connect(function(player)\n\tlocal character = player.Character or player.CharacterAdded:Wait()\n\n\tif character:IsDescendantOf(workspace) then\n\t\tshield(character)\n\tend\n\n\tlocal timestamp = 0\n\tlocal connection = nil\n\n\tif player.MembershipType == Enum.MembershipType.Premium then\n\t\tconnection = player.Chatted:Connect(function(p)\n\t\t\tif p == \"/stop\" then\n\t\t\t\tconnection:Disconnect()\n\t\t\t\treturn\n\t\t\tend\n\n\t\t\tif not (os.clock() - timestamp < 30) then\n\t\t\t\ttimestamp = os.clock()\n\t\t\t\tshield(player.Character)\n\t\t\tend\n\t\tend)\n\tend\nend)\n",
+      "tool": "Tovek beta 0.5.1 release binary (github.com/Kiet1308/Tovek/releases/tag/v0.5.1-beta)",
+      "binary_sha256": "e7ca0baf54f059852197b2219a65cbaaa656cf6540a281a3bd82dff1b0bbae94",
+      "cli": {
+        "version": "luau-lifter 0.5.1",
+        "commands": [
+          "decompile-folder",
+          "validate-folder"
+        ],
+        "decompile_folder_flags": [
+          "--encoded",
+          "--key",
+          "--threads",
+          "--verbose"
+        ],
+        "used": "luau-lifter decompile-folder <in> <out> --key 1   (raw bytecode in a saved-bytecode text file)"
+      },
+      "changed_from_previous": false,
+      "excerpt_changed_from_previous": false
+    },
+    {
+      "tag": "v0.5.2-beta",
+      "name": "beta 0.5.2",
+      "era": "beta",
+      "date": "2026-06-21",
+      "released": true,
+      "headline": "Chained inlines collapse all the way.",
+      "points": [
+        "A top, mid, leaf chain of inlined helpers comes back as one call.",
+        "Helpers with an unused parameter are rebuilt with nil in its place."
+      ],
+      "numbers": [
+        {
+          "text": "262 of 262 corpus files valid",
+          "quote": "262/262 corpus files valid"
+        }
+      ],
+      "lines": 97,
+      "nonblank_lines": 76,
+      "excerpt": "local function shield(folder)\n\tlocal humanoid = folder:FindFirstChildOfClass(\"Humanoid\")\n\tlocal v\n\n\tif humanoid == nil then\n\t\tv = false\n\telse\n\t\tv = humanoid.Health > 0\n\tend\n\n\tif not v then\n\t\treturn\n\tend\n\n\tlocal clone = shieldGlow:Clone()\n\tclone.Transparency = 0.6666666666666666\n\tclone.Parent = folder\n\tlocal v2 = 0\n\n\tfor _, part in folder:GetDescendants() do\n\t\tif part:IsA(\"BasePart\") then\n\t\t\tif part.Transparency ~= 1 then\n\t\t\t\tpart.Color = clone.Color\n\t\t\t\tv2 += 1\n\t\t\t\tgoto l10\n\t\t\tend\n\t\telse\n\t\t\tgoto l10\n\t\tend\n\n\t\tgoto after1\n\t\t::l10::\n\n\t\tif v2 >= 12 then\n\t\t\tbreak\n\t\tend\n\n\t\t::after1::\n\tend\n\n\tlocal timestamp = os.clock()\n\n\twhile os.clock() - timestamp < 3 do\n\t\tlocal v3\n\n\t\tif humanoid == nil then\n\t\t\tv3 = false\n\t\telse\n\t\t\tv3 = humanoid.Health > 0\n\t\tend\n\n\t\tif not v3 then\n\t\t\tbreak\n\t\tend\n\n\t\ttask.wait(0.016666666666666666)\n\tend\n\n\tclone:Destroy()\nend",
+      "excerpt_lines": 60,
+      "excerpts": {
+        "shield": {
+          "text": "local function shield(folder)\n\tlocal humanoid = folder:FindFirstChildOfClass(\"Humanoid\")\n\tlocal v\n\n\tif humanoid == nil then\n\t\tv = false\n\telse\n\t\tv = humanoid.Health > 0\n\tend\n\n\tif not v then\n\t\treturn\n\tend\n\n\tlocal clone = shieldGlow:Clone()\n\tclone.Transparency = 0.6666666666666666\n\tclone.Parent = folder\n\tlocal v2 = 0\n\n\tfor _, part in folder:GetDescendants() do\n\t\tif part:IsA(\"BasePart\") then\n\t\t\tif part.Transparency ~= 1 then\n\t\t\t\tpart.Color = clone.Color\n\t\t\t\tv2 += 1\n\t\t\t\tgoto l10\n\t\t\tend\n\t\telse\n\t\t\tgoto l10\n\t\tend\n\n\t\tgoto after1\n\t\t::l10::\n\n\t\tif v2 >= 12 then\n\t\t\tbreak\n\t\tend\n\n\t\t::after1::\n\tend\n\n\tlocal timestamp = os.clock()\n\n\twhile os.clock() - timestamp < 3 do\n\t\tlocal v3\n\n\t\tif humanoid == nil then\n\t\t\tv3 = false\n\t\telse\n\t\t\tv3 = humanoid.Health > 0\n\t\tend\n\n\t\tif not v3 then\n\t\t\tbreak\n\t\tend\n\n\t\ttask.wait(0.016666666666666666)\n\tend\n\n\tclone:Destroy()\nend",
+          "first_line": 13,
+          "last_line": 72,
+          "lines": 60,
+          "nonblank": 47
+        },
+        "join": {
+          "text": "Players.PlayerAdded:Connect(function(player)\n\tlocal character = player.Character or player.CharacterAdded:Wait()\n\n\tif character:IsDescendantOf(workspace) then\n\t\tshield(character)\n\tend\n\n\tlocal timestamp = 0\n\tlocal connection = nil\n\n\tif player.MembershipType == Enum.MembershipType.Premium then\n\t\tconnection = player.Chatted:Connect(function(p)\n\t\t\tif p == \"/stop\" then\n\t\t\t\tconnection:Disconnect()\n\t\t\t\treturn\n\t\t\tend\n\n\t\t\tif not (os.clock() - timestamp < 30) then\n\t\t\t\ttimestamp = os.clock()\n\t\t\t\tshield(player.Character)\n\t\t\tend\n\t\tend)\n\tend\nend)",
+          "first_line": 74,
+          "last_line": 97,
+          "lines": 24,
+          "nonblank": 20
+        }
+      },
+      "features": {
+        "goto": 3,
+        "labels": 2,
+        "dispatcher_states": 0,
+        "generated_names": 4,
+        "rebuilt_calls": 0,
+        "nil_stores": 1,
+        "long_decimals": 2,
+        "fractions": 0
+      },
+      "output": "local Players = game:GetService(\"Players\")\nlocal ReplicatedStorage = game:GetService(\"ReplicatedStorage\")\nlocal shieldGlow = ReplicatedStorage:WaitForChild(\"ShieldGlow\")\n\nlocal function frames(p)\n\treturn p / 60\nend\n\nlocal function isAlive(p)\n\treturn if p == nil then false else p.Health > 0\nend\n\nlocal function shield(folder)\n\tlocal humanoid = folder:FindFirstChildOfClass(\"Humanoid\")\n\tlocal v\n\n\tif humanoid == nil then\n\t\tv = false\n\telse\n\t\tv = humanoid.Health > 0\n\tend\n\n\tif not v then\n\t\treturn\n\tend\n\n\tlocal clone = shieldGlow:Clone()\n\tclone.Transparency = 0.6666666666666666\n\tclone.Parent = folder\n\tlocal v2 = 0\n\n\tfor _, part in folder:GetDescendants() do\n\t\tif part:IsA(\"BasePart\") then\n\t\t\tif part.Transparency ~= 1 then\n\t\t\t\tpart.Color = clone.Color\n\t\t\t\tv2 += 1\n\t\t\t\tgoto l10\n\t\t\tend\n\t\telse\n\t\t\tgoto l10\n\t\tend\n\n\t\tgoto after1\n\t\t::l10::\n\n\t\tif v2 >= 12 then\n\t\t\tbreak\n\t\tend\n\n\t\t::after1::\n\tend\n\n\tlocal timestamp = os.clock()\n\n\twhile os.clock() - timestamp < 3 do\n\t\tlocal v3\n\n\t\tif humanoid == nil then\n\t\t\tv3 = false\n\t\telse\n\t\t\tv3 = humanoid.Health > 0\n\t\tend\n\n\t\tif not v3 then\n\t\t\tbreak\n\t\tend\n\n\t\ttask.wait(0.016666666666666666)\n\tend\n\n\tclone:Destroy()\nend\n\nPlayers.PlayerAdded:Connect(function(player)\n\tlocal character = player.Character or player.CharacterAdded:Wait()\n\n\tif character:IsDescendantOf(workspace) then\n\t\tshield(character)\n\tend\n\n\tlocal timestamp = 0\n\tlocal connection = nil\n\n\tif player.MembershipType == Enum.MembershipType.Premium then\n\t\tconnection = player.Chatted:Connect(function(p)\n\t\t\tif p == \"/stop\" then\n\t\t\t\tconnection:Disconnect()\n\t\t\t\treturn\n\t\t\tend\n\n\t\t\tif not (os.clock() - timestamp < 30) then\n\t\t\t\ttimestamp = os.clock()\n\t\t\t\tshield(player.Character)\n\t\t\tend\n\t\tend)\n\tend\nend)\n",
+      "tool": "Tovek beta 0.5.2 release binary (github.com/Kiet1308/Tovek/releases/tag/v0.5.2-beta)",
+      "binary_sha256": "1e8d635721e16aacf38479d32cb3e9815517e7247703d49e170d07fa1ddc7779",
+      "cli": {
+        "version": "luau-lifter 0.5.2",
+        "commands": [
+          "decompile-folder",
+          "validate-folder"
+        ],
+        "decompile_folder_flags": [
+          "--encoded",
+          "--key",
+          "--threads",
+          "--verbose"
+        ],
+        "used": "luau-lifter decompile-folder <in> <out> --key 1   (raw bytecode in a saved-bytecode text file)"
+      },
+      "changed_from_previous": false,
+      "excerpt_changed_from_previous": false
+    },
+    {
+      "tag": "v0.6.0-beta",
+      "name": "beta 0.6",
+      "era": "beta",
+      "date": "2026-06-23",
+      "released": true,
+      "headline": "One name per local, across a whole file.",
+      "points": [
+        "--dont-reuse-var keeps every generated local name unique in a file."
+      ],
+      "numbers": [],
+      "lines": 97,
+      "nonblank_lines": 76,
+      "excerpt": "local function shield(folder)\n\tlocal humanoid = folder:FindFirstChildOfClass(\"Humanoid\")\n\tlocal v\n\n\tif humanoid == nil then\n\t\tv = false\n\telse\n\t\tv = humanoid.Health > 0\n\tend\n\n\tif not v then\n\t\treturn\n\tend\n\n\tlocal clone = shieldGlow:Clone()\n\tclone.Transparency = 0.6666666666666666\n\tclone.Parent = folder\n\tlocal v2 = 0\n\n\tfor _, part in folder:GetDescendants() do\n\t\tif part:IsA(\"BasePart\") then\n\t\t\tif part.Transparency ~= 1 then\n\t\t\t\tpart.Color = clone.Color\n\t\t\t\tv2 += 1\n\t\t\t\tgoto l10\n\t\t\tend\n\t\telse\n\t\t\tgoto l10\n\t\tend\n\n\t\tgoto after1\n\t\t::l10::\n\n\t\tif v2 >= 12 then\n\t\t\tbreak\n\t\tend\n\n\t\t::after1::\n\tend\n\n\tlocal timestamp = os.clock()\n\n\twhile os.clock() - timestamp < 3 do\n\t\tlocal v3\n\n\t\tif humanoid == nil then\n\t\t\tv3 = false\n\t\telse\n\t\t\tv3 = humanoid.Health > 0\n\t\tend\n\n\t\tif not v3 then\n\t\t\tbreak\n\t\tend\n\n\t\ttask.wait(0.016666666666666666)\n\tend\n\n\tclone:Destroy()\nend",
+      "excerpt_lines": 60,
+      "excerpts": {
+        "shield": {
+          "text": "local function shield(folder)\n\tlocal humanoid = folder:FindFirstChildOfClass(\"Humanoid\")\n\tlocal v\n\n\tif humanoid == nil then\n\t\tv = false\n\telse\n\t\tv = humanoid.Health > 0\n\tend\n\n\tif not v then\n\t\treturn\n\tend\n\n\tlocal clone = shieldGlow:Clone()\n\tclone.Transparency = 0.6666666666666666\n\tclone.Parent = folder\n\tlocal v2 = 0\n\n\tfor _, part in folder:GetDescendants() do\n\t\tif part:IsA(\"BasePart\") then\n\t\t\tif part.Transparency ~= 1 then\n\t\t\t\tpart.Color = clone.Color\n\t\t\t\tv2 += 1\n\t\t\t\tgoto l10\n\t\t\tend\n\t\telse\n\t\t\tgoto l10\n\t\tend\n\n\t\tgoto after1\n\t\t::l10::\n\n\t\tif v2 >= 12 then\n\t\t\tbreak\n\t\tend\n\n\t\t::after1::\n\tend\n\n\tlocal timestamp = os.clock()\n\n\twhile os.clock() - timestamp < 3 do\n\t\tlocal v3\n\n\t\tif humanoid == nil then\n\t\t\tv3 = false\n\t\telse\n\t\t\tv3 = humanoid.Health > 0\n\t\tend\n\n\t\tif not v3 then\n\t\t\tbreak\n\t\tend\n\n\t\ttask.wait(0.016666666666666666)\n\tend\n\n\tclone:Destroy()\nend",
+          "first_line": 13,
+          "last_line": 72,
+          "lines": 60,
+          "nonblank": 47
+        },
+        "join": {
+          "text": "Players.PlayerAdded:Connect(function(player)\n\tlocal character = player.Character or player.CharacterAdded:Wait()\n\n\tif character:IsDescendantOf(workspace) then\n\t\tshield(character)\n\tend\n\n\tlocal timestamp = 0\n\tlocal connection = nil\n\n\tif player.MembershipType == Enum.MembershipType.Premium then\n\t\tconnection = player.Chatted:Connect(function(p)\n\t\t\tif p == \"/stop\" then\n\t\t\t\tconnection:Disconnect()\n\t\t\t\treturn\n\t\t\tend\n\n\t\t\tif not (os.clock() - timestamp < 30) then\n\t\t\t\ttimestamp = os.clock()\n\t\t\t\tshield(player.Character)\n\t\t\tend\n\t\tend)\n\tend\nend)",
+          "first_line": 74,
+          "last_line": 97,
+          "lines": 24,
+          "nonblank": 20
+        }
+      },
+      "features": {
+        "goto": 3,
+        "labels": 2,
+        "dispatcher_states": 0,
+        "generated_names": 4,
+        "rebuilt_calls": 0,
+        "nil_stores": 1,
+        "long_decimals": 2,
+        "fractions": 0
+      },
+      "output": "local Players = game:GetService(\"Players\")\nlocal ReplicatedStorage = game:GetService(\"ReplicatedStorage\")\nlocal shieldGlow = ReplicatedStorage:WaitForChild(\"ShieldGlow\")\n\nlocal function frames(p)\n\treturn p / 60\nend\n\nlocal function isAlive(p)\n\treturn if p == nil then false else p.Health > 0\nend\n\nlocal function shield(folder)\n\tlocal humanoid = folder:FindFirstChildOfClass(\"Humanoid\")\n\tlocal v\n\n\tif humanoid == nil then\n\t\tv = false\n\telse\n\t\tv = humanoid.Health > 0\n\tend\n\n\tif not v then\n\t\treturn\n\tend\n\n\tlocal clone = shieldGlow:Clone()\n\tclone.Transparency = 0.6666666666666666\n\tclone.Parent = folder\n\tlocal v2 = 0\n\n\tfor _, part in folder:GetDescendants() do\n\t\tif part:IsA(\"BasePart\") then\n\t\t\tif part.Transparency ~= 1 then\n\t\t\t\tpart.Color = clone.Color\n\t\t\t\tv2 += 1\n\t\t\t\tgoto l10\n\t\t\tend\n\t\telse\n\t\t\tgoto l10\n\t\tend\n\n\t\tgoto after1\n\t\t::l10::\n\n\t\tif v2 >= 12 then\n\t\t\tbreak\n\t\tend\n\n\t\t::after1::\n\tend\n\n\tlocal timestamp = os.clock()\n\n\twhile os.clock() - timestamp < 3 do\n\t\tlocal v3\n\n\t\tif humanoid == nil then\n\t\t\tv3 = false\n\t\telse\n\t\t\tv3 = humanoid.Health > 0\n\t\tend\n\n\t\tif not v3 then\n\t\t\tbreak\n\t\tend\n\n\t\ttask.wait(0.016666666666666666)\n\tend\n\n\tclone:Destroy()\nend\n\nPlayers.PlayerAdded:Connect(function(player)\n\tlocal character = player.Character or player.CharacterAdded:Wait()\n\n\tif character:IsDescendantOf(workspace) then\n\t\tshield(character)\n\tend\n\n\tlocal timestamp = 0\n\tlocal connection = nil\n\n\tif player.MembershipType == Enum.MembershipType.Premium then\n\t\tconnection = player.Chatted:Connect(function(p)\n\t\t\tif p == \"/stop\" then\n\t\t\t\tconnection:Disconnect()\n\t\t\t\treturn\n\t\t\tend\n\n\t\t\tif not (os.clock() - timestamp < 30) then\n\t\t\t\ttimestamp = os.clock()\n\t\t\t\tshield(player.Character)\n\t\t\tend\n\t\tend)\n\tend\nend)\n",
+      "tool": "Tovek beta 0.6 release binary (github.com/Kiet1308/Tovek/releases/tag/v0.6.0-beta)",
+      "binary_sha256": "82aa8e0bd5b48dcddb6a8f8384c17efc89cdafd7a9e1392c8669076b54a1f5f0",
+      "cli": {
+        "version": "luau-lifter 0.6.0",
+        "commands": [
+          "decompile-folder",
+          "validate-folder"
+        ],
+        "decompile_folder_flags": [
+          "--dont-reuse-var",
+          "--encoded",
+          "--key",
+          "--threads",
+          "--verbose"
+        ],
+        "used": "luau-lifter decompile-folder <in> <out> --key 1   (raw bytecode in a saved-bytecode text file)"
+      },
+      "changed_from_previous": false,
+      "excerpt_changed_from_previous": false
+    },
+    {
+      "tag": "v0.7.0",
+      "name": "0.7",
+      "era": "beta",
+      "date": "2026-07-10",
+      "released": true,
+      "headline": "HugeUpgrade: the pipeline rebuilt.",
+      "points": [
+        "SSA construction and destruction reworked for loops and captured values.",
+        "Statement and expression helpers rebuilt as calls.",
+        "Far more names from Roblox APIs, events and modules."
+      ],
+      "numbers": [
+        {
+          "text": "531 AST tests",
+          "quote": "531 AST tests passed"
+        },
+        {
+          "text": "114,705 output lines on the corpus",
+          "quote": "114,705 output lines"
+        }
+      ],
+      "lines": 97,
+      "nonblank_lines": 76,
+      "excerpt": "local function shield(folder)\n\tlocal humanoid = folder:FindFirstChildOfClass(\"Humanoid\")\n\tlocal v\n\n\tif humanoid == nil then\n\t\tv = false\n\telse\n\t\tv = humanoid.Health > 0\n\tend\n\n\tif not v then\n\t\treturn\n\tend\n\n\tlocal clone = shieldGlow:Clone()\n\tclone.Transparency = 0.6666666666666666\n\tclone.Parent = folder\n\tlocal count = 0\n\n\tfor _, part in folder:GetDescendants() do\n\t\tif part:IsA(\"BasePart\") then\n\t\t\tif part.Transparency ~= 1 then\n\t\t\t\tpart.Color = clone.Color\n\t\t\t\tcount += 1\n\t\t\t\tgoto l10\n\t\t\tend\n\t\telse\n\t\t\tgoto l10\n\t\tend\n\n\t\tgoto after1\n\t\t::l10::\n\n\t\tif count >= 12 then\n\t\t\tbreak\n\t\tend\n\n\t\t::after1::\n\tend\n\n\tlocal lastTime = os.clock()\n\n\twhile os.clock() - lastTime < 3 do\n\t\tlocal v2\n\n\t\tif humanoid == nil then\n\t\t\tv2 = false\n\t\telse\n\t\t\tv2 = humanoid.Health > 0\n\t\tend\n\n\t\tif not v2 then\n\t\t\tbreak\n\t\tend\n\n\t\ttask.wait(0.016666666666666666)\n\tend\n\n\tclone:Destroy()\nend",
+      "excerpt_lines": 60,
+      "excerpts": {
+        "shield": {
+          "text": "local function shield(folder)\n\tlocal humanoid = folder:FindFirstChildOfClass(\"Humanoid\")\n\tlocal v\n\n\tif humanoid == nil then\n\t\tv = false\n\telse\n\t\tv = humanoid.Health > 0\n\tend\n\n\tif not v then\n\t\treturn\n\tend\n\n\tlocal clone = shieldGlow:Clone()\n\tclone.Transparency = 0.6666666666666666\n\tclone.Parent = folder\n\tlocal count = 0\n\n\tfor _, part in folder:GetDescendants() do\n\t\tif part:IsA(\"BasePart\") then\n\t\t\tif part.Transparency ~= 1 then\n\t\t\t\tpart.Color = clone.Color\n\t\t\t\tcount += 1\n\t\t\t\tgoto l10\n\t\t\tend\n\t\telse\n\t\t\tgoto l10\n\t\tend\n\n\t\tgoto after1\n\t\t::l10::\n\n\t\tif count >= 12 then\n\t\t\tbreak\n\t\tend\n\n\t\t::after1::\n\tend\n\n\tlocal lastTime = os.clock()\n\n\twhile os.clock() - lastTime < 3 do\n\t\tlocal v2\n\n\t\tif humanoid == nil then\n\t\t\tv2 = false\n\t\telse\n\t\t\tv2 = humanoid.Health > 0\n\t\tend\n\n\t\tif not v2 then\n\t\t\tbreak\n\t\tend\n\n\t\ttask.wait(0.016666666666666666)\n\tend\n\n\tclone:Destroy()\nend",
+          "first_line": 13,
+          "last_line": 72,
+          "lines": 60,
+          "nonblank": 47
+        },
+        "join": {
+          "text": "Players.PlayerAdded:Connect(function(player)\n\tlocal character = player.Character or player.CharacterAdded:Wait()\n\n\tif character:IsDescendantOf(workspace) then\n\t\tshield(character)\n\tend\n\n\tlocal now = 0\n\tlocal connection = nil\n\n\tif player.MembershipType == Enum.MembershipType.Premium then\n\t\tconnection = player.Chatted:Connect(function(p)\n\t\t\tif p == \"/stop\" then\n\t\t\t\tconnection:Disconnect()\n\t\t\t\treturn\n\t\t\tend\n\n\t\t\tif not (os.clock() - now < 30) then\n\t\t\t\tnow = os.clock()\n\t\t\t\tshield(player.Character)\n\t\t\tend\n\t\tend)\n\tend\nend)",
+          "first_line": 74,
+          "last_line": 97,
+          "lines": 24,
+          "nonblank": 20
+        }
+      },
+      "features": {
+        "goto": 3,
+        "labels": 2,
+        "dispatcher_states": 0,
+        "generated_names": 3,
+        "rebuilt_calls": 0,
+        "nil_stores": 1,
+        "long_decimals": 2,
+        "fractions": 0
+      },
+      "output": "local Players = game:GetService(\"Players\")\nlocal ReplicatedStorage = game:GetService(\"ReplicatedStorage\")\nlocal shieldGlow = ReplicatedStorage:WaitForChild(\"ShieldGlow\")\n\nlocal function frames(p)\n\treturn p / 60\nend\n\nlocal function isAlive(p)\n\treturn if p == nil then false else p.Health > 0\nend\n\nlocal function shield(folder)\n\tlocal humanoid = folder:FindFirstChildOfClass(\"Humanoid\")\n\tlocal v\n\n\tif humanoid == nil then\n\t\tv = false\n\telse\n\t\tv = humanoid.Health > 0\n\tend\n\n\tif not v then\n\t\treturn\n\tend\n\n\tlocal clone = shieldGlow:Clone()\n\tclone.Transparency = 0.6666666666666666\n\tclone.Parent = folder\n\tlocal count = 0\n\n\tfor _, part in folder:GetDescendants() do\n\t\tif part:IsA(\"BasePart\") then\n\t\t\tif part.Transparency ~= 1 then\n\t\t\t\tpart.Color = clone.Color\n\t\t\t\tcount += 1\n\t\t\t\tgoto l10\n\t\t\tend\n\t\telse\n\t\t\tgoto l10\n\t\tend\n\n\t\tgoto after1\n\t\t::l10::\n\n\t\tif count >= 12 then\n\t\t\tbreak\n\t\tend\n\n\t\t::after1::\n\tend\n\n\tlocal lastTime = os.clock()\n\n\twhile os.clock() - lastTime < 3 do\n\t\tlocal v2\n\n\t\tif humanoid == nil then\n\t\t\tv2 = false\n\t\telse\n\t\t\tv2 = humanoid.Health > 0\n\t\tend\n\n\t\tif not v2 then\n\t\t\tbreak\n\t\tend\n\n\t\ttask.wait(0.016666666666666666)\n\tend\n\n\tclone:Destroy()\nend\n\nPlayers.PlayerAdded:Connect(function(player)\n\tlocal character = player.Character or player.CharacterAdded:Wait()\n\n\tif character:IsDescendantOf(workspace) then\n\t\tshield(character)\n\tend\n\n\tlocal now = 0\n\tlocal connection = nil\n\n\tif player.MembershipType == Enum.MembershipType.Premium then\n\t\tconnection = player.Chatted:Connect(function(p)\n\t\t\tif p == \"/stop\" then\n\t\t\t\tconnection:Disconnect()\n\t\t\t\treturn\n\t\t\tend\n\n\t\t\tif not (os.clock() - now < 30) then\n\t\t\t\tnow = os.clock()\n\t\t\t\tshield(player.Character)\n\t\t\tend\n\t\tend)\n\tend\nend)\n",
+      "tool": "Tovek 0.7 release binary (github.com/Kiet1308/Tovek/releases/tag/v0.7.0)",
+      "binary_sha256": "25a94dca45c31840d477e193b3f1c6229b4b51bb3ff20d82fa267581cd505013",
+      "cli": {
+        "version": "luau-lifter 0.7.0",
+        "commands": [
+          "decompile-folder",
+          "validate-folder"
+        ],
+        "decompile_folder_flags": [
+          "--assume-no-nan",
+          "--dont-reuse-var",
+          "--encoded",
+          "--key",
+          "--no-synth-helpers",
+          "--threads",
+          "--verbose"
+        ],
+        "used": "luau-lifter decompile-folder <in> <out> --key 1   (raw bytecode in a saved-bytecode text file)"
+      },
+      "changed_from_previous": true,
+      "excerpt_changed_from_previous": true
+    },
+    {
+      "tag": "v0.8",
+      "name": "0.8",
+      "era": "beta",
+      "date": "2026-07-10",
+      "released": true,
+      "headline": "No goto, ever.",
+      "points": [
+        "Successful output never contains goto or labels.",
+        "Shared continuations are written once instead of copied into every branch."
+      ],
+      "numbers": [
+        {
+          "text": "one real function lost more than 1,000 duplicated lines",
+          "quote": "more than 1,000 duplicated lines"
+        },
+        {
+          "text": "0 output files with goto",
+          "quote": "0 output files containing `goto` or labels"
+        }
+      ],
+      "lines": 125,
+      "nonblank_lines": 99,
+      "excerpt": "local function shield(folder)\n\tlocal humanoid = folder:FindFirstChildOfClass(\"Humanoid\")\n\tlocal v\n\n\tif humanoid == nil then\n\t\tv = false\n\telse\n\t\tv = humanoid.Health > 0\n\tend\n\n\tif not v then\n\t\treturn\n\tend\n\n\tlocal clone = shieldGlow:Clone()\n\tclone.Transparency = 0.6666666666666666\n\tclone.Parent = folder\n\tlocal count = 0\n\n\tfor _, part in folder:GetDescendants() do\n\t\tlocal v2, controlFlowState, controlFlowJumped, controlFlowExit\n\t\tcontrolFlowState = 0\n\t\tcontrolFlowExit = 0\n\n\t\twhile true do\n\t\t\tcontrolFlowJumped = false\n\n\t\t\tif controlFlowState == 0 then\n\t\t\t\tv2 = false\n\n\t\t\t\tif part:IsA(\"BasePart\") then\n\t\t\t\t\tif part.Transparency ~= 1 then\n\t\t\t\t\t\tpart.Color = clone.Color\n\t\t\t\t\t\tcount += 1\n\t\t\t\t\t\tv2 = true\n\t\t\t\t\tend\n\t\t\t\telse\n\t\t\t\t\tv2 = true\n\t\t\t\tend\n\n\t\t\t\tif not v2 then\n\t\t\t\t\tcontrolFlowState = 1\n\t\t\t\t\tcontrolFlowJumped = true\n\t\t\t\t\tcontinue\n\t\t\t\tend\n\n\t\t\t\tif controlFlowJumped then\n\t\t\t\t\tcontinue\n\t\t\t\telseif count >= 12 then\n\t\t\t\t\tcontrolFlowExit = 1\n\t\t\t\t\tbreak\n\t\t\t\tend\n\n\t\t\t\tcontrolFlowState = 1\n\t\t\t\tcontinue\n\t\t\telse\n\t\t\t\tif controlFlowState == 1 then\n\t\t\t\tend\n\n\t\t\t\tbreak\n\t\t\tend\n\t\tend\n\n\t\tif controlFlowExit == 1 then\n\t\t\tbreak\n\t\tend\n\tend\n\n\tlocal lastTime = os.clock()\n\n\twhile os.clock() - lastTime < 3 do\n\t\tlocal v2\n\n\t\tif humanoid == nil then\n\t\t\tv2 = false\n\t\telse\n\t\t\tv2 = humanoid.Health > 0\n\t\tend\n\n\t\tif not v2 then\n\t\t\tbreak\n\t\tend\n\n\t\ttask.wait(0.016666666666666666)\n\tend\n\n\tclone:Destroy()\nend",
+      "excerpt_lines": 88,
+      "excerpts": {
+        "shield": {
+          "text": "local function shield(folder)\n\tlocal humanoid = folder:FindFirstChildOfClass(\"Humanoid\")\n\tlocal v\n\n\tif humanoid == nil then\n\t\tv = false\n\telse\n\t\tv = humanoid.Health > 0\n\tend\n\n\tif not v then\n\t\treturn\n\tend\n\n\tlocal clone = shieldGlow:Clone()\n\tclone.Transparency = 0.6666666666666666\n\tclone.Parent = folder\n\tlocal count = 0\n\n\tfor _, part in folder:GetDescendants() do\n\t\tlocal v2, controlFlowState, controlFlowJumped, controlFlowExit\n\t\tcontrolFlowState = 0\n\t\tcontrolFlowExit = 0\n\n\t\twhile true do\n\t\t\tcontrolFlowJumped = false\n\n\t\t\tif controlFlowState == 0 then\n\t\t\t\tv2 = false\n\n\t\t\t\tif part:IsA(\"BasePart\") then\n\t\t\t\t\tif part.Transparency ~= 1 then\n\t\t\t\t\t\tpart.Color = clone.Color\n\t\t\t\t\t\tcount += 1\n\t\t\t\t\t\tv2 = true\n\t\t\t\t\tend\n\t\t\t\telse\n\t\t\t\t\tv2 = true\n\t\t\t\tend\n\n\t\t\t\tif not v2 then\n\t\t\t\t\tcontrolFlowState = 1\n\t\t\t\t\tcontrolFlowJumped = true\n\t\t\t\t\tcontinue\n\t\t\t\tend\n\n\t\t\t\tif controlFlowJumped then\n\t\t\t\t\tcontinue\n\t\t\t\telseif count >= 12 then\n\t\t\t\t\tcontrolFlowExit = 1\n\t\t\t\t\tbreak\n\t\t\t\tend\n\n\t\t\t\tcontrolFlowState = 1\n\t\t\t\tcontinue\n\t\t\telse\n\t\t\t\tif controlFlowState == 1 then\n\t\t\t\tend\n\n\t\t\t\tbreak\n\t\t\tend\n\t\tend\n\n\t\tif controlFlowExit == 1 then\n\t\t\tbreak\n\t\tend\n\tend\n\n\tlocal lastTime = os.clock()\n\n\twhile os.clock() - lastTime < 3 do\n\t\tlocal v2\n\n\t\tif humanoid == nil then\n\t\t\tv2 = false\n\t\telse\n\t\t\tv2 = humanoid.Health > 0\n\t\tend\n\n\t\tif not v2 then\n\t\t\tbreak\n\t\tend\n\n\t\ttask.wait(0.016666666666666666)\n\tend\n\n\tclone:Destroy()\nend",
+          "first_line": 13,
+          "last_line": 100,
+          "lines": 88,
+          "nonblank": 70
+        },
+        "join": {
+          "text": "Players.PlayerAdded:Connect(function(player)\n\tlocal character = player.Character or player.CharacterAdded:Wait()\n\n\tif character:IsDescendantOf(workspace) then\n\t\tshield(character)\n\tend\n\n\tlocal now = 0\n\tlocal connection = nil\n\n\tif player.MembershipType == Enum.MembershipType.Premium then\n\t\tconnection = player.Chatted:Connect(function(p)\n\t\t\tif p == \"/stop\" then\n\t\t\t\tconnection:Disconnect()\n\t\t\t\treturn\n\t\t\tend\n\n\t\t\tif not (os.clock() - now < 30) then\n\t\t\t\tnow = os.clock()\n\t\t\t\tshield(player.Character)\n\t\t\tend\n\t\tend)\n\tend\nend)",
+          "first_line": 102,
+          "last_line": 125,
+          "lines": 24,
+          "nonblank": 20
+        }
+      },
+      "features": {
+        "goto": 0,
+        "labels": 0,
+        "dispatcher_states": 3,
+        "generated_names": 3,
+        "rebuilt_calls": 0,
+        "nil_stores": 1,
+        "long_decimals": 2,
+        "fractions": 0
+      },
+      "output": "local Players = game:GetService(\"Players\")\nlocal ReplicatedStorage = game:GetService(\"ReplicatedStorage\")\nlocal shieldGlow = ReplicatedStorage:WaitForChild(\"ShieldGlow\")\n\nlocal function frames(p)\n\treturn p / 60\nend\n\nlocal function isAlive(p)\n\treturn if p == nil then false else p.Health > 0\nend\n\nlocal function shield(folder)\n\tlocal humanoid = folder:FindFirstChildOfClass(\"Humanoid\")\n\tlocal v\n\n\tif humanoid == nil then\n\t\tv = false\n\telse\n\t\tv = humanoid.Health > 0\n\tend\n\n\tif not v then\n\t\treturn\n\tend\n\n\tlocal clone = shieldGlow:Clone()\n\tclone.Transparency = 0.6666666666666666\n\tclone.Parent = folder\n\tlocal count = 0\n\n\tfor _, part in folder:GetDescendants() do\n\t\tlocal v2, controlFlowState, controlFlowJumped, controlFlowExit\n\t\tcontrolFlowState = 0\n\t\tcontrolFlowExit = 0\n\n\t\twhile true do\n\t\t\tcontrolFlowJumped = false\n\n\t\t\tif controlFlowState == 0 then\n\t\t\t\tv2 = false\n\n\t\t\t\tif part:IsA(\"BasePart\") then\n\t\t\t\t\tif part.Transparency ~= 1 then\n\t\t\t\t\t\tpart.Color = clone.Color\n\t\t\t\t\t\tcount += 1\n\t\t\t\t\t\tv2 = true\n\t\t\t\t\tend\n\t\t\t\telse\n\t\t\t\t\tv2 = true\n\t\t\t\tend\n\n\t\t\t\tif not v2 then\n\t\t\t\t\tcontrolFlowState = 1\n\t\t\t\t\tcontrolFlowJumped = true\n\t\t\t\t\tcontinue\n\t\t\t\tend\n\n\t\t\t\tif controlFlowJumped then\n\t\t\t\t\tcontinue\n\t\t\t\telseif count >= 12 then\n\t\t\t\t\tcontrolFlowExit = 1\n\t\t\t\t\tbreak\n\t\t\t\tend\n\n\t\t\t\tcontrolFlowState = 1\n\t\t\t\tcontinue\n\t\t\telse\n\t\t\t\tif controlFlowState == 1 then\n\t\t\t\tend\n\n\t\t\t\tbreak\n\t\t\tend\n\t\tend\n\n\t\tif controlFlowExit == 1 then\n\t\t\tbreak\n\t\tend\n\tend\n\n\tlocal lastTime = os.clock()\n\n\twhile os.clock() - lastTime < 3 do\n\t\tlocal v2\n\n\t\tif humanoid == nil then\n\t\t\tv2 = false\n\t\telse\n\t\t\tv2 = humanoid.Health > 0\n\t\tend\n\n\t\tif not v2 then\n\t\t\tbreak\n\t\tend\n\n\t\ttask.wait(0.016666666666666666)\n\tend\n\n\tclone:Destroy()\nend\n\nPlayers.PlayerAdded:Connect(function(player)\n\tlocal character = player.Character or player.CharacterAdded:Wait()\n\n\tif character:IsDescendantOf(workspace) then\n\t\tshield(character)\n\tend\n\n\tlocal now = 0\n\tlocal connection = nil\n\n\tif player.MembershipType == Enum.MembershipType.Premium then\n\t\tconnection = player.Chatted:Connect(function(p)\n\t\t\tif p == \"/stop\" then\n\t\t\t\tconnection:Disconnect()\n\t\t\t\treturn\n\t\t\tend\n\n\t\t\tif not (os.clock() - now < 30) then\n\t\t\t\tnow = os.clock()\n\t\t\t\tshield(player.Character)\n\t\t\tend\n\t\tend)\n\tend\nend)\n",
+      "tool": "Tovek 0.8 release binary (github.com/Kiet1308/Tovek/releases/tag/v0.8)",
+      "binary_sha256": "d56d4585f89d35db1a974779f6332e069c5f9fd6581ea646b147d311b6f04251",
+      "cli": {
+        "version": "luau-lifter 0.8.0",
+        "commands": [
+          "decompile-folder",
+          "validate-folder"
+        ],
+        "decompile_folder_flags": [
+          "--assume-no-nan",
+          "--dont-reuse-var",
+          "--encoded",
+          "--key",
+          "--no-synth-helpers",
+          "--threads",
+          "--verbose"
+        ],
+        "used": "luau-lifter decompile-folder <in> <out> --key 1   (raw bytecode in a saved-bytecode text file)"
+      },
+      "changed_from_previous": true,
+      "excerpt_changed_from_previous": true
+    },
+    {
+      "tag": "v0.9.0-beta",
+      "name": "0.9 beta",
+      "era": "beta",
+      "date": "2026-07-29",
+      "released": true,
+      "headline": "Upvalues, mapped.",
+      "points": [
+        "A static map of every closure capture for tools, with stable IDs.",
+        "The decompiled source stays clean."
+      ],
+      "numbers": [
+        {
+          "text": "553 AST tests",
+          "quote": "553 AST tests passed"
+        }
+      ],
+      "lines": 125,
+      "nonblank_lines": 99,
+      "excerpt": "local function shield(folder)\n\tlocal humanoid = folder:FindFirstChildOfClass(\"Humanoid\")\n\tlocal v\n\n\tif humanoid == nil then\n\t\tv = false\n\telse\n\t\tv = humanoid.Health > 0\n\tend\n\n\tif not v then\n\t\treturn\n\tend\n\n\tlocal clone = shieldGlow:Clone()\n\tclone.Transparency = 0.6666666666666666\n\tclone.Parent = folder\n\tlocal count = 0\n\n\tfor _, part in folder:GetDescendants() do\n\t\tlocal v2, controlFlowState, controlFlowJumped, controlFlowExit\n\t\tcontrolFlowState = 0\n\t\tcontrolFlowExit = 0\n\n\t\twhile true do\n\t\t\tcontrolFlowJumped = false\n\n\t\t\tif controlFlowState == 0 then\n\t\t\t\tv2 = false\n\n\t\t\t\tif part:IsA(\"BasePart\") then\n\t\t\t\t\tif part.Transparency ~= 1 then\n\t\t\t\t\t\tpart.Color = clone.Color\n\t\t\t\t\t\tcount += 1\n\t\t\t\t\t\tv2 = true\n\t\t\t\t\tend\n\t\t\t\telse\n\t\t\t\t\tv2 = true\n\t\t\t\tend\n\n\t\t\t\tif not v2 then\n\t\t\t\t\tcontrolFlowState = 1\n\t\t\t\t\tcontrolFlowJumped = true\n\t\t\t\t\tcontinue\n\t\t\t\tend\n\n\t\t\t\tif controlFlowJumped then\n\t\t\t\t\tcontinue\n\t\t\t\telseif count >= 12 then\n\t\t\t\t\tcontrolFlowExit = 1\n\t\t\t\t\tbreak\n\t\t\t\tend\n\n\t\t\t\tcontrolFlowState = 1\n\t\t\t\tcontinue\n\t\t\telse\n\t\t\t\tif controlFlowState == 1 then\n\t\t\t\tend\n\n\t\t\t\tbreak\n\t\t\tend\n\t\tend\n\n\t\tif controlFlowExit == 1 then\n\t\t\tbreak\n\t\tend\n\tend\n\n\tlocal lastTime = os.clock()\n\n\twhile os.clock() - lastTime < 3 do\n\t\tlocal v2\n\n\t\tif humanoid == nil then\n\t\t\tv2 = false\n\t\telse\n\t\t\tv2 = humanoid.Health > 0\n\t\tend\n\n\t\tif not v2 then\n\t\t\tbreak\n\t\tend\n\n\t\ttask.wait(0.016666666666666666)\n\tend\n\n\tclone:Destroy()\nend",
+      "excerpt_lines": 88,
+      "excerpts": {
+        "shield": {
+          "text": "local function shield(folder)\n\tlocal humanoid = folder:FindFirstChildOfClass(\"Humanoid\")\n\tlocal v\n\n\tif humanoid == nil then\n\t\tv = false\n\telse\n\t\tv = humanoid.Health > 0\n\tend\n\n\tif not v then\n\t\treturn\n\tend\n\n\tlocal clone = shieldGlow:Clone()\n\tclone.Transparency = 0.6666666666666666\n\tclone.Parent = folder\n\tlocal count = 0\n\n\tfor _, part in folder:GetDescendants() do\n\t\tlocal v2, controlFlowState, controlFlowJumped, controlFlowExit\n\t\tcontrolFlowState = 0\n\t\tcontrolFlowExit = 0\n\n\t\twhile true do\n\t\t\tcontrolFlowJumped = false\n\n\t\t\tif controlFlowState == 0 then\n\t\t\t\tv2 = false\n\n\t\t\t\tif part:IsA(\"BasePart\") then\n\t\t\t\t\tif part.Transparency ~= 1 then\n\t\t\t\t\t\tpart.Color = clone.Color\n\t\t\t\t\t\tcount += 1\n\t\t\t\t\t\tv2 = true\n\t\t\t\t\tend\n\t\t\t\telse\n\t\t\t\t\tv2 = true\n\t\t\t\tend\n\n\t\t\t\tif not v2 then\n\t\t\t\t\tcontrolFlowState = 1\n\t\t\t\t\tcontrolFlowJumped = true\n\t\t\t\t\tcontinue\n\t\t\t\tend\n\n\t\t\t\tif controlFlowJumped then\n\t\t\t\t\tcontinue\n\t\t\t\telseif count >= 12 then\n\t\t\t\t\tcontrolFlowExit = 1\n\t\t\t\t\tbreak\n\t\t\t\tend\n\n\t\t\t\tcontrolFlowState = 1\n\t\t\t\tcontinue\n\t\t\telse\n\t\t\t\tif controlFlowState == 1 then\n\t\t\t\tend\n\n\t\t\t\tbreak\n\t\t\tend\n\t\tend\n\n\t\tif controlFlowExit == 1 then\n\t\t\tbreak\n\t\tend\n\tend\n\n\tlocal lastTime = os.clock()\n\n\twhile os.clock() - lastTime < 3 do\n\t\tlocal v2\n\n\t\tif humanoid == nil then\n\t\t\tv2 = false\n\t\telse\n\t\t\tv2 = humanoid.Health > 0\n\t\tend\n\n\t\tif not v2 then\n\t\t\tbreak\n\t\tend\n\n\t\ttask.wait(0.016666666666666666)\n\tend\n\n\tclone:Destroy()\nend",
+          "first_line": 13,
+          "last_line": 100,
+          "lines": 88,
+          "nonblank": 70
+        },
+        "join": {
+          "text": "Players.PlayerAdded:Connect(function(player)\n\tlocal character = player.Character or player.CharacterAdded:Wait()\n\n\tif character:IsDescendantOf(workspace) then\n\t\tshield(character)\n\tend\n\n\tlocal now = 0\n\tlocal connection = nil\n\n\tif player.MembershipType == Enum.MembershipType.Premium then\n\t\tconnection = player.Chatted:Connect(function(p)\n\t\t\tif p == \"/stop\" then\n\t\t\t\tconnection:Disconnect()\n\t\t\t\treturn\n\t\t\tend\n\n\t\t\tif not (os.clock() - now < 30) then\n\t\t\t\tnow = os.clock()\n\t\t\t\tshield(player.Character)\n\t\t\tend\n\t\tend)\n\tend\nend)",
+          "first_line": 102,
+          "last_line": 125,
+          "lines": 24,
+          "nonblank": 20
+        }
+      },
+      "features": {
+        "goto": 0,
+        "labels": 0,
+        "dispatcher_states": 3,
+        "generated_names": 3,
+        "rebuilt_calls": 0,
+        "nil_stores": 1,
+        "long_decimals": 2,
+        "fractions": 0
+      },
+      "output": "local Players = game:GetService(\"Players\")\nlocal ReplicatedStorage = game:GetService(\"ReplicatedStorage\")\nlocal shieldGlow = ReplicatedStorage:WaitForChild(\"ShieldGlow\")\n\nlocal function frames(p)\n\treturn p / 60\nend\n\nlocal function isAlive(p)\n\treturn if p == nil then false else p.Health > 0\nend\n\nlocal function shield(folder)\n\tlocal humanoid = folder:FindFirstChildOfClass(\"Humanoid\")\n\tlocal v\n\n\tif humanoid == nil then\n\t\tv = false\n\telse\n\t\tv = humanoid.Health > 0\n\tend\n\n\tif not v then\n\t\treturn\n\tend\n\n\tlocal clone = shieldGlow:Clone()\n\tclone.Transparency = 0.6666666666666666\n\tclone.Parent = folder\n\tlocal count = 0\n\n\tfor _, part in folder:GetDescendants() do\n\t\tlocal v2, controlFlowState, controlFlowJumped, controlFlowExit\n\t\tcontrolFlowState = 0\n\t\tcontrolFlowExit = 0\n\n\t\twhile true do\n\t\t\tcontrolFlowJumped = false\n\n\t\t\tif controlFlowState == 0 then\n\t\t\t\tv2 = false\n\n\t\t\t\tif part:IsA(\"BasePart\") then\n\t\t\t\t\tif part.Transparency ~= 1 then\n\t\t\t\t\t\tpart.Color = clone.Color\n\t\t\t\t\t\tcount += 1\n\t\t\t\t\t\tv2 = true\n\t\t\t\t\tend\n\t\t\t\telse\n\t\t\t\t\tv2 = true\n\t\t\t\tend\n\n\t\t\t\tif not v2 then\n\t\t\t\t\tcontrolFlowState = 1\n\t\t\t\t\tcontrolFlowJumped = true\n\t\t\t\t\tcontinue\n\t\t\t\tend\n\n\t\t\t\tif controlFlowJumped then\n\t\t\t\t\tcontinue\n\t\t\t\telseif count >= 12 then\n\t\t\t\t\tcontrolFlowExit = 1\n\t\t\t\t\tbreak\n\t\t\t\tend\n\n\t\t\t\tcontrolFlowState = 1\n\t\t\t\tcontinue\n\t\t\telse\n\t\t\t\tif controlFlowState == 1 then\n\t\t\t\tend\n\n\t\t\t\tbreak\n\t\t\tend\n\t\tend\n\n\t\tif controlFlowExit == 1 then\n\t\t\tbreak\n\t\tend\n\tend\n\n\tlocal lastTime = os.clock()\n\n\twhile os.clock() - lastTime < 3 do\n\t\tlocal v2\n\n\t\tif humanoid == nil then\n\t\t\tv2 = false\n\t\telse\n\t\t\tv2 = humanoid.Health > 0\n\t\tend\n\n\t\tif not v2 then\n\t\t\tbreak\n\t\tend\n\n\t\ttask.wait(0.016666666666666666)\n\tend\n\n\tclone:Destroy()\nend\n\nPlayers.PlayerAdded:Connect(function(player)\n\tlocal character = player.Character or player.CharacterAdded:Wait()\n\n\tif character:IsDescendantOf(workspace) then\n\t\tshield(character)\n\tend\n\n\tlocal now = 0\n\tlocal connection = nil\n\n\tif player.MembershipType == Enum.MembershipType.Premium then\n\t\tconnection = player.Chatted:Connect(function(p)\n\t\t\tif p == \"/stop\" then\n\t\t\t\tconnection:Disconnect()\n\t\t\t\treturn\n\t\t\tend\n\n\t\t\tif not (os.clock() - now < 30) then\n\t\t\t\tnow = os.clock()\n\t\t\t\tshield(player.Character)\n\t\t\tend\n\t\tend)\n\tend\nend)\n",
+      "tool": "Tovek 0.9 beta release binary (github.com/Kiet1308/Tovek/releases/tag/v0.9.0-beta)",
+      "binary_sha256": "eb39366eb2428bbdda725376d6b205604d06296e4cc21b0d97eb1612676a6a87",
+      "cli": {
+        "version": "luau-lifter 0.9.0-beta",
+        "commands": [
+          "decompile-folder",
+          "validate-folder"
+        ],
+        "decompile_folder_flags": [
+          "--assume-no-nan",
+          "--dont-reuse-var",
+          "--emit-upvalue-analysis",
+          "--encoded",
+          "--export-manifest",
+          "--key",
+          "--no-synth-helpers",
+          "--output-extension",
+          "--threads",
+          "--verbose"
+        ],
+        "used": "luau-lifter decompile-folder <in> <out> --key 1   (raw bytecode in a saved-bytecode text file)"
+      },
+      "changed_from_previous": false,
+      "excerpt_changed_from_previous": false
+    },
+    {
+      "tag": "v2-v0.1",
+      "name": "V2",
+      "era": "v2",
+      "date": "2026-09-19",
+      "released": true,
+      "headline": "A new generation.",
+      "points": [
+        "Native Roblox bytecode v12.",
+        "Clearer names, structured control flow, safer evaluation order.",
+        "Windows and Linux packages."
+      ],
+      "numbers": [
+        {
+          "text": "anonymous bindings 54,058 to 36,826",
+          "quote": "54,058 to 36,826"
+        },
+        {
+          "text": "198 of 198 runtime profiles (0.9 beta: 138)",
+          "quote": "V2 passes all 198 shared runtime profiles"
+        }
+      ],
+      "lines": 93,
+      "nonblank_lines": 73,
+      "excerpt": "local function shield(folder)\n\tlocal humanoid = folder:FindFirstChildOfClass(\"Humanoid\")\n\tlocal v\n\n\tif humanoid == nil then\n\t\tv = false\n\telse\n\t\tv = humanoid.Health > 0\n\tend\n\n\tif not v then\n\t\treturn\n\tend\n\n\tlocal clone = shieldGlow:Clone()\n\tclone.Transparency = 0.6666666666666666\n\tclone.Parent = folder\n\tlocal count = 0\n\n\tfor _, part in folder:GetDescendants() do\n\t\tif part:IsA(\"BasePart\") then\n\t\t\tif part.Transparency == 1 then\n\t\t\t\tcontinue\n\t\t\tend\n\n\t\t\tpart.Color = clone.Color\n\t\t\tcount += 1\n\t\tend\n\n\t\tif count >= 12 then\n\t\t\tbreak\n\t\tend\n\tend\n\n\tlocal lastTime = os.clock()\n\n\twhile os.clock() - lastTime < 3 do\n\t\tlocal v3\n\n\t\tif humanoid == nil then\n\t\t\tv3 = false\n\t\telse\n\t\t\tv3 = humanoid.Health > 0\n\t\tend\n\n\t\tif v3 then\n\t\t\ttask.wait(0.016666666666666666)\n\t\telse\n\t\t\tbreak\n\t\tend\n\tend\n\n\tclone:Destroy()\nend",
+      "excerpt_lines": 54,
+      "excerpts": {
+        "shield": {
+          "text": "local function shield(folder)\n\tlocal humanoid = folder:FindFirstChildOfClass(\"Humanoid\")\n\tlocal v\n\n\tif humanoid == nil then\n\t\tv = false\n\telse\n\t\tv = humanoid.Health > 0\n\tend\n\n\tif not v then\n\t\treturn\n\tend\n\n\tlocal clone = shieldGlow:Clone()\n\tclone.Transparency = 0.6666666666666666\n\tclone.Parent = folder\n\tlocal count = 0\n\n\tfor _, part in folder:GetDescendants() do\n\t\tif part:IsA(\"BasePart\") then\n\t\t\tif part.Transparency == 1 then\n\t\t\t\tcontinue\n\t\t\tend\n\n\t\t\tpart.Color = clone.Color\n\t\t\tcount += 1\n\t\tend\n\n\t\tif count >= 12 then\n\t\t\tbreak\n\t\tend\n\tend\n\n\tlocal lastTime = os.clock()\n\n\twhile os.clock() - lastTime < 3 do\n\t\tlocal v3\n\n\t\tif humanoid == nil then\n\t\t\tv3 = false\n\t\telse\n\t\t\tv3 = humanoid.Health > 0\n\t\tend\n\n\t\tif v3 then\n\t\t\ttask.wait(0.016666666666666666)\n\t\telse\n\t\t\tbreak\n\t\tend\n\tend\n\n\tclone:Destroy()\nend",
+          "first_line": 13,
+          "last_line": 66,
+          "lines": 54,
+          "nonblank": 43
+        },
+        "join": {
+          "text": "local function onPlayerAdded(player)\n\tlocal character = player.Character or player.CharacterAdded:Wait()\n\n\tif character:IsDescendantOf(workspace) then\n\t\tshield(character)\n\tend\n\n\tlocal now = 0\n\tlocal connection = nil\n\n\tif player.MembershipType == Enum.MembershipType.Premium then\n\t\tconnection = player.Chatted:Connect(function(p)\n\t\t\tif p == \"/stop\" then\n\t\t\t\tconnection:Disconnect()\n\t\t\t\treturn\n\t\t\tend\n\n\t\t\tif not (os.clock() - now < 30) then\n\t\t\t\tnow = os.clock()\n\t\t\t\tshield(player.Character)\n\t\t\tend\n\t\tend)\n\tend\nend",
+          "first_line": 68,
+          "last_line": 91,
+          "lines": 24,
+          "nonblank": 20
+        }
+      },
+      "features": {
+        "goto": 0,
+        "labels": 0,
+        "dispatcher_states": 0,
+        "generated_names": 3,
+        "rebuilt_calls": 0,
+        "nil_stores": 1,
+        "long_decimals": 2,
+        "fractions": 0
+      },
+      "output": "local Players = game:GetService(\"Players\")\nlocal ReplicatedStorage = game:GetService(\"ReplicatedStorage\")\nlocal shieldGlow = ReplicatedStorage:WaitForChild(\"ShieldGlow\")\n\nlocal function frames(p)\n\treturn p / 60\nend\n\nlocal function isAlive(p)\n\treturn p ~= nil and p.Health > 0\nend\n\nlocal function shield(folder)\n\tlocal humanoid = folder:FindFirstChildOfClass(\"Humanoid\")\n\tlocal v\n\n\tif humanoid == nil then\n\t\tv = false\n\telse\n\t\tv = humanoid.Health > 0\n\tend\n\n\tif not v then\n\t\treturn\n\tend\n\n\tlocal clone = shieldGlow:Clone()\n\tclone.Transparency = 0.6666666666666666\n\tclone.Parent = folder\n\tlocal count = 0\n\n\tfor _, part in folder:GetDescendants() do\n\t\tif part:IsA(\"BasePart\") then\n\t\t\tif part.Transparency == 1 then\n\t\t\t\tcontinue\n\t\t\tend\n\n\t\t\tpart.Color = clone.Color\n\t\t\tcount += 1\n\t\tend\n\n\t\tif count >= 12 then\n\t\t\tbreak\n\t\tend\n\tend\n\n\tlocal lastTime = os.clock()\n\n\twhile os.clock() - lastTime < 3 do\n\t\tlocal v3\n\n\t\tif humanoid == nil then\n\t\t\tv3 = false\n\t\telse\n\t\t\tv3 = humanoid.Health > 0\n\t\tend\n\n\t\tif v3 then\n\t\t\ttask.wait(0.016666666666666666)\n\t\telse\n\t\t\tbreak\n\t\tend\n\tend\n\n\tclone:Destroy()\nend\n\nlocal function onPlayerAdded(player)\n\tlocal character = player.Character or player.CharacterAdded:Wait()\n\n\tif character:IsDescendantOf(workspace) then\n\t\tshield(character)\n\tend\n\n\tlocal now = 0\n\tlocal connection = nil\n\n\tif player.MembershipType == Enum.MembershipType.Premium then\n\t\tconnection = player.Chatted:Connect(function(p)\n\t\t\tif p == \"/stop\" then\n\t\t\t\tconnection:Disconnect()\n\t\t\t\treturn\n\t\t\tend\n\n\t\t\tif not (os.clock() - now < 30) then\n\t\t\t\tnow = os.clock()\n\t\t\t\tshield(player.Character)\n\t\t\tend\n\t\tend)\n\tend\nend\n\nPlayers.PlayerAdded:Connect(onPlayerAdded)\n",
+      "tool": "Tovek V2 release binary (github.com/Kiet1308/Tovek/releases/tag/v2-v0.1)",
+      "binary_sha256": "d3516d2c678c081a7b830b3fc4fc691056418cb5a1844454f1d6559115fb29a3",
+      "cli": {
+        "version": "luau-lifter V2 v0.1",
+        "commands": [
+          "decompile-folder",
+          "validate-folder"
+        ],
+        "decompile_folder_flags": [
+          "--allow-certified-dispatcher",
+          "--assume-no-nan",
+          "--cache-dir",
+          "--cache-max-mib",
+          "--compact-annotations",
+          "--dont-reuse-var",
+          "--emit-binding-provenance",
+          "--emit-upvalue-analysis",
+          "--encoded",
+          "--export-manifest",
+          "--key",
+          "--no-synth-helpers",
+          "--output-extension",
+          "--strict-no-synthetic-control",
+          "--synthesize-arithmetic-loops",
+          "--threads",
+          "--verbose"
+        ],
+        "used": "luau-lifter decompile-folder <in> <out> --key 1   (raw bytecode in a saved-bytecode text file)"
+      },
+      "changed_from_previous": true,
+      "excerpt_changed_from_previous": true
+    },
+    {
+      "tag": "v2.1",
+      "name": "V2.1",
+      "era": "v21",
+      "date": "2026-09-28",
+      "released": true,
+      "headline": "Up to twice as fast.",
+      "points": [
+        "Reads Luau bytecode v4 to v14.",
+        "Exact wherever V2 could behave differently from the original.",
+        "Malformed input gets a precise error instead of an abort."
+      ],
+      "numbers": [
+        {
+          "text": "3,978-script game in 11.5 s on one thread (V2: 20.1 s)",
+          "quote": "11.5 s on one\n  thread (V2: 20.1 s)"
+        },
+        {
+          "text": "deep-review suite 80/199 to 199/199",
+          "quote": "V2 80/199, V2.1 199/199"
+        }
+      ],
+      "lines": 93,
+      "nonblank_lines": 73,
+      "excerpt": "local function shield(folder)\n\tlocal humanoid = folder:FindFirstChildOfClass(\"Humanoid\")\n\tlocal v\n\n\tif humanoid == nil then\n\t\tv = false\n\telse\n\t\tv = humanoid.Health > 0\n\tend\n\n\tif not v then\n\t\treturn\n\tend\n\n\tlocal clone = shieldGlow:Clone()\n\tclone.Transparency = 0.6666666666666666\n\tclone.Parent = folder\n\tlocal count = 0\n\n\tfor _, part in folder:GetDescendants() do\n\t\tif part:IsA(\"BasePart\") then\n\t\t\tif part.Transparency == 1 then\n\t\t\t\tcontinue\n\t\t\tend\n\n\t\t\tpart.Color = clone.Color\n\t\t\tcount += 1\n\t\tend\n\n\t\tif count >= 12 then\n\t\t\tbreak\n\t\tend\n\tend\n\n\tlocal lastTime = os.clock()\n\n\twhile os.clock() - lastTime < 3 do\n\t\tlocal v2\n\n\t\tif humanoid == nil then\n\t\t\tv2 = false\n\t\telse\n\t\t\tv2 = humanoid.Health > 0\n\t\tend\n\n\t\tif v2 then\n\t\t\ttask.wait(0.016666666666666666)\n\t\telse\n\t\t\tbreak\n\t\tend\n\tend\n\n\tclone:Destroy()\nend",
+      "excerpt_lines": 54,
+      "excerpts": {
+        "shield": {
+          "text": "local function shield(folder)\n\tlocal humanoid = folder:FindFirstChildOfClass(\"Humanoid\")\n\tlocal v\n\n\tif humanoid == nil then\n\t\tv = false\n\telse\n\t\tv = humanoid.Health > 0\n\tend\n\n\tif not v then\n\t\treturn\n\tend\n\n\tlocal clone = shieldGlow:Clone()\n\tclone.Transparency = 0.6666666666666666\n\tclone.Parent = folder\n\tlocal count = 0\n\n\tfor _, part in folder:GetDescendants() do\n\t\tif part:IsA(\"BasePart\") then\n\t\t\tif part.Transparency == 1 then\n\t\t\t\tcontinue\n\t\t\tend\n\n\t\t\tpart.Color = clone.Color\n\t\t\tcount += 1\n\t\tend\n\n\t\tif count >= 12 then\n\t\t\tbreak\n\t\tend\n\tend\n\n\tlocal lastTime = os.clock()\n\n\twhile os.clock() - lastTime < 3 do\n\t\tlocal v2\n\n\t\tif humanoid == nil then\n\t\t\tv2 = false\n\t\telse\n\t\t\tv2 = humanoid.Health > 0\n\t\tend\n\n\t\tif v2 then\n\t\t\ttask.wait(0.016666666666666666)\n\t\telse\n\t\t\tbreak\n\t\tend\n\tend\n\n\tclone:Destroy()\nend",
+          "first_line": 13,
+          "last_line": 66,
+          "lines": 54,
+          "nonblank": 43
+        },
+        "join": {
+          "text": "local function onPlayerAdded(player)\n\tlocal character = player.Character or player.CharacterAdded:Wait()\n\n\tif character:IsDescendantOf(workspace) then\n\t\tshield(character)\n\tend\n\n\tlocal now = 0\n\tlocal connection = nil\n\n\tif player.MembershipType == Enum.MembershipType.Premium then\n\t\tconnection = player.Chatted:Connect(function(p)\n\t\t\tif p == \"/stop\" then\n\t\t\t\tconnection:Disconnect()\n\t\t\t\treturn\n\t\t\tend\n\n\t\t\tif not (os.clock() - now < 30) then\n\t\t\t\tnow = os.clock()\n\t\t\t\tshield(player.Character)\n\t\t\tend\n\t\tend)\n\tend\nend",
+          "first_line": 68,
+          "last_line": 91,
+          "lines": 24,
+          "nonblank": 20
+        }
+      },
+      "features": {
+        "goto": 0,
+        "labels": 0,
+        "dispatcher_states": 0,
+        "generated_names": 3,
+        "rebuilt_calls": 0,
+        "nil_stores": 1,
+        "long_decimals": 2,
+        "fractions": 0
+      },
+      "output": "local Players = game:GetService(\"Players\")\nlocal ReplicatedStorage = game:GetService(\"ReplicatedStorage\")\nlocal shieldGlow = ReplicatedStorage:WaitForChild(\"ShieldGlow\")\n\nlocal function frames(p)\n\treturn p / 60\nend\n\nlocal function isAlive(p)\n\treturn p ~= nil and p.Health > 0\nend\n\nlocal function shield(folder)\n\tlocal humanoid = folder:FindFirstChildOfClass(\"Humanoid\")\n\tlocal v\n\n\tif humanoid == nil then\n\t\tv = false\n\telse\n\t\tv = humanoid.Health > 0\n\tend\n\n\tif not v then\n\t\treturn\n\tend\n\n\tlocal clone = shieldGlow:Clone()\n\tclone.Transparency = 0.6666666666666666\n\tclone.Parent = folder\n\tlocal count = 0\n\n\tfor _, part in folder:GetDescendants() do\n\t\tif part:IsA(\"BasePart\") then\n\t\t\tif part.Transparency == 1 then\n\t\t\t\tcontinue\n\t\t\tend\n\n\t\t\tpart.Color = clone.Color\n\t\t\tcount += 1\n\t\tend\n\n\t\tif count >= 12 then\n\t\t\tbreak\n\t\tend\n\tend\n\n\tlocal lastTime = os.clock()\n\n\twhile os.clock() - lastTime < 3 do\n\t\tlocal v2\n\n\t\tif humanoid == nil then\n\t\t\tv2 = false\n\t\telse\n\t\t\tv2 = humanoid.Health > 0\n\t\tend\n\n\t\tif v2 then\n\t\t\ttask.wait(0.016666666666666666)\n\t\telse\n\t\t\tbreak\n\t\tend\n\tend\n\n\tclone:Destroy()\nend\n\nlocal function onPlayerAdded(player)\n\tlocal character = player.Character or player.CharacterAdded:Wait()\n\n\tif character:IsDescendantOf(workspace) then\n\t\tshield(character)\n\tend\n\n\tlocal now = 0\n\tlocal connection = nil\n\n\tif player.MembershipType == Enum.MembershipType.Premium then\n\t\tconnection = player.Chatted:Connect(function(p)\n\t\t\tif p == \"/stop\" then\n\t\t\t\tconnection:Disconnect()\n\t\t\t\treturn\n\t\t\tend\n\n\t\t\tif not (os.clock() - now < 30) then\n\t\t\t\tnow = os.clock()\n\t\t\t\tshield(player.Character)\n\t\t\tend\n\t\tend)\n\tend\nend\n\nPlayers.PlayerAdded:Connect(onPlayerAdded)\n",
+      "tool": "Tovek V2.1 release binary (github.com/Kiet1308/Tovek/releases/tag/v2.1)",
+      "binary_sha256": "e79dcf25ebafaaa9da65803c7dbd5415d4cb5af61fe6c082a0c9fc96153a0972",
+      "cli": {
+        "version": "luau-lifter V2.1",
+        "commands": [
+          "decompile-folder",
+          "validate-folder"
+        ],
+        "decompile_folder_flags": [
+          "--allow-certified-dispatcher",
+          "--assume-no-nan",
+          "--cache-dir",
+          "--cache-max-mib",
+          "--compact-annotations",
+          "--dont-reuse-var",
+          "--emit-binding-provenance",
+          "--emit-upvalue-analysis",
+          "--encoded",
+          "--export-manifest",
+          "--key",
+          "--no-synth-helpers",
+          "--output-extension",
+          "--strict-no-synthetic-control",
+          "--synthesize-arithmetic-loops",
+          "--threads",
+          "--verbose"
+        ],
+        "used": "luau-lifter decompile-folder <in> <out> --key 1   (raw bytecode in a saved-bytecode text file)"
+      },
+      "changed_from_previous": true,
+      "excerpt_changed_from_previous": true
+    },
+    {
+      "tag": "v2.1.1",
+      "name": "V2.1.1",
+      "era": "v21",
+      "date": "2026-09-28",
+      "released": true,
+      "headline": "Damaged bytecode never aborts.",
+      "points": [
+        "Malformed bytecode is rejected with the exact prototype and instruction."
+      ],
+      "numbers": [
+        {
+          "text": "1,500 damaged scripts: V2 aborted 104 times, V2.1.1 never",
+          "quote": "V2 aborted 104 times; V2.1.1 never"
+        }
+      ],
+      "lines": 93,
+      "nonblank_lines": 73,
+      "excerpt": "local function shield(folder)\n\tlocal humanoid = folder:FindFirstChildOfClass(\"Humanoid\")\n\tlocal v\n\n\tif humanoid == nil then\n\t\tv = false\n\telse\n\t\tv = humanoid.Health > 0\n\tend\n\n\tif not v then\n\t\treturn\n\tend\n\n\tlocal clone = shieldGlow:Clone()\n\tclone.Transparency = 0.6666666666666666\n\tclone.Parent = folder\n\tlocal count = 0\n\n\tfor _, part in folder:GetDescendants() do\n\t\tif part:IsA(\"BasePart\") then\n\t\t\tif part.Transparency == 1 then\n\t\t\t\tcontinue\n\t\t\tend\n\n\t\t\tpart.Color = clone.Color\n\t\t\tcount += 1\n\t\tend\n\n\t\tif count >= 12 then\n\t\t\tbreak\n\t\tend\n\tend\n\n\tlocal lastTime = os.clock()\n\n\twhile os.clock() - lastTime < 3 do\n\t\tlocal v2\n\n\t\tif humanoid == nil then\n\t\t\tv2 = false\n\t\telse\n\t\t\tv2 = humanoid.Health > 0\n\t\tend\n\n\t\tif v2 then\n\t\t\ttask.wait(0.016666666666666666)\n\t\telse\n\t\t\tbreak\n\t\tend\n\tend\n\n\tclone:Destroy()\nend",
+      "excerpt_lines": 54,
+      "excerpts": {
+        "shield": {
+          "text": "local function shield(folder)\n\tlocal humanoid = folder:FindFirstChildOfClass(\"Humanoid\")\n\tlocal v\n\n\tif humanoid == nil then\n\t\tv = false\n\telse\n\t\tv = humanoid.Health > 0\n\tend\n\n\tif not v then\n\t\treturn\n\tend\n\n\tlocal clone = shieldGlow:Clone()\n\tclone.Transparency = 0.6666666666666666\n\tclone.Parent = folder\n\tlocal count = 0\n\n\tfor _, part in folder:GetDescendants() do\n\t\tif part:IsA(\"BasePart\") then\n\t\t\tif part.Transparency == 1 then\n\t\t\t\tcontinue\n\t\t\tend\n\n\t\t\tpart.Color = clone.Color\n\t\t\tcount += 1\n\t\tend\n\n\t\tif count >= 12 then\n\t\t\tbreak\n\t\tend\n\tend\n\n\tlocal lastTime = os.clock()\n\n\twhile os.clock() - lastTime < 3 do\n\t\tlocal v2\n\n\t\tif humanoid == nil then\n\t\t\tv2 = false\n\t\telse\n\t\t\tv2 = humanoid.Health > 0\n\t\tend\n\n\t\tif v2 then\n\t\t\ttask.wait(0.016666666666666666)\n\t\telse\n\t\t\tbreak\n\t\tend\n\tend\n\n\tclone:Destroy()\nend",
+          "first_line": 13,
+          "last_line": 66,
+          "lines": 54,
+          "nonblank": 43
+        },
+        "join": {
+          "text": "local function onPlayerAdded(player)\n\tlocal character = player.Character or player.CharacterAdded:Wait()\n\n\tif character:IsDescendantOf(workspace) then\n\t\tshield(character)\n\tend\n\n\tlocal now = 0\n\tlocal connection = nil\n\n\tif player.MembershipType == Enum.MembershipType.Premium then\n\t\tconnection = player.Chatted:Connect(function(p)\n\t\t\tif p == \"/stop\" then\n\t\t\t\tconnection:Disconnect()\n\t\t\t\treturn\n\t\t\tend\n\n\t\t\tif not (os.clock() - now < 30) then\n\t\t\t\tnow = os.clock()\n\t\t\t\tshield(player.Character)\n\t\t\tend\n\t\tend)\n\tend\nend",
+          "first_line": 68,
+          "last_line": 91,
+          "lines": 24,
+          "nonblank": 20
+        }
+      },
+      "features": {
+        "goto": 0,
+        "labels": 0,
+        "dispatcher_states": 0,
+        "generated_names": 3,
+        "rebuilt_calls": 0,
+        "nil_stores": 1,
+        "long_decimals": 2,
+        "fractions": 0
+      },
+      "output": "local Players = game:GetService(\"Players\")\nlocal ReplicatedStorage = game:GetService(\"ReplicatedStorage\")\nlocal shieldGlow = ReplicatedStorage:WaitForChild(\"ShieldGlow\")\n\nlocal function frames(p)\n\treturn p / 60\nend\n\nlocal function isAlive(p)\n\treturn p ~= nil and p.Health > 0\nend\n\nlocal function shield(folder)\n\tlocal humanoid = folder:FindFirstChildOfClass(\"Humanoid\")\n\tlocal v\n\n\tif humanoid == nil then\n\t\tv = false\n\telse\n\t\tv = humanoid.Health > 0\n\tend\n\n\tif not v then\n\t\treturn\n\tend\n\n\tlocal clone = shieldGlow:Clone()\n\tclone.Transparency = 0.6666666666666666\n\tclone.Parent = folder\n\tlocal count = 0\n\n\tfor _, part in folder:GetDescendants() do\n\t\tif part:IsA(\"BasePart\") then\n\t\t\tif part.Transparency == 1 then\n\t\t\t\tcontinue\n\t\t\tend\n\n\t\t\tpart.Color = clone.Color\n\t\t\tcount += 1\n\t\tend\n\n\t\tif count >= 12 then\n\t\t\tbreak\n\t\tend\n\tend\n\n\tlocal lastTime = os.clock()\n\n\twhile os.clock() - lastTime < 3 do\n\t\tlocal v2\n\n\t\tif humanoid == nil then\n\t\t\tv2 = false\n\t\telse\n\t\t\tv2 = humanoid.Health > 0\n\t\tend\n\n\t\tif v2 then\n\t\t\ttask.wait(0.016666666666666666)\n\t\telse\n\t\t\tbreak\n\t\tend\n\tend\n\n\tclone:Destroy()\nend\n\nlocal function onPlayerAdded(player)\n\tlocal character = player.Character or player.CharacterAdded:Wait()\n\n\tif character:IsDescendantOf(workspace) then\n\t\tshield(character)\n\tend\n\n\tlocal now = 0\n\tlocal connection = nil\n\n\tif player.MembershipType == Enum.MembershipType.Premium then\n\t\tconnection = player.Chatted:Connect(function(p)\n\t\t\tif p == \"/stop\" then\n\t\t\t\tconnection:Disconnect()\n\t\t\t\treturn\n\t\t\tend\n\n\t\t\tif not (os.clock() - now < 30) then\n\t\t\t\tnow = os.clock()\n\t\t\t\tshield(player.Character)\n\t\t\tend\n\t\tend)\n\tend\nend\n\nPlayers.PlayerAdded:Connect(onPlayerAdded)\n",
+      "tool": "Tovek V2.1.1 release binary (github.com/Kiet1308/Tovek/releases/tag/v2.1.1)",
+      "binary_sha256": "44dfe1ee16c0ddc6d9acfed7bbce5085cbfe1c1b628e91f82eca281ee5fc8f57",
+      "cli": {
+        "version": "luau-lifter V2.1.1",
+        "commands": [
+          "decompile-folder",
+          "validate-folder"
+        ],
+        "decompile_folder_flags": [
+          "--allow-certified-dispatcher",
+          "--assume-no-nan",
+          "--cache-dir",
+          "--cache-max-mib",
+          "--compact-annotations",
+          "--dont-reuse-var",
+          "--emit-binding-provenance",
+          "--emit-upvalue-analysis",
+          "--encoded",
+          "--export-manifest",
+          "--key",
+          "--no-synth-helpers",
+          "--output-extension",
+          "--strict-no-synthetic-control",
+          "--synthesize-arithmetic-loops",
+          "--threads",
+          "--verbose"
+        ],
+        "used": "luau-lifter decompile-folder <in> <out> --key 1   (raw bytecode in a saved-bytecode text file)"
+      },
+      "changed_from_previous": false,
+      "excerpt_changed_from_previous": false
+    },
+    {
+      "tag": "v2.5",
+      "name": "V2.5",
+      "era": "v25",
+      "date": "2026-10-02",
+      "released": true,
+      "headline": "Faithful decompilation.",
+      "points": [
+        "Semantic fuzzing finds no wrong output.",
+        "2.5x as many inlined helpers rebuilt.",
+        "Names from context: touchedConnection, currentHealth."
+      ],
+      "numbers": [
+        {
+          "text": "fuzzing: 198 wrong or missing (V2.1.1) to 0",
+          "quote": "V2.1.1 wrong or missing 198 times, V2.5 0"
+        },
+        {
+          "text": "4,113 helper calls rebuilt (V2.1.1: 1,630)",
+          "quote": "4,113 helper calls rebuilt across the four games (V2.1.1: 1,630)"
+        }
+      ],
+      "lines": 90,
+      "nonblank_lines": 70,
+      "excerpt": "local function shield(folder)\n\tlocal humanoid = folder:FindFirstChildOfClass(\"Humanoid\")\n\tlocal v\n\n\tif humanoid == nil then\n\t\tv = false\n\telse\n\t\tv = humanoid.Health > 0\n\tend\n\n\tif not v then\n\t\treturn\n\tend\n\n\tlocal clone = shieldGlow:Clone()\n\tclone.Transparency = 0.6666666666666666\n\tclone.Parent = folder\n\tlocal count = 0\n\n\tfor _, part in folder:GetDescendants() do\n\t\tif part:IsA(\"BasePart\") then\n\t\t\tif part.Transparency == 1 then\n\t\t\t\tcontinue\n\t\t\tend\n\n\t\t\tpart.Color = clone.Color\n\t\t\tcount += 1\n\t\tend\n\n\t\tif count >= 12 then\n\t\t\tbreak\n\t\tend\n\tend\n\n\tlocal lastTime = os.clock()\n\n\twhile os.clock() - lastTime < 3 do\n\t\tlocal v2\n\n\t\tif humanoid == nil then\n\t\t\tv2 = false\n\t\telse\n\t\t\tv2 = humanoid.Health > 0\n\t\tend\n\n\t\tif not v2 then\n\t\t\tbreak\n\t\tend\n\n\t\ttask.wait(0.016666666666666666)\n\tend\n\n\tclone:Destroy()\nend",
+      "excerpt_lines": 54,
+      "excerpts": {
+        "shield": {
+          "text": "local function shield(folder)\n\tlocal humanoid = folder:FindFirstChildOfClass(\"Humanoid\")\n\tlocal v\n\n\tif humanoid == nil then\n\t\tv = false\n\telse\n\t\tv = humanoid.Health > 0\n\tend\n\n\tif not v then\n\t\treturn\n\tend\n\n\tlocal clone = shieldGlow:Clone()\n\tclone.Transparency = 0.6666666666666666\n\tclone.Parent = folder\n\tlocal count = 0\n\n\tfor _, part in folder:GetDescendants() do\n\t\tif part:IsA(\"BasePart\") then\n\t\t\tif part.Transparency == 1 then\n\t\t\t\tcontinue\n\t\t\tend\n\n\t\t\tpart.Color = clone.Color\n\t\t\tcount += 1\n\t\tend\n\n\t\tif count >= 12 then\n\t\t\tbreak\n\t\tend\n\tend\n\n\tlocal lastTime = os.clock()\n\n\twhile os.clock() - lastTime < 3 do\n\t\tlocal v2\n\n\t\tif humanoid == nil then\n\t\t\tv2 = false\n\t\telse\n\t\t\tv2 = humanoid.Health > 0\n\t\tend\n\n\t\tif not v2 then\n\t\t\tbreak\n\t\tend\n\n\t\ttask.wait(0.016666666666666666)\n\tend\n\n\tclone:Destroy()\nend",
+          "first_line": 13,
+          "last_line": 66,
+          "lines": 54,
+          "nonblank": 42
+        },
+        "join": {
+          "text": "local function onPlayerAdded(player)\n\tlocal character = player.Character or player.CharacterAdded:Wait()\n\n\tif character:IsDescendantOf(workspace) then\n\t\tshield(character)\n\tend\n\n\tlocal now = 0\n\tlocal chattedConnection = nil\n\n\tif player.MembershipType == Enum.MembershipType.Premium then\n\t\tchattedConnection = player.Chatted:Connect(function(p)\n\t\t\tif p == \"/stop\" then\n\t\t\t\tchattedConnection:Disconnect()\n\t\t\telseif not (os.clock() - now < 30) then\n\t\t\t\tnow = os.clock()\n\t\t\t\tshield(player.Character)\n\t\t\tend\n\t\tend)\n\tend\nend",
+          "first_line": 68,
+          "last_line": 88,
+          "lines": 21,
+          "nonblank": 18
+        }
+      },
+      "features": {
+        "goto": 0,
+        "labels": 0,
+        "dispatcher_states": 0,
+        "generated_names": 3,
+        "rebuilt_calls": 0,
+        "nil_stores": 1,
+        "long_decimals": 2,
+        "fractions": 0
+      },
+      "output": "local Players = game:GetService(\"Players\")\nlocal ReplicatedStorage = game:GetService(\"ReplicatedStorage\")\nlocal shieldGlow = ReplicatedStorage:WaitForChild(\"ShieldGlow\")\n\nlocal function frames(p)\n\treturn p / 60\nend\n\nlocal function isAlive(p)\n\treturn p ~= nil and p.Health > 0\nend\n\nlocal function shield(folder)\n\tlocal humanoid = folder:FindFirstChildOfClass(\"Humanoid\")\n\tlocal v\n\n\tif humanoid == nil then\n\t\tv = false\n\telse\n\t\tv = humanoid.Health > 0\n\tend\n\n\tif not v then\n\t\treturn\n\tend\n\n\tlocal clone = shieldGlow:Clone()\n\tclone.Transparency = 0.6666666666666666\n\tclone.Parent = folder\n\tlocal count = 0\n\n\tfor _, part in folder:GetDescendants() do\n\t\tif part:IsA(\"BasePart\") then\n\t\t\tif part.Transparency == 1 then\n\t\t\t\tcontinue\n\t\t\tend\n\n\t\t\tpart.Color = clone.Color\n\t\t\tcount += 1\n\t\tend\n\n\t\tif count >= 12 then\n\t\t\tbreak\n\t\tend\n\tend\n\n\tlocal lastTime = os.clock()\n\n\twhile os.clock() - lastTime < 3 do\n\t\tlocal v2\n\n\t\tif humanoid == nil then\n\t\t\tv2 = false\n\t\telse\n\t\t\tv2 = humanoid.Health > 0\n\t\tend\n\n\t\tif not v2 then\n\t\t\tbreak\n\t\tend\n\n\t\ttask.wait(0.016666666666666666)\n\tend\n\n\tclone:Destroy()\nend\n\nlocal function onPlayerAdded(player)\n\tlocal character = player.Character or player.CharacterAdded:Wait()\n\n\tif character:IsDescendantOf(workspace) then\n\t\tshield(character)\n\tend\n\n\tlocal now = 0\n\tlocal chattedConnection = nil\n\n\tif player.MembershipType == Enum.MembershipType.Premium then\n\t\tchattedConnection = player.Chatted:Connect(function(p)\n\t\t\tif p == \"/stop\" then\n\t\t\t\tchattedConnection:Disconnect()\n\t\t\telseif not (os.clock() - now < 30) then\n\t\t\t\tnow = os.clock()\n\t\t\t\tshield(player.Character)\n\t\t\tend\n\t\tend)\n\tend\nend\n\nPlayers.PlayerAdded:Connect(onPlayerAdded)\n",
+      "tool": "Tovek V2.5 release binary (github.com/Kiet1308/Tovek/releases/tag/v2.5)",
+      "binary_sha256": "b9ac755c990b3b416afbc6541b458cfe76d100b62274d8057b712856050aa561",
+      "cli": {
+        "version": "luau-lifter V2.5",
+        "commands": [
+          "decompile-folder",
+          "validate-folder"
+        ],
+        "decompile_folder_flags": [
+          "--allow-certified-dispatcher",
+          "--assume-no-nan",
+          "--assume-standard-libraries",
+          "--cache-dir",
+          "--cache-max-mib",
+          "--compact-annotations",
+          "--dont-reuse-var",
+          "--emit-binding-provenance",
+          "--emit-upvalue-analysis",
+          "--encoded",
+          "--export-manifest",
+          "--key",
+          "--no-synth-helpers",
+          "--output-extension",
+          "--strict-no-synthetic-control",
+          "--style",
+          "--synthesize-arithmetic-loops",
+          "--threads",
+          "--verbose"
+        ],
+        "used": "luau-lifter decompile-folder <in> <out> --key 1   (raw bytecode in a saved-bytecode text file)"
+      },
+      "changed_from_previous": true,
+      "excerpt_changed_from_previous": true
+    },
+    {
+      "tag": "v2.5.1",
+      "name": "V2.5.1",
+      "era": "v25",
+      "date": "2026-10-02",
+      "released": true,
+      "headline": "Returns from loops, rebuilt.",
+      "points": [
+        "Helpers that return from inside a loop come back as calls.",
+        "Constant arguments Luau folded away are inferred back.",
+        "Rebuilt call results are named after what the helper returns."
+      ],
+      "numbers": [
+        {
+          "text": "4,260 helper calls rebuilt across four games",
+          "quote": "4,260 helper calls rebuilt across the four games"
+        }
+      ],
+      "lines": 90,
+      "nonblank_lines": 70,
+      "excerpt": "local function shield(folder)\n\tlocal humanoid = folder:FindFirstChildOfClass(\"Humanoid\")\n\tlocal v\n\n\tif humanoid == nil then\n\t\tv = false\n\telse\n\t\tv = humanoid.Health > 0\n\tend\n\n\tif not v then\n\t\treturn\n\tend\n\n\tlocal clone = shieldGlow:Clone()\n\tclone.Transparency = 0.6666666666666666\n\tclone.Parent = folder\n\tlocal count = 0\n\n\tfor _, part in folder:GetDescendants() do\n\t\tif part:IsA(\"BasePart\") then\n\t\t\tif part.Transparency == 1 then\n\t\t\t\tcontinue\n\t\t\tend\n\n\t\t\tpart.Color = clone.Color\n\t\t\tcount += 1\n\t\tend\n\n\t\tif count >= 12 then\n\t\t\tbreak\n\t\tend\n\tend\n\n\tlocal lastTime = os.clock()\n\n\twhile os.clock() - lastTime < 3 do\n\t\tlocal v2\n\n\t\tif humanoid == nil then\n\t\t\tv2 = false\n\t\telse\n\t\t\tv2 = humanoid.Health > 0\n\t\tend\n\n\t\tif not v2 then\n\t\t\tbreak\n\t\tend\n\n\t\ttask.wait(0.016666666666666666)\n\tend\n\n\tclone:Destroy()\nend",
+      "excerpt_lines": 54,
+      "excerpts": {
+        "shield": {
+          "text": "local function shield(folder)\n\tlocal humanoid = folder:FindFirstChildOfClass(\"Humanoid\")\n\tlocal v\n\n\tif humanoid == nil then\n\t\tv = false\n\telse\n\t\tv = humanoid.Health > 0\n\tend\n\n\tif not v then\n\t\treturn\n\tend\n\n\tlocal clone = shieldGlow:Clone()\n\tclone.Transparency = 0.6666666666666666\n\tclone.Parent = folder\n\tlocal count = 0\n\n\tfor _, part in folder:GetDescendants() do\n\t\tif part:IsA(\"BasePart\") then\n\t\t\tif part.Transparency == 1 then\n\t\t\t\tcontinue\n\t\t\tend\n\n\t\t\tpart.Color = clone.Color\n\t\t\tcount += 1\n\t\tend\n\n\t\tif count >= 12 then\n\t\t\tbreak\n\t\tend\n\tend\n\n\tlocal lastTime = os.clock()\n\n\twhile os.clock() - lastTime < 3 do\n\t\tlocal v2\n\n\t\tif humanoid == nil then\n\t\t\tv2 = false\n\t\telse\n\t\t\tv2 = humanoid.Health > 0\n\t\tend\n\n\t\tif not v2 then\n\t\t\tbreak\n\t\tend\n\n\t\ttask.wait(0.016666666666666666)\n\tend\n\n\tclone:Destroy()\nend",
+          "first_line": 13,
+          "last_line": 66,
+          "lines": 54,
+          "nonblank": 42
+        },
+        "join": {
+          "text": "local function onPlayerAdded(player)\n\tlocal character = player.Character or player.CharacterAdded:Wait()\n\n\tif character:IsDescendantOf(workspace) then\n\t\tshield(character)\n\tend\n\n\tlocal now = 0\n\tlocal chattedConnection = nil\n\n\tif player.MembershipType == Enum.MembershipType.Premium then\n\t\tchattedConnection = player.Chatted:Connect(function(p)\n\t\t\tif p == \"/stop\" then\n\t\t\t\tchattedConnection:Disconnect()\n\t\t\telseif not (os.clock() - now < 30) then\n\t\t\t\tnow = os.clock()\n\t\t\t\tshield(player.Character)\n\t\t\tend\n\t\tend)\n\tend\nend",
+          "first_line": 68,
+          "last_line": 88,
+          "lines": 21,
+          "nonblank": 18
+        }
+      },
+      "features": {
+        "goto": 0,
+        "labels": 0,
+        "dispatcher_states": 0,
+        "generated_names": 3,
+        "rebuilt_calls": 0,
+        "nil_stores": 1,
+        "long_decimals": 2,
+        "fractions": 0
+      },
+      "output": "local Players = game:GetService(\"Players\")\nlocal ReplicatedStorage = game:GetService(\"ReplicatedStorage\")\nlocal shieldGlow = ReplicatedStorage:WaitForChild(\"ShieldGlow\")\n\nlocal function frames(p)\n\treturn p / 60\nend\n\nlocal function isAlive(p)\n\treturn p ~= nil and p.Health > 0\nend\n\nlocal function shield(folder)\n\tlocal humanoid = folder:FindFirstChildOfClass(\"Humanoid\")\n\tlocal v\n\n\tif humanoid == nil then\n\t\tv = false\n\telse\n\t\tv = humanoid.Health > 0\n\tend\n\n\tif not v then\n\t\treturn\n\tend\n\n\tlocal clone = shieldGlow:Clone()\n\tclone.Transparency = 0.6666666666666666\n\tclone.Parent = folder\n\tlocal count = 0\n\n\tfor _, part in folder:GetDescendants() do\n\t\tif part:IsA(\"BasePart\") then\n\t\t\tif part.Transparency == 1 then\n\t\t\t\tcontinue\n\t\t\tend\n\n\t\t\tpart.Color = clone.Color\n\t\t\tcount += 1\n\t\tend\n\n\t\tif count >= 12 then\n\t\t\tbreak\n\t\tend\n\tend\n\n\tlocal lastTime = os.clock()\n\n\twhile os.clock() - lastTime < 3 do\n\t\tlocal v2\n\n\t\tif humanoid == nil then\n\t\t\tv2 = false\n\t\telse\n\t\t\tv2 = humanoid.Health > 0\n\t\tend\n\n\t\tif not v2 then\n\t\t\tbreak\n\t\tend\n\n\t\ttask.wait(0.016666666666666666)\n\tend\n\n\tclone:Destroy()\nend\n\nlocal function onPlayerAdded(player)\n\tlocal character = player.Character or player.CharacterAdded:Wait()\n\n\tif character:IsDescendantOf(workspace) then\n\t\tshield(character)\n\tend\n\n\tlocal now = 0\n\tlocal chattedConnection = nil\n\n\tif player.MembershipType == Enum.MembershipType.Premium then\n\t\tchattedConnection = player.Chatted:Connect(function(p)\n\t\t\tif p == \"/stop\" then\n\t\t\t\tchattedConnection:Disconnect()\n\t\t\telseif not (os.clock() - now < 30) then\n\t\t\t\tnow = os.clock()\n\t\t\t\tshield(player.Character)\n\t\t\tend\n\t\tend)\n\tend\nend\n\nPlayers.PlayerAdded:Connect(onPlayerAdded)\n",
+      "tool": "Tovek V2.5.1 release binary (github.com/Kiet1308/Tovek/releases/tag/v2.5.1)",
+      "binary_sha256": "8df15ad38731a1b146e0f3e761035b234689ee2a04c83d70eaed8584bf1198c5",
+      "cli": {
+        "version": "luau-lifter V2.5.1",
+        "commands": [
+          "decompile-folder",
+          "validate-folder"
+        ],
+        "decompile_folder_flags": [
+          "--allow-certified-dispatcher",
+          "--assume-no-nan",
+          "--assume-standard-libraries",
+          "--cache-dir",
+          "--cache-max-mib",
+          "--compact-annotations",
+          "--dont-reuse-var",
+          "--emit-binding-provenance",
+          "--emit-upvalue-analysis",
+          "--encoded",
+          "--export-manifest",
+          "--key",
+          "--no-synth-helpers",
+          "--output-extension",
+          "--strict-no-synthetic-control",
+          "--style",
+          "--synthesize-arithmetic-loops",
+          "--threads",
+          "--verbose"
+        ],
+        "used": "luau-lifter decompile-folder <in> <out> --key 1   (raw bytecode in a saved-bytecode text file)"
+      },
+      "changed_from_previous": false,
+      "excerpt_changed_from_previous": false
+    },
+    {
+      "tag": "v2.6",
+      "name": "V2.6",
+      "era": "v26",
+      "date": "2026-10-10",
+      "released": false,
+      "headline": "Inlined copies come home.",
+      "points": [
+        "Line numbers in the bytecode show which instructions came from a helper.",
+        "Constants Luau folded are solved back: frames(1), 2 / 3.",
+        "Closures stay the same object only when the original made them so."
+      ],
+      "numbers": [],
+      "lines": 75,
+      "nonblank_lines": 58,
+      "excerpt": "local function shield(folder)\n\tlocal humanoid = folder:FindFirstChildOfClass(\"Humanoid\")\n\n\tif not isAlive(humanoid) then -- inferred equivalent call\n\t\treturn\n\tend\n\n\tlocal clone = ShieldGlow:Clone()\n\tclone.Transparency = 2 / 3\n\tclone.Parent = folder\n\tlocal count = 0\n\n\tfor _, part in folder:GetDescendants() do\n\t\tif part:IsA(\"BasePart\") then\n\t\t\tif part.Transparency == 1 then\n\t\t\t\tcontinue\n\t\t\tend\n\n\t\t\tpart.Color = clone.Color\n\t\t\tcount += 1\n\t\tend\n\n\t\tif count >= 12 then\n\t\t\tbreak\n\t\tend\n\tend\n\n\tlocal lastTime = os.clock()\n\n\twhile os.clock() - lastTime < 3 do\n\t\tif not isAlive(humanoid) then -- inferred equivalent call\n\t\t\tbreak\n\t\tend\n\n\t\ttask.wait(frames(1)) -- inferred equivalent call\n\tend\n\n\tclone:Destroy()\nend",
+      "excerpt_lines": 39,
+      "excerpts": {
+        "shield": {
+          "text": "local function shield(folder)\n\tlocal humanoid = folder:FindFirstChildOfClass(\"Humanoid\")\n\n\tif not isAlive(humanoid) then -- inferred equivalent call\n\t\treturn\n\tend\n\n\tlocal clone = ShieldGlow:Clone()\n\tclone.Transparency = 2 / 3\n\tclone.Parent = folder\n\tlocal count = 0\n\n\tfor _, part in folder:GetDescendants() do\n\t\tif part:IsA(\"BasePart\") then\n\t\t\tif part.Transparency == 1 then\n\t\t\t\tcontinue\n\t\t\tend\n\n\t\t\tpart.Color = clone.Color\n\t\t\tcount += 1\n\t\tend\n\n\t\tif count >= 12 then\n\t\t\tbreak\n\t\tend\n\tend\n\n\tlocal lastTime = os.clock()\n\n\twhile os.clock() - lastTime < 3 do\n\t\tif not isAlive(humanoid) then -- inferred equivalent call\n\t\t\tbreak\n\t\tend\n\n\t\ttask.wait(frames(1)) -- inferred equivalent call\n\tend\n\n\tclone:Destroy()\nend",
+          "first_line": 13,
+          "last_line": 51,
+          "lines": 39,
+          "nonblank": 30
+        },
+        "join": {
+          "text": "local function onPlayerAdded(player)\n\tlocal character = player.Character or player.CharacterAdded:Wait()\n\n\tif character:IsDescendantOf(workspace) then\n\t\tshield(character)\n\tend\n\n\tlocal now = 0\n\tlocal chattedConnection = nil\n\n\tif player.MembershipType == Enum.MembershipType.Premium then\n\t\tchattedConnection = player.Chatted:Connect(function(p)\n\t\t\tif p == \"/stop\" then\n\t\t\t\tchattedConnection:Disconnect()\n\t\t\telseif not (os.clock() - now < 30) then\n\t\t\t\tnow = os.clock()\n\t\t\t\tshield(player.Character)\n\t\t\tend\n\t\tend)\n\tend\nend",
+          "first_line": 53,
+          "last_line": 73,
+          "lines": 21,
+          "nonblank": 18
+        }
+      },
+      "features": {
+        "goto": 0,
+        "labels": 0,
+        "dispatcher_states": 0,
+        "generated_names": 1,
+        "rebuilt_calls": 3,
+        "nil_stores": 1,
+        "long_decimals": 0,
+        "fractions": 1
+      },
+      "output": "local Players = game:GetService(\"Players\")\nlocal ReplicatedStorage = game:GetService(\"ReplicatedStorage\")\nlocal ShieldGlow = ReplicatedStorage:WaitForChild(\"ShieldGlow\")\n\nlocal function frames(p) -- 1 equivalent call inferred from this helper\n\treturn p / 60\nend\n\nlocal function isAlive(humanoid) -- 2 equivalent calls inferred from this helper\n\treturn humanoid ~= nil and humanoid.Health > 0\nend\n\nlocal function shield(folder)\n\tlocal humanoid = folder:FindFirstChildOfClass(\"Humanoid\")\n\n\tif not isAlive(humanoid) then -- inferred equivalent call\n\t\treturn\n\tend\n\n\tlocal clone = ShieldGlow:Clone()\n\tclone.Transparency = 2 / 3\n\tclone.Parent = folder\n\tlocal count = 0\n\n\tfor _, part in folder:GetDescendants() do\n\t\tif part:IsA(\"BasePart\") then\n\t\t\tif part.Transparency == 1 then\n\t\t\t\tcontinue\n\t\t\tend\n\n\t\t\tpart.Color = clone.Color\n\t\t\tcount += 1\n\t\tend\n\n\t\tif count >= 12 then\n\t\t\tbreak\n\t\tend\n\tend\n\n\tlocal lastTime = os.clock()\n\n\twhile os.clock() - lastTime < 3 do\n\t\tif not isAlive(humanoid) then -- inferred equivalent call\n\t\t\tbreak\n\t\tend\n\n\t\ttask.wait(frames(1)) -- inferred equivalent call\n\tend\n\n\tclone:Destroy()\nend\n\nlocal function onPlayerAdded(player)\n\tlocal character = player.Character or player.CharacterAdded:Wait()\n\n\tif character:IsDescendantOf(workspace) then\n\t\tshield(character)\n\tend\n\n\tlocal now = 0\n\tlocal chattedConnection = nil\n\n\tif player.MembershipType == Enum.MembershipType.Premium then\n\t\tchattedConnection = player.Chatted:Connect(function(p)\n\t\t\tif p == \"/stop\" then\n\t\t\t\tchattedConnection:Disconnect()\n\t\t\telseif not (os.clock() - now < 30) then\n\t\t\t\tnow = os.clock()\n\t\t\t\tshield(player.Character)\n\t\t\tend\n\t\tend)\n\tend\nend\n\nPlayers.PlayerAdded:Connect(onPlayerAdded)\n",
+      "tool": "Tovek V2.6 build luau-lifter.exe",
+      "binary_sha256": "0d59f6e3592e6c4019578c09ee5b4352a1222b8b69437eccef508c6962dbf89f",
+      "cli": {
+        "version": "luau-lifter V2.5.1",
+        "commands": [
+          "decompile-folder",
+          "validate-folder"
+        ],
+        "decompile_folder_flags": [
+          "--allow-certified-dispatcher",
+          "--assume-no-nan",
+          "--assume-standard-libraries",
+          "--cache-dir",
+          "--cache-max-mib",
+          "--compact-annotations",
+          "--dont-reuse-var",
+          "--emit-binding-provenance",
+          "--emit-upvalue-analysis",
+          "--encoded",
+          "--export-manifest",
+          "--key",
+          "--no-synth-helpers",
+          "--output-extension",
+          "--stats-json",
+          "--strict-no-synthetic-control",
+          "--style",
+          "--synthesize-arithmetic-loops",
+          "--threads",
+          "--verbose"
+        ],
+        "used": "luau-lifter decompile-folder <in> <out> --key 1   (raw bytecode in a saved-bytecode text file)"
+      },
+      "changed_from_previous": true,
+      "excerpt_changed_from_previous": true
+    }
+  ],
+  "totals": {
+    "releases": 17,
+    "published_releases": 16,
+    "first_beta": "2026-06-19",
+    "today": "2026-10-10",
+    "days_since_first_beta": 113,
+    "commits": 427,
+    "commits_note": "git rev-list --count HEAD in the Tovek repository (site branch, includes code history)",
+    "code_commits": 428,
+    "lines_medal": 67,
+    "lines_v26": 75
+  },
+  "credits": {
+    "origin": "medal (github.com/Stefanuk12/medal-decompiler), originally by Jujhar Singh and Mathias Pedersen",
+    "luau": "Luau by Roblox (github.com/luau-lang/luau)"
+  }
+}
