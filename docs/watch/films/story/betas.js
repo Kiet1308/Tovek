@@ -358,24 +358,14 @@ const BREATH_ORDER = ['v0.2.0-beta', 'v0.4.0-beta', 'v0.5.0-beta'];
 export function drawBreath(ctx, t) {
   const e = ERA.dark;
   surface(ctx, e.surface);
-  // the last slam settles into its tick; the strip stays as a ruler of the four days
-  drawStrip(ctx, t, { alpha: 1 - ease.inOut(clamp((t - (T.breath1 - 0.6)) / 0.6)), landed: () => 1 });
-  const lastV = versionOf(B.term[B.term.length - 1]);
-  const shrink = ease.inOut(clamp((t - T.breath0) / 0.6));
-  if (shrink < 1) {
-    const x = lerp(960, xOfTime(B.ms(B.when(B.term[B.term.length - 1]))), shrink);
-    const y = lerp(712, 152 + 58, shrink);
-    const k = lerp(1, 0.04, shrink);
-    ctx.save();
-    ctx.translate(x, y);
-    ctx.scale(k, k);
-    drawText(ctx, layoutText(lastV, TY.dark.slam), 0, 0, { color: e.ink, align: 'center', alpha: 1 - shrink * 0.6, tracking: -0.01 });
-    ctx.restore();
-  }
+  // the last slam settles into its tick; the strip stays as a ruler of the four days (drawn last,
+  // over a band that keeps the pushed-in code from running under it)
+  const stripA = 1 - ease.inOut(clamp((t - (T.breath1 - 0.6)) / 0.6));
   // the second function, as a landscape, and the three changes lit in turn
   const cam = breathCamAt(t);
   const pal = S.PAL.dark;
-  const ca = ease.out(clamp((t - T.breath0 - 0.4) / 0.9)) * (1 - ease.inOut(clamp((t - (T.breath1 - 0.5)) / 0.5)));
+  // the code stays: 0.7 picks up this very output, with the camera where the breath leaves it
+  const ca = ease.out(clamp((t - T.breath0 - 0.4) / 0.9));
   let lit = null, litK = 0, litTag = null;
   BREATH_ORDER.forEach((g, i) => {
     const k = envelope(t, breathBeat(i), breathBeat(i) + BREATH_BEAT, 0.3, 0.35);
@@ -400,6 +390,28 @@ export function drawBreath(ctx, t) {
       ctx.restore();
     }
   });
+  if (stripA > 0) {
+    const g = ctx.createLinearGradient(0, 214, 0, 286);
+    g.addColorStop(0, rgba(e.surface, stripA));
+    g.addColorStop(1, rgba(e.surface, 0));
+    ctx.fillStyle = rgba(e.surface, stripA);
+    ctx.fillRect(-4, -4, 1928, 218);
+    ctx.fillStyle = g;
+    ctx.fillRect(-4, 214, 1928, 72);
+  }
+  drawStrip(ctx, t, { alpha: stripA, landed: () => 1 });
+  const lastV = versionOf(B.term[B.term.length - 1]);
+  const shrink = ease.inOut(clamp((t - T.breath0) / 0.6));
+  if (shrink < 1) {
+    const x = lerp(960, xOfTime(B.ms(B.when(B.term[B.term.length - 1]))), shrink);
+    const y = lerp(712, 152 + 58, shrink);
+    const k = lerp(1, 0.04, shrink);
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.scale(k, k);
+    drawText(ctx, layoutText(lastV, TY.dark.slam), 0, 0, { color: e.ink, align: 'center', alpha: 1 - shrink * 0.6, tracking: -0.01 });
+    ctx.restore();
+  }
 }
 
 // ----------------------------------------------------------------------------------------- July

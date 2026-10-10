@@ -246,20 +246,19 @@ function buildChaptersCaptionsScore() {
     add(9.7, 11.2, 'The bytes after it are its operands.');
     add(11.35, 13.4, `Its line info points to line ${ins.line} of the source.`);
   }
-  add(13.6, 16.1, 'This is how medal decompiled that line.');
-  add(16.3, 19.5, s('medal').points[0]);
-  add(19.6, 22.35, s('medal').points[1]);
-  add(22.5, 25.35, s('medal').points[2].replace(/^Its output was correct/, 'Correct').replace('raw: v1, p3, goto.', 'raw: generated names, and a goto into an else block.'));
+  add(13.6, 15.8, 'This is how medal decompiled that line.');
+  add(15.95, 19.2, s('medal').points[0]);
+  add(19.35, 21.85, s('medal').points[1]);
+  add(22.0, 25.35, s('medal').points[2].replace(/^Its output was correct/, 'Correct').replace('raw: v1, p3, goto.', 'raw: generated names, and a goto into an else block.'));
   const b01 = s('v0.1.0-beta');
   if (b01.published_at) add(25.6, 28.8, `${cap(b01.name)} was published on ${longDate(b01.published_at)} at ${hhmm(b01.published_at)} UTC.`);
   // II. the terminal
-  add(29.2, 32.6, `${cap(b01.name)} reads the same bytes. ${b01.points[0]}`);
-  add(32.8, 35.4, `For now the loop still jumps: ${b01.features.goto} gotos.`);
+  add(29.1, 33.3, `${cap(b01.name)} reads the same bytes. ${b01.points[0]}`);
+  add(33.5, 35.45, `For now the loop still jumps: ${b01.features.goto} gotos.`);
   add(35.7, 36.9, `${Bm.title}`);
   const b02 = s('v0.2.0-beta');
   if (b02.published_at && b01.published_at) add(37.1, 39.9, `${cap(b02.name)} shipped ${gap(b01.published_at, b02.published_at)} after ${b01.name.replace(/^beta /, '')}.`);
   if (unchanged.length) add(40.1, 45.2, `${list(unchanged)} change nothing in this script; ${list(changed)} do.`);
-  add(45.5, breathBeat(0) - 0.05, `${cap(word(changed.length))} of them changed this function.`);
   const orName = newNames('v0.1.0-beta', 'v0.2.0-beta', 1)[0];
   if (orName) add(breathBeat(0), breathBeat(1) - 0.05, `${cap(b02.name)} names a value after its or expression: ${orName}.`);
   add(breathBeat(1), breathBeat(2) - 0.05, `${cap(s('v0.4.0-beta').name)}: ${lc(s('v0.4.0-beta').points[2])}`);
@@ -271,8 +270,8 @@ function buildChaptersCaptionsScore() {
   add(T.r08wide + 0.6, T.r09 - 0.1, `No goto, but the function grows from ${shieldLines('v0.7.0')} to ${shieldLines('v0.8')} lines.`);
   add(T.r09 + 0.1, T.july1 - 0.05, `${s('v0.9.0-beta').name}: ${lc(s('v0.9.0-beta').points[0])}`);
   // III. pages
-  add(T.v2 + 0.3, T.v2Morph1 - 0.4, `${s('v2-v0.1').name} writes the loop with continue and break: ${shieldLines('v0.9.0-beta')} lines become ${shieldLines('v2-v0.1')}.`);
-  add(T.v2Morph1 - 0.2, T.v2num - 0.05, s('v2-v0.1').points[1]);
+  add(T.v2 + 0.3, T.v2scroll + 1.3, `${s('v2-v0.1').name} writes the loop with continue and break: ${shieldLines('v0.9.0-beta')} lines become ${shieldLines('v2-v0.1')}.`);
+  add(T.v2scroll + 1.5, T.v2num - 0.05, s('v2-v0.1').points[1]);
   if (N.v2) add(T.v2num + 0.2, T.v21 - 0.1, `${cap(N.v2.label)}: ${fmt(N.v2.from)} down to ${fmt(N.v2.to)}.`);
   if (N.v21) add(T.v21 + 0.4, T.v211 - 0.1, `${s('v2.1').name} decompiles a ${fmt(N.v21.scripts)}-script game in ${N.v21.v21} seconds on one thread. V2 took ${N.v21.v2}.`);
   if (N.v211) add(T.v211 + 0.2, T.v25 - 0.1, `Fed ${fmt(N.v211.scripts)} damaged scripts, V2 aborted ${fmt(N.v211.aborted)} times. ${s('v2.1.1').name} never does.`);
@@ -286,18 +285,18 @@ function buildChaptersCaptionsScore() {
     add(T.flood + 0.4, T.homing0 + 1.9, `Luau's -O2 compiler pasted ${h0} into ${D.sample.focus_function} ${times(k0)}${rest.map(([h, k]) => `, and ${h} ${times(k)}`).join('')}.`);
   }
   add(T.homing0 + 2.0, Hm.glide0 - 0.05, `${v26.name} finds each pasted copy and sends it home to its helper.`);
-  add(Hm.glide0, Hm.type1 + 0.2, 'In its place, a call, marked as an inferred equivalent.');
-  add(Hm.type1 + 0.4, T.consts0 - 0.1, `The same file: ${s('v2.5.1').lines} lines become ${v26.lines}, with ${v26.features.rebuilt_calls} calls rebuilt.`);
+  add(Hm.glide0, Hm.glide1 + 0.6, 'In its place, a call, marked as an inferred equivalent.');
+  add(Hm.glide1 + 0.8, T.consts0 - 0.1, `The same file: ${s('v2.5.1').lines} lines become ${v26.lines}, with ${v26.features.rebuilt_calls} calls rebuilt.`);
   Hm.exprs.forEach((x, i) => add(x.t0 + 0.1, x.t0 + 3.0, i === 0 ? `Constants Luau folded are solved back: ${x.from} is ${x.to}.` : `And ${x.from} becomes ${x.to}.`));
-  if (N.v26a) add(T.nums + 0.1, T.nums + 2.9, `In four real games${N.v26a.paren ? `, ${N.v26a.paren}` : ''}, rebuilt calls go from ${fmt(N.v26a.from ?? 0)} to ${fmt(N.v26a.to)}.`);
+  if (N.v26a) add(T.nums + 0.1, T.nums + 2.9, `In four real games, rebuilt calls go from ${fmt(N.v26a.from ?? 0)} to ${fmt(N.v26a.to)}.`);
   if (N.v26b) {
     const m = N.v26b.label.match(/^(wrong outputs) in (.+)$/);
     const was = N.v26b.paren.match(/^(.+?): ([\d,]+)$/);
     add(T.nums + 3.0, T.orig - 0.1, m ? `In ${m[2]}: ${N.v26b.to} ${m[1]}.${was ? ` ${was[1]} had ${was[2]}.` : ''}` : `${N.v26b.to} ${N.v26b.label}.`);
   }
   // V. the end
-  add(T.orig + 0.4, T.orig + 3.3, 'Beside the source it was compiled from.');
-  add(T.orig + 3.5, T.end - 0.1, Sd.onlyNames ? 'Every keyword, call and operator matches. Only names, constants and comments differ.' : 'Most of it matches, token for token.');
+  add(T.orig + 0.4, T.orig + 2.8, 'Beside the source it was compiled from.');
+  add(T.orig + 3.0, T.end - 0.1, Sd.onlyNames ? 'Every keyword, call and operator matches. Only names, constants and comments differ.' : 'Most of it matches, token for token.');
   add(T.end + 0.6, T.end + 4.2, `${cap(word(D.totals.releases))} releases in ${D.totals.days_since_first_beta} days.`);
   add(T.end + 4.6, T.duration - 0.4, `Built on ${D.credits.origin.replace(/ \(.*?\)/, '')}. ${D.credits.luau.replace(/ \(.*?\)/, '')}.`);
   story.captions = c;

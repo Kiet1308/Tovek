@@ -24,22 +24,22 @@ export const T = {
   b01: 29.0, b01Morph0: 30.2, b01Morph1: 33.6, b011: 35.6,
   // four days, eight betas: title, slams, then a breath on the second function
   mont0: 35.6, slams0: 37.0, mont1: 45.4,
-  breath0: 45.4, breath1: 53.8,
+  breath0: 45.4, breath1: 54.7,
   // July: 0.7, the goto arcs, 0.8 snaps them into a loop, 0.9
-  r07: 53.8, r07Morph0: 54.8, r07Morph1: 57.2, arcs0: 58.4, nogoto: 62.6, snap0: 64.2, snap1: 66.4, r08wide: 66.8, r09: 71.8, july1: 75.0,
+  r07: 54.7, r07Morph0: 55.7, r07Morph1: 58.1, arcs0: 59.3, nogoto: 63.5, snap0: 65.1, snap1: 67.3, r08wide: 67.7, r09: 71.7, july1: 74.9,
   // the release pages: V2 fills a white frame, its page scrolls, its number fills the frame; V2.1's
   // name drops into a race; the race breaks into a field; V2.5's 198 marks; a name; V2.5.1's file
-  v2: 75.0, v2settle: 75.8, v2scroll: 77.6, v2Morph0: 78.3, v2Morph1: 81.3, v2num: 82.1,
-  v21: 84.8, v21race: 87.3, v211: 91.0, v25: 95.2, fuzz0: 97.3, ctx25: 102.0, v251: 105.3,
+  v2: 74.9, v2settle: 75.7, v2scroll: 77.5, v2Morph0: 78.2, v2Morph1: 81.2, v2num: 82.0,
+  v21: 84.7, v21race: 87.2, v211: 90.9, v25: 95.1, fuzz0: 97.2, ctx25: 101.9, v251: 105.2,
   // V2.6: the flood, the copies come home, the constants, the numbers
-  flood: 109.4, title26: 110.0, homing0: 113.6, homing1: 130.6, consts0: 130.6, nums: 136.8,
+  flood: 108.8, title26: 109.4, homing0: 113.0, homing1: 130.0, consts0: 130.0, nums: 136.2,
   // the end
-  orig: 143.4, end: 150.0, duration: 160.0,
+  orig: 142.6, end: 150.0, duration: 160.0,
 };
 
-/** The breath after the montage lights the three changed lines in turn, 2.3 s each. */
-export const breathBeat = (i) => T.breath0 + 1.5 + i * 2.3;
-export const BREATH_BEAT = 2.3;
+/** The breath after the montage lights the three changed lines in turn, 2.8 s each. */
+export const breathBeat = (i) => T.breath0 + 0.9 + i * 2.8;
+export const BREATH_BEAT = 2.8;
 
 // --------------------------------------------------------------------------------------- the look
 
