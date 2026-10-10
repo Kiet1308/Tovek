@@ -2,6 +2,15 @@
 //! The later AST matcher independently proves every accepted reconstruction.
 use crate::{deserializer::{constant::Constant, function::Function}, instruction::Instruction, op_code::OpCode};
 
+/// The last line the tables indexed by line read: past it, line info is
+/// pathological (no source has 4M lines; forged bytecode may name any line
+/// up to 2^31) and gives no evidence.
+const LINE_LIMIT: usize = 4 * 1024 * 1024;
+
+/// The most lines all the helpers' spans and code ranges may hold together,
+/// for the same reason.
+const SPAN_LIMIT: usize = 8 * 1024 * 1024;
+
 pub(crate) fn retain(function: &Function, name: Option<&str>) -> bool {
     name.is_some_and(|name| name.len() <= 256 && ast::valid_source_name(name))
         && !function.is_vararg
@@ -38,7 +47,7 @@ pub(crate) fn inlined_prototypes(functions: &[Function], lines: &[Vec<Option<u32
     let Some(last) = spans.iter().flatten().map(|&(_, end)| end).max() else { return inlined };
     // Pathological line numbers would make the owner table large; such
     // input keeps every binder as before.
-    if last as usize > 4 * 1024 * 1024 {
+    if last as usize > LINE_LIMIT {
         return inlined;
     }
     let opcode_of = |instruction: &Instruction| match instruction {
@@ -184,6 +193,22 @@ pub(crate) fn inlined_copies(functions: &[Function], lines: &[Vec<Option<u32>>],
             other => 16 + (other as u8 & 127),
         })
     };
+    // Every table below is indexed by line, or holds one bit per line of a
+    // helper's code: pathological lines (forged line info) give no evidence
+    // rather than tables as large as the lines they name.
+    let mut code_lines = 0usize;
+    for (id, (function, pcs)) in functions.iter().zip(lines).enumerate() {
+        let Some((min, max)) = line_range(pcs) else { continue };
+        if max as usize > LINE_LIMIT || function.line_defined > LINE_LIMIT {
+            return None;
+        }
+        if id != main {
+            code_lines += (max - min) as usize + 1;
+            if code_lines > SPAN_LIMIT {
+                return None;
+            }
+        }
+    }
     let mut helpers: Vec<Option<Helper>> = Vec::with_capacity(functions.len());
     for (id, (function, pcs)) in functions.iter().zip(lines).enumerate() {
         if id == main {
@@ -232,20 +257,16 @@ pub(crate) fn inlined_copies(functions: &[Function], lines: &[Vec<Option<u32>>],
         .map(|(function, helper)| helper.as_ref().is_some_and(|helper| helper.single.is_some()) && folding_helper(function))
         .collect();
     let last = helpers.iter().flatten().map(|helper| helper.span.1).max()?;
+    // Pathological spans would make the table large: no evidence then.
+    let spanned: usize = helpers.iter().flatten().map(|helper| (helper.span.1 - helper.span.0) as usize + 1).sum();
+    if spanned > SPAN_LIMIT {
+        return None;
+    }
     // Every line's helpers, innermost first (the narrowest span, then the
     // lowest prototype), as one flat table indexed by line.
     let mut starts = vec![0u32; last as usize + 2];
-    let mut spanned = 0usize;
     for helper in helpers.iter().flatten() {
         let (start, end) = helper.span;
-        if start > end {
-            continue;
-        }
-        spanned += (end - start + 1) as usize;
-        // Pathological spans would make the table large: no evidence then.
-        if spanned > 8 * 1024 * 1024 {
-            return None;
-        }
         for line in start..=end {
             starts[line as usize + 1] += 1;
         }
@@ -258,9 +279,6 @@ pub(crate) fn inlined_copies(functions: &[Function], lines: &[Vec<Option<u32>>],
     for (id, helper) in helpers.iter().enumerate() {
         let Some(helper) = helper else { continue };
         let (start, end) = helper.span;
-        if start > end {
-            continue;
-        }
         for line in start..=end {
             owners[filled[line as usize] as usize] = id as u32;
             filled[line as usize] += 1;
@@ -602,6 +620,14 @@ fn instruction_numbers(instruction: &Instruction, constants: &[Constant], found:
     }
 }
 
+/// The least and the last line of a prototype's code, `None` without lines.
+fn line_range(lines: &[Option<u32>]) -> Option<(u32, u32)> {
+    lines.iter().flatten().fold(None, |range, &line| match range {
+        None => Some((line, line)),
+        Some((min, max)) => Some((min.min(line), max.max(line))),
+    })
+}
+
 /// The lines a prototype's code has, one bit per line from the least.
 struct LineSet {
     min: u32,
@@ -611,10 +637,7 @@ struct LineSet {
 impl LineSet {
     /// `None` without lines.
     fn new(lines: &[Option<u32>]) -> Option<LineSet> {
-        let (min, max) = lines.iter().flatten().fold(None, |range: Option<(u32, u32)>, &line| match range {
-            None => Some((line, line)),
-            Some((min, max)) => Some((min.min(line), max.max(line))),
-        })?;
+        let (min, max) = line_range(lines)?;
         let mut bits = vec![0u64; ((max - min) as usize >> 6) + 1];
         for &line in lines.iter().flatten() {
             let at = (line - min) as usize;
@@ -755,6 +778,31 @@ mod tests {
         assert!(copies.present(Some(1), 0) && !copies.present(None, 0));
         // No line info, no evidence.
         assert!(inlined_copies(&[prototype(1, &[LOP_RETURN]), prototype(1, &[LOP_RETURN])], &[vec![], vec![]], 1).is_none());
+    }
+
+    #[test]
+    fn forged_lines_give_no_evidence_instead_of_tables_as_large_as_the_lines_they_name() {
+        use OpCode::*;
+        let helper = || prototype(1, &[LOP_JUMPIFNOT, LOP_CALL, LOP_RETURN]);
+        let caller = || prototype(5, &[LOP_GETUPVAL, LOP_JUMPIFNOT, LOP_CALL, LOP_RETURN]);
+        let chunk = || prototype(1, &[LOP_NEWCLOSURE, LOP_NEWCLOSURE, LOP_RETURN]);
+        let honest = vec![vec![Some(2), Some(2), Some(3)], vec![Some(6), Some(2), Some(2), Some(7)], vec![Some(1), Some(5), Some(9)]];
+        assert_eq!(inlined_copies(&[helper(), caller(), chunk()], &honest, 2).unwrap().copies(Some(1), 0), 1);
+        // A helper's last line, a caller's line, a definition line: each
+        // forged to 2 billion, which the line tables would have to reach
+        // (8 GB) or the helper's line bits span (250 MB).
+        let mut last = honest.clone();
+        last[0][2] = Some(2_000_000_000);
+        assert!(inlined_copies(&[helper(), caller(), chunk()], &last, 2).is_none());
+        let mut caller_line = honest.clone();
+        caller_line[1][3] = Some(2_000_000_000);
+        assert!(inlined_copies(&[helper(), caller(), chunk()], &caller_line, 2).is_none());
+        assert!(inlined_copies(&[prototype(2_000_000_000, &[LOP_JUMPIFNOT, LOP_CALL, LOP_RETURN]), caller(), chunk()], &honest, 2).is_none());
+        // Lines within the limit whose ranges together exceed it.
+        let wide: Vec<Function> = (0..4).map(|_| helper()).chain([chunk()]).collect();
+        let ranges: Vec<Vec<Option<u32>>> = (0..4).map(|_| vec![Some(1), Some(3_000_000), Some(3_000_001)]).chain([vec![Some(1), Some(1), Some(1)]]).collect();
+        assert!(inlined_copies(&wide, &ranges, 4).is_none());
+        assert!(inlined_prototypes(&[helper(), caller(), chunk()], &last).iter().all(|inlined| !inlined));
     }
 
     #[test]
