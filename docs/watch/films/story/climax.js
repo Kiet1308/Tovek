@@ -277,8 +277,12 @@ function drawTitle26(ctx, t) {
     if (fly <= 0) reveal(ctx, Lt, 0, 0, t, { unit: 'line', start: t0, dur: 0.8, color: e.ink, tracking: -0.01 });
     else drawText(ctx, Lt, 0, 0, { color: e.ink, tracking: -0.01 });
   });
-  place(at(big.head, C.head), () => {
+  // the headline flies too but fades before it lands: over the wide shot the corner keeps only the
+  // name, clear of the first line of code
+  const headA = 1 - smoothstep(0.35, 0.85, fly);
+  if (headA > 0) place(at(big.head, C.head), () => {
     const col = e.ink2;
+    ctx.globalAlpha *= headA;
     if (fly <= 0) {
       reveal(ctx, Lh, 0, 0, t, { unit: 'word', start: t0 + 0.7, stagger: 0.07, dur: 0.8, color: col });
       if (dot) reveal(ctx, dot, Lh.width, 0, t, { unit: 'line', start: t0 + 0.7 + 0.07 * Lh.wordCount, dur: 0.8, color: col });
@@ -306,7 +310,6 @@ function drawCorner(ctx, t, ox = 0, oy = 0) {
   ctx.translate(ox, oy);
   place(C.tovek, () => drawText(ctx, layoutText('Tovek', ty.tovek, { pairs: PAIRS }), 0, 0, { color: e.ink, tracking: -0.01 }));
   place(C.name, () => drawText(ctx, layoutText(s.name, ty.giant, { around: AROUND }), 0, 0, { color: e.ink, tracking: -0.01 }));
-  place(C.head, () => drawText(ctx, layoutText(stripDot(s.headline), ty.head), 0, 0, { color: e.ink2 }));
   ctx.restore();
 }
 
