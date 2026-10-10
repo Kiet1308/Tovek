@@ -109,7 +109,7 @@ button { font: inherit; color: inherit; }
   cursor: pointer;
   background:
     linear-gradient(to top, rgba(13, 13, 12, 0.94) 0%, rgba(13, 13, 12, 0.62) 26%, rgba(13, 13, 12, 0.12) 58%, rgba(13, 13, 12, 0) 100%),
-    linear-gradient(to right, rgba(13, 13, 12, 0.5) 0%, rgba(13, 13, 12, 0) 55%);
+    linear-gradient(to right, rgba(13, 13, 12, 0.42) 0%, rgba(13, 13, 12, 0) 38%);
   transition: opacity 0.6s var(--ease-out), visibility 0s linear 0s;
 }
 .screen.is-started .poster { opacity: 0; visibility: hidden; transition: opacity 0.45s var(--ease-out), visibility 0s linear 0.45s; }
