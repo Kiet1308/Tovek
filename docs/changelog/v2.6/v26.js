@@ -480,7 +480,7 @@ function makeGLField(canvas) {
   const VS = `
     precision highp float;
     attribute vec2 a_pos; attribute vec3 a_rad; attribute vec3 a_lit;
-    uniform float u_k; uniform vec2 u_off; uniform vec2 u_res; uniform float u_fin; uniform float u_minR; uniform float u_alpha;
+    uniform float u_k; uniform vec2 u_off; uniform vec2 u_res; uniform float u_fin; uniform float u_minR; uniform float u_alpha; uniform float u_intro;
     uniform vec3 u_ink; uniform vec3 u_sig;
     varying float v_r; varying vec4 v_col;
     void main() {
@@ -500,7 +500,9 @@ function makeGLField(canvas) {
       if (lit <= 0.0) { a = 0.17; c = u_ink; }
       else if (!after) { a = 0.34 + 0.5 * lit; c = u_ink; }
       else { a = 0.5 + 0.5 * lit; c = u_sig; }
-      v_col = vec4(c, a * u_alpha);
+      // on load the field appears outward from the dot the camera will dive into
+      float reveal = clamp((u_intro * 1.35 - a_lit.z) / 0.35, 0.0, 1.0);
+      v_col = vec4(c, a * u_alpha * reveal * reveal * (3.0 - 2.0 * reveal));
     }`;
   const FS = `
     precision mediump float;
@@ -521,7 +523,7 @@ function makeGLField(canvas) {
     if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(prog));
   } catch (e) { console.warn('V2.6 field: WebGL unavailable', e); return null; }
   const loc = (n) => gl.getUniformLocation(prog, n);
-  const U = { k: loc('u_k'), off: loc('u_off'), res: loc('u_res'), fin: loc('u_fin'), minR: loc('u_minR'), alpha: loc('u_alpha'), ink: loc('u_ink'), sig: loc('u_sig') };
+  const U = { intro: loc('u_intro'), k: loc('u_k'), off: loc('u_off'), res: loc('u_res'), fin: loc('u_fin'), minR: loc('u_minR'), alpha: loc('u_alpha'), ink: loc('u_ink'), sig: loc('u_sig') };
   const A = { pos: gl.getAttribLocation(prog, 'a_pos'), rad: gl.getAttribLocation(prog, 'a_rad'), lit: gl.getAttribLocation(prog, 'a_lit') };
   const buf = gl.createBuffer();
   const rgb = (c) => hex(c).map((v) => v / 255);
@@ -533,7 +535,7 @@ function makeGLField(canvas) {
       gl.clearColor(p[0], p[1], p[2], 1);
       gl.clear(gl.COLOR_BUFFER_BIT);
     },
-    draw(F, pl, dpr, fin, alpha) {
+    draw(F, pl, dpr, fin, alpha, intro = 1) {
       if (uploaded !== F) {
         // unlit first, so lit dots sit on top
         const order = Array.from({ length: F.n }, (_, i) => i).sort((a, b) => Math.max(F.l1[a], F.l2[a]) - Math.max(F.l1[b], F.l2[b]) || a - b);
@@ -554,6 +556,7 @@ function makeGLField(canvas) {
       gl.uniform1f(U.fin, fin);
       gl.uniform1f(U.minR, 0.55 * dpr);
       gl.uniform1f(U.alpha, alpha);
+      gl.uniform1f(U.intro, intro);
       gl.uniform3fv(U.ink, rgb(COL.ink));
       gl.uniform3fv(U.sig, rgb(COL.signal));
       gl.enable(gl.BLEND);
@@ -810,7 +813,7 @@ function drawField(R, sc, st, pl, use, vw, intro) {
   const F = sc.lv[0];
   const fin = st.fin;
   if (R.glField) {
-    R.glField.draw(F, pl, R.dpr, fin, a);
+    R.glField.draw(F, pl, R.dpr, fin, a / Math.max(intro, 1e-3), intro);
     drawDiscLabels(R, pl, F, a);
     return;
   }
@@ -1069,12 +1072,8 @@ function drawFn(R, sc, st, pl, use, vw, intro) {
       ctx.fillText(ci + s.length > maxCh ? s.slice(0, maxCh - ci - 1) + '…' : s, card.x + padX + ci * cw2, ty);
     }
   }
-  // where the helper really sits in the output
   setFont(ctx, `500 ${fs2 * 0.72}px ${MONO}`);
   ctx.fillStyle = COL.ink3;
-  ctx.textAlign = 'right';
-  ctx.fillText(`LINE ${DATA.dive.helper.v26_line}`, card.x + card.w - padX, cy + card.h - p2 * 0.95);
-  ctx.textAlign = 'left';
   // tally: one square per copy in the bytecode, filled when its call is rebuilt
   const n = G.calls.length;
   const ty = cy + card.h - p2 * 0.95;
@@ -1093,7 +1092,16 @@ function drawFn(R, sc, st, pl, use, vw, intro) {
     sx += sq * 1.5;
   }
   ctx.fillStyle = done === n ? COL.signalDeep : COL.ink2;
-  ctx.fillText(`${done} OF ${n} REBUILT`, sx + cw2 * 0.6, ty);
+  const doneText = `${done} OF ${n} REBUILT`;
+  ctx.fillText(doneText, sx + cw2 * 0.6, ty);
+  // the helper's real line, when there is room for it
+  const lineText = `LINE ${DATA.dive.helper.v26_line}`;
+  if (sx + cw2 * 0.6 + ctx.measureText(doneText).width + cw2 * 2 + ctx.measureText(lineText).width < card.x + card.w - padX) {
+    ctx.fillStyle = COL.ink3;
+    ctx.textAlign = 'right';
+    ctx.fillText(lineText, card.x + card.w - padX, ty);
+    ctx.textAlign = 'left';
+  }
   // each copy lifts out of its call and flies back into the helper
   const tx = card.x + padX + cw2 * 18, tyC = cy + p2 * 2.4;
   for (let k = n - 1; k >= 0; k--) {
@@ -1612,7 +1620,7 @@ function frame(now) {
   const tau = coarse ? 0 : 75;
   if (tau > 0 && Math.abs(tTarget - tCur) > 0.0004) tCur += (tTarget - tCur) * (1 - Math.exp(-dt / tau));
   else tCur = tTarget;
-  const intro = ready ? (introStart ? clamp((now - introStart) / 1100) : 0) : 0;
+  const intro = ready ? (introStart ? clamp((now - introStart) / 1500) : 0) : 0;
   draw(tCur, intro);
   if (Math.abs(tTarget - tCur) > 0.0004 || (ready && intro < 1)) kick();
 }
