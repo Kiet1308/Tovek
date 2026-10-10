@@ -23,6 +23,12 @@
 -- passes the local on as an upvalue of the outer one, which the tree marks
 -- as a capture by reference; that is no write, and the outer literal, which
 -- would print shared, gets its private copy too.
+-- A shared literal inside a function the bytecode makes anew (`api.latest`,
+-- which counts its calls) reaches the top-level local `title` through that
+-- function's upvalue (CAPTURE UPVAL), which the tree marks as a capture by
+-- reference. Splitting `title` for the copy of `bind` (`titled`) would make
+-- that literal new on every call of `api.latest` as well; `title` keeps its
+-- declaration and the copy gets its private copy.
 local function bind(tag)
 	return function()
 		return tag
@@ -89,3 +95,18 @@ for i = 1, 2 do
 	end
 end
 print(nested[1] == nested[2], plain[1] == plain[2], nested[1]()(), nested[1]() == nested[1]())
+
+local title = tostring(#list * 3)
+local api = {}
+local calls = 0
+function api.latest()
+	calls += 1
+	return function()
+		return title
+	end
+end
+local titled = {}
+for i = 1, #list do
+	titled[i] = bind(title)
+end
+print(titled[1] == titled[2], api.latest() == api.latest(), titled[3](), api.latest()(), calls)

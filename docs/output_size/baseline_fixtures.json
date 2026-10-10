@@ -749,16 +749,16 @@
       "lines": 16
     },
     "semantic/deinline_fresh_closure_capturing_a_constant__O0.luau": {
-      "bytes": 1043,
-      "lines": 77
+      "bytes": 1333,
+      "lines": 94
     },
     "semantic/deinline_fresh_closure_capturing_a_constant__O1.luau": {
-      "bytes": 1043,
-      "lines": 77
+      "bytes": 1333,
+      "lines": 94
     },
     "semantic/deinline_fresh_closure_capturing_a_constant__O2.luau": {
-      "bytes": 1473,
-      "lines": 104
+      "bytes": 1805,
+      "lines": 126
     },
     "semantic/deinline_helper_kept_beside_its_named_store__O0.luau": {
       "bytes": 1156,

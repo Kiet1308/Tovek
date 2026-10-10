@@ -24,7 +24,8 @@
 //! written local. Its value and every read stay as they were.
 //!
 //! Every other literal capturing that local is captured by reference too: one
-//! the bytecode shares (DUPCLOSURE) would become new on every run. Such a
+//! the bytecode shares (DUPCLOSURE) would become new on every run, also one
+//! in a function that reaches the local through its own upvalue. Such a
 //! local is never split. Where the fresh literal captures nothing else, it
 //! captures a private copy instead, declared and assigned right before the
 //! statement making it (`local p` / `p = tag`), its reads renamed: the copy
@@ -74,7 +75,8 @@ struct Facts {
     bound_captures: FxHashMap<FnPtr, Vec<Upvalue>>,
     /// Literals of NEWCLOSURE prototypes that can run more than once.
     fresh: Vec<(Arc<Mutex<Function>>, Vec<Upvalue>)>,
-    /// The locals literals the bytecode shares (DUPCLOSURE) capture by value.
+    /// The locals literals the bytecode shares (DUPCLOSURE) capture, by
+    /// value or passed on through an upvalue of the enclosing function.
     shared_captures: FxHashSet<RcLocal>,
     /// How many literals make each function.
     literals: FxHashMap<FnPtr, usize>,
@@ -200,9 +202,13 @@ fn census(block: &Block, function_depth: usize, loop_depth: usize, facts: &mut F
             if !closure.upvalues.is_empty() {
                 let function = closure.function.lock();
                 if function.closure_constant.is_some() {
-                    facts.shared_captures.extend(closure.upvalues.iter().filter_map(|upvalue| match upvalue {
-                        Upvalue::Copy(local) => Some(local.clone()),
-                        Upvalue::Ref(_) => None,
+                    // A capture marked by reference is the local passed on
+                    // through the enclosing function's upvalue (`CAPTURE
+                    // UPVAL`): Luau shares the literal only while that local
+                    // stays unwritten too.
+                    facts.shared_captures.extend(closure.upvalues.iter().map(|upvalue| {
+                        let (Upvalue::Copy(local) | Upvalue::Ref(local)) = upvalue;
+                        local.clone()
                     }));
                 } else if repeats && function.bytecode_proto_id.is_some() && facts.may_share(&closure.upvalues, None) {
                     facts.fresh.push((closure.function.0.clone(), closure.upvalues.clone()));
@@ -603,6 +609,43 @@ mod tests {
         assert_eq!(shared.upvalues, vec![Upvalue::Copy(tag.clone())]);
         let Statement::Return(inner) = &fresh.function.lock().body.0[0] else { panic!() };
         assert_eq!(inner.values, vec![RValue::Local(copy_local.clone())]);
+    }
+
+    /// `local tag = "y"; local f = function() return function() return tag
+    /// end end; local g = function() return <DUPCLOSURE>function() return
+    /// tag end end`: `g` is made anew, and its shared literal reaches `tag`
+    /// through `g`'s upvalue (`CAPTURE UPVAL`, marked by reference).
+    /// Splitting `tag` would make that literal new on every call of `g`: the
+    /// fresh literal gets a private copy instead.
+    #[test]
+    fn a_local_a_shared_literal_reaches_through_an_upvalue_is_not_split() {
+        let tag = RcLocal::new(Local::new(Some("tag".into())));
+        let returns_tag = Block(vec![Return::new(vec![tag.clone().into()]).into()]);
+        let fresh = closure(1, None, vec![Upvalue::Copy(tag.clone())]);
+        let shared = closure(2, Some(5), vec![Upvalue::Ref(tag.clone())]);
+        for literal in [&fresh, &shared] {
+            if let RValue::Closure(closure) = literal {
+                closure.function.lock().body = returns_tag.clone();
+            }
+        }
+        let outer = closure(0, Some(0), vec![]);
+        if let RValue::Closure(closure) = &outer {
+            closure.function.lock().body = Block(vec![Return::new(vec![fresh]).into()]);
+        }
+        let maker = closure(3, None, vec![Upvalue::Copy(tag.clone())]);
+        if let RValue::Closure(closure) = &maker {
+            closure.function.lock().body = Block(vec![Return::new(vec![shared]).into()]);
+        }
+        let mut block = Block(vec![
+            declare(&tag, Literal::String(b"y".to_vec()).into()),
+            declare(&RcLocal::default(), outer),
+            declare(&RcLocal::default(), maker),
+        ]);
+        keep_fresh_closures(&mut block);
+        assert_eq!(block.0.len(), 3, "`tag` keeps its declaration");
+        let Statement::Assign(assign) = &block.0[1] else { panic!() };
+        let RValue::Closure(outer) = &assign.right[0] else { panic!() };
+        assert_eq!(outer.function.lock().body.0.len(), 3, "`local tag2`, `tag2 = tag`, the return");
     }
 
     /// `local tag = "y"; local f = function() return function() return

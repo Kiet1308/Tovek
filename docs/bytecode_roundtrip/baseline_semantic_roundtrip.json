@@ -197,7 +197,7 @@
    "deinline_orphan_function": "m2c D7 orphan helper, nonequiv 4: the unused function literals shift and folded stay out as before (2 missing protos); main keeps its constant-folded copies of writeb, which recompile folded further, by construction",
    "deinline_value_sites_without_prefix_limit": "m2c D2 value sites without a prefix limit, nonequiv 6: main recompiles the constructor-literal functions it prints as inlined copies; makeNode and getParent print their stores as table literals; firsts and health keep a value-less declaration and health its continuation cloned into the early exit (the lp_a shape, not rebuilt), by construction",
    "deinline_earlier_body_and_extents": "m2c D7 dual-version patterns and extents, nonequiv 1: main prints rng's method as a constructor field (`next = function`), by construction",
-   "deinline_fresh_closure_capturing_a_constant": "m2-integrate fresh_closures: nonequiv 2 by construction (main, make): the copy of bind left inline keeps the constant its fresh literal captures in a local declared then assigned (LOADNIL + CAPTURE ref) where the bytecode captured a LOADK temp by value; only the helper call spells that capture, and folded the literal would be shared (DUPCLOSURE); the copy in the name loop captures a private copy of `name` (LOADNIL + CAPTURE ref) where the bytecode captured `name` by value, as the DUPCLOSURE literal beside it still does, and so does the copy of nest (m2fix finding 3)",
+   "deinline_fresh_closure_capturing_a_constant": "m2-integrate fresh_closures: nonequiv 2 by construction (main, make): the copy of bind left inline keeps the constant its fresh literal captures in a local declared then assigned (LOADNIL + CAPTURE ref) where the bytecode captured a LOADK temp by value; only the helper call spells that capture, and folded the literal would be shared (DUPCLOSURE); the copy in the name loop captures a private copy of `name` (LOADNIL + CAPTURE ref) where the bytecode captured `name` by value, as the DUPCLOSURE literal beside it still does, and so does the copy of nest (m2fix finding 3); nonequiv 3 with the api.latest shape (m2verify): the copy in the titled loop captures its private copy of `title` (LOADNIL + CAPTURE ref), and the output spells `function api.latest` inside the table constructor, whose calls Luau -O2 then inlines (an extra prototype)",
    "deinline_written_parameter_live_outside": "m2fix finding 1 (written parameter live outside its block), nonequiv 2 by construction: cut prints its default store as the else arm of a value-less declaration (an extra LOADNIL); drainParts' loop, unrolled by -O2, prints its first store into a table literal sized 1 where the bytecode reserved 3",
    "deinline_absorb_keeps_source_handles": "m2fix finding 4 (D4 handles kept out of absorbed arguments), nonequiv 0",
    "deinline_error_level_reads_the_caller": "m2fix finding 5 (error with a caller's level is a frame read), nonequiv 0"
@@ -577,8 +577,8 @@
   {
    "file": "deinline_fresh_closure_capturing_a_constant",
    "status": "ok",
-   "nonequiv": 2,
-   "protos": 13
+   "nonequiv": 3,
+   "protos": 15
   },
   {
    "file": "deinline_helper_kept_beside_its_named_store",
