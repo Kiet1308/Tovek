@@ -32,6 +32,11 @@ made in a loop with `==` (DUPCLOSURE against NEWCLOSURE), partly in the
 main chunk; `service-handle` passes GetService/require handles (global
 stubs) to the helper.
 
+Bytecode built at -O0 is compiled again at -O0 where the program itself
+prints differently at -O0 and at the level drawn (`source_differs`: from -O1
+Luau reads a local passed to a builtin when the call runs, so an argument
+after it that writes the local shows at -O1 only); its row says so.
+
 A failure keeps its directory and, with `--reduce`, a reduced program (whole
 units deleted while the failure category stays). Passing seeds leave nothing.
 """
@@ -992,6 +997,25 @@ def check(args, units, directory, opt, debug, out_opt, mutation=None):
     return "passed", note
 
 
+def source_differs(args, units, directory, out_opt, debug):
+    """Whether the program itself prints differently compiled at -O0 and at
+    -O`out_opt` (one -g), each run on the VM with the driver."""
+    directory.mkdir(parents=True, exist_ok=True)
+    source = directory / "levels.luau"
+    source.write_text(source_of(units), encoding="utf-8", newline="\n")
+    runs = []
+    for level in (0, out_opt):
+        try:
+            data = compile_luau(args, source, level, debug)
+        except CompileError:
+            return False
+        bytecode = directory / f"levels-O{level}.bc"
+        bytecode.write_bytes(data)
+        code, output, _ = run([args.vm, bytecode, args.driver_bc], args.timeout)
+        runs.append((code, comparable(output)))
+    return runs[0] != runs[1]
+
+
 def first_difference(expected, actual):
     for index, (left, right) in enumerate(zip(expected.splitlines(), actual.splitlines())):
         if left != right:
@@ -1028,18 +1052,30 @@ def run_seed(args, seed):
         # not compiled again at -O2.
         out_opts = (0, 1, 2) if opt == 2 else (0, 1)
         out_opt = rng.choice(out_opts)
+        case = directory / f"O{opt}g{debug}"
+        level_dependent = False
         if "closure-identity" in families and (out_opt == 0) != (opt == 0):
             # Luau shares closures (DUPCLOSURE) only from -O1: identity
             # survives a recompile only within the regime of the bytecode.
             out_opt = opt
+        elif opt == 0 and out_opt != 0 and source_differs(args, units, case, out_opt, debug):
+            # The program itself prints differently at -O0 and at -O1: from
+            # -O1 Luau reads a local passed to a builtin when the call runs
+            # (FASTCALL), where -O0 copies it first, so an argument after it
+            # that writes the local (`bump`, the `__sub` of `meta`) is seen
+            # at -O1 only. No output can match both; -O0 bytecode is checked
+            # at -O0. Bytecode built at -O1 or above is still compiled again
+            # at -O0: the late read is there for the decompiler to spell.
+            out_opt, level_dependent = 0, True
         profile = (opt, debug, out_opt, seed if args.mutate and rng.random() < 0.5 else None)
-        case = directory / f"O{opt}g{debug}"
         status, detail = check(args, units, case, *profile)
         if status == "failed":
             # A crash of the VM under load (stack overflow) does not repeat.
             status, detail = check(args, units, case, *profile)
         row = {"seed": seed, "families": families, "opt": opt, "debug": debug, "out_opt": profile[2],
                "mutation": profile[3] is not None, "status": status, "detail": detail}
+        if level_dependent:
+            row["source_differs"] = True
         if status == "failed" and args.reduce:
             row["reducer"] = reduce(args, units, case, profile, detail.split(":")[0])
         elif status != "failed":

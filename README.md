@@ -490,7 +490,10 @@ trạng thái khác trước), `error-level` (`error(msg, level)` trong `pcall`)
 được biên dịch lại cùng phía -O1 với bytecode, vì DUPCLOSURE chỉ có từ -O1) và
 `service-handle` (handle GetService/require qua stub toàn cục). Tham chiếu là
 bytecode đã biên dịch, chạy trên benchmark VM; output
-được biên dịch lại ở một mức ngẫu nhiên và chạy cùng driver. `--mutate` sửa
+được biên dịch lại ở một mức ngẫu nhiên và chạy cùng driver. Bytecode -O0 được
+biên dịch lại ở -O0 khi chính chương trình in khác nhau giữa -O0 và mức đã rút
+(từ -O1 Luau đọc local truyền vào builtin lúc gọi, nên một đối số sau ghi local
+đó chỉ thấy ở -O1); dòng kết quả ghi `source_differs`. `--mutate` sửa
 bytecode theo cách chỉ chunk tự tạo mới có (string không phải identifier, NaN
 payload): decompiler phải từ chối hoặc giữ nguyên hành vi. Grammar tránh những
 gì chính Luau làm khác nhau giữa các mức tối ưu (từ -O1 POWK tính `^ 0.5` bằng
