@@ -67,7 +67,8 @@ struct Declaration {
 #[derive(Default)]
 struct Facts {
     declarations: FxHashMap<RcLocal, Declaration>,
-    /// Locals written after their declaration, or captured by reference.
+    /// Locals written after their declaration: what makes Luau capture a
+    /// local by reference once the output compiles again.
     written: FxHashSet<RcLocal>,
     /// The captures of each function literal bound by a declaration.
     bound_captures: FxHashMap<FnPtr, Vec<Upvalue>>,
@@ -226,8 +227,11 @@ fn census(block: &Block, function_depth: usize, loop_depth: usize, facts: &mut F
     }
 }
 
-/// The recorded locals written after their declaration, or captured by
-/// reference, anywhere in the tree.
+/// The recorded locals written after their declaration anywhere in the
+/// tree, function bodies included. A capture the tree marks by reference
+/// is no write: a literal passing on an upvalue of its function
+/// (`CAPTURE UPVAL`) is marked so, however that function captured it; the
+/// output's writes alone decide how Luau captures a local.
 fn writes(block: &Block, facts: &mut Facts) {
     for statement in &block.0 {
         // A `local` statement writes only the locals it declares; a loop's
@@ -241,16 +245,7 @@ fn writes(block: &Block, facts: &mut Facts) {
             });
         }
         let mut nested = Vec::new();
-        crate::inline_temps::collect_closures_in_statement(statement, &mut |closure| {
-            for upvalue in &closure.upvalues {
-                if let Upvalue::Ref(local) = upvalue
-                    && facts.declarations.contains_key(local)
-                {
-                    facts.written.insert(local.clone());
-                }
-            }
-            nested.push(closure.function.0.clone());
-        });
+        crate::inline_temps::collect_closures_in_statement(statement, &mut |closure| nested.push(closure.function.0.clone()));
         for function in nested {
             if facts.visited.insert(Arc::as_ptr(&function)) {
                 writes(&function.lock().body, facts);
@@ -608,6 +603,31 @@ mod tests {
         assert_eq!(shared.upvalues, vec![Upvalue::Copy(tag.clone())]);
         let Statement::Return(inner) = &fresh.function.lock().body.0[0] else { panic!() };
         assert_eq!(inner.values, vec![RValue::Local(copy_local.clone())]);
+    }
+
+    /// `local tag = "y"; local f = function() return function() return
+    /// function() return tag end end end`: the innermost literal passes `tag`
+    /// on as an upvalue of the middle one, which the tree marks as a capture by
+    /// reference. That is no write: the middle literal, fresh, would print
+    /// shared, so `tag` is split.
+    #[test]
+    fn passing_an_upvalue_on_is_no_write() {
+        let tag = RcLocal::new(Local::new(Some("tag".into())));
+        let inner = closure(2, None, vec![Upvalue::Ref(tag.clone())]);
+        if let RValue::Closure(closure) = &inner {
+            closure.function.lock().body = Block(vec![Return::new(vec![tag.clone().into()]).into()]);
+        }
+        let middle = closure(1, None, vec![Upvalue::Copy(tag.clone())]);
+        if let RValue::Closure(closure) = &middle {
+            closure.function.lock().body = Block(vec![Return::new(vec![inner]).into()]);
+        }
+        let outer = closure(0, Some(0), vec![]);
+        if let RValue::Closure(closure) = &outer {
+            closure.function.lock().body = Block(vec![Return::new(vec![middle]).into()]);
+        }
+        let mut block = Block(vec![declare(&tag, Literal::String(b"y".to_vec()).into()), declare(&RcLocal::default(), outer)]);
+        keep_fresh_closures(&mut block);
+        assert_eq!(block.0.len(), 3, "`local tag`, `tag = \"y\"`, `local f = ...`");
     }
 
     /// `function() local function f() return f end; return f end`: the

@@ -19,6 +19,10 @@
 -- on every run too. The copy captures a private copy of the local instead
 -- (`local name2` / `name2 = name`, right before it), and `kept` stays one
 -- object.
+-- The same through a nested literal (`nest`): the copy's inner literal
+-- passes the local on as an upvalue of the outer one, which the tree marks
+-- as a capture by reference; that is no write, and the outer literal, which
+-- would print shared, gets its private copy too.
 local function bind(tag)
 	return function()
 		return tag
@@ -69,3 +73,19 @@ for i = 1, 2 do
 	end
 end
 print(made[1] == made[2], kept[1] == kept[2], made[1](), kept[2]())
+
+local function nest(p)
+	return function()
+		return function()
+			return p
+		end
+	end
+end
+local nested, plain = {}, {}
+for i = 1, 2 do
+	nested[i] = nest(name)
+	plain[i] = function()
+		return name
+	end
+end
+print(nested[1] == nested[2], plain[1] == plain[2], nested[1]()(), nested[1]() == nested[1]())
