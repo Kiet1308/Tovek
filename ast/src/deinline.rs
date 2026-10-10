@@ -3623,7 +3623,16 @@ fn deinline_block(
     // agreed, the other ones still rivals as in the probe.
     let round = newly.evidence.clone();
     let lines = newly.lines.clone();
-    let copies_here = |i: usize| lines.as_ref().map_or(0, |lines| lines.copies(current_func, targets[i].proto));
+    // A fold variant only where its helper's copies here refer to number
+    // constants, which its equations need.
+    let copies_here = |i: usize| match &lines {
+        Some(lines) if targets[i].fold.is_none()
+            || targets[i].proto.zip(lines.caller(current_func)).is_some_and(|(proto, caller)| lines.copies.constants_in_copies(Some(caller), proto)) =>
+        {
+            lines.copies(current_func, targets[i].proto)
+        }
+        _ => 0,
+    };
     let admitted_here = |i: usize| match &round {
         EvidenceRound::Admit(admitted) => admitted.contains(&(current_func, targets[i].f_local.clone())),
         _ => false,
@@ -9179,7 +9188,8 @@ fn analyze_helper(
         .filter(|twin| twin.hosted.is_some());
     // Copies whose constant arguments Luau folded match a variant of their
     // own, which line evidence admits.
-    let fold_twin = pure.filter(|_| inlined).and_then(|pure| fold_variant(&target, &common, &body, pure));
+    let folded = g.bytecode_proto_id.is_some_and(|proto| lines.is_some_and(|lines| lines.copies.constants_in_copies_anywhere(proto)));
+    let fold_twin = pure.filter(|_| folded).and_then(|pure| fold_variant(&target, &common, &body, pure));
     let mut found = vec![target];
     found.extend(discard_target);
     found.extend(variants);
