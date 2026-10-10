@@ -262,6 +262,105 @@ fn dotted(names: &[&[u8]]) -> String {
 /// Libraries whose folded constants compile back unchanged from their library
 /// spelling: the chunk never writes the global and never names getfenv or
 /// setfenv, exactly the conditions under which the compiler folds them.
+/// Whether some NEWCLOSURE literal of the chunk may print as one Luau
+/// shares, which `fresh_closures` keeps new; most chunks have none, and the
+/// walk is skipped. The chunk must share some closure (DUPCLOSURE: compiled
+/// at `-O1` or above), and some NEWCLOSURE must capture nothing by reference
+/// and only values that may print as a constant, a top-level local or a
+/// literal ([`capture_may_print_shared`]). A literal capturing a parameter or
+/// a computed value never prints shared.
+fn may_print_shared_fresh_closures(chunk: &deserializer::chunk::Chunk) -> bool {
+    use instruction::Instruction::AD;
+    use op_code::OpCode::{LOP_DUPCLOSURE, LOP_NEWCLOSURE};
+    let functions = &chunk.functions;
+    if !functions.iter().any(|function| {
+        function.instructions.iter().any(|instruction| matches!(instruction, AD { op_code: LOP_DUPCLOSURE, .. }))
+    }) {
+        return false;
+    }
+    // The closure instructions making each prototype: (function, pc).
+    let mut creators = vec![Vec::new(); functions.len()];
+    let mut fresh = Vec::new();
+    for (index, function) in functions.iter().enumerate() {
+        for (pc, instruction) in function.instructions.iter().enumerate() {
+            let child = match *instruction {
+                AD { op_code: LOP_NEWCLOSURE, d, .. } => function.functions.get(d as usize).copied(),
+                AD { op_code: LOP_DUPCLOSURE, d, .. } => match function.constants.get(d as usize) {
+                    Some(&deserializer::constant::Constant::Closure(child)) => Some(child),
+                    _ => None,
+                },
+                _ => None,
+            };
+            let Some(child) = child.filter(|&child| child < functions.len()) else { continue };
+            creators[child].push((index, pc));
+            if matches!(instruction, AD { op_code: LOP_NEWCLOSURE, .. }) && functions[child].num_upvalues > 0 {
+                fresh.push((index, pc, functions[child].num_upvalues));
+            }
+        }
+    }
+    fresh.iter().any(|&(function, pc, upvalues)| {
+        (0..upvalues).all(|upvalue| capture_may_print_shared(chunk, &creators, function, pc, upvalue, 0))
+    })
+}
+
+/// Whether the `upvalue`th capture of the closure made at `pc` of `function`
+/// may print as a local Luau shares a literal over. By value: in the main
+/// function any register (a top-level local); elsewhere one whose last write
+/// before the closure, in code order, loads a constant, moves a register,
+/// reads an upvalue or makes a closure, or a register no instruction wrote
+/// that is no parameter. Through an upvalue: as some instruction making
+/// `function` captured it. By reference: never (the local is written).
+fn capture_may_print_shared(
+    chunk: &deserializer::chunk::Chunk,
+    creators: &[Vec<(usize, usize)>],
+    function: usize,
+    pc: usize,
+    upvalue: u8,
+    depth: usize,
+) -> bool {
+    use instruction::Instruction::{AD, BC};
+    use op_code::OpCode::*;
+    let code = &chunk.functions[function];
+    let Some(&BC { op_code: LOP_CAPTURE, a: kind, b: source, .. }) = code.instructions.get(pc + 1 + upvalue as usize) else {
+        return true;
+    };
+    match kind {
+        0 if function == chunk.main => true,
+        0 => {
+            for instruction in code.instructions[..pc].iter().rev() {
+                let (op_code, a) = match *instruction {
+                    BC { op_code, a, .. } | AD { op_code, a, .. } => (op_code, a),
+                    _ => continue,
+                };
+                // Instructions whose A operand is the one register they write;
+                // another writer only makes the answer more permissive.
+                let maybe = match op_code {
+                    LOP_LOADNIL | LOP_LOADB | LOP_LOADN | LOP_LOADK | LOP_LOADKX | LOP_MOVE | LOP_GETUPVAL
+                    | LOP_NEWCLOSURE | LOP_DUPCLOSURE => true,
+                    LOP_GETGLOBAL | LOP_GETIMPORT | LOP_GETTABLE | LOP_GETTABLEKS | LOP_GETTABLEN | LOP_GETUDATAKS
+                    | LOP_NAMECALL | LOP_NAMECALLUDATA | LOP_CALL | LOP_ADD | LOP_SUB | LOP_MUL | LOP_DIV | LOP_MOD
+                    | LOP_POW | LOP_IDIV | LOP_ADDK | LOP_SUBK | LOP_MULK | LOP_DIVK | LOP_MODK | LOP_POWK | LOP_IDIVK
+                    | LOP_SUBRK | LOP_DIVRK | LOP_AND | LOP_OR | LOP_ANDK | LOP_ORK | LOP_CONCAT | LOP_NOT | LOP_MINUS
+                    | LOP_LENGTH | LOP_NEWTABLE | LOP_DUPTABLE | LOP_GETVARARGS => false,
+                    _ => continue,
+                };
+                if a == source {
+                    return maybe;
+                }
+            }
+            source >= code.num_parameters
+        }
+        2 => {
+            depth >= 8
+                || creators[function].is_empty()
+                || creators[function]
+                    .iter()
+                    .any(|&(parent, made)| capture_may_print_shared(chunk, creators, parent, made, source, depth + 1))
+        }
+        _ => false,
+    }
+}
+
 fn pristine_libraries(globals: &ast::ChunkGlobals) -> ast::library_constants::Libraries {
     if globals.dynamic_environment {
         return Default::default();
@@ -1110,11 +1209,8 @@ fn decompile_bytecode_internal(
                 ast::compact_conditionals::compact_conditionals(&mut body);
             }
             // A closure the bytecode makes anew stays new where the output
-            // would share it (`fresh_closures`). Only a chunk compiled with
-            // sharing (one DUPCLOSURE at least) can tell.
-            if chunk.functions.iter().any(|function| function.instructions.iter().any(|instruction| {
-                matches!(instruction, instruction::Instruction::AD { op_code: op_code::OpCode::LOP_DUPCLOSURE, .. })
-            })) {
+            // would share it (`fresh_closures`).
+            if may_print_shared_fresh_closures(&chunk) {
                 let _span = ast::telemetry::Span::new("S_FRESH_CLOSURES");
                 ast::fresh_closures::keep_fresh_closures(&mut body);
             }
@@ -3904,5 +4000,89 @@ fn collect_linked_upvalue_bindings(
             }
             _ => {}
         }
+    }
+}
+
+#[cfg(test)]
+mod fresh_closure_gate_tests {
+    use super::*;
+    use deserializer::{chunk::Chunk, constant::Constant, function::Function};
+    use instruction::Instruction::{self, AD, BC};
+    use op_code::OpCode::*;
+
+    fn function(num_parameters: u8, num_upvalues: u8, instructions: Vec<Instruction>, constants: Vec<Constant>, functions: Vec<usize>) -> Function {
+        Function {
+            max_stack_size: 8,
+            num_parameters,
+            num_upvalues,
+            is_vararg: false,
+            flags: 0,
+            instructions,
+            constants,
+            functions,
+            line_defined: 0,
+            function_name: 0,
+            line_gap_log2: None,
+            line_info_delta: None,
+            abs_line_info_delta: None,
+            has_debug_info: false,
+            debug_locals: Vec::new(),
+            debug_upvalue_name_indices: Vec::new(),
+            type_info: None,
+        }
+    }
+
+    fn bc(op_code: op_code::OpCode, a: u8, b: u8) -> Instruction {
+        BC { op_code, a, b, c: 0, aux: 0 }
+    }
+
+    fn ad(op_code: op_code::OpCode, a: u8, d: i16) -> Instruction {
+        AD { op_code, a, d, aux: 0 }
+    }
+
+    /// Main shares a closure (proto 3) and makes proto 1, a function with one
+    /// parameter whose `body` makes proto 2, capturing one value with `capture`.
+    fn chunk(body: Vec<Instruction>, shares: bool) -> Chunk<'static> {
+        let mut main = vec![ad(LOP_NEWCLOSURE, 0, 0), bc(LOP_RETURN, 0, 1)];
+        if shares {
+            main.insert(0, ad(LOP_DUPCLOSURE, 1, 0));
+        }
+        let inner = function(0, 1, vec![bc(LOP_RETURN, 0, 1)], Vec::new(), Vec::new());
+        Chunk {
+            version: 6,
+            string_table: Vec::new(),
+            functions: vec![
+                function(0, 0, main, vec![Constant::Closure(3)], vec![1]),
+                function(1, 0, body, vec![Constant::Number(1.0)], vec![2]),
+                inner,
+                function(0, 0, vec![bc(LOP_RETURN, 0, 1)], Vec::new(), Vec::new()),
+            ],
+            main: 0,
+            userdata_type_names: Vec::new(),
+        }
+    }
+
+    fn makes_closure(prefix: Vec<Instruction>, capture: Instruction) -> Vec<Instruction> {
+        let mut body = prefix;
+        body.extend([ad(LOP_NEWCLOSURE, 3, 0), capture, bc(LOP_RETURN, 3, 2)]);
+        body
+    }
+
+    #[test]
+    fn a_constant_captured_by_value_may_print_shared() {
+        let body = makes_closure(vec![ad(LOP_LOADK, 2, 0)], bc(LOP_CAPTURE, 0, 2));
+        assert!(may_print_shared_fresh_closures(&chunk(body.clone(), true)));
+        // Without sharing anywhere (-O0), no literal is told apart.
+        assert!(!may_print_shared_fresh_closures(&chunk(body, false)));
+    }
+
+    #[test]
+    fn a_parameter_a_computed_value_or_a_reference_never_prints_shared() {
+        let parameter = makes_closure(Vec::new(), bc(LOP_CAPTURE, 0, 0));
+        assert!(!may_print_shared_fresh_closures(&chunk(parameter, true)));
+        let computed = makes_closure(vec![ad(LOP_LOADK, 2, 0), bc(LOP_CALL, 2, 1)], bc(LOP_CAPTURE, 0, 2));
+        assert!(!may_print_shared_fresh_closures(&chunk(computed, true)));
+        let reference = makes_closure(vec![ad(LOP_LOADK, 2, 0)], bc(LOP_CAPTURE, 1, 2));
+        assert!(!may_print_shared_fresh_closures(&chunk(reference, true)));
     }
 }

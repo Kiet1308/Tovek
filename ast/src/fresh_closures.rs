@@ -76,6 +76,9 @@ pub fn keep_fresh_closures(block: &mut Block) {
     if facts.fresh.is_empty() {
         return;
     }
+    // Rare: only now are the writes of the recorded locals worth a walk.
+    facts.visited.clear();
+    writes(block, &mut facts);
     let mut split = FxHashSet::default();
     for (function, upvalues) in &facts.fresh {
         if !facts.shares(upvalues, *function, &mut FxHashSet::default()) {
@@ -104,59 +107,26 @@ pub fn keep_fresh_closures(block: &mut Block) {
     }
 }
 
+/// One walk of the tree. Only locals that can keep a literal shared are
+/// recorded (declared at the top level, or with a constant, another local or
+/// a literal that may be shared as value); a literal capturing anything else
+/// is never shared, so most literals are dismissed on the spot. Writes are
+/// read afterwards, and only when some literal remains.
 fn census(block: &Block, function_depth: usize, loop_depth: usize, facts: &mut Facts) {
+    let top_level = function_depth == 0 && loop_depth == 0;
+    let repeats = !top_level;
     for statement in &block.0 {
-        let top_level = function_depth == 0 && loop_depth == 0;
-        let mut declared = Vec::new();
-        match statement {
-            Statement::Assign(assign) if assign.prefix => {
-                // A call or `...` last fills the remaining locals (a `Select` is a
-                // call whose results the statement adjusts).
-                let multiple_tail = matches!(
-                    assign.right.last(),
-                    Some(RValue::Call(_) | RValue::MethodCall(_) | RValue::VarArg(_) | RValue::Select(_))
-                );
-                for (index, left) in assign.left.iter().enumerate() {
-                    let LValue::Local(local) = left else { continue };
-                    let init = match assign.right.get(index) {
-                        Some(value) => init_of(value),
-                        None if multiple_tail => Init::Other,
-                        None => Init::Constant,
-                    };
-                    if let Init::Closure(function) = init
-                        && let Some(RValue::Closure(closure)) = assign.right.get(index)
-                    {
-                        facts.bound_captures.insert(function, closure.upvalues.clone());
-                    }
-                    facts.declarations.insert(local.clone(), Declaration { top_level, init });
-                    declared.push(local.clone());
-                }
-            }
-            Statement::NumericFor(node) => declared.push(node.counter.clone()),
-            Statement::GenericFor(node) => declared.extend(node.res_locals.iter().cloned()),
-            _ => {}
+        if let Statement::Assign(assign) = statement
+            && assign.prefix
+        {
+            declare(assign, top_level, facts);
         }
-        for local in statement.values_written() {
-            if !declared.contains(local) {
-                facts.written.insert(local.clone());
-            } else if !facts.declarations.contains_key(local) {
-                // A loop variable: never shared, never folded.
-                facts.declarations.insert(local.clone(), Declaration { top_level: false, init: Init::Other });
-            }
-        }
-        let repeats = function_depth > 0 || loop_depth > 0;
         let mut nested = Vec::new();
         crate::inline_temps::collect_closures_in_statement(statement, &mut |closure| {
-            for upvalue in &closure.upvalues {
-                if let Upvalue::Ref(local) = upvalue {
-                    facts.written.insert(local.clone());
-                }
-            }
-            let pointer = Arc::as_ptr(&closure.function.0);
-            {
+            if repeats && !closure.upvalues.is_empty() && facts.may_share(&closure.upvalues, None) {
                 let function = closure.function.lock();
-                if repeats && !closure.upvalues.is_empty() && function.bytecode_proto_id.is_some() && function.closure_constant.is_none() {
-                    facts.fresh.push((pointer, closure.upvalues.clone()));
+                if function.bytecode_proto_id.is_some() && function.closure_constant.is_none() {
+                    facts.fresh.push((Arc::as_ptr(&closure.function.0), closure.upvalues.clone()));
                 }
             }
             nested.push(closure.function.0.clone());
@@ -170,18 +140,75 @@ fn census(block: &Block, function_depth: usize, loop_depth: usize, facts: &mut F
             statement,
             Statement::While(_) | Statement::Repeat(_) | Statement::NumericFor(_) | Statement::GenericFor(_)
         ));
-        for child in child_blocks(statement) {
-            census(&child.lock(), function_depth, inner_loop, facts);
+        let mut child = 0;
+        while let Some(block) = child_block(statement, child) {
+            census(&block.lock(), function_depth, inner_loop, facts);
+            child += 1;
         }
     }
 }
 
-fn init_of(value: &RValue) -> Init {
-    match value {
-        RValue::Local(local) => Init::Alias(local.clone()),
-        RValue::Closure(closure) => Init::Closure(Arc::as_ptr(&closure.function.0)),
-        value if folds(value) => Init::Constant,
-        _ => Init::Other,
+/// The recorded locals written after their declaration, or captured by
+/// reference, anywhere in the tree.
+fn writes(block: &Block, facts: &mut Facts) {
+    for statement in &block.0 {
+        // A `local` statement writes only the locals it declares; a loop's
+        // variables are recorded nowhere.
+        if !matches!(statement, Statement::Assign(assign) if assign.prefix) {
+            statement.visit_local_writes(&mut |local| {
+                if facts.declarations.contains_key(local) {
+                    facts.written.insert(local.clone());
+                }
+                true
+            });
+        }
+        let mut nested = Vec::new();
+        crate::inline_temps::collect_closures_in_statement(statement, &mut |closure| {
+            for upvalue in &closure.upvalues {
+                if let Upvalue::Ref(local) = upvalue
+                    && facts.declarations.contains_key(local)
+                {
+                    facts.written.insert(local.clone());
+                }
+            }
+            nested.push(closure.function.0.clone());
+        });
+        for function in nested {
+            if facts.visited.insert(Arc::as_ptr(&function)) {
+                writes(&function.lock().body, facts);
+            }
+        }
+        let mut child = 0;
+        while let Some(block) = child_block(statement, child) {
+            writes(&block.lock(), facts);
+            child += 1;
+        }
+    }
+}
+
+/// Records the locals of `local ... = ...` that may keep a literal shared.
+fn declare(assign: &Assign, top_level: bool, facts: &mut Facts) {
+    // A call or `...` last fills the remaining locals (a `Select` is a call
+    // whose results the statement adjusts).
+    let multiple_tail =
+        matches!(assign.right.last(), Some(RValue::Call(_) | RValue::MethodCall(_) | RValue::VarArg(_) | RValue::Select(_)));
+    for (index, left) in assign.left.iter().enumerate() {
+        let LValue::Local(local) = left else { continue };
+        let init = match assign.right.get(index) {
+            Some(RValue::Local(other)) if facts.declarations.contains_key(other) => Init::Alias(other.clone()),
+            Some(RValue::Closure(closure)) if facts.may_share(&closure.upvalues, Some(local)) => {
+                let function = Arc::as_ptr(&closure.function.0);
+                facts.bound_captures.insert(function, closure.upvalues.clone());
+                Init::Closure(function)
+            }
+            Some(value) if folds(value) => Init::Constant,
+            Some(_) => Init::Other,
+            None if multiple_tail => Init::Other,
+            None => Init::Constant,
+        };
+        if top_level || !matches!(init, Init::Other) {
+            facts.declarations.insert(local.clone(), Declaration { top_level, init });
+        }
     }
 }
 
@@ -198,6 +225,16 @@ fn folds(value: &RValue) -> bool {
 }
 
 impl Facts {
+    /// Whether every local `upvalues` captures by value is recorded (or is
+    /// `itself`, a literal bound to the local it captures): only then may the
+    /// literal be shared, the writes after it aside.
+    fn may_share(&self, upvalues: &[Upvalue], itself: Option<&RcLocal>) -> bool {
+        upvalues.iter().all(|upvalue| match upvalue {
+            Upvalue::Copy(local) => Some(local) == itself || self.declarations.contains_key(local),
+            Upvalue::Ref(_) => false,
+        })
+    }
+
     /// Whether Luau folds `local` into a constant: declared with one and
     /// never written.
     fn is_constant(&self, local: &RcLocal, depth: usize) -> bool {
@@ -235,14 +272,15 @@ impl Facts {
     }
 }
 
-fn child_blocks(statement: &Statement) -> Vec<&Arc<Mutex<Block>>> {
-    match statement {
-        Statement::If(node) => vec![&node.then_block, &node.else_block],
-        Statement::While(node) => vec![&node.block],
-        Statement::Repeat(node) => vec![&node.block],
-        Statement::NumericFor(node) => vec![&node.block],
-        Statement::GenericFor(node) => vec![&node.block],
-        _ => Vec::new(),
+fn child_block(statement: &Statement, child: u8) -> Option<&Arc<Mutex<Block>>> {
+    match (statement, child) {
+        (Statement::If(node), 0) => Some(&node.then_block),
+        (Statement::If(node), 1) => Some(&node.else_block),
+        (Statement::While(node), 0) => Some(&node.block),
+        (Statement::Repeat(node), 0) => Some(&node.block),
+        (Statement::NumericFor(node), 0) => Some(&node.block),
+        (Statement::GenericFor(node), 0) => Some(&node.block),
+        _ => None,
     }
 }
 
@@ -258,8 +296,10 @@ fn split_declarations(block: &mut Block, split: &FxHashSet<RcLocal>, visited: &m
                 split_declarations(&mut function.lock().body, split, visited);
             }
         }
-        for child in child_blocks(&block.0[index]) {
-            split_declarations(&mut child.lock(), split, visited);
+        let mut child = 0;
+        while let Some(nested) = child_block(&block.0[index], child) {
+            split_declarations(&mut nested.lock(), split, visited);
+            child += 1;
         }
         let declares_split = matches!(&block.0[index], Statement::Assign(assign) if assign.prefix
             && assign.left.iter().any(|left| matches!(left, LValue::Local(local) if split.contains(local))));
