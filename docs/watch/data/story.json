@@ -1741,7 +1741,20 @@
         "Constants Luau folded are solved back: frames(1), 2 / 3.",
         "Closures stay the same object only when the original made them so."
       ],
-      "numbers": [],
+      "numbers": [
+        {
+          "text": "4,260 to 8,842 rebuilt helper calls across four real games (8,822 scripts)",
+          "source": "changelog/v2.6/data/field.json"
+        },
+        {
+          "text": "0 wrong outputs in 3,000 fresh fuzz programs (V2.5.1: 615)",
+          "source": "changelog/v2.6/data/fuzz.json"
+        },
+        {
+          "text": "DisconnectEvent in Roblox's ClickToMoveController: 12 pasted copies back to 12 calls",
+          "source": "changelog/v2.6/data/script.json"
+        }
+      ],
       "lines": 75,
       "nonblank_lines": 58,
       "excerpt": "local function shield(folder)\n\tlocal humanoid = folder:FindFirstChildOfClass(\"Humanoid\")\n\n\tif not isAlive(humanoid) then -- inferred equivalent call\n\t\treturn\n\tend\n\n\tlocal clone = ShieldGlow:Clone()\n\tclone.Transparency = 2 / 3\n\tclone.Parent = folder\n\tlocal count = 0\n\n\tfor _, part in folder:GetDescendants() do\n\t\tif part:IsA(\"BasePart\") then\n\t\t\tif part.Transparency == 1 then\n\t\t\t\tcontinue\n\t\t\tend\n\n\t\t\tpart.Color = clone.Color\n\t\t\tcount += 1\n\t\tend\n\n\t\tif count >= 12 then\n\t\t\tbreak\n\t\tend\n\tend\n\n\tlocal lastTime = os.clock()\n\n\twhile os.clock() - lastTime < 3 do\n\t\tif not isAlive(humanoid) then -- inferred equivalent call\n\t\t\tbreak\n\t\tend\n\n\t\ttask.wait(frames(1)) -- inferred equivalent call\n\tend\n\n\tclone:Destroy()\nend",
@@ -1815,9 +1828,8 @@
     "first_beta": "2026-06-19",
     "today": "2026-10-10",
     "days_since_first_beta": 113,
-    "commits": 427,
+    "commits": 435,
     "commits_note": "git rev-list --count HEAD in the Tovek repository (site branch, includes code history)",
-    "code_commits": 428,
     "lines_medal": 67,
     "lines_v26": 75
   },

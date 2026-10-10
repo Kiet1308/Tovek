@@ -60,6 +60,7 @@
     "families": 19,
     "exit_code": 1
   },
+  "fairness_note": "The families of the grammar come from bug classes that reviews found, many of them during V2.6 work, so these programs are harder for V2.5.1 than ordinary game code.",
   "binaries": {
     "v251_sha256": "8df15ad38731a1b146e0f3e761035b234689ee2a04c83d70eaed8584bf1198c5",
     "v26_sha256": "0d59f6e3592e6c4019578c09ee5b4352a1222b8b69437eccef508c6962dbf89f"
