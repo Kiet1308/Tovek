@@ -24,16 +24,22 @@ export const T = {
   b01: 29.0, b01Morph0: 30.2, b01Morph1: 33.6, b011: 35.6,
   // four days, eight betas: title, slams, then a breath on the second function
   mont0: 35.6, slams0: 37.0, mont1: 45.4,
-  breath0: 45.4, breath1: 55.0,
+  breath0: 45.4, breath1: 53.8,
   // July: 0.7, the goto arcs, 0.8 snaps them into a loop, 0.9
-  r07: 55.0, r07Morph0: 56.0, r07Morph1: 58.4, arcs0: 59.6, nogoto: 63.8, snap0: 65.4, snap1: 67.6, r08wide: 68.0, r09: 73.0, july1: 76.2,
-  // the release pages
-  v2: 76.2, v2settle: 77.0, v2Morph0: 77.8, v2Morph1: 81.6, v21: 86.0, v211: 92.4, v25: 96.8, fuzz0: 98.8, ctx25: 103.2, v251: 106.6,
+  r07: 53.8, r07Morph0: 54.8, r07Morph1: 57.2, arcs0: 58.4, nogoto: 62.6, snap0: 64.2, snap1: 66.4, r08wide: 66.8, r09: 71.8, july1: 75.0,
+  // the release pages: V2 fills a white frame, its page scrolls, its number fills the frame; V2.1's
+  // name drops into a race; the race breaks into a field; V2.5's 198 marks; a name; V2.5.1's file
+  v2: 75.0, v2settle: 75.8, v2scroll: 77.6, v2Morph0: 78.3, v2Morph1: 81.3, v2num: 82.1,
+  v21: 84.8, v21race: 87.3, v211: 91.0, v25: 95.2, fuzz0: 97.3, ctx25: 102.0, v251: 105.3,
   // V2.6: the flood, the copies come home, the constants, the numbers
-  flood: 110.6, title26: 111.2, homing0: 114.2, homing1: 130.2, consts0: 130.2, nums: 136.4,
+  flood: 109.4, title26: 110.0, homing0: 113.6, homing1: 130.6, consts0: 130.6, nums: 136.8,
   // the end
-  orig: 142.0, end: 149.6, duration: 160.0,
+  orig: 143.4, end: 150.0, duration: 160.0,
 };
+
+/** The breath after the montage lights the three changed lines in turn, 2.3 s each. */
+export const breathBeat = (i) => T.breath0 + 1.5 + i * 2.3;
+export const BREATH_BEAT = 2.3;
 
 // --------------------------------------------------------------------------------------- the look
 
@@ -60,6 +66,10 @@ export const f = (size, family, weight = 400, stretch = 100) => font(size, { fam
 export const TRACK = { hero: -0.008, big: -0.01, title: -0.012 };
 // Bricolage's display cut sets a period tight against its digits ("2.6"): open it a little.
 export const AROUND = { '.': 0.032 };
+// Pairs whose kerning makes the glyphs touch at display sizes (measured by work-story-r2/glyphcheck.py):
+// "ov" in Bricolage's condensed bold (the wordmark), "yt" in Hanken Grotesk's semibold.
+export const PAIRS = { ov: 0.035 };
+export const HPAIRS = { yt: 0.014 };
 
 export const TY = {
   dark: {
@@ -75,24 +85,30 @@ export const TY = {
   v2: {
     meta: f(22, FAM.inter, 500), tovek: f(44, FAM.inter, 600), title: f(250, FAM.inter, 700), head: f(52, FAM.inter, 500),
     giant: f(1000, FAM.inter, 700), num: f(76, FAM.inter, 600), unit: f(24, FAM.inter, 400), lab: f(18, FAM.inter, 400), val: f(19, FAM.inter, 600),
+    ecu: f(330, FAM.inter, 700), ecuLab: f(34, FAM.inter, 400),
   },
   v21: {
     meta: f(17, 'mono', 500), tovek: f(44, FAM.hanken, 600), title: f(200, FAM.hanken, 600), head: f(64, FAM.hanken, 500),
     num: f(96, FAM.hanken, 600), unit: f(24, FAM.hanken, 400), lab: f(22, FAM.hanken, 500), big: f(64, FAM.hanken, 600),
+    giant: f(420, FAM.hanken, 600), headline: f(108, FAM.hanken, 600), bar: f(60, FAM.hanken, 600), timer: f(104, FAM.hanken, 600),
+    statement: f(84, FAM.hanken, 600), note: f(28, FAM.hanken, 400),
   },
   v25: {
     meta: f(24, FAM.gsans, 400), tovek: f(44, FAM.gsans, 500), title: f(200, FAM.gsans, 500), head: f(50, FAM.gsans, 400),
     num: f(200, FAM.gsans, 500), unit: f(24, FAM.gsans, 400), lab: f(18, FAM.gsans, 400), val: f(19, FAM.gsans, 500),
     mid: f(120, FAM.gsans, 500),
+    giant: f(400, FAM.gsans, 500), count: f(300, FAM.gsans, 500), countLab: f(32, FAM.gsans, 400),
+    name: f(96, FAM.gsans, 500), calls: f(190, FAM.gsans, 500), callsLab: f(30, FAM.gsans, 400),
   },
   v26: {
     meta: f(17, 'mono', 500), tovek: f(56, 'display', 600, 87.5), title: f(300, 'display', 650, 87.5), head: f(46, 'text', 500),
+    giant: f(560, 'display', 600, 87.5), ecu: f(400, 'display', 600, 87.5), ecuLab: f(34, 'text', 400), ecuNote: f(28, 'text', 400),
     num: f(220, 'display', 600, 87.5), unit: f(26, 'text', 400), lab: f(18, 'text', 400), val: f(19, 'mono', 500),
     small: f(17, 'mono', 500), corner: f(30, 'display', 600, 87.5), cornerHead: f(19, 'text', 500),
     stat: f(50, 'display', 600, 87.5), side: f(17, 'mono', 500), tally: f(16, 'mono', 500),
   },
   end: {
-    num: f(150, 'display', 600, 87.5), unit: f(26, 'text', 400), card: f(160, 'display', 650, 87.5),
+    num: f(200, 'display', 600, 87.5), unit: f(28, 'text', 400), card: f(160, 'display', 650, 87.5),
     credit: f(19, 'mono', 500), url: f(24, 'mono', 400),
   },
 };

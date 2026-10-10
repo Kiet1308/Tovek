@@ -16,10 +16,10 @@
 // ones while they arrive (a page turn, a flood, tiles, a wipe), and nothing is carried between frames.
 
 import { ease, defineScore, note, ticks, V26, formatNumber, codeMetrics, codePalettes, codeMorph } from '../engine/index.js';
-import { T, ERA, TY, ERA_FONTS_CSS, CODE, S, makePalette, parseNumber, num, cap, lc, word, stripDot, longDate, hhmm } from './story/base.js';
+import { T, ERA, TY, ERA_FONTS_CSS, CODE, S, makePalette, parseNumber, num, cap, lc, word, stripDot, longDate, hhmm, breathBeat, BREATH_BEAT } from './story/base.js';
 import { prepareOpen, drawOpen, drawMedal, drawDate } from './story/open.js';
 import { prepareBetas, bmeta, drawBeta01, drawMontage, drawBreath, drawJuly } from './story/betas.js';
-import { preparePages, drawV2, drawV21, drawV25 } from './story/pages.js';
+import { preparePages, drawV2, drawV21, drawV25, FUZZ } from './story/pages.js';
 import { prepareClimax, hmeta, drawV26 } from './story/climax.js';
 import { prepareEnd, smeta, drawSide, drawEnd } from './story/end.js';
 
@@ -239,17 +239,17 @@ function buildChaptersCaptionsScore() {
   };
 
   // I. bytes
-  add(1.4, 4.2, `A small Roblox script, written for this film and compiled by Luau ${(D.sample.compiler.match(/Luau ([\d.]+)/) || [])[1] || ''} with -O2.`.replace('Luau  with', 'Luau with'));
+  add(0.6, 4.2, `A small Roblox script, written for this film and compiled by Luau ${(D.sample.compiler.match(/Luau ([\d.]+)/) || [])[1] || ''} with -O2.`.replace('Luau  with', 'Luau with'));
   add(4.4, 7.4, `The function we follow is ${D.sample.focus_function}.`);
   if (ins) {
     add(7.7, 9.6, `One byte of it is an opcode: ${ins.op}.`);
-    add(9.8, 11.2, 'The bytes after it are its operands.');
-    add(11.4, 13.4, `Line info in the bytecode says it came from line ${ins.line} of the source.`);
+    add(9.7, 11.2, 'The bytes after it are its operands.');
+    add(11.35, 13.4, `Its line info points to line ${ins.line} of the source.`);
   }
-  add(13.6, 16.2, "A decompiler starts from the bytes alone. This is medal's version of that line.");
-  add(16.4, 19.4, `medal is a Luau decompiler written in Rust, ${lc(s('medal').points[1]).replace(/\.$/, '')}.`);
-  add(19.6, 22.4, `A Luau decompiler by ${D.medal_history.authors.join(' and ')}, first committed on ${longDate(D.medal_history.first_commit.date)}.`);
-  add(22.6, 25.3, `${lc(s('medal').points[2]).replace(/^its/, 'Its').replace(/^i/, 'I')}`.replace('raw: v1, p3, goto.', 'raw: generated names, and a goto into an else block.'));
+  add(13.6, 16.1, 'This is how medal decompiled that line.');
+  add(16.3, 19.5, s('medal').points[0]);
+  add(19.6, 22.35, s('medal').points[1]);
+  add(22.5, 25.35, s('medal').points[2].replace(/^Its output was correct/, 'Correct').replace('raw: v1, p3, goto.', 'raw: generated names, and a goto into an else block.'));
   const b01 = s('v0.1.0-beta');
   if (b01.published_at) add(25.6, 28.8, `${cap(b01.name)} was published on ${longDate(b01.published_at)} at ${hhmm(b01.published_at)} UTC.`);
   // II. the terminal
@@ -259,21 +259,21 @@ function buildChaptersCaptionsScore() {
   const b02 = s('v0.2.0-beta');
   if (b02.published_at && b01.published_at) add(37.1, 39.9, `${cap(b02.name)} shipped ${gap(b01.published_at, b02.published_at)} after ${b01.name.replace(/^beta /, '')}.`);
   if (unchanged.length) add(40.1, 45.2, `${list(unchanged)} change nothing in this script; ${list(changed)} do.`);
-  add(45.6, 47.7, 'They changed the second function, the one that runs for each new player.');
+  add(45.5, breathBeat(0) - 0.05, `${cap(word(changed.length))} of them changed this function.`);
   const orName = newNames('v0.1.0-beta', 'v0.2.0-beta', 1)[0];
-  const beat = (i) => T.breath0 + 2.4 + i * 2.2;
-  if (orName) add(beat(0), beat(1) - 0.05, `${cap(b02.name)} names a value after what its or expression yields: ${orName}.`);
-  add(beat(1), beat(2) - 0.05, `${cap(s('v0.4.0-beta').name)}: ${lc(s('v0.4.0-beta').points[2])}`);
-  add(beat(2), T.breath1 - 0.1, `${cap(s('v0.5.0-beta').name)} keeps not (a < b): with NaN it is not the same as a >= b.`);
+  if (orName) add(breathBeat(0), breathBeat(1) - 0.05, `${cap(b02.name)} names a value after its or expression: ${orName}.`);
+  add(breathBeat(1), breathBeat(2) - 0.05, `${cap(s('v0.4.0-beta').name)}: ${lc(s('v0.4.0-beta').points[2])}`);
+  add(breathBeat(2), T.breath1 - 0.05, `${cap(s('v0.5.0-beta').name)} keeps not (a < b): with NaN it is not the same as a >= b.`);
   add(T.r07 + 0.2, T.arcs0 - 0.8, `${s('v0.7.0').name} rebuilds the pipeline, and more locals get names: ${list(newNames('v0.6.0-beta', 'v0.7.0'))}.`);
   add(T.arcs0 - 0.6, T.nogoto - 0.1, 'The loop still jumps with goto. The arrows show where each jump lands.');
   add(T.nogoto, T.snap0 - 0.05, `${s('v0.8').name} shipped the same day.`);
   add(T.snap0, T.r08wide + 0.4, `${s('v0.8').name} removes every goto. It writes a small state machine instead.`);
   add(T.r08wide + 0.6, T.r09 - 0.1, `No goto, but the function grows from ${shieldLines('v0.7.0')} to ${shieldLines('v0.8')} lines.`);
-  add(T.r09 + 0.1, T.july1 - 0.05, `${s('v0.9.0-beta').name}: ${lc(s('v0.9.0-beta').points[0])} ${s('v0.9.0-beta').points[1]}`);
+  add(T.r09 + 0.1, T.july1 - 0.05, `${s('v0.9.0-beta').name}: ${lc(s('v0.9.0-beta').points[0])}`);
   // III. pages
   add(T.v2 + 0.3, T.v2Morph1 - 0.4, `${s('v2-v0.1').name} writes the loop with continue and break: ${shieldLines('v0.9.0-beta')} lines become ${shieldLines('v2-v0.1')}.`);
-  add(T.v2Morph1 - 0.2, T.v21 - 0.1, s('v2-v0.1').points[1]);
+  add(T.v2Morph1 - 0.2, T.v2num - 0.05, s('v2-v0.1').points[1]);
+  if (N.v2) add(T.v2num + 0.2, T.v21 - 0.1, `${cap(N.v2.label)}: ${fmt(N.v2.from)} down to ${fmt(N.v2.to)}.`);
   if (N.v21) add(T.v21 + 0.4, T.v211 - 0.1, `${s('v2.1').name} decompiles a ${fmt(N.v21.scripts)}-script game in ${N.v21.v21} seconds on one thread. V2 took ${N.v21.v2}.`);
   if (N.v211) add(T.v211 + 0.2, T.v25 - 0.1, `Fed ${fmt(N.v211.scripts)} damaged scripts, V2 aborted ${fmt(N.v211.aborted)} times. ${s('v2.1.1').name} never does.`);
   if (N.v25) add(T.v25 + 0.3, T.ctx25 - 0.1, `${s('v2.5').name} is checked by semantic fuzzing: wrong or missing outputs go from ${N.v25.from} to ${N.v25.to}.`);
@@ -289,15 +289,15 @@ function buildChaptersCaptionsScore() {
   add(Hm.glide0, Hm.type1 + 0.2, 'In its place, a call, marked as an inferred equivalent.');
   add(Hm.type1 + 0.4, T.consts0 - 0.1, `The same file: ${s('v2.5.1').lines} lines become ${v26.lines}, with ${v26.features.rebuilt_calls} calls rebuilt.`);
   Hm.exprs.forEach((x, i) => add(x.t0 + 0.1, x.t0 + 3.0, i === 0 ? `Constants Luau folded are solved back: ${x.from} is ${x.to}.` : `And ${x.from} becomes ${x.to}.`));
-  if (N.v26a) add(T.nums + 0.2, T.nums + 3.0, `Across four real Roblox games${N.v26a.paren ? `, ${N.v26a.paren}` : ''}, rebuilt calls go from ${fmt(N.v26a.from ?? 0)} to ${fmt(N.v26a.to)}.`);
+  if (N.v26a) add(T.nums + 0.1, T.nums + 2.9, `In four real games${N.v26a.paren ? `, ${N.v26a.paren}` : ''}, rebuilt calls go from ${fmt(N.v26a.from ?? 0)} to ${fmt(N.v26a.to)}.`);
   if (N.v26b) {
     const m = N.v26b.label.match(/^(wrong outputs) in (.+)$/);
     const was = N.v26b.paren.match(/^(.+?): ([\d,]+)$/);
-    add(T.nums + 3.2, T.orig - 0.1, m ? `In ${m[2]}: ${N.v26b.to} ${m[1]}.${was ? ` ${was[1]} had ${was[2]}.` : ''}` : `${N.v26b.to} ${N.v26b.label}.`);
+    add(T.nums + 3.0, T.orig - 0.1, m ? `In ${m[2]}: ${N.v26b.to} ${m[1]}.${was ? ` ${was[1]} had ${was[2]}.` : ''}` : `${N.v26b.to} ${N.v26b.label}.`);
   }
   // V. the end
-  add(T.orig + 0.4, T.orig + 3.8, 'Beside the source it was compiled from.');
-  add(T.orig + 4.0, T.end - 0.1, Sd.onlyNames ? 'Every keyword, call and operator matches. Only names, constants and comments differ.' : 'Most of it matches, token for token.');
+  add(T.orig + 0.4, T.orig + 3.3, 'Beside the source it was compiled from.');
+  add(T.orig + 3.5, T.end - 0.1, Sd.onlyNames ? 'Every keyword, call and operator matches. Only names, constants and comments differ.' : 'Most of it matches, token for token.');
   add(T.end + 0.6, T.end + 4.2, `${cap(word(D.totals.releases))} releases in ${D.totals.days_since_first_beta} days.`);
   add(T.end + 4.6, T.duration - 0.4, `Built on ${D.credits.origin.replace(/ \(.*?\)/, '')}. ${D.credits.luau.replace(/ \(.*?\)/, '')}.`);
   story.captions = c;
@@ -348,7 +348,7 @@ function buildScore(Bm, Hm) {
     if (sl.changed) E.push(...ticks(sl.slam + 0.12, sl.slam + 0.62, { rate: 30, seed: 40 + i, gain: 0.016 }));
   });
   pulse(T.breath0 + 0.4, 'A3', 0.06, 4);
-  [0, 1, 2].forEach((i) => E.push({ t: T.breath0 + 2.4 + i * 2.2, voice: 'chime', freq: note(['E5', 'A5', 'C#6'][i]), gain: 0.022, dur: 2.4 }));
+  [0, 1, 2].forEach((i) => E.push({ t: breathBeat(i) + 0.6, voice: 'chime', freq: note(['E5', 'A5', 'C#6'][i]), gain: 0.022, dur: 2.4 }));
   // July
   pulse(T.r07 + 0.2, 'A3');
   E.push(...ticks(T.r07Morph0 + 1.2, T.r07Morph1, { rate: 16, seed: 50, gain: 0.024 }));
@@ -360,17 +360,23 @@ function buildScore(Bm, Hm) {
   // III. the white cut, the pages
   sub(T.v2, 0.18, 96, 36, 1.6);
   pulse(T.v2, 'A2', 0.1, 3.4);
-  E.push(...ticks(T.v2Morph0 + 2.0, T.v2Morph1, { rate: 16, seed: 60, gain: 0.022 }));
+  E.push(...ticks(T.v2Morph0 + 1.6, T.v2Morph1, { rate: 16, seed: 60, gain: 0.022 }));
+  sub(T.v2scroll + 0.1, 0.06, 70, 40, 0.8);
+  sub(T.v2num + 0.1, 0.07, 70, 40, 0.8);
+  E.push(...ticks(T.v2num + 0.45, T.v2num + 2.2, { rate: 30, seed: 62, gain: 0.01, jitter: 0.1 }));
   sub(T.v21 + 0.35, 0.1, 64, 34, 1.3);
   pulse(T.v21 + 0.5, 'C#4');
-  E.push(...ticks(T.v21 + 2.0, T.v21 + 4.4, { rate: 40, seed: 61, gain: 0.008, jitter: 0.1 }));
+  sub(T.v21race - 0.05, 0.07, 80, 44, 0.7);
+  E.push(...ticks(T.v21race + 0.35, T.v21race + 3.15, { rate: 40, seed: 61, gain: 0.008, jitter: 0.1 }));
   pulse(T.v211 + 0.2, 'E4');
+  E.push(...ticks(T.v211 + 0.05, T.v211 + 0.9, { rate: 34, seed: 63, gain: 0.01, jitter: 0.15 }));
+  E.push({ t: T.v211 + 2.05, voice: 'chime', freq: note('E5'), gain: 0.03, dur: 2.2 });
   E.push({ t: T.v25, voice: 'hum', dur: T.flood - T.v25 + 1, freq: note('E1'), gain: 0.08, attack: 2, release: 2 });
   sub(T.v25 + 0.3, 0.11, 64, 34, 1.3);
   pulse(T.v25 + 0.7, 'F#3');
   // one tick for each fuzz failure as it goes out (the count eases, so do the ticks)
   if (S.N.v25) {
-    const n = S.N.v25.from, start = T.fuzz0 + 0.3, dur = 3.2;
+    const n = S.N.v25.from, start = T.fuzz0 + FUZZ.start, dur = FUZZ.dur;
     for (let k = 1; k <= n; k += 2) {
       // the time the count passes n - k (inverse of the eased count), found by bisection
       let lo = 0, hi = 1;
@@ -379,8 +385,9 @@ function buildScore(Bm, Hm) {
     }
     E.push({ t: start + dur + 0.05, voice: 'chime', freq: note('B5'), gain: 0.045, dur: 3 });
   }
-  E.push(...ticks(T.ctx25 + 0.9, T.ctx25 + 1.8, { rate: 16, seed: 70, gain: 0.022 }));
+  E.push(...ticks(T.ctx25 + 0.6, T.ctx25 + 1.6, { rate: 16, seed: 70, gain: 0.022 }));
   pulse(T.v251 + 0.2, 'A3');
+  E.push({ t: T.v251 + 1.5, voice: 'hum', dur: 1.6, freq: note('E2'), gain: 0.05, attack: 0.6, release: 0.8, cutoff: 500 });
   // IV. V2.6: the swell carries the copies home
   E.push({ t: T.flood, voice: 'sub', freq: 60, to: 32, gain: 0.12, dur: 1.6 });
   E.push({ t: T.flood + 0.1, voice: 'swell', dur: Hm.type1 - T.flood + 3.2, notes: ['A2', 'E3', 'A3', 'C#4', 'E4'].map(note), gain: 0.32, attack: 6.5, release: 4.5, open: 2800 });
@@ -396,7 +403,10 @@ function buildScore(Bm, Hm) {
     E.push({ t: x.t0 + 1.95, voice: 'chime', freq: note(i ? 'E6' : 'C#6'), gain: 0.035, dur: 2.4 });
   });
   pulse(T.nums + 0.2, 'E4', 0.07);
-  E.push({ t: T.nums + 3.4, voice: 'chime', freq: note('A5'), gain: 0.04, dur: 3 });
+  E.push(...ticks(T.nums + 0.3, T.nums + 2.1, { rate: 30, seed: 90, gain: 0.01, jitter: 0.1 }));
+  sub(T.nums + 2.8, 0.08, 74, 38, 0.9);
+  E.push(...ticks(T.nums + 3.3, T.nums + 4.6, { rate: 44, seed: 91, gain: 0.011, jitter: 0.1 }));
+  E.push({ t: T.nums + 4.7, voice: 'chime', freq: note('A5'), gain: 0.045, dur: 3 });
   // V. the end
   pulse(T.orig + 0.4, 'C#4', 0.06, 3);
   sub(T.end - 0.1, 0.15, 70, 35, 1.8);

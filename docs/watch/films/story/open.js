@@ -257,9 +257,11 @@ function drawByteStory(ctx, t) {
   const insX0 = 960 - insW / 2, insY = 640;
   const oScale = lerp(1, IF.size / OF.size, pc);
   const oX0 = lerp(960 - (name.length * cwO) / 2, insX0, pc), oY = lerp(640, insY, pc);
-  if (t > T.opcode + 0.15) {
+  // once the listing starts (pd > 0), the instruction text is drawn by the listing, moving: one
+  // text travels from here into its row, never two crossfading
+  const handoff = pd > 0 ? 0 : 1;
+  if (t > T.opcode + 0.15 && handoff > 0) {
     ctx.save();
-    ctx.globalAlpha *= 1 - pd;
     ctx.translate(oX0, oY);
     ctx.scale(oScale, oScale);
     setFont(ctx, OF);
@@ -272,7 +274,7 @@ function drawByteStory(ctx, t) {
       if (t < st) continue;
       const settled = t >= st + 0.38;
       ctx.fillStyle = settled ? e.ink : e.ink3;
-      ctx.globalAlpha = (1 - pd) * (settled ? 1 : 0.5 + 0.5 * hash01(9, i, tick));
+      ctx.globalAlpha = settled ? 1 : 0.5 + 0.5 * hash01(9, i, tick);
       ctx.fillText(settled ? name[i] : '0123456789abcdef'[Math.floor(hash01(4, i, tick) * 16)], i * cwO, 0);
     }
     ctx.restore();
@@ -323,8 +325,8 @@ function drawByteStory(ctx, t) {
     const rest = insText.slice(name.length);
     const typed = clamp((t - T.instr - 0.35) / 0.9) * rest.length;
     const Lr = layoutText(rest, IF);
-    ctx.globalAlpha = a;
-    typewriter(ctx, Lr, insX0 + name.length * cwI, insY, typed, { color: e.ink2 });
+    ctx.globalAlpha = handoff;
+    if (handoff > 0) typewriter(ctx, Lr, insX0 + name.length * cwI, insY, typed, { color: e.ink2 });
     ctx.restore();
   }
 
@@ -355,12 +357,19 @@ function drawByteStory(ctx, t) {
       ctx.fillText(String(r.line).padStart(3, ' '), lx, y);
       ctx.fillStyle = me ? e.ink : e.ink2;
       if (me) {
-        // the instruction shrinks into its row
+        // the instruction shrinks into its row: its opcode keeps the decoded weight, its operands
+        // brighten to the row's ink as they land
         const k = lerp(IF.size / LF.size, 1, pd);
+        const op = r.text.slice(0, name.length), rest = r.text.slice(name.length);
         ctx.save();
         ctx.translate(lerp(insX0, lx + textCol * cwL, pd), lerp(insY, y, pd));
         ctx.scale(k, k);
-        ctx.fillText(r.text, 0, 0);
+        ctx.font = `600 ${LF.size}px ${LF.family}`;
+        ctx.fillStyle = e.ink;
+        ctx.fillText(op, 0, 0);
+        setFont(ctx, LF);
+        ctx.fillStyle = mix(e.ink2, e.ink, pd);
+        ctx.fillText(rest, op.length * cwL, 0);
         ctx.restore();
       } else ctx.fillText(r.text, lx + textCol * cwL, y);
     });

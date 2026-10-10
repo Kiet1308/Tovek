@@ -11,7 +11,7 @@ import {
   T, ERA, TY, TRACK, CODE, COL, COLW, BOX, CLIP, S, surface, hairline, vline, faded, clipRect, rollText, ticker,
   camAt, camFit, lerpCam, zoomCam, camTrack, drift, driftOffset, codeAt, edgeFade, washRuns, drawWashes,
   recovered, settle, washIn, flowOf, drawFlow, arrowHead, drawLedger, label, span, stamp, hhmm, weekday, shortMonth,
-  word, cap, stripDot,
+  word, cap, stripDot, breathBeat, BREATH_BEAT,
 } from './base.js';
 
 let B = null; // everything this act prepares
@@ -333,6 +333,28 @@ function breathCam() {
   return { s, x: 960 - (cols * cw * s) / 2, y: 640 - ((top + end + 1) / 2) * lh * s };
 }
 
+/** The breath's camera: the whole function, then a push onto each changed line in turn, then back. */
+function breathCamAt(t) {
+  const base = breathCam();
+  const { cw, lh } = S.CM;
+  const focusOf = (g) => {
+    const ch = B.changes.get(g);
+    if (!ch || ch.endLine < 0) return base;
+    const s = base.s * 1.32;
+    const first = B.Lend.tokens.find((tk) => tk.line === ch.endLine);
+    const mid = ((first ? first.col : 0) + B.Lend.lineCols[ch.endLine]) / 2;
+    return { s, x: 960 - mid * cw * s, y: 620 - (ch.endLine + 0.5) * lh * s };
+  };
+  const frames = [[T.breath0 + 0.7, base]];
+  BREATH_ORDER.forEach((g, i) => {
+    const f = focusOf(g);
+    frames.push([breathBeat(i) + 0.75, f], [breathBeat(i) + BREATH_BEAT - 0.3, f]);
+  });
+  frames.push([T.breath1 - 0.05, base]);
+  return drift(camTrack(frames)(t), t, T.breath0, T.breath1 + 1, { zoom: 0.03, dx: -16, dy: -6 });
+}
+const BREATH_ORDER = ['v0.2.0-beta', 'v0.4.0-beta', 'v0.5.0-beta'];
+
 export function drawBreath(ctx, t) {
   const e = ERA.dark;
   surface(ctx, e.surface);
@@ -351,14 +373,12 @@ export function drawBreath(ctx, t) {
     ctx.restore();
   }
   // the second function, as a landscape, and the three changes lit in turn
-  const cam = drift(breathCam(), t, T.breath0, T.breath1 + 1, { zoom: 0.05, dx: -26, dy: -10 });
+  const cam = breathCamAt(t);
   const pal = S.PAL.dark;
   const ca = ease.out(clamp((t - T.breath0 - 0.4) / 0.9)) * (1 - ease.inOut(clamp((t - (T.breath1 - 0.5)) / 0.5)));
-  const order = ['v0.2.0-beta', 'v0.4.0-beta', 'v0.5.0-beta'];
-  const beat = (i) => T.breath0 + 2.4 + i * 2.2;
   let lit = null, litK = 0, litTag = null;
-  order.forEach((g, i) => {
-    const k = envelope(t, beat(i), beat(i) + 2.2, 0.3, 0.35);
+  BREATH_ORDER.forEach((g, i) => {
+    const k = envelope(t, breathBeat(i), breathBeat(i) + BREATH_BEAT, 0.3, 0.35);
     if (k > litK) { litK = k; lit = B.changes.get(g); litTag = g; }
   });
   faded(ctx, ca, () => {
@@ -451,8 +471,7 @@ export function drawJuly(ctx, t) {
 
 /** Where the breath left the code (the second function), so 0.7 can pan from it. */
 function breathCodeCam() {
-  const c = drift(breathCam(), T.breath1, T.breath0, T.breath1 + 1, { zoom: 0.05, dx: -26, dy: -10 });
-  return c;
+  return breathCamAt(T.breath1);
 }
 
 /** Cubic Bezier points for one goto, drawn as a jump that swings far out across the frame. */

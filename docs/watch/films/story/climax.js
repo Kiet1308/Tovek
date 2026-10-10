@@ -9,8 +9,8 @@ import {
   layoutCode, codeMorph, drawMorph, codeMetrics, codeFont, rgba, mix, pixel, roundRect,
 } from '../../engine/index.js';
 import {
-  T, ERA, TY, TRACK, AROUND, CODE, COL, S, surface, hairline, vline, faded, clipRect, camAt, zoomCam, lerpCam, label,
-  monthYear, usDate, stripDot, hexOf, word,
+  T, ERA, TY, TRACK, AROUND, PAIRS, CODE, COL, S, surface, hairline, vline, faded, clipRect, camAt, zoomCam, lerpCam, label,
+  monthYear, usDate, stripDot, hexOf, word, num,
 } from './base.js';
 import { cam251, pmeta } from './pages.js';
 
@@ -143,11 +143,11 @@ export function prepareClimax() {
   const rowsA = Math.ceil(plan.a.lineCount / 2) + 1, rowsB = Math.ceil(plan.b.lineCount / 2) + 1;
   H.colA = columns(plan.a, Math.min(0.66, 930 / (rowsA * lh)));
   H.colB = columns(plan.b, Math.min(0.8, 930 / (rowsB * lh)));
-  // flights: in file order, one after another
-  const first = T.homing0 + 2.0, every = 2.0;
+  // flights: in file order, one after another, each given room: a lift, a long arc, a snap
+  const first = T.homing0 + 2.4, every = 2.6;
   H.copies.forEach((c, i) => {
     c.depart = first + i * every;
-    c.lift = 0.3; c.fly = 1.15; c.land = 0.25;
+    c.lift = 0.5; c.fly = 1.6; c.land = 0.45;
     c.arrive = c.depart + c.lift + c.fly;
     c.helper.arrive = Math.min(c.helper.arrive, c.arrive);
     c.helper.lastArrive = Math.max(c.helper.lastArrive ?? 0, c.arrive);
@@ -236,38 +236,77 @@ function drawFlood(ctx, t) {
 
 // ----------------------------------------------------------------------------------- the title
 
+// The title fills the frame; when the wide shot opens, each of its lines flies into the corner
+// label that stays over the wide shot ("Tovek V2.6  Inlined copies come home"), at that label's size.
+const FLY = 1.0;
+function cornerGeom() {
+  const ty = TY.v26, s = S.V26;
+  const kT = ty.corner.size / ty.tovek.size, kN = ty.corner.size / ty.giant.size;
+  const Lt = layoutText('Tovek', ty.tovek, { pairs: PAIRS });
+  const space = measure('Tovek ', ty.tovek) - measure('Tovek', ty.tovek);
+  const nameX = 96 + (Lt.width - 0.01 * ty.tovek.size * 4 + space) * kT;
+  const Ln = layoutText(s.name, ty.giant, { around: AROUND });
+  const headX = nameX + (Ln.width - 0.01 * ty.giant.size * (s.name.length - 1)) * kN + 18;
+  return { tovek: { x: 96, y: 66, k: kT }, name: { x: nameX, y: 66, k: kN }, head: { x: headX, y: 64, k: ty.cornerHead.size / ty.head.size } };
+}
+
 function drawTitle26(ctx, t) {
   const e = ERA.v26, ty = TY.v26, s = S.V26;
   const t0 = T.title26;
-  const shrink = ease.inOutCubic(clamp((t - (T.homing0 - 0.9)) / 0.9));
-  if (shrink >= 1) return;
-  const a = 1 - shrink;
-  ctx.save();
-  ctx.globalAlpha *= a;
-  const L = layoutText(s.name, ty.title, { around: AROUND });
-  const k = lerp(1, 0.6, shrink);
-  ctx.translate(960, lerp(560, 300, shrink));
-  ctx.scale(k, k);
-  reveal(ctx, L, 0, 0, t, { unit: 'glyph', start: t0 + 0.15, stagger: 0.06, dur: 0.9, color: e.ink, align: 'center', tracking: TRACK.title });
-  ctx.restore();
+  const fly = ease.inOutCubic(clamp((t - (T.homing0 - FLY)) / FLY));
+  if (fly >= 1) return;
+  const C = cornerGeom();
+  const G = ty.giant;
+  const Lg = layoutText(s.name, G, { around: AROUND });
+  const wg = Lg.width + TRACK.title * G.size * (s.name.length - 1);
+  const Lt = layoutText('Tovek', ty.tovek, { pairs: PAIRS });
+  const head = stripDot(s.headline);
+  const Lh = layoutText(head, ty.head);
+  const dot = s.headline.endsWith('.') ? layoutText('.', ty.head) : null;
+  const wh = Lh.width + (dot ? dot.width : 0);
+  // big positions (left edge, baseline), centred in the frame
+  const big = { name: { x: 960 - wg / 2, y: 724 }, tovek: { x: 960 - Lt.width / 2, y: 284 }, head: { x: 960 - wh / 2, y: 846 } };
+  const at = (b, c) => ({ x: lerp(b.x, c.x, fly), y: lerp(b.y, c.y, fly), k: lerp(1, c.k, fly) });
+  const place = (p, fn) => { ctx.save(); ctx.translate(p.x, p.y); ctx.scale(p.k, p.k); fn(); ctx.restore(); };
+  // the name: glyph by glyph, then whole as it flies
+  place(at(big.name, C.name), () => {
+    if (fly <= 0) reveal(ctx, Lg, 0, 0, t, { unit: 'glyph', start: t0 + 0.15, stagger: 0.07, dur: 0.95, color: e.ink, tracking: TRACK.title });
+    else drawText(ctx, Lg, 0, 0, { color: e.ink, tracking: lerp(TRACK.title, -0.01, fly) });
+  });
+  place(at(big.tovek, C.tovek), () => {
+    if (fly <= 0) reveal(ctx, Lt, 0, 0, t, { unit: 'line', start: t0, dur: 0.8, color: e.ink, tracking: -0.01 });
+    else drawText(ctx, Lt, 0, 0, { color: e.ink, tracking: -0.01 });
+  });
+  place(at(big.head, C.head), () => {
+    const col = e.ink2;
+    if (fly <= 0) {
+      reveal(ctx, Lh, 0, 0, t, { unit: 'word', start: t0 + 0.7, stagger: 0.07, dur: 0.8, color: col });
+      if (dot) reveal(ctx, dot, Lh.width, 0, t, { unit: 'line', start: t0 + 0.7 + 0.07 * Lh.wordCount, dur: 0.8, color: col });
+    } else {
+      drawText(ctx, Lh, 0, 0, { color: col });
+      if (dot) drawText(ctx, dot, Lh.width, 0, { color: col, alpha: 1 - fly });
+    }
+  });
   const meta = `${(s.released ? usDate(s.date) : monthYear(s.date)).toUpperCase()}  ·  RELEASE ${S.RIDX.get(s)} OF ${S.D.totals.releases}`;
-  faded(ctx, a, () => {
-    reveal(ctx, layoutText('Tovek', ty.tovek), 960, 300, t, { unit: 'line', start: t0, dur: 0.8, color: e.ink, align: 'center', tracking: -0.01 });
-    reveal(ctx, layoutText(meta, ty.meta), 960, 220, t, { unit: 'line', start: t0, dur: 0.8, color: e.ink2, align: 'center', tracking: 0.12 });
-    reveal(ctx, layoutText(s.headline, ty.head), 960, 680, t, { unit: 'word', start: t0 + 0.6, stagger: 0.07, dur: 0.8, color: e.ink2, align: 'center' });
+  faded(ctx, 1 - ease.out(clamp(fly * 2.5)), () => {
+    reveal(ctx, layoutText(meta, ty.meta), 960, 200, t, { unit: 'line', start: t0, dur: 0.8, color: e.ink2, align: 'center', tracking: 0.12 });
   });
 }
 
-/** The quiet corner label that stays over the wide shot. */
-function drawCorner(ctx, t) {
+/** The quiet corner label that stays over the wide shot: exactly where the title's flight ends. */
+function drawCorner(ctx, t, ox = 0, oy = 0) {
   const e = ERA.v26, ty = TY.v26, s = S.V26;
-  const a = envelope(t, T.homing0 - 0.4, T.consts0 - 0.6, 0.6, 0.5);
+  if (t < T.homing0) return;
+  const a = 1 - ease.inOut(clamp((t - (T.consts0 - 1.1)) / 0.5));
   if (a <= 0) return;
+  const C = cornerGeom();
+  const place = (p, fn) => { ctx.save(); ctx.translate(p.x, p.y); ctx.scale(p.k, p.k); fn(); ctx.restore(); };
   ctx.save();
   ctx.globalAlpha *= a;
-  const L = layoutText(`Tovek ${s.name}`, ty.corner, { around: AROUND });
-  drawText(ctx, L, 96, 66, { color: e.ink, tracking: -0.01 });
-  drawText(ctx, layoutText(stripDot(s.headline), ty.cornerHead), 96 + L.width + 18, 64, { color: e.ink2 });
+  ctx.translate(ox, oy);
+  place(C.tovek, () => drawText(ctx, layoutText('Tovek', ty.tovek, { pairs: PAIRS }), 0, 0, { color: e.ink, tracking: -0.01 }));
+  place(C.name, () => drawText(ctx, layoutText(s.name, ty.giant, { around: AROUND }), 0, 0, { color: e.ink, tracking: -0.01 }));
+  place(C.head, () => drawText(ctx, layoutText(stripDot(s.headline), ty.head), 0, 0, { color: e.ink2 }));
   ctx.restore();
 }
 
@@ -298,14 +337,17 @@ function drawHoming(ctx, t) {
   const spread = 0.3;
   const helperIn = H.helpers.map((h) => ease.inOut(clamp((t - h.arrive - 0.05) / 0.45)));
   const inv = 1 / s, by0 = baseline * s;
+  // while the copies fly, the rest of the file steps back; the helpers they fly to stay lit
+  const focus = envelope(t, T.homing0 + 0.4, H.glide0 + 0.3, 0.9, 0.7, ease.inOut, ease.inOut);
+  const dimA = base * fadeIn * (1 - 0.6 * focus), litA = base * fadeIn;
   for (const [k, gr] of plan.kept) {
     ctx.fillStyle = pal[k] || pal.id;
-    ctx.globalAlpha = base * fadeIn;
     const nums = gr.nums, texts = gr.text, hix = H.keptHelper.get(k);
     for (let n = 0, q = 0; n < texts.length; n++, q += 5) {
       const al = nums[q + 1], ac = nums[q], bl = nums[q + 3], bc = nums[q + 2];
       let ax = atX(A, al, ac), ay = atY(A, al);
       const hi = hix[n];
+      ctx.globalAlpha = hi >= 0 ? litA : dimA;
       if (hi >= 0 && helperIn[hi] > 0) {
         const h = H.helpers[hi], hl = h.aLine + (bl - h.line), e2 = helperIn[hi];
         ax += (atX(A, hl, bc) - ax) * e2; ay += (atY(A, hl) - ay) * e2;
@@ -332,6 +374,21 @@ function drawHoming(ctx, t) {
       roundRect(ctx, (x0 - cw * A.s * 0.8) / s, (y0 - lh * A.s * 0.1) / s, (bw + cw * A.s * 0.8) / s, (bh + lh * A.s * 0.2) / s, 6 / s);
       ctx.fillStyle = e.accent;
       ctx.fillRect((x0 - cw * A.s * 0.8) / s, (y0 - lh * A.s * 0.1) / s, 2.5 / s, (bh + lh * A.s * 0.2) / s);
+      // each arrival sends a ring out from the definition
+      for (const c of h.copies) {
+        const w = clamp((t - c.arrive) / 0.85);
+        if (w <= 0 || w >= 1) continue;
+        const g = 4 + 52 * ease.out(w);
+        ctx.globalAlpha = base * (1 - w) * 0.9;
+        ctx.strokeStyle = e.signal;
+        ctx.lineWidth = lerp(3, 1, w) / s;
+        const rx = x0 - cw * A.s * 0.8 - g, ry = y0 - lh * A.s * 0.1 - g;
+        const rw = bw + cw * A.s * 0.8 + g * 2, rh = bh + lh * A.s * 0.2 + g * 2;
+        ctx.beginPath();
+        if (ctx.roundRect) ctx.roundRect(rx / s, ry / s, rw / s, rh / s, (6 + g * 0.5) / s);
+        else ctx.rect(rx / s, ry / s, rw / s, rh / s);
+        ctx.stroke();
+      }
       ctx.restore();
       // a tally of the copies that came home, in the margin beside the definition
       const home = h.copies.filter((c) => t >= c.arrive).length;
@@ -349,63 +406,106 @@ function drawHoming(ctx, t) {
     }
   }
 
-  // 3. removed tokens: the copies glow, lift, fly home; the rest dissolve before the file closes up
-  const select = (c) => ease.out(clamp((t - (T.homing0 + 0.3 + H.copies.indexOf(c) * 0.45)) / 0.5));
-  for (const c of H.copies) {
-    const q = t < c.depart ? 0 : clamp((t - c.depart) / (c.lift + c.fly));
-    if (t >= c.arrive + c.land) continue;
-    const lit = select(c);
+  // 3. the copies: each glows, a route is drawn ahead of it, it lifts off its line, flies home along
+  //    the arc and snaps into its helper's definition (a ring goes out from there, see above)
+  H.copies.forEach((c, ci) => {
+    if (t >= c.arrive + c.land) return;
+    const lit = ease.out(clamp((t - (T.homing0 + 0.3 + ci * 0.45)) / 0.5));
     const [ax0, ay0] = posA(c.l0, c.c0);
     const [ax1, ay1] = posA(c.l1 + 1, c.c1);
-    const cx = (ax0 + ax1) / 2, cy = (ay0 + ay1) / 2;
-    const [hx, hy] = posA(c.helper.aLine, c.helper.aCol + c.helper.len / 2);
-    const tx = hx, ty2 = hy + lh * A.s * 0.5;
-    // the route: up and over, the long flights arc across the frame
+    const pad = cw * A.s * 0.8;
+    const cardX = ax0 - pad, cardY = ay0, cardW = ax1 - ax0 + pad * 2, cardH = ay1 - ay0;
+    const cx = cardX + cardW / 2, cy = cardY + cardH / 2;
+    // the destination: the helper's body as V2.5.1 wrote it
+    const h = c.helper;
+    const [hx0, hy0] = posA(h.aLine, 0);
+    let wLine = 0;
+    for (let l = h.aLine; l <= h.aEnd; l++) wLine = Math.max(wLine, plan.a.lineCols[l] || 0);
+    const boxW = (wLine + 1.5) * cw * A.s + pad, boxH = (h.aEnd - h.aLine + 1) * lh * A.s;
+    const tx = hx0 - pad + boxW / 2, ty2 = hy0 + boxH / 2;
+    // the route: one arc up and over, its top kept inside the frame; a copy right below its helper
+    // swings out to the side so the jump still reads as a flight
     const dist = Math.hypot(tx - cx, ty2 - cy);
-    const ctrl = [lerp(cx, tx, 0.5) + dist * 0.28 + 60, Math.min(cy, ty2) - dist * 0.32 - 90];
+    const side = Math.abs(tx - cx) < 260 ? 340 : 0;
+    const ctrl = [lerp(cx, tx, 0.5) + side, Math.min(cy, ty2) - clamp(dist * 0.45, 160, 420)];
+    // the apex of the arc, (cy + 2 ctrl + ty2) / 4, stays low enough that the lifted card is in frame
+    const apex = Math.max(70, cardH * 0.56 + 36);
+    ctrl[1] = Math.max(ctrl[1], (4 * apex - cy - ty2) / 2);
     const pt = (u) => [(1 - u) * (1 - u) * cx + 2 * (1 - u) * u * ctrl[0] + u * u * tx, (1 - u) * (1 - u) * cy + 2 * (1 - u) * u * ctrl[1] + u * u * ty2];
     const liftP = ease.out(clamp((t - c.depart) / c.lift));
     const flyP = ease.inOutCubic(clamp((t - c.depart - c.lift) / c.fly));
-    const landP = clamp((t - c.arrive) / c.land);
-    const [px, py] = flyP > 0 ? pt(flyP) : [cx, cy];
-    const k = lerp(1, 0.18, ease.inQuad(flyP)) * (1 + 0.06 * liftP * (1 - flyP));
-    const alpha = 1 - landP;
-    // trail
-    if (flyP > 0 && flyP < 1) {
-      ctx.save();
-      ctx.strokeStyle = e.signal;
-      ctx.lineWidth = 2 / s;
-      ctx.lineCap = 'round';
-      const tail = Math.max(0, flyP - 0.45), steps = 22;
-      let prev = pt(tail);
+    const landT = t - c.arrive, landP = clamp(landT / c.land);
+    // a polyline along the route from u0 to u1, each segment with its own alpha
+    const route = (u0, u1, steps, alphaOf) => {
+      let prev = pt(u0);
       for (let i = 1; i <= steps; i++) {
-        const p2 = pt(tail + ((flyP - tail) * i) / steps);
-        ctx.globalAlpha = base * 0.5 * (i / steps);
+        const p2 = pt(u0 + ((u1 - u0) * i) / steps);
+        ctx.globalAlpha = base * alphaOf(i / steps);
         ctx.beginPath();
         ctx.moveTo(prev[0] / s, prev[1] / s);
         ctx.lineTo(p2[0] / s, p2[1] / s);
         ctx.stroke();
         prev = p2;
       }
-      ctx.restore();
-    }
-    // the card: a band behind the copy, its tokens in the accent
+    };
     ctx.save();
-    ctx.globalAlpha = base * alpha * fadeIn;
-    ctx.translate(px / s, py / s);
-    ctx.scale(k, k);
-    ctx.translate(-cx / s, -cy / s);
-    const bw = ax1 - ax0 + cw * A.s * 1.6, bh = ay1 - ay0;
-    if (liftP > 0) {
-      ctx.fillStyle = rgba(e.ink, 0.07 * liftP);
-      roundRect(ctx, (ax0 - cw * A.s * 0.8 + 6) / s, (ay0 + 9) / s, bw / s, bh / s, 8 / s);
+    ctx.strokeStyle = e.signal;
+    ctx.lineCap = 'round';
+    // the flight plan: a dashed arc drawn out from the copy that flies next
+    const plan0 = ease.inOut(clamp((t - Math.max(T.homing0 + 0.9, c.depart - 1.6)) / 1.0));
+    const planA = plan0 * (1 - ease.inOut(clamp((t - c.depart - c.lift) / (c.fly * 0.7)))) * 0.5 * fadeIn;
+    if (planA > 0) {
+      ctx.lineWidth = 1.6 / s;
+      ctx.setLineDash([6 / s, 7 / s]);
+      ctx.lineDashOffset = (-t * 18) / s;
+      route(0, plan0, 40, () => planA);
+      ctx.setLineDash([]);
     }
-    ctx.fillStyle = mix(e.surface, e.signal, (0.12 + 0.06 * liftP) * lit);
-    roundRect(ctx, (ax0 - cw * A.s * 0.8) / s, ay0 / s, bw / s, bh / s, 8 / s);
+    // the trail: a solid stroke behind the card, brightening toward it
+    if (flyP > 0 && flyP < 1) {
+      const tail = Math.max(0, flyP - 0.55);
+      ctx.lineWidth = 3.2 / s;
+      route(tail, flyP, 28, (q) => 0.75 * q * q);
+    }
+    ctx.restore();
+    // the card's pose: lifted, flown, then folded into the helper's own box (its width on the way,
+    // its lines closing up into the helper's lines at the end), then a short pop as it snaps in
+    const [px, py] = flyP > 0 ? pt(flyP) : [cx, cy];
+    const lifted = 1 + 0.07 * liftP;
+    let kx = lerp(lifted, Math.min(1.25, boxW / cardW), ease.inOutCubic(flyP));
+    let ky = lerp(lifted, Math.min(1.25, boxH / cardH), ease.inQuart(flyP));
+    if (landT > 0) { const pop = 1 + 0.06 * Math.sin(Math.PI * clamp(landT / 0.3)); kx *= pop; ky *= pop; }
+    const alpha = (1 - ease.inQuad(landP)) * fadeIn;
+    const wait = t < c.depart ? 0.78 + 0.22 * Math.sin((t - T.homing0) * 4.4 + ci * 1.9) : 1 - 0.4 * flyP;
+    const glow = lit * wait;
+    ctx.save();
+    ctx.globalAlpha = base * alpha;
+    ctx.translate(px / s, py / s);
+    ctx.scale(kx, ky);
+    ctx.translate(-cx / s, -cy / s);
+    const rr = (x, y, w, hh, r) => roundRect(ctx, x / s, y / s, w / s, hh / s, r / s);
+    // its shadow, deeper as it lifts
+    if (liftP > 0) {
+      for (let j = 1; j <= 3; j++) {
+        ctx.fillStyle = rgba(e.ink, 0.04 * liftP * (1 - flyP * 0.5));
+        const o = (4 + 5 * j) * liftP;
+        rr(cardX + o * 0.6, cardY + o, cardW, cardH, 8 + j * 2);
+      }
+    }
+    // its glow: soft layers of the signal colour around the card
+    if (glow > 0) {
+      for (let j = 9; j >= 1; j--) {
+        const g = j * 3.6;
+        ctx.fillStyle = rgba(e.signal, 0.022 * glow);
+        rr(cardX - g, cardY - g, cardW + g * 2, cardH + g * 2, 8 + g);
+      }
+    }
+    ctx.fillStyle = mix(e.surface, e.signal, (0.13 + 0.09 * liftP) * lit);
+    rr(cardX, cardY, cardW, cardH, 8);
     ctx.fillStyle = e.accent;
-    ctx.globalAlpha = base * alpha * fadeIn * lit;
-    ctx.fillRect((ax0 - cw * A.s * 0.8) / s, ay0 / s, 3 / s, bh / s);
-    ctx.globalAlpha = base * alpha * fadeIn;
+    ctx.globalAlpha = base * alpha * lit;
+    ctx.fillRect(cardX / s, cardY / s, 3 / s, cardH / s);
+    ctx.globalAlpha = base * alpha;
     for (const i of c.removed) {
       const r = plan.removed[i];
       const [x, y] = posA(r.line, r.col);
@@ -413,16 +513,16 @@ function drawHoming(ctx, t) {
       ctx.fillText(r.text, x / s, (y + baseline * A.s) / s);
     }
     ctx.restore();
-    // the helper's name beside the copy, before it leaves
-    if (q <= 0) {
+    // the helper's name beside the copy, until it leaves
+    if (t < c.depart + 0.2) {
       const [nx, ny] = posA(c.l0, c.c1 + 3);
       ctx.save();
-      ctx.globalAlpha = base * lit * fadeIn;
+      ctx.globalAlpha = base * lit * fadeIn * (1 - clamp((t - c.depart) / 0.2));
       ctx.fillStyle = e.accent;
       ctx.fillText(`→ ${c.helper.name}`, nx / s, (ny + baseline * A.s) / s);
       ctx.restore();
     }
-  }
+  });
   // other removed tokens dissolve once every copy is home; helper-line tokens change as copies land
   for (let i = 0; i < plan.removed.length; i++) {
     if (H.copyOf.has(i)) continue;
@@ -529,6 +629,14 @@ function drawConstants(ctx, t) {
       drawMorph(ctx, pl, pm, { size: CODE.size, lineHeight: CODE.lineHeight, palette: pal, cameraA: camA, cameraB: camB, blur: 8, timing: { out: [0, 0.45], move: [0.1, 0.9], in: [0.45, 1] } });
       ctx.restore();
     }
+    // soft frame edges: the close-up runs off the frame into the paper
+    for (const [x0, x1] of [[0, 220], [1920, 1700]]) {
+      const g = ctx.createLinearGradient(x0, 0, x1, 0);
+      g.addColorStop(0, rgba(e.surface, 1));
+      g.addColorStop(1, rgba(e.surface, 0));
+      ctx.fillStyle = g;
+      ctx.fillRect(Math.min(x0, x1), 0, 220, 1080);
+    }
     // labels: what it was, and what it is
     const la = envelope(t, x.t0 + 0.3, x.t0 + 3.05, 0.4, 0.35);
     label(ctx, 'FOLDED BY LUAU', 960, 230, e.ink2, { alpha: la * (1 - clamp(pm * 2)), align: 'center' });
@@ -539,45 +647,46 @@ function drawConstants(ctx, t) {
 
 // --------------------------------------------------------------------------------- the numbers
 
+// Two numbers, each filling the frame. The first rolls up from V2.5.1's count; then the frame
+// scrolls on like an odometer drum and the second counts V2.5.1's wrong outputs down to zero.
 function drawNumbers(ctx, t) {
   const e = ERA.v26, ty = TY.v26;
   const n = S.N.v26a, z = S.N.v26b;
   if (!n) return;
   const t0 = T.nums;
   const out = ease.inOut(clamp((t - (T.orig - 0.6)) / 0.6));
-  const side = ease.inOutCubic(clamp((t - t0 - 3.0) / 0.8));
+  const turn = z ? ease.inOutCubic(clamp((t - t0 - 2.8) / 0.7)) : 0;
+  const F = ty.ecu, capF = metrics(F).capHeight || F.size * 0.72;
+  const yNum = 540 + capF / 2 - 10;
   ctx.save();
   ctx.globalAlpha *= 1 - out;
-  ctx.translate(0, -out * 40);
-  // rebuilt calls across four real games
-  const x1 = lerp(960, 560, side);
-  const k1 = lerp(1, 0.74, side);
-  ctx.save();
-  ctx.translate(x1, 560);
-  ctx.scale(k1, k1);
-  drawOdometer(ctx, t, { from: n.from ?? 0, to: n.to, start: t0 + 0.2, dur: 2.0, x: 0, y: 0, font: ty.num, align: 'center', color: e.ink, turns: 1 });
-  ctx.restore();
-  const lab1 = layoutText(n.label, ty.unit, { maxWidth: 600, lineHeight: 1.3 });
-  faded(ctx, ease.out(clamp((t - t0 - 0.4) / 0.6)), () => {
-    drawText(ctx, lab1, x1, 640, { color: e.ink2, align: 'center' });
-    if (n.paren) drawText(ctx, layoutText(n.paren, ty.unit), x1, 640 + lab1.height + 34, { color: e.ink2, align: 'center' });
-    label(ctx, `${S.ST['v2.5.1'].name.toUpperCase()}: ${formatNumber(n.from ?? 0)}`, x1, 380, e.ink3, { align: 'center' });
-  });
-  // fresh fuzzing: zero wrong
-  if (z && side > 0) {
-    const x2 = 1360;
-    const q = ease.out(clamp((t - t0 - 3.4) / 0.6));
-    faded(ctx, q, () => {
-      ctx.save();
-      ctx.translate(x2, 560);
-      ctx.scale(0.74, 0.74);
-      drawCounter(ctx, z.to, 0, 0, ty.num, { align: 'center', color: e.accent });
-      ctx.restore();
-      const lab2 = layoutText(z.label, ty.unit, { maxWidth: 520, lineHeight: 1.3 });
-      drawText(ctx, lab2, x2, 640, { color: e.ink2, align: 'center' });
-      if (z.paren) drawText(ctx, layoutText(z.paren, ty.unit), x2, 640 + lab2.height + 34, { color: e.ink2, align: 'center' });
+  // 1. rebuilt calls across four real games
+  if (turn < 1) {
+    ctx.save();
+    ctx.translate(0, -turn * 1080);
+    const a = ease.out(clamp((t - t0) / 0.4));
+    faded(ctx, a, () => {
+      label(ctx, `${S.ST['v2.5.1'].name.toUpperCase()}: ${formatNumber(n.from ?? 0)}`, 960, yNum - capF - 70, e.ink3, { align: 'center' });
+      drawOdometer(ctx, t, { from: n.from ?? 0, to: n.to, start: t0 + 0.25, dur: 2.0, x: 960, y: yNum, font: F, align: 'center', color: e.ink, turns: 1 });
+      drawText(ctx, layoutText(n.label, ty.ecuLab), 960, yNum + 92, { color: e.ink2, align: 'center' });
+      if (n.paren) drawText(ctx, layoutText(n.paren, ty.ecuNote), 960, yNum + 138, { color: e.ink3, align: 'center' });
     });
-    vline(ctx, 960, 400, 360, e.ink, 0.12 * q);
+    ctx.restore();
+  }
+  // 2. fresh fuzzing: V2.5.1's wrong outputs, counted down to none
+  if (z && turn > 0) {
+    const m = z.label.match(/^(wrong outputs) in (.+)$/);
+    const was = (z.paren || '').match(/^(.+?): ([\d,]+)$/);
+    const from = was ? num(was[2]) : z.to;
+    const start = t0 + 3.25, dur = 1.4;
+    const landed = clamp((t - start - dur) / 0.4);
+    ctx.save();
+    ctx.translate(0, (1 - turn) * 1080);
+    if (was) label(ctx, `${was[1].toUpperCase()}: ${was[2]}`, 960, yNum - capF - 70, e.ink3, { align: 'center' });
+    drawOdometer(ctx, t, { from, to: z.to, start, dur, x: 960, y: yNum, font: F, align: 'center', color: mix(e.ink, e.accent, landed), exact: true, ease: ease.inOut });
+    drawText(ctx, layoutText(m ? m[1] : z.label, ty.ecuLab), 960, yNum + 92, { color: e.ink2, align: 'center' });
+    if (m) drawText(ctx, layoutText(`in ${m[2]}`, ty.ecuNote), 960, yNum + 138, { color: e.ink3, align: 'center' });
+    ctx.restore();
   }
   ctx.restore();
 }
@@ -606,8 +715,23 @@ export function drawV26(ctx, t) {
       ctx.globalAlpha *= 1 - smoothstep(0.7, 1, push);
       drawHoming(ctx, t);
       ctx.restore();
-    } else drawHoming(ctx, t);
-    drawCorner(ctx, t);
+    } else {
+      // a slow push and slide while the copies fly home, back to rest as the file closes up
+      const u = clamp((t - T.homing0) / (H.glide1 - T.homing0));
+      const bump = (1 - Math.cos(2 * Math.PI * u)) / 2;
+      const k = 1 + 0.045 * bump;
+      ctx.save();
+      ctx.translate(960 - 22 * bump, 540 - 8 * bump);
+      ctx.scale(k, k);
+      ctx.translate(-960, -540);
+      drawHoming(ctx, t);
+      ctx.restore();
+    }
+    {
+      const u = clamp((t - T.homing0) / (H.glide1 - T.homing0));
+      const bump = (1 - Math.cos(2 * Math.PI * u)) / 2;
+      drawCorner(ctx, t, -22 * bump * 0.3, -8 * bump * 0.3);
+    }
     drawHomingStats(ctx, t);
   }
   if (t >= T.consts0 - 0.3 && t < T.nums + 0.3) drawConstants(ctx, t);

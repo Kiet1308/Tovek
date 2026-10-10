@@ -6,7 +6,7 @@ import {
   layoutText, drawText, reveal, typewriter, measure, drawCounter, drawOdometer, formatNumber,
   codeMorph, codeMetrics, drawCode, drawMark, markWidth, rgba, mix, pixel, roundRect,
 } from '../../engine/index.js';
-import { T, ERA, TY, TRACK, AROUND, S, surface, hairline, faded, label, word, cap } from './base.js';
+import { T, ERA, TY, TRACK, AROUND, PAIRS, S, surface, hairline, faded, label, word, cap } from './base.js';
 
 let SIDE = null;
 
@@ -139,7 +139,7 @@ export function drawEnd(ctx, t) {
   ];
   const outT = T.end + 3.4;
   items.forEach((it, i) => {
-    const x = 960 + (i - 1) * 470;
+    const x = 960 + (i - 1) * 540;
     const st = t0 + i * 0.22;
     const a = ease.out(clamp((t - st) / 0.6)) * (1 - ease.inOut(clamp((t - outT - i * 0.06) / 0.5)));
     if (a <= 0) return;
@@ -147,8 +147,8 @@ export function drawEnd(ctx, t) {
     ctx.save();
     ctx.globalAlpha *= a;
     ctx.translate(0, rise);
-    drawOdometer(ctx, t, { from: 0, to: it.v, start: st, dur: 1.6, x, y: 560, font: ty.num, align: 'center', color: e.ink, turns: 1 });
-    drawText(ctx, layoutText(it.label, ty.unit), x, 616, { color: e.ink2, align: 'center' });
+    drawOdometer(ctx, t, { from: 0, to: it.v, start: st, dur: 1.6, x, y: 590, font: ty.num, align: 'center', color: e.ink, turns: 1 });
+    drawText(ctx, layoutText(it.label, ty.unit), x, 660, { color: e.ink2, align: 'center' });
     ctx.restore();
   });
   // the mark lands with its eight bits, then the name; then nothing moves but the caret
@@ -156,7 +156,7 @@ export function drawEnd(ctx, t) {
   if (t > mt - 0.1) {
     const size = 120 * (0.94 + 0.06 * spring(t - mt, { freq: 1.1, damping: 0.6 }));
     drawMark(ctx, 960 - markWidth(size) / 2, 300 + (120 - size) / 2, size, { color: e.ink, bitColor: e.accent, body: progress(t, mt, 0.8, ease.out), bits: progress(t, mt + 0.25, 1.3) });
-    reveal(ctx, layoutText(`Tovek ${S.V26.name}`, ty.card, { around: AROUND }), 960, 610, t, { unit: 'word', start: mt + 0.5, stagger: 0.14, dur: 1.1, align: 'center', color: e.ink, tracking: TRACK.hero });
+    reveal(ctx, layoutText(`Tovek ${S.V26.name}`, ty.card, { around: AROUND, pairs: PAIRS }), 960, 610, t, { unit: 'word', start: mt + 0.5, stagger: 0.14, dur: 1.1, align: 'center', color: e.ink, tracking: TRACK.hero });
     const url = layoutText(S.REPO, ty.url);
     const typed = clamp((t - mt - 1.3) * 28, 0, url.glyphCount);
     const caretOn = typed < url.glyphCount || Math.floor((t - mt) * 1.7) % 2 === 0;
