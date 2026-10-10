@@ -769,7 +769,7 @@ pub fn deinline_orphans_in(body: &mut Block, chunk_orphans: &mut Vec<(RcLocal, C
                 &decl_map,
                 &chunk_orphans_active,
                 &[],
-                &FxHashSet::default(),
+                &Enclosing::function(&[]),
                 None,
                 true,
                 true,
@@ -1459,13 +1459,6 @@ fn collect_reads_in_closures(rv: &RValue, out: &mut FxHashSet<RcLocal>) {
     }
 }
 
-/// Map each local to the greatest top-level index `k` (in `from..stmts.len()`)
-/// whose statement reads-or-writes it. The read half mirrors `count_local_reads`
-/// and the write half reuses `collect_written`, so membership is identical to the
-/// per-statement predicate `any_local_live` tests. Rebuilt from the cursor on the
-/// rare accept; because the cursor only advances, occurrences below `from` are
-/// never queried (every future query uses `tail_start >= from`), so dropping them
-/// is sound.
 /// The locals a `repeat` condition reads, which its body's locals may be.
 fn condition_reads(condition: &RValue) -> FxHashSet<RcLocal> {
     let mut reads = FxHashSet::default();
@@ -1473,22 +1466,131 @@ fn condition_reads(condition: &RValue) -> FxHashSet<RcLocal> {
     reads
 }
 
-/// The tail-liveness index of a block whose `live_out` locals are read after
-/// it, built now with those locals live past every statement; `None` (built
-/// on first use) when nothing is.
-fn live_out_index(
-    stmts: &[Statement],
-    from: usize,
-    live_out: &FxHashSet<RcLocal>,
-) -> Option<FxHashMap<RcLocal, usize>> {
-    if live_out.is_empty() {
-        return None;
-    }
-    let mut index = build_last_occ(stmts, from);
-    index.extend(live_out.iter().map(|local| (local.clone(), usize::MAX)));
-    Some(index)
+/// Where a block sits in its function, for the locals read after it: a
+/// site's own locals must be dead once it is a call, also beyond the block
+/// (a written parameter stands for a local declared anywhere before the
+/// site, [`absorb_arguments`]). Each block holding another lends it the
+/// statements around the one holding it; nothing is collected until a site
+/// asks ([`Liveness::live_after_block`]).
+#[derive(Clone, Copy, Default)]
+struct Enclosing<'a> {
+    /// The parent block's statements before the one holding this block:
+    /// their top-level declarations are in scope here.
+    before: &'a [Statement],
+    /// The parent block's statements after it: they run after this block.
+    after: &'a [Statement],
+    /// The loop variables the statement holding this block declares for it,
+    /// bound anew on every trip.
+    vars: &'a [RcLocal],
+    /// The block runs again when it ends (a loop body): a local declared
+    /// outside it is read by the next trip (taken as read, as every local
+    /// a site binds outside its window is).
+    looping: bool,
+    /// A `repeat` body's `until` condition, which reads the body's locals.
+    until: Option<&'a RValue>,
+    /// The parent block's own; `None` for a function's body.
+    parent: Option<&'a Enclosing<'a>>,
+    /// A function body's parameters.
+    params: &'a [RcLocal],
 }
 
+impl<'a> Enclosing<'a> {
+    /// A function's body.
+    fn function(params: &'a [RcLocal]) -> Self {
+        Self { params, ..Self::default() }
+    }
+
+    /// A block of the statement between `before` and `after` in the block
+    /// `parent` describes.
+    fn nested(parent: &'a Enclosing<'a>, before: &'a [Statement], after: &'a [Statement]) -> Self {
+        Self { before, after, parent: Some(parent), ..Self::default() }
+    }
+
+    /// Each local declared outside the block and in scope in it, with the
+    /// depth of the block declaring it (0 for this one, 1 for its parent):
+    /// `k` for the loop variables of the `k`-th block up, `k + 1` for the
+    /// declarations in its `before`, the function body's depth for its
+    /// parameters.
+    fn declared_outside(&self) -> FxHashMap<RcLocal, usize> {
+        let mut declared = FxHashMap::default();
+        let mut node = self;
+        let mut depth = 0;
+        loop {
+            for var in node.vars {
+                declared.entry(var.clone()).or_insert(depth);
+            }
+            for statement in node.before {
+                if let Statement::Assign(assign) = statement
+                    && assign.prefix
+                {
+                    for left in &assign.left {
+                        if let LValue::Local(local) = left {
+                            declared.entry(local.clone()).or_insert(depth + 1);
+                        }
+                    }
+                }
+            }
+            let Some(parent) = node.parent else {
+                for param in node.params {
+                    declared.entry(param.clone()).or_insert(depth);
+                }
+                return declared;
+            };
+            node = parent;
+            depth += 1;
+        }
+    }
+
+    /// Whether `local`, declared by the block `depth` levels up, is read
+    /// after this block: by the statements after a block in between, by the
+    /// next trip of a loop in between, or by the declaring block's `until`.
+    fn read_after(&self, local: &RcLocal, depth: usize) -> bool {
+        let mut node = self;
+        for _ in 0..depth {
+            if node.looping || block_reads_local(node.after, local) {
+                return true;
+            }
+            let Some(parent) = node.parent else { return false };
+            node = parent;
+        }
+        node.until.is_some_and(|until| reads_local(until, local))
+    }
+}
+
+/// The tail liveness of a block's locals ([`tail_has_live`]): the index of
+/// its own statements, built on first use and dropped by the driver after
+/// each splice, and where the block sits.
+#[derive(Default)]
+struct Liveness<'a> {
+    index: Option<FxHashMap<RcLocal, usize>>,
+    around: Option<&'a Enclosing<'a>>,
+    declared_outside: std::cell::OnceCell<FxHashMap<RcLocal, usize>>,
+}
+
+impl<'a> Liveness<'a> {
+    fn new(around: &'a Enclosing<'a>) -> Self {
+        Self { around: Some(around), ..Self::default() }
+    }
+
+    /// Whether `local` is read after the block: one the block declares only
+    /// by a `repeat` body's `until`, one declared around it wherever its
+    /// scope goes on ([`Enclosing::read_after`]). A local of an enclosing
+    /// function is captured, which every rule binding a local declared
+    /// outside its window refuses first.
+    fn live_after_block(&self, local: &RcLocal) -> bool {
+        let Some(around) = self.around else { return false };
+        let depth = self.declared_outside.get_or_init(|| around.declared_outside()).get(local).copied().unwrap_or(0);
+        around.read_after(local, depth)
+    }
+}
+
+/// Map each local to the greatest top-level index `k` (in `from..stmts.len()`)
+/// whose statement reads-or-writes it. The read half mirrors `count_local_reads`
+/// and the write half reuses `collect_written`, so membership is identical to the
+/// per-statement predicate `any_local_live` tests. Rebuilt from the cursor on the
+/// rare accept; because the cursor only advances, occurrences below `from` are
+/// never queried (every future query uses `tail_start >= from`), so dropping them
+/// is sound.
 fn build_last_occ(stmts: &[Statement], from: usize) -> FxHashMap<RcLocal, usize> {
     let mut last_occ: FxHashMap<RcLocal, usize> = FxHashMap::default();
     let mut occ: FxHashSet<RcLocal> = FxHashSet::default();
@@ -1506,11 +1608,13 @@ fn build_last_occ(stmts: &[Statement], from: usize) -> FxHashMap<RcLocal, usize>
 /// LAZILY on first use and cached in `last_occ` (the original `any_local_live`
 /// only ran on a successful unify, so eager per-block construction would do work
 /// for the many blocks that have a target in scope but never actually match).
-/// The cache is invalidated (`= None`) by the driver whenever it splices, so it
-/// is always consistent with the current `stmts`. (Empty `set` ⇒ false, matching
-/// `any_local_live`, and without forcing a build.)
+/// The cache is invalidated by the driver whenever it splices, so it is always
+/// consistent with the current `stmts`. (Empty `set` ⇒ false, matching
+/// `any_local_live`, and without forcing a build.) A local dead in the rest of
+/// the block is still live when read after the block
+/// ([`Liveness::live_after_block`]).
 fn tail_has_live(
-    last_occ: &mut Option<FxHashMap<RcLocal, usize>>,
+    last_occ: &mut Liveness,
     stmts: &[Statement],
     from: usize,
     tail_start: usize,
@@ -1523,9 +1627,8 @@ fn tail_has_live(
     // uses `tail_start >= from` (the cursor only advances between accepts, and the
     // first query after each splice establishes `from`), so occurrences below
     // `from` are never inspected — see `build_last_occ`'s doc. Cheaper than from 0.
-    let idx = last_occ.get_or_insert_with(|| build_last_occ(stmts, from));
-    set.iter()
-        .any(|v| idx.get(v).is_some_and(|&k| k >= tail_start))
+    let idx = last_occ.index.get_or_insert_with(|| build_last_occ(stmts, from));
+    set.iter().any(|v| idx.get(v).is_some_and(|&k| k >= tail_start)) || set.iter().any(|v| last_occ.live_after_block(v))
 }
 
 fn collapse_in_closures(rv: &mut RValue, facts: &Collapse) {
@@ -2997,9 +3100,8 @@ fn deinline_block(
     decl_map: &FxHashMap<RcLocal, std::ops::Range<usize>>,
     outer_active: &[usize],
     outer_continuation: &[&[Statement]],
-    // Locals of this block read after it: a `repeat` body's locals are still
-    // in scope in its `until` condition.
-    live_out: &FxHashSet<RcLocal>,
+    // Where this block sits, for the locals read after it.
+    around: &Enclosing<'_>,
     current_func: Option<FnPtr>,
     is_func_tail: bool,
     is_func_body_top: bool,
@@ -3033,7 +3135,12 @@ fn deinline_block(
         let mut active: Vec<usize> = outer_active.to_vec();
         for j in 0..stmts.len() {
             let (head, rest) = stmts.split_at_mut(j + 1);
-            let s = &mut head[j];
+            let (before, current) = head.split_at_mut(j);
+            let s = &mut current[0];
+            // The blocks of `s` run before `rest`, after `before` declared
+            // its locals.
+            let (before, rest): (&[Statement], &[Statement]) = (before, rest);
+            let nested = Enclosing::nested(around, before, rest);
             let continuation = if continuations && matches!(s, Statement::If(_)) {
                 continuation_segments(rest, outer_continuation)
             } else {
@@ -3050,7 +3157,7 @@ fn deinline_block(
                             decl_map,
                             &active,
                             &continuation,
-                            &FxHashSet::default(),
+                            &nested,
                             current_func,
                             child_tail,
                             false,
@@ -3065,7 +3172,7 @@ fn deinline_block(
                     decl_map,
                     &active,
                     &[],
-                    &FxHashSet::default(),
+                    &Enclosing { looping: true, ..nested },
                     current_func,
                     false,
                     false,
@@ -3080,7 +3187,7 @@ fn deinline_block(
                     decl_map,
                     &active,
                     &[],
-                    &condition_reads(&r.condition),
+                    &Enclosing { looping: true, until: Some(&r.condition), ..nested },
                     current_func,
                     false,
                     false,
@@ -3093,7 +3200,7 @@ fn deinline_block(
                     decl_map,
                     &active,
                     &[],
-                    &FxHashSet::default(),
+                    &Enclosing { looping: true, vars: std::slice::from_ref(&nf.counter), ..nested },
                     current_func,
                     false,
                     false,
@@ -3106,7 +3213,7 @@ fn deinline_block(
                     decl_map,
                     &active,
                     &[],
-                    &FxHashSet::default(),
+                    &Enclosing { looping: true, vars: &gf.res_locals, ..nested },
                     current_func,
                     false,
                     false,
@@ -3164,7 +3271,7 @@ fn deinline_block(
     // with an O(|set|) lookup. Built lazily on the first query (so target-free /
     // never-matching blocks pay nothing) and reused across positions; the driver
     // invalidates it after each splice, after which the next query rebuilds it.
-    let mut last_occ: Option<FxHashMap<RcLocal, usize>> = live_out_index(stmts, 0, live_out);
+    let mut last_occ = Liveness::new(around);
     // The canonical windows of this block ([`CanonCache`]): the canon of a
     // contiguous tail-window `stmts[start..start+w]` depends ONLY on the block,
     // not on which target requested it. Single-threaded (the serial tail), so
@@ -3244,7 +3351,7 @@ fn deinline_block(
             i = start + advance;
             // The block changed; drop the cached index so the next query rebuilds
             // it against the spliced `stmts`.
-            last_occ = live_out_index(stmts, i, live_out);
+            last_occ.index = None;
             canon_cache.spliced(stmts, start, removed, advance);
             anchor = i;
         } else {
@@ -3356,13 +3463,15 @@ fn recurse_into_closures(
                 }
                 None => active,
             };
+            let mut function = c.function.0.lock();
+            let function = &mut *function;
             deinline_block(
-                &mut c.function.0.lock().body.0,
+                &mut function.body.0,
                 targets,
                 decl_map,
                 active,
                 &[],
-                &FxHashSet::default(),
+                &Enclosing::function(&function.parameters),
                 Some(fp),
                 true,
                 true,
@@ -3761,7 +3870,7 @@ fn try_match_at(
     is_func_body_top: bool,
     outer_continuation: &[&[Statement]],
     loop_tail: bool,
-    last_occ: &mut Option<FxHashMap<RcLocal, usize>>,
+    last_occ: &mut Liveness,
     canon_cache: &mut CanonCache,
 ) -> Option<Hit> {
     if ordered.is_empty() {
@@ -3955,7 +4064,7 @@ fn match_void(
     outer_continuation: &[&[Statement]],
     // Falling off the end of `stmts` continues the enclosing loop.
     loop_tail: bool,
-    last_occ: &mut Option<FxHashMap<RcLocal, usize>>,
+    last_occ: &mut Liveness,
     canon_cache: &mut CanonCache,
     current_func: Option<FnPtr>,
 ) -> Option<Hit> {
@@ -4250,7 +4359,7 @@ fn match_value(
     i: usize,
     t: &Target,
     is_func_body_top: bool,
-    last_occ: &mut Option<FxHashMap<RcLocal, usize>>,
+    last_occ: &mut Liveness,
     canon_cache: &mut CanonCache,
     current_func: Option<FnPtr>,
 ) -> Option<Hit> {
@@ -4352,7 +4461,7 @@ fn match_short_circuit(
     r: &RcLocal,
     t: &Target,
     is_func_body_top: bool,
-    last_occ: &mut Option<FxHashMap<RcLocal, usize>>,
+    last_occ: &mut Liveness,
     current_func: Option<FnPtr>,
 ) -> Option<Hit> {
     let at = nth_effective_index(stmts, i + 1, 0)?;
@@ -4406,7 +4515,7 @@ fn match_returned_value(
     i: usize,
     t: &Target,
     is_func_body_top: bool,
-    last_occ: &mut Option<FxHashMap<RcLocal, usize>>,
+    last_occ: &mut Liveness,
     canon_cache: &mut CanonCache,
     current_func: Option<FnPtr>,
 ) -> Option<Hit> {
@@ -4584,7 +4693,7 @@ fn match_assigned_value(
     i: usize,
     t: &Target,
     is_func_body_top: bool,
-    last_occ: &mut Option<FxHashMap<RcLocal, usize>>,
+    last_occ: &mut Liveness,
     canon_cache: &mut CanonCache,
     current_func: Option<FnPtr>,
 ) -> Option<Hit> {
@@ -4687,7 +4796,7 @@ fn absorb_arguments(
     i: usize,
     t: &Target,
     mut hit: Hit,
-    last_occ: &mut Option<FxHashMap<RcLocal, usize>>,
+    last_occ: &mut Liveness,
     is_func_body_top: bool,
 ) -> Option<Hit> {
     let end = i + hit.consume;
@@ -4806,7 +4915,7 @@ fn match_value_loop(
     i: usize,
     t: &Target,
     is_func_body_top: bool,
-    last_occ: &mut Option<FxHashMap<RcLocal, usize>>,
+    last_occ: &mut Liveness,
     current_func: Option<FnPtr>,
 ) -> Option<Hit> {
     let pre_len = t.loop_exit_at?;
@@ -4870,7 +4979,7 @@ fn match_declared_value(
     d: usize,
     t: &Target,
     is_func_body_top: bool,
-    last_occ: &mut Option<FxHashMap<RcLocal, usize>>,
+    last_occ: &mut Liveness,
     current_func: Option<FnPtr>,
     // `stmts[i..d]`, shared by the plain forms.
     site: &SitePrefix,
@@ -4916,7 +5025,7 @@ fn match_returned_local(
     d: usize,
     t: &Target,
     current_func: Option<FnPtr>,
-    last_occ: &mut Option<FxHashMap<RcLocal, usize>>,
+    last_occ: &mut Liveness,
     // The site local the prefix alone binds the returned local to, where
     // [`prefix_may_unify`] tells: `Some(None)` when it binds none.
     hint: Option<&Option<RcLocal>>,
@@ -5000,7 +5109,7 @@ fn match_own_local_value(
     t: &Target,
     current_func: Option<FnPtr>,
     is_func_body_top: bool,
-    last_occ: &mut Option<FxHashMap<RcLocal, usize>>,
+    last_occ: &mut Liveness,
 ) -> Option<Hit> {
     if narrow_prefix_only() || t.falls_off || !t.returns.is_empty() || t.prefix_len == 0 {
         return None;
@@ -5094,7 +5203,7 @@ fn match_embedded_value(
     t: &Target,
     current_func: Option<FnPtr>,
     is_func_body_top: bool,
-    last_occ: &mut Option<FxHashMap<RcLocal, usize>>,
+    last_occ: &mut Liveness,
     // `stmts[i..d]`, shared by the plain forms.
     site: &SitePrefix,
 ) -> Option<Hit> {
@@ -5815,7 +5924,7 @@ fn match_value_prefixed(
     t: &Target,
     current_func: Option<FnPtr>,
     is_func_body_top: bool,
-    last_occ: &mut Option<FxHashMap<RcLocal, usize>>,
+    last_occ: &mut Liveness,
 ) -> Option<Hit> {
     // Every window here opens with the callee prefix, an `if` of which keeps
     // its condition through canon (the prefix returns nothing).
@@ -9782,7 +9891,7 @@ mod tests {
         let copy = |local: &RcLocal, init: RValue| assign_local(local, init, true);
         let absorbed = |stmts: Vec<Statement>| {
             let at = stmts.len() - 1;
-            absorb_arguments(&stmts, at, &target, Hit::call(&target, 1, unified.clone(), Vec::new()), &mut None, false)
+            absorb_arguments(&stmts, at, &target, Hit::call(&target, 1, unified.clone(), Vec::new()), &mut Liveness::default(), false)
         };
         // In parameter order, both copies go into the call. A non-variadic
         // helper drops a trailing call's extra results itself.
@@ -11093,12 +11202,12 @@ mod tests {
 
         // is_func_body_top = true AND the window is the whole body -> refused.
         assert!(
-            match_void(&cand, 0, &t, false, true, &[], false, &mut None, &mut canon_cache, None).is_none(),
+            match_void(&cand, 0, &t, false, true, &[], false, &mut Liveness::default(), &mut canon_cache, None).is_none(),
             "replacing a function's entire body with one call must be refused"
         );
         // Not the whole body (is_func_body_top = false) -> matches.
         assert!(
-            match_void(&cand, 0, &t, false, false, &[], false, &mut None, &mut canon_cache, None).is_some(),
+            match_void(&cand, 0, &t, false, false, &[], false, &mut Liveness::default(), &mut canon_cache, None).is_some(),
             "the same region matches when it is not the whole body"
         );
     }
@@ -11178,7 +11287,7 @@ mod tests {
             print_x(),
         ];
         assert!(
-            match_value_prefixed(&cand, 0, &t, None, false, &mut None).is_none(),
+            match_value_prefixed(&cand, 0, &t, None, false, &mut Liveness::default()).is_none(),
             "an in-place accumulator with a param-LHS must not de-inline"
         );
     }
@@ -11203,7 +11312,7 @@ mod tests {
             print_x(), // trailing real stmt: the window must stop before it (canon != kc)
         ];
         let mut canon_cache = CanonCache::default();
-        let hit = match_void(&cand, 0, &t, false, false, &[], false, &mut None, &mut canon_cache, None)
+        let hit = match_void(&cand, 0, &t, false, false, &[], false, &mut Liveness::default(), &mut canon_cache, None)
             .expect("two interposed trivia must not exceed the effective window ceiling");
         assert_eq!(
             hit.consume, 5,
@@ -11594,7 +11703,7 @@ mod tests {
             if_stmt(not_rv(local_value(&v2)), vec![void_return()], vec![]),
         ];
 
-        let hit = match_value_prefixed(&candidate, 0, &t, None, false, &mut None)
+        let hit = match_value_prefixed(&candidate, 0, &t, None, false, &mut Liveness::default())
             .expect("isAfkEnabled prefix + guard-polarity flip should match");
         assert_eq!(hit.consume, 3, "consume prefix + decl + value branch");
         assert_eq!(hit.results, vec![v2]);
@@ -11630,7 +11739,7 @@ mod tests {
             print_x(), // trailing stmt: window isn't whole-body; doesn't read k2
         ];
 
-        let hit = match_value_prefixed(&candidate, 0, &t, None, false, &mut None)
+        let hit = match_value_prefixed(&candidate, 0, &t, None, false, &mut Liveness::default())
             .expect("if/else value prefix should match without a flip");
         assert_eq!(hit.consume, 3);
         assert_eq!(hit.results, vec![v]);
@@ -11670,7 +11779,7 @@ mod tests {
         ];
 
         assert!(
-            match_value_prefixed(&candidate, 0, &t, None, false, &mut None).is_none(),
+            match_value_prefixed(&candidate, 0, &t, None, false, &mut Liveness::default()).is_none(),
             "a prefix=true result-write leaf must not unify as the result lane (F10a)"
         );
     }
@@ -11709,7 +11818,7 @@ mod tests {
             print_x(), // trailing stmt: window isn't whole-body; doesn't read k2
         ];
 
-        let hit = match_value_prefixed(&candidate, 0, &t, None, false, &mut None)
+        let hit = match_value_prefixed(&candidate, 0, &t, None, false, &mut Liveness::default())
             .expect("interposed trivia must not break the AtPrefix match");
         // span = prefix(0) + trivia(1) + decl(2) + region-if(3): removes 4 stmts,
         // leaving the trailing print.
@@ -11761,7 +11870,7 @@ mod tests {
             print_x(), // trailing: window isn't whole-body
         ];
 
-        let hit = match_value_prefixed(&candidate, 0, &t, None, false, &mut None)
+        let hit = match_value_prefixed(&candidate, 0, &t, None, false, &mut Liveness::default())
             .expect("K==2 value prefix should match");
         // span = prefix a2(0) + prefix b2(1) + RESULT decl(2) + value-if(3).
         assert_eq!(hit.consume, 4);
@@ -11804,7 +11913,7 @@ mod tests {
         // f(obj) = k=obj.Field; if k<0 then return false end; return k. The
         // candidate computes v = (k2<0) ? false : k2 == f(obj). The flip negates
         // the candidate's `k2<0` to `not (k2<0)` (NOT `k2>=0`) and swaps branches.
-        let hit = match_value_prefixed(&candidate, 0, &t, None, false, &mut None)
+        let hit = match_value_prefixed(&candidate, 0, &t, None, false, &mut Liveness::default())
             .expect("relational guard condition IS polarity-flipped under P9");
         assert_eq!(hit.consume, 3); // prefix k2(0) + RESULT decl(1) + value-if(2)
         assert_eq!(hit.results, vec![v]);
@@ -11903,7 +12012,7 @@ mod tests {
         ];
 
         assert!(
-            match_value_prefixed(&candidate, 0, &t, None, false, &mut None).is_none(),
+            match_value_prefixed(&candidate, 0, &t, None, false, &mut Liveness::default()).is_none(),
             "a divergent leaf literal must be refused even when the flip aligns the diamond"
         );
     }
@@ -12691,7 +12800,7 @@ mod tests {
         assert!(u.callee_locals.contains(&l), "the copy is a callee temp (must be dead after)");
         let site = |before: Statement| [vec![before], body.clone()].concat();
         let absorbed = |stmts: &[Statement], t: &Target| {
-            absorb_arguments(stmts, 1, t, Hit::call(t, 2, u.clone(), Vec::new()), &mut None, false)
+            absorb_arguments(stmts, 1, t, Hit::call(t, 2, u.clone(), Vec::new()), &mut Liveness::default(), false)
         };
         // The copy right before the window goes into the call.
         let hit = absorbed(&site(assign_local(&l, number(7.0), true)), &t).expect("the copy is the argument");
@@ -12837,16 +12946,16 @@ mod tests {
         let window = assign_local(&t, method_call(local_value(&t), "Clone", vec![]), false);
         // `local t = make(e); t = t:Clone(); use(t)` is `local t = f(make(e))`.
         let read_after = vec![assign_local(&t, init.clone(), true), window.clone(), print_local(&t)];
-        let declared = absorb_arguments(&read_after, 1, &target, hit(), &mut None, false).unwrap();
+        let declared = absorb_arguments(&read_after, 1, &target, hit(), &mut Liveness::default(), false).unwrap();
         assert!(!declared.assign && declared.results == vec![t.clone()] && declared.absorbed == 1);
         assert!(rvalue_exact_eq(&declared.args[0], &init));
         // Read nowhere after: the call is for its effects only.
         let dead = vec![assign_local(&t, init.clone(), true), window.clone(), print_local(&user)];
-        let effects = absorb_arguments(&dead, 1, &target, hit(), &mut None, false).unwrap();
+        let effects = absorb_arguments(&dead, 1, &target, hit(), &mut Liveness::default(), false).unwrap();
         assert!(!effects.assign && effects.results.is_empty() && effects.absorbed == 1);
         // Not right before the window: the result stays assigned.
         let apart = vec![assign_local(&t, init, true), print_local(&user), window, print_local(&t)];
-        let assigned = absorb_arguments(&apart, 2, &target, hit(), &mut None, false).unwrap();
+        let assigned = absorb_arguments(&apart, 2, &target, hit(), &mut Liveness::default(), false).unwrap();
         assert!(assigned.assign && assigned.absorbed == 0 && rvalue_exact_eq(&assigned.args[0], &local_value(&t)));
     }
 
