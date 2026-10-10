@@ -1,0 +1,194 @@
+{
+  "schema": "tovek-changes/1",
+  "headline": "Inlined helpers come back, proven by the bytecode's own line numbers and by Luau's own constant folding.",
+  "themes": [
+    {
+      "id": "helpers",
+      "title": "Inlined helpers come back",
+      "summary": "Luau -O2 pastes small helpers into their callers. V2.6 finds and rebuilds about twice as many of them.",
+      "items": [
+        {
+          "title": "Line evidence",
+          "text": "Luau keeps a helper's own line numbers on the code it inlines. V2.6 reads them to count the copies of each helper in each function, and rebuilds helpers too small to prove by shape alone, such as `if c then c:Disconnect() end`, when the matches it finds equal that count exactly.",
+          "example": "DisconnectEvent in Roblox's ClickToMoveController: 12 copies in the bytecode, 12 calls rebuilt."
+        },
+        {
+          "title": "Folded constants solved back",
+          "text": "When Luau folds a copy of a pure helper into one number, V2.6 redoes Luau's constant folding bit for bit and writes the call back: `task.wait(0.016666666666666666)` becomes `task.wait(frames(1))`. Constant arguments folded into a larger copy are solved from equations, such as `fade(part, 0.5)`.",
+          "example": "task.wait(0.016666666666666666) becomes task.wait(frames(1))"
+        },
+        {
+          "title": "More copy shapes",
+          "text": "Copies whose result is assigned to an existing local, stored into a field or thrown away; helpers that return from both branches or return several values (`local right, up = perpBasis(dir)`); copies specialized for a constant; unnamed functions that are only ever called; helpers also stored under their own name; and value copies after any number of statements."
+        },
+        {
+          "title": "The larger copy wins",
+          "text": "Where two helpers match the same code, the one that stands for more of it is rebuilt instead of neither."
+        },
+        {
+          "title": "Exact counts in the output",
+          "text": "Every line holding a rebuilt call ends with `-- inferred equivalent call`, and each helper's definition line states how many calls were rebuilt from it."
+        }
+      ],
+      "numbers": [
+        {
+          "label": "rebuilt helper calls, four real games",
+          "from": "4,260",
+          "to": "8,842"
+        },
+        {
+          "label": "rebuilt helper calls, 51-script comparison set",
+          "from": "229",
+          "to": "637"
+        },
+        {
+          "label": "inlined copies found from line info that came back as calls (51-script set)",
+          "value": "633 of 780"
+        }
+      ]
+    },
+    {
+      "id": "exact",
+      "title": "Exact where it was not",
+      "summary": "A new fuzzer checks random programs against their own bytecode. Every bug it and the code reviews found is fixed at its cause.",
+      "items": [
+        {
+          "title": "Closures keep their identity",
+          "text": "Two functions stay the same object only where the original made them the same object. A loop that made a new function each time no longer prints code that shares one (DUPCLOSURE against NEWCLOSURE).",
+          "example": "original prints false; V2.5.1's output prints true; V2.6's prints false"
+        },
+        {
+          "title": "Captured values stay captured",
+          "text": "A closure always sees the value it captured, also where a local is copied, swapped or written later. One such case made a popular Promise library recurse forever."
+        },
+        {
+          "title": "Error positions and call frames",
+          "text": "A helper that reports an error at its caller's position (`error(message, 2)`, `debug.info`) is not rebuilt, because the position would move. A method that only reads its own frame no longer turns rebuilding off for its whole script."
+        },
+        {
+          "title": "Evaluation order",
+          "text": "Luau reads a local's register when the operation runs, after the other operands. Rebuilt calls, snapshots and stores now keep that order (`x + change()`, `t[saved] = change()`)."
+        },
+        {
+          "title": "Your handles stay",
+          "text": "`local Lighting = game:GetService(\"Lighting\")` and `require` handles stay declared; a rebuilt call never swallows them."
+        },
+        {
+          "title": "Big functions compile",
+          "text": "Output that would need more registers or locals than Luau allows shares storage until it compiles, including -g2 code with hundreds of `do local a = ... end` blocks."
+        },
+        {
+          "title": "Loops and tables",
+          "text": "Loops that only break after a swap, `for _ in t do break end`, a swap right before a generic `for`, and `[0]` beside `[-0]` table keys all decompile to code that behaves like the original."
+        }
+      ],
+      "numbers": [
+        {
+          "label": "wrong outputs in 3,000 fresh fuzz programs",
+          "from": "615",
+          "to": "0"
+        },
+        {
+          "label": "scripts decompiled, four real games",
+          "value": "8,822 of 8,822"
+        }
+      ]
+    },
+    {
+      "id": "reads",
+      "title": "Reads more like the source",
+      "summary": "Shorter, tidier output with names closer to what people write.",
+      "items": [
+        {
+          "title": "Exact fractions",
+          "text": "A number that is exactly p / q prints as that fraction when it is bit-equal and shorter, over the denominator the source most likely used: `2 / 3`, `190 / 255`, frames over 60.",
+          "example": "clone.Transparency = 0.6666666666666666 becomes clone.Transparency = 2 / 3"
+        },
+        {
+          "title": "Layout",
+          "text": "Short tables on one line, call arguments within a width budget, long conditions wrapped, one multi-line list element per line, `--!native` and `@native` restored, and a comparison inside a comparison in parentheses."
+        },
+        {
+          "title": "Names",
+          "text": "Acronyms as one word, a private `_` prefix dropped, the source's own spelling for aliases and unused imports, `xpcall` named like `pcall`, nested loop counters `i`, `j`, `k`, suffixes such as `Wheel_2` kept, and a recursive call no longer blocks the name another caller gives a parameter."
+        }
+      ],
+      "numbers": [
+        {
+          "label": "non-blank output lines, four real games",
+          "from": "1,168,956",
+          "to": "1,033,044"
+        },
+        {
+          "label": "output lines, 51-script set",
+          "from": "28,813",
+          "to": "26,664"
+        },
+        {
+          "label": "source names recovered, 13 public modules",
+          "from": "282",
+          "to": "317",
+          "of": "1,039"
+        }
+      ]
+    },
+    {
+      "id": "tools",
+      "title": "Tools",
+      "summary": "One new flag and faster formatting.",
+      "items": [
+        {
+          "title": "--stats-json",
+          "text": "`decompile-folder --stats-json <file>` writes, per script, the calls V2.6 rebuilt (by kind), the helpers, and why a helper or a site was refused."
+        },
+        {
+          "title": "Faster formatting",
+          "text": "Repeated formatter work is gone and cached batches run in parallel. A pathological script of twenty nested string formats went from 7.6 s to 0.15 s.",
+          "quotes": [
+            {
+              "quote": "7.6 s before PR #6, 0.15 s now",
+              "source": "commit:016c0ca"
+            }
+          ]
+        }
+      ],
+      "numbers": []
+    }
+  ],
+  "measured_values": {
+    "compare.rows.tovek_v251.calls": 229,
+    "compare.rows.tovek_v251.lines": 28813,
+    "compare.rows.tovek_v251.name_hit": 282,
+    "compare.rows.tovek_v26.calls": 637,
+    "compare.rows.tovek_v26.census": 780,
+    "compare.rows.tovek_v26.census_hits": 633,
+    "compare.rows.tovek_v26.lines": 26664,
+    "compare.rows.tovek_v26.name_hit": 317,
+    "compare.rows.tovek_v26.name_total": 1039,
+    "expression.fraction.v251": "clone.Transparency = 0.6666666666666666",
+    "expression.fraction.v26": "clone.Transparency = 2 / 3",
+    "expression.frames.v251": "task.wait(0.016666666666666666)",
+    "expression.frames.v26_code": "task.wait(frames(1))",
+    "field.totals.scripts": 8822,
+    "field.totals.v251.nonblank_lines": 1168956,
+    "field.totals.v251.rebuilt_calls": 4260,
+    "field.totals.v26.nonblank_lines": 1033044,
+    "field.totals.v26.rebuilt_calls": 8842,
+    "field.totals.v26.scripts_ok": 8822,
+    "fuzz.programs_run": 3000,
+    "fuzz.v251.counts.failed": 615,
+    "fuzz.v26.counts.failed": 0,
+    "opcode.cases.0.original.prints": "false",
+    "opcode.cases.0.v251.prints": "true",
+    "opcode.cases.0.v26.prints": "false",
+    "script.helper.copies_in_bytecode": 12,
+    "script.helper.name": "DisconnectEvent",
+    "script.helper.v26_definition_comment_count": 12
+  },
+  "cli": {
+    "added": [
+      "--stats-json"
+    ],
+    "removed": []
+  }
+}
