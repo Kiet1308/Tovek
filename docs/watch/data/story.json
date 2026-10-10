@@ -48,392 +48,504 @@
         "op": "LOADK",
         "word": "00000305",
         "aux": null,
-        "line": 19
+        "line": 19,
+        "text": "LOADK R3 K0 ['Humanoid']",
+        "label": null
       },
       {
         "pc": 1,
         "op": "NAMECALL",
         "word": "b8000114",
         "aux": "00000001",
-        "line": 19
+        "line": 19,
+        "text": "NAMECALL R1 R0 K1 ['FindFirstChildOfClass']",
+        "label": null
       },
       {
         "pc": 3,
         "op": "CALL",
         "word": "02030115",
         "aux": null,
-        "line": 19
+        "line": 19,
+        "text": "CALL R1 2 1",
+        "label": null
       },
       {
         "pc": 4,
         "op": "LOADB",
         "word": "00000203",
         "aux": null,
-        "line": 15
+        "line": 15,
+        "text": "LOADB R2 0",
+        "label": null
       },
       {
         "pc": 5,
         "op": "JUMPXEQKNIL",
         "word": "0008014d",
         "aux": "00000000",
-        "line": 15
+        "line": 15,
+        "text": "JUMPXEQKNIL R1 L1",
+        "label": null
       },
       {
         "pc": 7,
         "op": "GETTABLEKS",
         "word": "5a01030f",
         "aux": "00000002",
-        "line": 15
+        "line": 15,
+        "text": "GETTABLEKS R3 R1 K2 ['Health']",
+        "label": null
       },
       {
         "pc": 9,
         "op": "LOADN",
         "word": "00000404",
         "aux": null,
-        "line": 15
+        "line": 15,
+        "text": "LOADN R4 0",
+        "label": null
       },
       {
         "pc": 10,
         "op": "JUMPIFLT",
         "word": "0002041d",
         "aux": "00000003",
-        "line": 15
+        "line": 15,
+        "text": "JUMPIFLT R4 R3 L0",
+        "label": null
       },
       {
         "pc": 12,
         "op": "LOADB",
         "word": "01000203",
         "aux": null,
-        "line": 15
+        "line": 15,
+        "text": "LOADB R2 0 +1",
+        "label": null
       },
       {
         "pc": 13,
         "op": "LOADB",
         "word": "00010203",
         "aux": null,
-        "line": 15
+        "line": 15,
+        "text": "LOADB R2 1",
+        "label": "L0"
       },
       {
         "pc": 14,
         "op": "JUMPIF",
         "word": "00010219",
         "aux": null,
-        "line": 15
+        "line": 15,
+        "text": "JUMPIF R2 L2",
+        "label": "L1"
       },
       {
         "pc": 15,
         "op": "RETURN",
         "word": "00010016",
         "aux": null,
-        "line": 21
+        "line": 21,
+        "text": "RETURN R0 0",
+        "label": null
       },
       {
         "pc": 16,
         "op": "GETUPVAL",
         "word": "00000209",
         "aux": null,
-        "line": 24
+        "line": 24,
+        "text": "GETUPVAL R2 0",
+        "label": "L2"
       },
       {
         "pc": 17,
         "op": "NAMECALL",
         "word": "3a020214",
         "aux": "00000003",
-        "line": 24
+        "line": 24,
+        "text": "NAMECALL R2 R2 K3 ['Clone']",
+        "label": null
       },
       {
         "pc": 19,
         "op": "CALL",
         "word": "02020215",
         "aux": null,
-        "line": 24
+        "line": 24,
+        "text": "CALL R2 1 1",
+        "label": null
       },
       {
         "pc": 20,
         "op": "LOADK",
         "word": "00040305",
         "aux": null,
-        "line": 25
+        "line": 25,
+        "text": "LOADK R3 K4 [0.66666666666666663]",
+        "label": null
       },
       {
         "pc": 21,
         "op": "SETTABLEKS",
         "word": "d9020310",
         "aux": "00000005",
-        "line": 25
+        "line": 25,
+        "text": "SETTABLEKS R3 R2 K5 ['Transparency']",
+        "label": null
       },
       {
         "pc": 23,
         "op": "SETTABLEKS",
         "word": "24020010",
         "aux": "00000006",
-        "line": 26
+        "line": 26,
+        "text": "SETTABLEKS R0 R2 K6 ['Parent']",
+        "label": null
       },
       {
         "pc": 25,
         "op": "LOADN",
         "word": "00000304",
         "aux": null,
-        "line": 28
+        "line": 28,
+        "text": "LOADN R3 0",
+        "label": null
       },
       {
         "pc": 26,
         "op": "NAMECALL",
         "word": "47000414",
         "aux": "00000007",
-        "line": 29
+        "line": 29,
+        "text": "NAMECALL R4 R0 K7 ['GetDescendants']",
+        "label": null
       },
       {
         "pc": 28,
         "op": "CALL",
         "word": "04020415",
         "aux": null,
-        "line": 29
+        "line": 29,
+        "text": "CALL R4 1 3",
+        "label": null
       },
       {
         "pc": 29,
         "op": "FORGPREP",
         "word": "0011044c",
         "aux": null,
-        "line": 29
+        "line": 29,
+        "text": "FORGPREP R4 L5",
+        "label": null
       },
       {
         "pc": 30,
         "op": "LOADK",
         "word": "00080b05",
         "aux": null,
-        "line": 30
+        "line": 30,
+        "text": "LOADK R11 K8 ['BasePart']",
+        "label": "L3"
       },
       {
         "pc": 31,
         "op": "NAMECALL",
         "word": "fe080914",
         "aux": "00000009",
-        "line": 30
+        "line": 30,
+        "text": "NAMECALL R9 R8 K9 ['IsA']",
+        "label": null
       },
       {
         "pc": 33,
         "op": "CALL",
         "word": "02030915",
         "aux": null,
-        "line": 30
+        "line": 30,
+        "text": "CALL R9 2 1",
+        "label": null
       },
       {
         "pc": 34,
         "op": "JUMPIFNOT",
         "word": "0009091a",
         "aux": null,
-        "line": 30
+        "line": 30,
+        "text": "JUMPIFNOT R9 L4",
+        "label": null
       },
       {
         "pc": 35,
         "op": "GETTABLEKS",
         "word": "d908090f",
         "aux": "00000005",
-        "line": 31
+        "line": 31,
+        "text": "GETTABLEKS R9 R8 K5 ['Transparency']",
+        "label": null
       },
       {
         "pc": 37,
         "op": "JUMPXEQKN",
         "word": "0009094f",
         "aux": "0000000a",
-        "line": 31
+        "line": 31,
+        "text": "JUMPXEQKN R9 K10 L5 [1]",
+        "label": null
       },
       {
         "pc": 39,
         "op": "GETTABLEKS",
         "word": "a402090f",
         "aux": "0000000b",
-        "line": 34
+        "line": 34,
+        "text": "GETTABLEKS R9 R2 K11 ['Color']",
+        "label": null
       },
       {
         "pc": 41,
         "op": "SETTABLEKS",
         "word": "a4080910",
         "aux": "0000000b",
-        "line": 34
+        "line": 34,
+        "text": "SETTABLEKS R9 R8 K11 ['Color']",
+        "label": null
       },
       {
         "pc": 43,
         "op": "ADDK",
         "word": "0a030327",
         "aux": null,
-        "line": 35
+        "line": 35,
+        "text": "ADDK R3 R3 K10 [1]",
+        "label": null
       },
       {
         "pc": 44,
         "op": "LOADN",
         "word": "000c0904",
         "aux": null,
-        "line": 37
+        "line": 37,
+        "text": "LOADN R9 12",
+        "label": "L4"
       },
       {
         "pc": 45,
         "op": "JUMPIFLE",
         "word": "0003091c",
         "aux": "00000003",
-        "line": 37
+        "line": 37,
+        "text": "JUMPIFLE R9 R3 L6",
+        "label": null
       },
       {
         "pc": 47,
         "op": "FORGLOOP",
         "word": "ffee043a",
         "aux": "00000002",
-        "line": 29
+        "line": 29,
+        "text": "FORGLOOP R4 L3 2",
+        "label": "L5"
       },
       {
         "pc": 49,
         "op": "GETIMPORT",
         "word": "000e040c",
         "aux": "80c03400",
-        "line": 42
+        "line": 42,
+        "text": "GETIMPORT R4 14 [os.clock]",
+        "label": "L6"
       },
       {
         "pc": 51,
         "op": "CALL",
         "word": "02010415",
         "aux": null,
-        "line": 42
+        "line": 42,
+        "text": "CALL R4 0 1",
+        "label": null
       },
       {
         "pc": 52,
         "op": "GETIMPORT",
         "word": "000e060c",
         "aux": "80c03400",
-        "line": 43
+        "line": 43,
+        "text": "GETIMPORT R6 14 [os.clock]",
+        "label": "L7"
       },
       {
         "pc": 54,
         "op": "CALL",
         "word": "02010615",
         "aux": null,
-        "line": 43
+        "line": 43,
+        "text": "CALL R6 0 1",
+        "label": null
       },
       {
         "pc": 55,
         "op": "SUB",
         "word": "04060522",
         "aux": null,
-        "line": 43
+        "line": 43,
+        "text": "SUB R5 R6 R4",
+        "label": null
       },
       {
         "pc": 56,
         "op": "LOADN",
         "word": "00030604",
         "aux": null,
-        "line": 43
+        "line": 43,
+        "text": "LOADN R6 3",
+        "label": null
       },
       {
         "pc": 57,
         "op": "JUMPIFNOTLT",
         "word": "00110520",
         "aux": "00000006",
-        "line": 43
+        "line": 43,
+        "text": "JUMPIFNOTLT R5 R6 L10",
+        "label": null
       },
       {
         "pc": 59,
         "op": "LOADB",
         "word": "00000503",
         "aux": null,
-        "line": 15
+        "line": 15,
+        "text": "LOADB R5 0",
+        "label": null
       },
       {
         "pc": 60,
         "op": "JUMPXEQKNIL",
         "word": "0008014d",
         "aux": "00000000",
-        "line": 15
+        "line": 15,
+        "text": "JUMPXEQKNIL R1 L9",
+        "label": null
       },
       {
         "pc": 62,
         "op": "GETTABLEKS",
         "word": "5a01060f",
         "aux": "00000002",
-        "line": 15
+        "line": 15,
+        "text": "GETTABLEKS R6 R1 K2 ['Health']",
+        "label": null
       },
       {
         "pc": 64,
         "op": "LOADN",
         "word": "00000704",
         "aux": null,
-        "line": 15
+        "line": 15,
+        "text": "LOADN R7 0",
+        "label": null
       },
       {
         "pc": 65,
         "op": "JUMPIFLT",
         "word": "0002071d",
         "aux": "00000006",
-        "line": 15
+        "line": 15,
+        "text": "JUMPIFLT R7 R6 L8",
+        "label": null
       },
       {
         "pc": 67,
         "op": "LOADB",
         "word": "01000503",
         "aux": null,
-        "line": 15
+        "line": 15,
+        "text": "LOADB R5 0 +1",
+        "label": null
       },
       {
         "pc": 68,
         "op": "LOADB",
         "word": "00010503",
         "aux": null,
-        "line": 15
+        "line": 15,
+        "text": "LOADB R5 1",
+        "label": "L8"
       },
       {
         "pc": 69,
         "op": "JUMPIFNOT",
         "word": "0005051a",
         "aux": null,
-        "line": 15
+        "line": 15,
+        "text": "JUMPIFNOT R5 L10",
+        "label": "L9"
       },
       {
         "pc": 70,
         "op": "GETIMPORT",
         "word": "0011050c",
         "aux": "80f04000",
-        "line": 47
+        "line": 47,
+        "text": "GETIMPORT R5 17 [task.wait]",
+        "label": null
       },
       {
         "pc": 72,
         "op": "LOADK",
         "word": "00120605",
         "aux": null,
-        "line": 11
+        "line": 11,
+        "text": "LOADK R6 K18 [0.016666666666666666]",
+        "label": null
       },
       {
         "pc": 73,
         "op": "CALL",
         "word": "01020515",
         "aux": null,
-        "line": 47
+        "line": 47,
+        "text": "CALL R5 1 0",
+        "label": null
       },
       {
         "pc": 74,
         "op": "JUMPBACK",
         "word": "ffe90018",
         "aux": null,
-        "line": 43
+        "line": 43,
+        "text": "JUMPBACK L7",
+        "label": null
       },
       {
         "pc": 75,
         "op": "NAMECALL",
         "word": "50020514",
         "aux": "00000013",
-        "line": 49
+        "line": 49,
+        "text": "NAMECALL R5 R2 K19 ['Destroy']",
+        "label": "L10"
       },
       {
         "pc": 77,
         "op": "CALL",
         "word": "01020515",
         "aux": null,
-        "line": 49
+        "line": 49,
+        "text": "CALL R5 1 0",
+        "label": null
       },
       {
         "pc": 78,
         "op": "RETURN",
         "word": "00010016",
         "aux": null,
-        "line": 50
+        "line": 50,
+        "text": "RETURN R0 0",
+        "label": null
       }
     ]
   },
@@ -507,6 +619,7 @@
       "era": "medal",
       "date": "2022-04-01",
       "released": true,
+      "published_at": null,
       "headline": "It began as medal.",
       "points": [
         "A Luau decompiler written in Rust by Jujhar Singh and Mathias Pedersen.",
@@ -557,6 +670,7 @@
       "era": "beta",
       "date": "2026-06-19",
       "released": true,
+      "published_at": "2026-06-19T17:51:41Z",
       "headline": "Tovek begins as a fork of medal.",
       "points": [
         "Locals and parameters get names from how they are used.",
@@ -629,6 +743,7 @@
       "era": "beta",
       "date": "2026-06-19",
       "released": true,
+      "published_at": "2026-06-19T20:48:32Z",
       "headline": "Names follow the value an and/or expression yields.",
       "points": [
         "local character = player.Character or ... is named character.",
@@ -696,6 +811,7 @@
       "era": "beta",
       "date": "2026-06-20",
       "released": true,
+      "published_at": "2026-06-20T12:43:06Z",
       "headline": "Leftover v1, v2 get names.",
       "points": [
         "Locals are named from the call that made them.",
@@ -763,6 +879,7 @@
       "era": "beta",
       "date": "2026-06-20",
       "released": true,
+      "published_at": "2026-06-20T17:18:04Z",
       "headline": "Bytecode v11, and more inlined helpers come back.",
       "points": [
         "Reads Luau bytecode up to v11.",
@@ -831,6 +948,7 @@
       "era": "beta",
       "date": "2026-06-21",
       "released": true,
+      "published_at": "2026-06-21T06:02:41Z",
       "headline": "A correctness release.",
       "points": [
         "19 audit findings fixed where output looked right but behaved differently.",
@@ -899,6 +1017,7 @@
       "era": "beta",
       "date": "2026-06-21",
       "released": true,
+      "published_at": "2026-06-21T08:17:13Z",
       "headline": "A regression from 0.5, fixed the same day.",
       "points": [
         "Two rebuilt copies of one helper no longer share a missing local."
@@ -965,6 +1084,7 @@
       "era": "beta",
       "date": "2026-06-21",
       "released": true,
+      "published_at": "2026-06-21T16:20:36Z",
       "headline": "Chained inlines collapse all the way.",
       "points": [
         "A top, mid, leaf chain of inlined helpers comes back as one call.",
@@ -1032,6 +1152,7 @@
       "era": "beta",
       "date": "2026-06-23",
       "released": true,
+      "published_at": "2026-06-23T03:30:37Z",
       "headline": "One name per local, across a whole file.",
       "points": [
         "--dont-reuse-var keeps every generated local name unique in a file."
@@ -1094,6 +1215,7 @@
       "era": "beta",
       "date": "2026-07-10",
       "released": true,
+      "published_at": "2026-07-10T04:07:25Z",
       "headline": "HugeUpgrade: the pipeline rebuilt.",
       "points": [
         "SSA construction and destruction reworked for loops and captured values.",
@@ -1169,6 +1291,7 @@
       "era": "beta",
       "date": "2026-07-10",
       "released": true,
+      "published_at": "2026-07-10T20:21:53Z",
       "headline": "No goto, ever.",
       "points": [
         "Successful output never contains goto or labels.",
@@ -1243,6 +1366,7 @@
       "era": "beta",
       "date": "2026-07-29",
       "released": true,
+      "published_at": "2026-07-29T13:27:32Z",
       "headline": "Upvalues, mapped.",
       "points": [
         "A static map of every closure capture for tools, with stable IDs.",
@@ -1316,6 +1440,7 @@
       "era": "v2",
       "date": "2026-09-19",
       "released": true,
+      "published_at": "2026-09-19T12:35:00Z",
       "headline": "A new generation.",
       "points": [
         "Native Roblox bytecode v12.",
@@ -1401,6 +1526,7 @@
       "era": "v21",
       "date": "2026-09-28",
       "released": true,
+      "published_at": "2026-09-28T09:34:52Z",
       "headline": "Up to twice as fast.",
       "points": [
         "Reads Luau bytecode v4 to v14.",
@@ -1486,6 +1612,7 @@
       "era": "v21",
       "date": "2026-09-28",
       "released": true,
+      "published_at": "2026-09-28T10:40:43Z",
       "headline": "Damaged bytecode never aborts.",
       "points": [
         "Malformed bytecode is rejected with the exact prototype and instruction."
@@ -1565,6 +1692,7 @@
       "era": "v25",
       "date": "2026-10-02",
       "released": true,
+      "published_at": "2026-10-02T13:01:37Z",
       "headline": "Faithful decompilation.",
       "points": [
         "Semantic fuzzing finds no wrong output.",
@@ -1652,6 +1780,7 @@
       "era": "v25",
       "date": "2026-10-02",
       "released": true,
+      "published_at": "2026-10-02T18:10:31Z",
       "headline": "Returns from loops, rebuilt.",
       "points": [
         "Helpers that return from inside a loop come back as calls.",
@@ -1735,6 +1864,7 @@
       "era": "v26",
       "date": "2026-10-10",
       "released": false,
+      "published_at": null,
       "headline": "Inlined copies come home.",
       "points": [
         "Line numbers in the bytecode show which instructions came from a helper.",
@@ -1828,7 +1958,7 @@
     "first_beta": "2026-06-19",
     "today": "2026-10-10",
     "days_since_first_beta": 113,
-    "commits": 436,
+    "commits": 454,
     "commits_note": "git rev-list --count HEAD in the Tovek repository (site branch, includes code history)",
     "lines_medal": 67,
     "lines_v26": 75
