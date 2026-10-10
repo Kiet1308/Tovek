@@ -48,6 +48,14 @@ const RISE = TL.find((s) => s.rise);
 const FINALE = REST.lit;
 const LEVEL_IDS = ['l0', 'l1', 'l2', 'l3', 'l4', 'l5', 'l6'];
 
+// Levels that grow out of a window in their parent: the framed square opens, shows the level inside it, and grows
+// until it is the view. The others (10^2 and 1 bit) are their parent's own picture, magnified, so they need none.
+const WINDOWED = [false, true, false, true, true, true, false];
+// how far the camera leans into the field when the visitor hovers "Scroll to dive" (in powers of ten)
+const PEEK_Z = 0.2;
+// the field's slow ping from the dive point: period and travel time in seconds
+const PING_EVERY = 6.4, PING_TRAVEL = 3.0;
+
 function stateAt(t) {
   let seg = TL[TL.length - 1];
   for (const s of TL) if (t < s.t1) { seg = s; break; }
@@ -181,7 +189,12 @@ function makeScene(W, H, opt) {
   box.cx = box.x + box.w / 2;
   box.cy = box.y + box.h / 2;
   const P = Math.floor(Math.min(box.w, box.h) * (mobile ? 0.98 : 0.94));
-  const sc = { W, H, mobile, box, P, lv: [], mask: opt.mask || null };
+  const sc = { W, H, mobile, box, P, lv: [], mask: opt.mask || null, still: !!opt.still };
+  // the room a level has around the centre of the box at rest, before the ruler or the captions cover it
+  const m = sc.mask || {};
+  const visL = m.left ? m.left + 4 : box.x, visR = m.right ? m.right - 30 : box.x + box.w;
+  sc.visL = visL; sc.visR = visR;
+  sc.half = Math.max(80, Math.min(box.cx - visL, visR - box.cx) - 6);
 
   sc.lv[0] = layField(sc);
   sc.lv[1] = laySil(sc);
@@ -304,10 +317,16 @@ function silPositions(m) {
 function layFn(sc) {
   const P = sc.P, L1 = sc.lv[1];
   const p2 = L1.p * 10, fs2 = L1.fs * 10, cw2 = L1.cw * 10;
-  const minFont = sc.mobile ? 9.6 : 12.2;
+  // a still figure (the reduced-motion page) cannot pan, so it fits the lines whole instead
+  const minFont = sc.still ? 5.5 : sc.mobile ? 9.6 : 12.2;
   const cardChars = Math.max(...PRE.sil.linesB.slice(DATA.dive.helper.v26_line - 1, DATA.dive.helper.v26_line + 4).map((l) => l.replace(/\t/g, '    ').length));
+  const [fa, fb] = DATA.dive.function.v26;
+  const fnChars = Math.max(...PRE.sil.linesB.slice(fa - 1, fb).map((l) => l.replace(/\t/g, '    ').length));
+  const room = sc.visR - sc.box.x - 18;
   const fit = (sc.box.w - 28) / (cardChars * cw2 + cw2 * 3.2);
-  const dz = log10(Math.max(minFont / fs2, Math.min(1, fit)));
+  // fit the function's own lines too, down to the smallest size that still reads
+  const fitFn = room / (fnChars * cw2 + cw2 * 1.6);
+  const dz = log10(Math.max(minFont / fs2, Math.min(1, fit, fitFn)));
   const scale = Math.pow(10, dz);
   const toL2 = (x, y) => [(x - L1.target[0]) * 10, (y - L1.target[1]) * 10];
   const ys = silPositions(1);
@@ -335,19 +354,37 @@ function layFn(sc) {
   const visH = sc.box.h / scale;
   const offY = Math.min(midY, card.y - p2 * 0.8 + visH / 2);
   const off = [colLeft - pad - 10 / scale + visW / 2, offY];
+  // Lines that still run past the edge at the smallest readable size are not cut silently: during the rest at this
+  // level the camera pans right to show their ends, then back (see panAt), with an edge fade and a position thumb.
+  const endPx = sc.box.x + 10 + (pad + fnChars * cw2) * scale;
+  const pan = Math.max(0, endPx - (sc.visR - 10)) / scale;
   // target for 10^1: the start of the first rebuilt call
   const c0 = calls[0];
-  return { p2, fs2, cw2, dz, off, calls, card, colLeft, target: [c0[0] + cw2 * 5, c0[1]] };
+  return { p2, fs2, cw2, dz, off, calls, card, colLeft, pan, scale, target: [c0[0] + cw2 * 5, c0[1]] };
 }
 
 // --- 10^1: instructions and their line numbers
 function layIns(sc) {
-  const P = sc.P, m = sc.mobile;
-  const fs = m ? 8.6 : P < 600 ? 10.6 : 12;
+  // Side by side (bytecode, line, source) where it fits; stacked (source under its instructions) where it does not.
+  // The type shrinks to fit, never below 7.4 px.
+  const tries = sc.mobile ? [[9, true]] : [[12, false], [10.6, false], [12, true]];
+  for (const [fs, stack] of tries) {
+    const G = layInsAt(sc, fs, stack);
+    if (G.right <= sc.half || stack) {
+      if (G.right <= sc.half) return G;
+      const k = Math.max(7.4 / fs, (sc.half - 2) / G.right * 0.98);
+      return layInsAt(sc, fs * Math.min(1, k), stack);
+    }
+  }
+  return layInsAt(sc, 9, true);
+}
+
+function layInsAt(sc, fs, m) {
+  const P = sc.P;
   const lh = fs * (m ? 1.95 : 2.05);
   const cw = fs * ADV;
   const L = DATA.lines, D = DATA.dive.folded;
-  const half = P / 2;
+  const half = Math.min(P / 2, sc.half + 4);
   const callText = DATA.script.copies[0].v26_text.replace(/ --.*$/, '');
   const helperLines = new Set(L.copy.filter((r) => r.from === 'helper').map((r) => r.line));
   const aRows = L.copy.map((r) => ({ pc: r.pc, text: r.text, line: r.line, from: r.from }));
@@ -389,15 +426,29 @@ function layIns(sc) {
   const bB = blocks[1];
   const k = bB.rows.findIndex((r) => r.text.startsWith('LOADK'));
   const t = bB.rows[k].text, bi = t.indexOf('[');
-  return { geo, blocks, target: [xi + cw * (bi + (t.length - bi) / 2), bB.rowY[k]] };
+  // the rightmost ink, to choose the form that fits
+  const srcW = Math.max(...blocks.flatMap((b) => b.src.filter((s) => !s.gap).map((s) => s.text.length)));
+  const nRows = Math.max(...blocks.map((b) => b.rows.length));
+  const right = m ? Math.max(xt + tagW + cw * (3.6 + 0.9 * (nRows - 1)), xs + cw * (srcW + 2.2)) : xs + cw * (0.6 + srcW);
+  return { geo, blocks, stack: m, right, target: [xi + cw * (bi + (t.length - bi) / 2), bB.rowY[k]] };
 }
 
 // --- 10^0: one expression
 function layExpr(sc) {
-  const P = sc.P, m = sc.mobile;
-  const big = m ? 12.6 : P < 640 ? 19 : 23;
-  const small = m ? 10.2 : 13.5;
-  const half = P / 2;
+  // labels at the left and the seam after the call where that fits; labels above and the seam below where not
+  const tries = sc.mobile ? [[12.6, 10.2, true]] : [[sc.P < 640 ? 19 : 23, 13.5, false], [17, 12.5, true]];
+  let G = null;
+  for (const [big, small, stack] of tries) {
+    G = layExprAt(sc, big, small, stack);
+    if (G.right <= sc.half) return G;
+  }
+  const k = Math.max(0.62, (sc.half - 2) / G.right);
+  return layExprAt(sc, G.g.big * k, Math.max(9, G.g.small * k), true);
+}
+
+function layExprAt(sc, big, small, m) {
+  const P = sc.P;
+  const half = Math.min(P / 2, sc.half + 4);
   const x = -half + (m ? 6 : 28);
   const E = DATA.expression;
   const v26 = E.frames.v26.replace(/ --.*$/, '');
@@ -422,7 +473,10 @@ function layExpr(sc) {
   let cx = g.codeX;
   const pieces = check.map((s, i) => { const w = s.length * cw; const p = { s, x: cx, w }; cx += w + cw * 4; return p; });
   const tgt = pieces[2];
-  return { g, lines, yRow1, yRow2, yCheck, yF1, yF2, pieces, target: [tgt.x + tgt.w / 2, yCheck] };
+  const bigCw = big * ADV;
+  const right = g.codeX + Math.max(lines.a.length * bigCw, m ? lines.b.length * bigCw : (lines.b.length + 2) * bigCw + seam.length * cw,
+    m ? seam.length * cw : 0, cx - g.codeX - cw * 4, Math.max(lines.fa.length, lines.fb.length) * cw);
+  return { g, lines, yRow1, yRow2, yCheck, yF1, yF2, pieces, stack: m, right, target: [tgt.x + tgt.w / 2, yCheck] };
 }
 
 // --- 64 bits
@@ -482,6 +536,7 @@ function makeGLField(canvas) {
     attribute vec2 a_pos; attribute vec3 a_rad; attribute vec3 a_lit;
     uniform float u_k; uniform vec2 u_off; uniform vec2 u_res; uniform float u_fin; uniform float u_minR; uniform float u_alpha; uniform float u_intro;
     uniform vec3 u_ink; uniform vec3 u_sig;
+    uniform float u_time; uniform float u_live; uniform float u_ping;
     varying float v_r; varying vec4 v_col;
     void main() {
       float W = 0.14;
@@ -500,6 +555,21 @@ function makeGLField(canvas) {
       if (lit <= 0.0) { a = 0.17; c = u_ink; }
       else if (!after) { a = 0.34 + 0.5 * lit; c = u_ink; }
       else { a = 0.5 + 0.5 * lit; c = u_sig; }
+      if (u_live > 0.0) {
+        // the field is alive while you look at it: every dot breathes on its own slow clock, deeper where Tovek
+        // rebuilt more calls in that script
+        float h = fract(sin(dot(a_pos, vec2(12.9898, 78.233))) * 43758.5453);
+        float h2 = fract(h * 7.123 + 0.31);
+        float breath = sin(u_time * (0.85 + 0.55 * h2) + h * 6.2831853);
+        a *= 1.0 + u_live * (lit > 0.0 ? 0.14 + 0.3 * lit : 0.16) * breath;
+        // a faint ring travels out from the dive point; the scripts V2.6 rebuilds catch it in the accent
+        if (u_ping >= 0.0) {
+          float ring = exp(-pow((a_lit.z - u_ping) / 0.075, 2.0)) * u_live;
+          a += ring * (0.08 + 0.2 * a_lit.y);
+          if (!after && a_lit.y > 0.0) c = mix(c, u_sig, ring * 0.5);
+        }
+        a = clamp(a, 0.0, 1.0);
+      }
       // on load the field appears outward from the dot the camera will dive into
       float reveal = clamp((u_intro * 1.35 - a_lit.z) / 0.35, 0.0, 1.0);
       v_col = vec4(c, a * u_alpha * reveal * reveal * (3.0 - 2.0 * reveal));
@@ -523,7 +593,8 @@ function makeGLField(canvas) {
     if (!gl.getProgramParameter(prog, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(prog));
   } catch (e) { console.warn('V2.6 field: WebGL unavailable', e); return null; }
   const loc = (n) => gl.getUniformLocation(prog, n);
-  const U = { intro: loc('u_intro'), k: loc('u_k'), off: loc('u_off'), res: loc('u_res'), fin: loc('u_fin'), minR: loc('u_minR'), alpha: loc('u_alpha'), ink: loc('u_ink'), sig: loc('u_sig') };
+  const U = { intro: loc('u_intro'), k: loc('u_k'), off: loc('u_off'), res: loc('u_res'), fin: loc('u_fin'), minR: loc('u_minR'), alpha: loc('u_alpha'), ink: loc('u_ink'), sig: loc('u_sig'),
+    time: loc('u_time'), live: loc('u_live'), ping: loc('u_ping') };
   const A = { pos: gl.getAttribLocation(prog, 'a_pos'), rad: gl.getAttribLocation(prog, 'a_rad'), lit: gl.getAttribLocation(prog, 'a_lit') };
   const buf = gl.createBuffer();
   const rgb = (c) => hex(c).map((v) => v / 255);
@@ -535,7 +606,7 @@ function makeGLField(canvas) {
       gl.clearColor(p[0], p[1], p[2], 1);
       gl.clear(gl.COLOR_BUFFER_BIT);
     },
-    draw(F, pl, dpr, fin, alpha, intro = 1) {
+    draw(F, pl, dpr, fin, alpha, intro = 1, life = null) {
       if (uploaded !== F) {
         // unlit first, so lit dots sit on top
         const order = Array.from({ length: F.n }, (_, i) => i).sort((a, b) => Math.max(F.l1[a], F.l2[a]) - Math.max(F.l1[b], F.l2[b]) || a - b);
@@ -557,6 +628,9 @@ function makeGLField(canvas) {
       gl.uniform1f(U.minR, 0.55 * dpr);
       gl.uniform1f(U.alpha, alpha);
       gl.uniform1f(U.intro, intro);
+      gl.uniform1f(U.time, life ? life.clock % 3600 : 0);
+      gl.uniform1f(U.live, life ? life.live : 0);
+      gl.uniform1f(U.ping, life ? life.ping : -1);
       gl.uniform3fv(U.ink, rgb(COL.ink));
       gl.uniform3fv(U.sig, rgb(COL.signal));
       gl.enable(gl.BLEND);
@@ -583,8 +657,14 @@ function render(R, sc, st, extra = {}) {
     ctx.fillRect(0, 0, R.canvas.width, R.canvas.height);
   }
   if (!sc) return;
-  const cam = camera(sc, st.z);
+  // the lean of "Scroll to dive" never pulls the camera back once the dive itself is deeper
+  const zc = clamp(Math.max(st.z, PEEK_Z * (extra.peek || 0)), 0, 6);
+  const cam = { ...camera(sc, zc) }; // a copy: at rest camera() hands back the scene's own rest view
+  // at 10^2, lines too long for the screen: the camera pans to their ends and back
+  const pan = sc.lv[2].pan > 0 && st.z === 2 ? sc.lv[2].pan * panAt(st.q[2]) : 0;
+  if (pan) cam.x += (pan * sc.S[2]) / sc.P;
   const intro = extra.intro === undefined ? 1 : extra.intro;
+  const life = lifeAt(st, zc, extra);
   const plates = [];
   for (let i = 0; i < 7; i++) {
     const s = (cam.k * sc.S[i]) / sc.P;
@@ -594,19 +674,125 @@ function render(R, sc, st, extra = {}) {
   }
   const view = (pl) => ({ x0: -pl.X / pl.s, y0: -pl.Y / pl.s, x1: (W - pl.X) / pl.s, y1: (H - pl.Y) / pl.s });
   const use = (pl) => ctx.setTransform(dpr * pl.s, 0, 0, dpr * pl.s, dpr * pl.X, dpr * pl.Y);
+  const wins = plates.map((pl) => windowOf(sc, pl, zc));
+  // a parent recedes (dims) while the window into its child grows out of it
+  const recede = plates.map((pl, i) => (wins[i + 1] ? 1 - 0.4 * smooth(0.05, 0.6, wins[i + 1].u) : 1));
 
-  // content, parent first
+  // content, parent first; a windowed level is drawn into its window, and not at all before it opens
   const D = [drawField, drawSil, drawFn, drawIns, drawExpr, drawBits, drawBit];
   for (const pl of plates) {
     if (pl.d < -1.6 || pl.d > 2.3) continue;
+    const w = wins[pl.i];
+    if (WINDOWED[pl.i] && zc - (pl.i - 1) <= 0.002) continue;
     ctx.globalAlpha = 1;
-    D[pl.i](R, sc, st, pl, use, view(pl), intro);
+    if (w) {
+      ctx.save();
+      drawWindow(R, w);
+      ctx.beginPath();
+      ctx.rect(w.x - w.h, w.y - w.h, w.h * 2, w.h * 2); // drawWindow left the transform in CSS pixels
+      ctx.clip();
+    }
+    D[pl.i](R, sc, st, pl, use, view(pl), intro * recede[pl.i] * (w ? w.open : 1), life, intro);
+    if (w) ctx.restore();
   }
   // frames and their labels, in screen space
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.globalAlpha = 1;
-  for (const pl of plates) drawFrame(R, sc, st, pl, intro);
+  for (const pl of plates) drawFrame(R, sc, st, pl, intro, life, wins[pl.i]);
+  if (sc.lv[2].pan > 0 && st.z === 2) drawPanCue(R, sc, st, pan);
   drawMasks(R, sc);
+}
+
+// how far the 10^2 pan has gone, by progress through that level's rest: out after the copies are home, then back
+// before the camera dives into the first call
+const panAt = (q) => inOutSine(smooth(0.74, 0.86, q)) * (1 - inOutSine(smooth(0.93, 1.0, q)));
+
+// The field's life: breathing and the ping only near the top of the dive (and calmer in the lit finale).
+function lifeAt(st, zc, extra) {
+  if (extra.clock === undefined) return null;
+  const near = 1 - smooth(0.05, 0.5, zc);
+  const live = near * (st.risen ? 0.6 * smooth(0.9, 1, st.fin) : 1) * (extra.live === undefined ? 1 : extra.live);
+  if (live <= 0.001) return null;
+  const since = (extra.clock - 1.2) % PING_EVERY;
+  const ping = since >= 0 && since < PING_TRAVEL + 0.4 ? (since / PING_TRAVEL) * 1.25 - 0.06 : -1;
+  return { clock: extra.clock, live, ping, since: since >= 0 ? since : 99 };
+}
+
+// The window a framed square opens into its child: paper fills the square and the child shows inside it; as the
+// camera dives the window grows, and near the end it lets go of its edges so the child becomes the whole view.
+// u runs from 0 (the parent at rest) to 1 (this level at rest) with the camera, in both directions.
+function windowOf(sc, pl, zc) {
+  const u = zc - (pl.i - 1);
+  if (!WINDOWED[pl.i] || u <= 0.002 || u >= 1) return null;
+  const open = smooth(0.002, 0.13, u);
+  const half = (sc.P * pl.s) / 2;
+  const grow = 1 + 2.4 * Math.pow(smooth(0.68, 1, u), 1.5);
+  return { open, u, shade: open * (1 - smooth(0.5, 0.85, u)), x: pl.X, y: pl.Y, half, h: half * grow };
+}
+
+function drawWindow(R, w) {
+  const { ctx, dpr } = R;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const x0 = w.x - w.h, y0 = w.y - w.h, s = w.h * 2;
+  // the parent stays faintly visible behind the window for a moment
+  ctx.globalAlpha = w.open * 0.94;
+  ctx.fillStyle = COL.paper;
+  ctx.fillRect(x0, y0, s, s);
+  // a soft shade inside the edge: the next level lies below the page
+  const shade = w.shade;
+  if (shade > 0.01 && s > 12) {
+    ctx.strokeStyle = COL.ink;
+    ctx.lineWidth = 2;
+    const steps = [0.075, 0.045, 0.025, 0.012];
+    for (let k = 0; k < steps.length; k++) {
+      ctx.globalAlpha = shade * steps[k];
+      ctx.strokeRect(x0 + 1 + k * 2, y0 + 1 + k * 2, s - 2 - k * 4, s - 2 - k * 4);
+    }
+  }
+  ctx.globalAlpha = 1;
+}
+
+// the deliberate horizontal scroller at 10^2: a fade where lines continue, and a thumb that shows where you are
+function drawPanCue(R, sc, st, pan) {
+  const { ctx, dpr, W } = R;
+  const G = sc.lv[2];
+  const a = smooth(0.0, 0.12, st.q[2]) * (1 - smooth(0.97, 1, st.q[2]));
+  if (a <= 0.01) return;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const paper = COL.paper, p = hex(paper), clear = `rgba(${p[0]},${p[1]},${p[2]},0)`;
+  const f = pan / G.pan;
+  const fade = (x0, x1, alpha) => {
+    if (alpha <= 0.01) return;
+    const g = ctx.createLinearGradient(x0, 0, x1, 0);
+    g.addColorStop(0, clear); g.addColorStop(1, paper);
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = g;
+    ctx.fillRect(Math.min(x0, x1), sc.box.y - 30, Math.abs(x1 - x0), sc.box.h + 60);
+  };
+  const right = Math.min(W, sc.visR + 6);
+  fade(right - 44, right, a * (1 - f));
+  fade(sc.box.x + 30, sc.box.x - 10, a * f);
+  // the thumb, under the code
+  const tw = Math.min(140, sc.box.w * 0.4), tx = sc.box.x + sc.box.w - tw - 2, ty = sc.box.y + sc.box.h - 3;
+  const visW = sc.box.w / G.scale, thumb = tw * visW / (visW + G.pan);
+  ctx.globalAlpha = a * 0.9;
+  ctx.fillStyle = COL.paper;
+  ctx.fillRect(tx - 8, ty - 12, tw + 10, 18);
+  ctx.globalAlpha = a * 0.5;
+  ctx.fillStyle = COL.ink3;
+  ctx.fillRect(tx, ty, tw, 1);
+  ctx.globalAlpha = a;
+  ctx.fillStyle = COL.ink;
+  ctx.fillRect(tx + (tw - thumb) * f, ty - 1, thumb, 3);
+  // and an arrow while there is more to the right
+  ctx.globalAlpha = a * (1 - f) * 0.9;
+  setFont(ctx, `500 10px ${MONO}`);
+  ctx.textBaseline = 'middle';
+  ctx.textAlign = 'right';
+  ctx.fillStyle = COL.ink2;
+  ctx.fillText('LINE ENDS →', tx - 10, ty);
+  ctx.textAlign = 'left';
+  ctx.globalAlpha = 1;
 }
 
 // envelope of a level's content by its zoom d (0 = at rest)
@@ -617,29 +803,54 @@ const LABELS = [
   ['10', '0', 'expression'], ['64', '', 'bits'], ['1', '', 'bit'],
 ];
 
-function drawFrame(R, sc, st, pl, intro) {
+function drawFrame(R, sc, st, pl, intro, life, win) {
   const { ctx } = R;
   const i = pl.i, d = pl.d;
   if (d < -1.35 || d > 1.0) return;
   let a = smooth(-1.32, -1.0, d) * (1 - smooth(0.45, 0.95, d));
-  // the child frame is drawn on while its parent is at rest, and hidden on the way back out
+  // the child frame is drawn on while its parent is at rest; the first one is already there when the page opens
   let draw = 1;
   if (i > 0) {
     const parentQ = st.q[i - 1];
     if (st.z < i - 1 + 0.001 && !st.risen) draw = clamp(parentQ * 2.6 - 0.15);
-    if (st.risen && d < -0.6) a *= 1 - smooth(0, 0.25, st.rise);
+    if (i === 1 && !st.risen) draw = Math.max(draw, clamp((intro - 0.45) / 0.55));
+    // on the way back out the frames stay (each level shrinks into its square), the last one leaves for the finale
+    if (i === 1 && st.risen) a *= 1 - smooth(0.8, 1, st.rise);
   }
-  if (i === 0 && st.fin > 0) a *= 1;
   a *= intro;
   if (a <= 0.003 || draw <= 0) return;
   const half = (sc.P * pl.s) / 2;
-  const x0 = pl.X - half, y0 = pl.Y - half, sz = half * 2;
+  // while a window is open the square is its edge, and follows it as it lets go
+  const edge = win ? win.h : half;
+  const x0 = pl.X - edge, y0 = pl.Y - edge, sz = edge * 2;
   if (x0 > R.W + 40 || y0 > R.H + 40 || x0 + sz < -40 || y0 + sz < -40) return;
   const full = (1 - smooth(-0.55, -0.12, d)) * a;
   const crop = sc.lv[i].off ? 0 : smooth(-0.55, -0.12, d) * a;
   ctx.lineWidth = 1;
+  // at the top of the page the first frame breathes with the field's ping, and a ring marks the one script inside
+  let pulse = 1;
+  if (i === 1 && life && d < -0.8) {
+    const p = Math.exp(-life.since * 1.6);
+    pulse = 1 + 0.45 * p * life.live;
+    const g = life.since / 1.5;
+    if (g < 1 && full > 0.01) {
+      const grow = sz * (1 + 0.5 * outCubic(g));
+      ctx.globalAlpha = full * 0.34 * (1 - g) * life.live * draw;
+      ctx.strokeStyle = COL.ink;
+      ctx.strokeRect(Math.round(pl.X - grow / 2) + 0.5, Math.round(pl.Y - grow / 2) + 0.5, Math.round(grow), Math.round(grow));
+    }
+  }
+  if (i === 1 && !win && d < -0.75) {
+    const F0 = sc.lv[0], k = F0.targetIdx;
+    const rr = Math.max(F0.r[k], F0.r1[k]) * pl.s * 10 + 3.5;
+    ctx.globalAlpha = a * draw * 0.6 * (1 - smooth(-0.95, -0.78, d)) * Math.min(1.3, pulse);
+    ctx.strokeStyle = COL.ink;
+    ctx.beginPath();
+    ctx.arc(pl.X, pl.Y, rr, 0, Math.PI * 2);
+    ctx.stroke();
+  }
   if (full > 0.003) {
-    ctx.globalAlpha = full * 0.62;
+    ctx.globalAlpha = Math.min(1, full * 0.62 * pulse);
     ctx.strokeStyle = COL.ink;
     const per = sz * 4, len = per * draw;
     ctx.beginPath();
@@ -806,14 +1017,15 @@ function waveDots(x, R, pl, F, front, W) {
   x.globalAlpha = 1;
 }
 
-function drawField(R, sc, st, pl, use, vw, intro) {
-  const a = env(pl.d, -0.9, -0.35, 0.28, 0.8) * intro;
+function drawField(R, sc, st, pl, use, vw, intro, life, rawIntro = intro) {
+  // the field stays around the window into the script until the window is nearly the whole view
+  const a = env(pl.d, -0.9, -0.35, 0.62, 0.98) * intro;
   if (a <= 0.003) return;
   const { ctx } = R;
   const F = sc.lv[0];
   const fin = st.fin;
   if (R.glField) {
-    R.glField.draw(F, pl, R.dpr, fin, a / Math.max(intro, 1e-3), intro);
+    R.glField.draw(F, pl, R.dpr, fin, a / Math.max(rawIntro, 1e-3), rawIntro, life);
     drawDiscLabels(R, pl, F, a);
     return;
   }
@@ -888,7 +1100,7 @@ function drawDiscLabels(R, pl, F, a) {
 // --- 10^3 (and the code you read at 10^2)
 function drawSil(R, sc, st, pl, use, vw, intro) {
   const d = pl.d;
-  const a = smooth(-0.9, -0.32, d) * (1 - smooth(1.4, 1.98, d)) * intro;
+  const a = smooth(-1.6, -1.5, d) * (1 - smooth(1.55, 1.98, d)) * intro; // in: its window opens it
   if (a <= 0.003) return;
   const { ctx } = R;
   const G = sc.lv[1], S = PRE.sil;
@@ -896,8 +1108,9 @@ function drawSil(R, sc, st, pl, use, vw, intro) {
   const pos = silPositions(m);
   const { p, cw, colW, gap, x0, y0 } = G;
   const screenPitch = p * pl.s;
-  const textA = smooth(5.2, 10.5, screenPitch);
-  const barA = 1 - textA;
+  // bars resolve into text in place: the text comes in over the bars before they go, so neither is ever faint alone
+  const textA = smooth(4.8, 8.6, screenPitch);
+  const barA = 1 - smooth(6.8, 10.8, screenPitch);
   const dim = smooth(0.35, 0.85, d);
   const extraWash = callGlow(sc, st);
   use(pl);
@@ -1034,7 +1247,7 @@ function callGlow(sc, st) {
 
 function drawFn(R, sc, st, pl, use, vw, intro) {
   const d = pl.d;
-  const a = env(d, -0.6, -0.15, 0.3, 0.92) * intro;
+  const a = env(d, -0.6, -0.15, 0.55, 0.97) * intro;
   if (a <= 0.003) return;
   const { ctx } = R;
   const G = sc.lv[2], S = PRE.sil;
@@ -1149,10 +1362,10 @@ function roundRect(ctx, x, y, w, h, r) {
 // --- 10^1
 function drawIns(R, sc, st, pl, use, vw, intro) {
   const d = pl.d;
-  const a = env(d, -0.75, -0.2, 0.4, 0.97) * intro;
+  const a = env(d, -1.6, -1.5, 0.55, 0.97) * intro;
   if (a <= 0.003) return;
   const { ctx } = R;
-  const G = sc.lv[3], g = G.geo, m = sc.mobile;
+  const G = sc.lv[3], g = G.geo, m = G.stack;
   const q = st.risen ? 1 : st.q[3];
   use(pl);
   ctx.textBaseline = 'middle';
@@ -1183,7 +1396,7 @@ function drawIns(R, sc, st, pl, use, vw, intro) {
     // instruction rows
     b.rows.forEach((r, k) => {
       const y = b.rowY[k];
-      const ra = A * smooth(k * 0.06, 0.1 + k * 0.06, rev);
+      const ra = bi === 0 ? A : A * smooth(k * 0.06, 0.1 + k * 0.06, rev); // the first copy is there on arrival
       if (ra <= 0.003) return;
       ctx.globalAlpha = ra;
       if (r.pc !== null && !m) { setFont(ctx, `400 ${g.fs}px ${MONO}`); ctx.fillStyle = COL.ink3; ctx.textAlign = 'right'; ctx.fillText(String(r.pc), g.xi - g.cw * 1.2, y); ctx.textAlign = 'left'; }
@@ -1239,7 +1452,7 @@ function drawIns(R, sc, st, pl, use, vw, intro) {
         return;
       }
       const y = b.srcY[k];
-      const sa = A * smooth(0.1, 0.3, rev);
+      const sa = A * (bi === 0 ? 0.55 + 0.45 * smooth(0.1, 0.3, rev) : smooth(0.1, 0.3, rev));
       if (sa <= 0.003) return;
       const isH = s.from === 'helper';
       const lit = isH ? smooth(0.3, 0.6, rev) : 0;
@@ -1280,7 +1493,7 @@ function hex(c) {
 // --- 10^0
 function drawExpr(R, sc, st, pl, use, vw, intro) {
   const d = pl.d;
-  const a = env(d, -0.7, -0.2, 0.4, 0.97) * intro;
+  const a = env(d, -1.6, -1.5, 0.55, 0.97) * intro;
   if (a <= 0.003) return;
   const { ctx } = R;
   const G = sc.lv[4], g = G.g, L = G.lines;
@@ -1334,12 +1547,12 @@ function drawExpr(R, sc, st, pl, use, vw, intro) {
   }
   const seamA = smooth(0.34, 0.42, q);
   if (seamA > 0 && L.seam) {
-    const sy = sc.mobile ? G.yRow2 + g.big * 1.55 : G.yRow2;
-    const sx = sc.mobile ? g.codeX : g.codeX + (L.b.length + 2) * bigCw;
+    const sy = G.stack ? G.yRow2 + g.big * 1.55 : G.yRow2;
+    const sx = G.stack ? g.codeX : g.codeX + (L.b.length + 2) * bigCw;
     setFont(ctx, `400 ${g.small}px ${MONO}`);
     ctx.globalAlpha = a * seamA;
     ctx.fillStyle = COL.signalDeep;
-    ctx.fillText(L.seam, sx, sy + (sc.mobile ? 0 : 1));
+    ctx.fillText(L.seam, sx, sy + (G.stack ? 0 : 1));
   }
   // the check: frames(1) folds to the same double
   const ck = smooth(0.42, 0.5, q);
@@ -1364,8 +1577,8 @@ function drawExpr(R, sc, st, pl, use, vw, intro) {
       ctx.globalAlpha = a * eq;
       ctx.fillStyle = COL.signalDeep;
       setFont(ctx, `500 ${g.small * 0.82}px ${MONO}`);
-      const msg = sc.mobile ? '= the constant, bit for bit' : '= the folded constant, bit for bit';
-      if (sc.mobile) ctx.fillText(msg, g.codeX, G.yCheck + g.small * 1.8);
+      const msg = G.stack ? '= the constant, bit for bit' : '= the folded constant, bit for bit';
+      if (G.stack) ctx.fillText(msg, g.codeX, G.yCheck + g.small * 1.8);
       else ctx.fillText(msg, g.codeX, G.yCheck + g.small * 1.9);
     }
   }
@@ -1389,7 +1602,7 @@ function drawExpr(R, sc, st, pl, use, vw, intro) {
 // --- 64 bits
 function drawBits(R, sc, st, pl, use, vw, intro) {
   const d = pl.d;
-  const a = env(d, -0.75, -0.2, 0.4, 0.95) * intro;
+  const a = env(d, -1.6, -1.5, 0.45, 0.95) * intro;
   if (a <= 0.003) return;
   const { ctx } = R;
   const G = sc.lv[5];
@@ -1557,8 +1770,9 @@ const els = {
   ruler: document.getElementById('ruler'), fill: document.getElementById('ruler-fill'), head: document.getElementById('ruler-head'),
   readout: document.getElementById('readout'), cue: document.getElementById('cue'), top: document.getElementById('top'),
   caps: [...document.querySelectorAll('.cap')], litCount: document.getElementById('lit-count'),
-  links: [...document.querySelectorAll('.ruler a[data-level]')],
+  links: [...document.querySelectorAll('.ruler a[data-level]')], rail: document.querySelector('.ruler-rail'),
 };
+let railLen = 0; // measured once per layout, so the frame loop never reads layout
 const capById = Object.fromEntries(els.caps.map((c) => [c.dataset.seg, c]));
 
 let main = null, scene = null, mode = 'motion';
@@ -1579,6 +1793,7 @@ function layout() {
   const r = els.dive.getBoundingClientRect();
   diveTop = r.top + scrollY;
   main.resize(W, H);
+  railLen = 0;
   const topH = cssNum('--top-h', 64);
   if (ready) {
     const cap = document.querySelector('.captions');
@@ -1620,28 +1835,75 @@ function frame(now) {
   const tau = coarse ? 0 : 75;
   if (tau > 0 && Math.abs(tTarget - tCur) > 0.0004) tCur += (tTarget - tCur) * (1 - Math.exp(-dt / tau));
   else tCur = tTarget;
-  const intro = ready ? (introStart ? clamp((now - introStart) / 1500) : 0) : 0;
-  draw(tCur, intro);
-  if (Math.abs(tTarget - tCur) > 0.0004 || (ready && intro < 1)) kick();
+  peekSchedule(now);
+  const intro = introAt(now);
+  const live = draw(tCur, intro, now);
+  // keep drawing while the camera settles, the field is alive on screen, or the camera leans in or out
+  if (Math.abs(tTarget - tCur) > 0.0004 || (ready && intro < 1) || now - peek.t0 < peek.dur || peek.cycle
+      || (live && scrollY < diveTop + diveH - stageH * 0.3)) kick();
 }
 
 function kick() { if (!running && mode === 'motion') { running = true; requestAnimationFrame(frame); } }
 
-function draw(t, intro) {
+const introAt = (now) => (ready ? (introStart ? clamp((now - introStart) / 1500) : 0) : 0);
+
+// Returns whether the field is alive in this frame (it breathes only near the top and in the lit finale).
+function draw(t, intro, now = performance.now()) {
   const st = stateAt(t);
   const perf = window.__divePerf;
   const t0 = perf ? performance.now() : 0;
-  render(main, ready ? scene : null, st, { intro: outCubic(intro) });
+  const pk = peekAt(now);
+  const clock = typeof window.__diveClock === 'number' ? window.__diveClock : now / 1000;
+  render(main, ready ? scene : null, st, { intro: outCubic(intro), peek: pk, clock, live: mode === 'motion' ? 1 : 0 });
   ui(st, t);
   if (perf) { perf.push([t, performance.now() - t0]); if (window.__diveMarks) performance.mark(`t=${t.toFixed(2)}`); }
+  return ready && Math.max(st.z, PEEK_Z * pk) < 0.5 && (!st.risen || st.fin > 0.9);
+}
+
+// "Scroll to dive": the camera leans a little way into the field, so the page shows it is a dive. It does so on
+// hover or focus of the cue, and on its own a few times while the visitor waits at the top.
+const peek = { from: 0, to: 0, t0: 0, dur: 1, hover: false, cycle: 0, next: 0, count: 0 };
+function peekAt(now) { return lerp(peek.from, peek.to, inOutSine(clamp((now - peek.t0) / peek.dur))); }
+function peekTo(v, dur) {
+  const now = performance.now();
+  if (peek.to === v) return;
+  peek.from = peekAt(now); peek.to = v; peek.t0 = now; peek.dur = dur;
+  kick();
+}
+function peekSchedule(now) {
+  if (!ready || !introStart || mode !== 'motion') return;
+  if (tTarget > 0.02) {
+    if (peek.to !== 0 && !flight) peekTo(0, 420);
+    peek.cycle = 0; peek.next = now + 8000;
+    return;
+  }
+  if (peek.hover) return;
+  if (!peek.cycle && peek.count < 3 && now >= Math.max(peek.next, introStart + 3400)) { peek.cycle = now; peek.count++; peekTo(1, 1500); }
+  else if (peek.cycle && now - peek.cycle > 2200 && peek.to === 1) peekTo(0, 1700);
+  else if (peek.cycle && now - peek.cycle > 4000) { peek.cycle = 0; peek.next = now + 7000; }
+}
+function bindCue() {
+  const cue = els.cue;
+  if (!cue) return;
+  const lean = (on) => { peek.hover = on; if (mode === 'motion' && tTarget <= 0.02) peekTo(on ? 1 : 0, on ? 1100 : 1300); };
+  cue.addEventListener('pointerenter', () => lean(true));
+  cue.addEventListener('pointerleave', () => lean(false));
+  cue.addEventListener('focus', () => lean(true));
+  cue.addEventListener('blur', () => lean(false));
+  cue.addEventListener('click', (e) => {
+    e.preventDefault();
+    peek.hover = false;
+    peekTo(0, 1400); // hands over to the dive as it starts
+    if (mode === 'motion') flyTo('l1');
+    else document.getElementById('l0')?.scrollIntoView();
+  });
 }
 
 function ui(st, t) {
   // ruler
   const f = st.z / 6;
   const mobile = scene ? scene.mobile : els.stage.clientWidth <= 700;
-  const rail = els.ruler.querySelector('.ruler-rail');
-  const len = mobile ? rail.clientWidth : rail.clientHeight;
+  const len = railLen || (railLen = mobile ? els.rail.clientWidth : els.rail.clientHeight);
   els.head.style.transform = mobile ? `translate3d(${(f * len - 4.5).toFixed(1)}px,0,0)` : `translate3d(0,${(f * len - 4.5).toFixed(1)}px,0)`;
   els.fill.style.transform = mobile ? `scaleX(${f.toFixed(4)})` : `scaleY(${f.toFixed(4)})`;
   const level = st.cap === 'lit' ? 'lit' : Math.round(st.z);
@@ -1733,6 +1995,30 @@ function bindRuler() {
   });
 }
 
+// The parts list marks the Changes theme you are reading, in the side index and in the chip bar on narrow screens.
+function bindScrollspy() {
+  const themes = [...document.querySelectorAll('.theme[id]')];
+  if (!themes.length || !('IntersectionObserver' in window)) return;
+  const links = [...document.querySelectorAll('.block-index a[href^="#theme-"]')];
+  let current = '';
+  const mark = (id) => {
+    if (id === current) return;
+    current = id;
+    for (const a of links) {
+      const on = a.getAttribute('href') === `#${id}`;
+      if (on) a.setAttribute('aria-current', 'true'); else a.removeAttribute('aria-current');
+      // keep the chip in view inside its own bar, without moving the page
+      const bar = on && a.closest('.block-chips .block-index');
+      if (bar && bar.offsetParent) bar.scrollTo({ left: Math.max(0, a.offsetLeft - 16), behavior: reduceMQ.matches ? 'auto' : 'smooth' });
+    }
+  };
+  // a theme is current while it crosses a thin band a third of the way down the screen
+  const io = new IntersectionObserver((entries) => {
+    for (const e of entries) if (e.isIntersecting) mark(e.target.id);
+  }, { rootMargin: '-32% 0px -64% 0px' });
+  themes.forEach((t) => io.observe(t));
+}
+
 function jumpToHash() {
   const id = location.hash.slice(1);
   if (!(REST[id] || id === 'intro')) return;
@@ -1770,7 +2056,7 @@ function renderStatic() {
     if (!w) continue;
     const R = makeRenderer(cv);
     R.resize(w, h);
-    const sc = makeScene(w, h, { mobile: w < 520, box: { x: 0, y: 0, w, h } });
+    const sc = makeScene(w, h, { mobile: w < 520, still: true, box: { x: 0, y: 0, w, h } });
     const which = fig.dataset.plate;
     const z = which === 'lit' ? 0 : Number(which);
     const q = new Float32Array(7);
@@ -1804,6 +2090,8 @@ async function start() {
   if (!main.glField) glCanvas.remove();
   if (mode === 'motion') { layout(); draw(0, 0); }
   bindRuler();
+  bindCue();
+  bindScrollspy();
   try {
     await Promise.all([loadData(), document.fonts.load(`400 16px ${MONO}`), document.fonts.load(`500 16px ${MONO}`), document.fonts.load(`600 16px ${DISPLAY}`)]);
     await document.fonts.ready;
@@ -1852,4 +2140,10 @@ async function start() {
 start();
 
 // for headless checks: draw any t and read the frame state
-window.__dive = { stateAt, TOTAL, REST, levelT: (id) => levelT(id), unit: () => unitPx, top: () => diveTop, ready: () => ready };
+window.__dive = {
+  stateAt, TOTAL, REST, TL, levelT: (id) => levelT(id), unit: () => unitPx, top: () => diveTop, ready: () => ready, scene: () => scene,
+  // put the dive exactly at t now (screenshots and frame sequences)
+  seek(t) { cancelFlight(); scrollTo(0, Math.round(diveTop + t * unitPx)); tTarget = tCur = t; draw(t, introAt(performance.now())); },
+  // hold the camera's lean at v (0..1) and stop the automatic leans
+  peek(v) { peek.from = peek.to = v; peek.t0 = 0; peek.dur = 1; peek.count = 99; peek.cycle = 0; kick(); },
+};

@@ -191,15 +191,29 @@ code, pre { font-family: var(--font-mono); font-size: 0.9em; }
 .btn--ink:hover { background: #2a2a26; box-shadow: none; }
 .count { font-variant-numeric: tabular-nums; }
 
+/* "Scroll to dive": a real button. Hover or focus leans the camera into the field; a click starts the dive. */
 .cue {
-  display: flex; align-items: center; gap: 12px; margin: 34px 0 0 !important;
-  font: 500 11px/1 var(--font-mono) !important; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-3) !important;
-  transition: opacity 0.5s var(--ease-out);
+  display: inline-flex; align-items: center; gap: 12px; margin-top: 30px;
+  padding: 10px 16px 10px 12px; border: 0; border-radius: 999px; cursor: pointer;
+  background: var(--paper); box-shadow: inset 0 0 0 1px var(--rule-strong);
+  font: 500 11.5px/1 var(--font-mono); letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-2);
+  transition: opacity 0.5s var(--ease-out), visibility 0s, box-shadow 0.25s var(--ease-out), color 0.25s, transform 0.25s var(--ease-out);
 }
-.cue i { position: relative; width: 1px; height: 28px; background: var(--rule); overflow: hidden; }
-.cue i::after { content: ""; position: absolute; left: 0; top: -40%; width: 1px; height: 40%; background: var(--ink); animation: cue 2.2s var(--ease-in-out) infinite; }
-@keyframes cue { to { top: 100%; } }
-.cue.is-gone { opacity: 0; }
+.cue:hover, .cue:focus-visible { box-shadow: inset 0 0 0 1px var(--ink); color: var(--ink); }
+.cue:active { transform: scale(0.97); }
+.cue-mark { position: relative; width: 18px; height: 18px; flex: none; }
+.cue-mark::before { content: ""; position: absolute; inset: 0; border-radius: 2px; box-shadow: inset 0 0 0 1px currentColor; opacity: 0.55; }
+/* nested squares growing out of the centre: the dive in miniature */
+.cue-mark i {
+  position: absolute; inset: 0; border-radius: 2px; box-shadow: inset 0 0 0 1px currentColor;
+  transform: scale(0.12); opacity: 0; animation: cue-dive 2.7s cubic-bezier(0.55, 0, 0.75, 0.4) infinite;
+}
+.cue-mark i:nth-child(2) { animation-delay: -0.9s; }
+.cue-mark i:nth-child(3) { animation-delay: -1.8s; }
+@keyframes cue-dive { 0% { transform: scale(0.12); opacity: 0; } 20% { opacity: 0.9; } 85% { opacity: 0.6; } 100% { transform: scale(1); opacity: 0; } }
+.cue-arrow { font: 400 14px/1 var(--font-text); letter-spacing: 0; animation: cue-arrow 2.7s var(--ease-in-out) infinite; }
+@keyframes cue-arrow { 0%, 100% { transform: translateY(-1px); } 50% { transform: translateY(2px); } }
+.cue.is-gone { opacity: 0; visibility: hidden; pointer-events: none; transition: opacity 0.4s var(--ease-out), visibility 0s linear 0.4s; }
 
 /* ------------------------------------------------------------------ the parts list */
 
@@ -239,6 +253,10 @@ code, pre { font-family: var(--font-mono); font-size: 0.9em; }
 }
 .block-index a span { font: 500 11px/1.6 var(--font-mono); color: var(--ink-3); }
 .block-index a:hover { color: var(--ink); }
+/* the theme you are reading */
+.block-index a[aria-current] { color: var(--ink); font-weight: 560; }
+.block-index a[aria-current] span { color: var(--ink); }
+.block-chips { display: none; }
 .block-title {
   grid-column: 1; grid-row: 1 / span 40; align-self: start; position: sticky; top: calc(var(--top-h) + 24px);
   margin: 0; display: flex; flex-direction: column; gap: 14px;
@@ -312,7 +330,15 @@ code, pre { font-family: var(--font-mono); font-size: 0.9em; }
 .code .seam { color: var(--signal-deep); }
 
 /* tables */
-.table-wrap { position: relative; overflow-x: auto; margin: 0 0 8px; -webkit-overflow-scrolling: touch; }
+/* a table wider than the screen scrolls on purpose: a soft shadow shows at whichever edge has more */
+.table-wrap {
+  position: relative; overflow-x: auto; margin: 0 0 8px; -webkit-overflow-scrolling: touch;
+  background:
+    linear-gradient(90deg, var(--sheet) 30%, rgba(250, 249, 246, 0)) left / 36px 100% no-repeat local,
+    linear-gradient(270deg, var(--sheet) 30%, rgba(250, 249, 246, 0)) right / 36px 100% no-repeat local,
+    linear-gradient(90deg, rgba(18, 18, 16, 0.13), rgba(18, 18, 16, 0)) left / 12px 100% no-repeat scroll,
+    linear-gradient(270deg, rgba(18, 18, 16, 0.13), rgba(18, 18, 16, 0)) right / 12px 100% no-repeat scroll;
+}
 .spec { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; font-size: 15px; }
 .spec caption { caption-side: top; text-align: left; padding: 22px 0 10px; font: 600 15px/1.3 var(--font-text); color: var(--ink); }
 .spec th, .spec td { padding: 12px 14px 12px 0; text-align: right; border-bottom: 1px solid var(--rule); vertical-align: baseline; white-space: nowrap; }
@@ -355,6 +381,9 @@ code, pre { font-family: var(--font-mono); font-size: 0.9em; }
 .dl-notes { margin-top: 18px; display: grid; gap: 12px; max-width: 60em; }
 .dl-notes p { margin: 0; font-size: 15px; color: var(--ink-2); }
 .dl-notes .fine { margin: 0; }
+/* the command wraps rather than hide its end */
+.dl-notes .code { white-space: pre-wrap; overflow-wrap: break-word; }
+.code .nw { white-space: nowrap; }
 
 /* more */
 .more-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; align-items: stretch; }
@@ -433,8 +462,33 @@ html:not(.js) .cap--hero, .static .cap--hero { border-top: 0; padding-top: 48px;
   .block { grid-template-columns: 1fr; }
   .block-title { position: static; grid-row: auto; grid-column: 1; flex-direction: row; align-items: baseline; margin-bottom: 26px; }
   .block-side { position: static; grid-row: auto; }
-  .block-index { display: none; }
+  .block-side .block-index { display: none; }
   .block > * { grid-column: 1; }
+  /* the Changes themes stay in reach while you read them: a slim bar of chips under the header */
+  #changes.block { display: block; }
+  .block-chips {
+    display: block; position: sticky; top: var(--top-h); z-index: 6;
+    margin: -8px calc(-1 * var(--gutter)) 24px; padding: 10px var(--gutter);
+    background: rgba(250, 249, 246, 0.94); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+    box-shadow: 0 1px 0 var(--rule);
+  }
+  .block-chips .block-index {
+    display: flex; gap: 6px; margin: 0; padding: 0; border: 0; overflow-x: auto; scrollbar-width: none;
+    -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 32px), transparent);
+    mask-image: linear-gradient(90deg, #000 calc(100% - 32px), transparent);
+  }
+  .block-chips .block-index::-webkit-scrollbar { display: none; }
+  .block-chips .block-index li { flex: none; }
+  .block-chips .block-index li:last-child { padding-right: 28px; }
+  .block-chips .block-index a {
+    display: inline-flex; align-items: baseline; gap: 7px; padding: 8px 13px; border: 0; border-radius: 999px;
+    box-shadow: inset 0 0 0 1px var(--rule-strong); font-size: 13.5px; line-height: 1; white-space: nowrap;
+    transition: background-color 0.25s var(--ease-out), color 0.25s, box-shadow 0.25s;
+  }
+  .block-chips .block-index a span { line-height: 1; }
+  .block-chips .block-index a[aria-current] { background: var(--ink); color: var(--paper); box-shadow: none; }
+  .block-chips .block-index a[aria-current] span { color: var(--paper); opacity: 0.72; }
+  #changes .theme { scroll-margin-top: calc(var(--top-h) + 76px); }
 }
 
 @media (max-width: 860px) {
@@ -499,7 +553,9 @@ html:not(.js) .cap--hero, .static .cap--hero { border-top: 0; padding-top: 48px;
   .btn { padding: 11px 15px; font-size: 14px; }
   .pair { margin-bottom: 10px; }
   .pair code { font-size: 12.5px; }
-  .cue { display: none; }
+  /* on a phone the cue sits over the field, just above the caption sheet */
+  .cue { position: absolute; left: 50%; top: -60px; margin: 0; transform: translateX(-50%); padding: 9px 14px 9px 11px; }
+  .cue:active { transform: translateX(-50%) scale(0.97); }
 
   /* the stacked version lets every level take the height it needs: no bottom sheet */
   html:not(.js) .captions, .static .captions { height: auto; background: none; box-shadow: none; }
@@ -523,5 +579,5 @@ html:not(.js) .cap--hero, .static .cap--hero { border-top: 0; padding-top: 48px;
 
 @media (prefers-reduced-motion: reduce) {
   .cap, .cap.is-on, .top, .btn, .dl, .dl i { transition: none; }
-  .cue i::after { animation: none; }
+  .cue-mark i, .cue-arrow { animation: none; }
 }
