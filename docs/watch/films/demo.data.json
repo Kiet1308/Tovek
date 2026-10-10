@@ -1,0 +1,40 @@
+{
+ "generated": "2026-10-10T17:05:55+00:00",
+ "generator": "v26/export/gen_demo_data.py",
+ "binaries": {
+  "a": {
+   "label": "V2.5.1",
+   "file": "luau-lifter.exe",
+   "sha256": "b932cd376df42b3185da5b8232fd05f5f8e6fcb57adec0e3553292d5149de92c"
+  },
+  "b": {
+   "label": "V2.6",
+   "file": "m3-e1.exe",
+   "sha256": "d1c71f97b4c148f6198e1830b7db720b255de132d8a8010306460f63299235e7",
+   "built": "2026-10-10T13:42:38+00:00"
+  }
+ },
+ "sample": {
+  "name": "Rodux_Store",
+  "project": "Rodux",
+  "file": "src/Store.lua",
+  "url": "https://github.com/Roblox/rodux",
+  "license": "Apache-2.0",
+  "compiled": "luau-compile --binary -O2 -g1"
+ },
+ "excerpt": {
+  "a": "local RunService = game:GetService(\"RunService\")\nlocal Signal = require(script.Parent.Signal)\nlocal NoYield = require(script.Parent.NoYield)\nlocal v = {\n\treportReducerError = function(_, _, p)\n\t\terror(string.format([[\nReceived error: %s\n\n%s]], p.message, p.thrownValue))\n\tend,\n\treportUpdateError = function(_, _, _, p)\n\t\terror(string.format([[\nReceived error: %s\n\n%s]], p.message, p.thrownValue))\n\tend\n}\n\nlocal function tracebackReporter(p)\n\treturn debug.traceback((tostring(p)))\nend\n\nlocal RoduxStore = {\n\t_flushEvent = RunService.Heartbeat\n}\nRoduxStore.__index = RoduxStore\n\nfunction RoduxStore.new(reducer, state, list, p, devtools)\n\tassert(typeof(reducer) == \"function\", \"Bad argument #1 to Store.new, expected function.\")\n\tassert(list == nil or typeof(list) == \"table\", \"Bad argument #3 to Store.new, expected nil or table.\")\n\tlocal v2\n\n\tif devtools == nil then\n\t\tv2 = true\n\telseif typeof(devtools) == \"table\" then\n\t\tv2 = devtools.__className == \"Devtools\"\n\telse\n\t\tv2 = false\n\tend\n\n\tassert(v2, \"Bad argument #5 to Store.new, expected nil or Devtools object.\")\n\n\tif list ~= nil then\n\t\tfor i = 1, #list do\n\t\t\tassert(\n\t\t\t\ttypeof(list[i]) == \"function\",\n\t\t\t\t(\"Expected the middleware ('%s') at index %d to be a function.\"):format(tostring(list[i]), i)\n\t\t\t)\n\t\tend\n\tend\n\n\tlocal v3 = {\n\t\t_source = string.match(debug.traceback(), [[\n^.-\n(.-)\n]]),\n\t\t_errorReporter = p or v,\n\t\t_isDispatching = false,\n\t\t_lastState = nil\n\t}\n\tv3.changed = Signal.new(v3)\n\tv3._reducer = reducer\n\n\tfunction v3._flushHandler(p2)\n\t\tv3.changed:fire(p2, v3._lastState)\n\tend\n\n\tif devtools then\n\t\tv3._devtools = devtools\n\t\tdevtools:_hookIntoStore(v3)\n\tend\n\n\tlocal v4 = {\n\t\ttype = \"@@INIT\"\n\t}\n\tv3._actionLog = { v4 }\n\tlocal v5, thrownValue = xpcall(function()\n\t\tv3._state = v3._reducer(state, v4)\n\tend, tracebackReporter)\n\n\tif not v5 then\n\t\tv3._errorReporter.reportReducerError(state, v4, {\n\t\t\tmessage = \"Caught error in reducer with init\",\n\t\t\tthrownValue = thrownValue\n\t\t})\n\t\tv3._state = state\n\tend\n\n\tv3._lastState = v3._state",
+  "b": "local RunService = game:GetService(\"RunService\")\nlocal Signal = require(script.Parent.Signal)\nlocal NoYield = require(script.Parent.NoYield)\nlocal v = {\n\treportReducerError = function(_, _, p)\n\t\terror(string.format(\"Received error: %s\\n\\n%s\", p.message, p.thrownValue))\n\tend,\n\treportUpdateError = function(_, _, _, p)\n\t\terror(string.format(\"Received error: %s\\n\\n%s\", p.message, p.thrownValue))\n\tend\n}\n\nlocal function tracebackReporter(p)\n\treturn debug.traceback((tostring(p)))\nend\n\nlocal RoduxStore = { _flushEvent = RunService.Heartbeat }\nRoduxStore.__index = RoduxStore\n\nfunction RoduxStore.new(reducer, state, list, p, devtools)\n\tassert(typeof(reducer) == \"function\", \"Bad argument #1 to Store.new, expected function.\")\n\tassert(list == nil or typeof(list) == \"table\", \"Bad argument #3 to Store.new, expected nil or table.\")\n\tlocal v2\n\n\tif devtools == nil then\n\t\tv2 = true\n\telseif typeof(devtools) == \"table\" then\n\t\tv2 = devtools.__className == \"Devtools\"\n\telse\n\t\tv2 = false\n\tend\n\n\tassert(v2, \"Bad argument #5 to Store.new, expected nil or Devtools object.\")\n\n\tif list ~= nil then\n\t\tfor i = 1, #list do\n\t\t\tassert(\n\t\t\t\ttypeof(list[i]) == \"function\",\n\t\t\t\t(\"Expected the middleware ('%s') at index %d to be a function.\"):format(tostring(list[i]), i)\n\t\t\t)\n\t\tend\n\tend\n\n\tlocal v3 = {\n\t\t_source = string.match(debug.traceback(), \"^.-\\n(.-)\\n\"),\n\t\t_errorReporter = p or v,\n\t\t_isDispatching = false,\n\t\t_lastState = nil\n\t}\n\tv3.changed = Signal.new(v3)\n\tv3._reducer = reducer\n\n\tfunction v3._flushHandler(p2)\n\t\tv3.changed:fire(p2, v3._lastState)\n\tend\n\n\tif devtools then\n\t\tv3._devtools = devtools\n\t\tdevtools:_hookIntoStore(v3)\n\tend\n\n\tlocal v4 = { type = \"@@INIT\" }\n\tv3._actionLog = { v4 }\n\tlocal success, result = xpcall(function()\n\t\tv3._state = v3._reducer(state, v4)\n\tend, tracebackReporter)\n\n\tif not success then\n\t\tv3._errorReporter.reportReducerError(state, v4, {\n\t\t\tmessage = \"Caught error in reducer with init\",\n\t\t\tthrownValue = result\n\t\t})\n\t\tv3._state = state\n\tend\n\n\tv3._lastState = v3._state",
+  "linesA": 89,
+  "linesB": 76
+ },
+ "file": {
+  "linesA": 193,
+  "linesB": 180
+ },
+ "set": {
+  "scripts": 14,
+  "linesA": 5556,
+  "linesB": 4876
+ }
+}

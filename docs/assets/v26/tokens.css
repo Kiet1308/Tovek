@@ -1,0 +1,42 @@
+/* Tovek V2.6 identity tokens. Shared by the V2.6 changelog, the films and the landing.
+   Load the families with:
+   https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,200..800&family=Geist:wght@300..800&family=Geist+Mono:wght@400..600&display=swap */
+
+:root {
+  /* surfaces */
+  --paper: #f2f0eb;
+  --paper-2: #e9e6df;
+  --sheet: #faf9f6;
+  --night: #0d0d0c;
+  --night-2: #1a1a18;
+
+  /* inks */
+  --ink: #121210;
+  --ink-2: #4a4943;
+  --ink-3: #8b8980;
+  --rule: rgba(18, 18, 16, 0.14);
+  --rule-strong: rgba(18, 18, 16, 0.32);
+  --on-night: #f2f0eb;
+  --on-night-2: #a9a69c;
+  --rule-night: rgba(242, 240, 235, 0.16);
+
+  /* the one accent: what Tovek recovers or proves */
+  --signal: #ff4d1a;
+  --signal-deep: #d63a0c; /* text and hairlines on paper (AA) */
+  --signal-wash: rgba(255, 77, 26, 0.12);
+
+  /* type */
+  --font-display: "Bricolage Grotesque", "Geist", system-ui, sans-serif;
+  --font-text: "Geist", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, "SF Mono", Consolas, monospace;
+
+  /* rhythm */
+  --gutter: clamp(16px, 4vw, 48px);
+  --radius: 10px;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root { --ease-out: linear; --ease-in-out: linear; }
+}

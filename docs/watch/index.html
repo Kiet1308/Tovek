@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>Tovek Films</title>
+  <meta name="description" content="Films about Tovek, the Luau decompiler for Roblox: the story from medal to V2.6, and the V2.6 launch film.">
+  <meta name="theme-color" content="#0d0d0c">
+  <meta property="og:title" content="Tovek Films">
+  <meta property="og:description" content="The story of Tovek, from medal to V2.6, told with its own output.">
+  <meta property="og:type" content="video.other">
+  <meta property="og:url" content="https://kiet1308.github.io/Tovek/watch/">
+  <link rel="icon" href="../assets/favicon.svg?v=2" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,200..800&family=Geist:wght@300..800&family=Geist+Mono:wght@400..600&display=swap">
+  <link rel="stylesheet" href="../assets/v26/tokens.css">
+  <link rel="stylesheet" href="watch.css">
+  <link rel="modulepreload" href="engine/index.js">
+  <script>document.documentElement.classList.add('js')</script>
+  <script type="module" src="watch.js"></script>
+</head>
+<body>
+<a class="skip" href="#screen">Skip to the film</a>
+
+<header class="top" id="top">
+  <a class="brand" href="../index.html" aria-label="Tovek overview">
+    <svg class="brand-mark" viewBox="64 72 384 360" aria-hidden="true"><path d="M100 88H412a20 20 0 0 1 20 20V160a20 20 0 0 1-20 20H320V320H192V180H100a20 20 0 0 1-20-20V108a20 20 0 0 1 20-20Z"/><rect x="196" y="328" width="24" height="24" rx="5"/><rect x="228" y="328" width="24" height="24" rx="5"/><rect x="260" y="328" width="24" height="24" rx="5"/><rect x="292" y="328" width="24" height="24" rx="5"/><rect x="196" y="360" width="24" height="24" rx="5"/><rect x="260" y="360" width="24" height="24" rx="5"/><rect x="292" y="360" width="24" height="24" rx="5"/><rect x="228" y="392" width="24" height="24" rx="5"/></svg>
+    <span class="brand-name">tovek</span>
+    <span class="brand-sub">films</span>
+  </a>
+  <nav class="reels" id="reels" aria-label="Films">
+    <a class="reel" href="?film=story" data-film="story">The story</a>
+    <a class="reel" href="?film=v26" data-film="v26">Tovek V2.6</a>
+  </nav>
+  <nav class="top-links" aria-label="Site">
+    <a href="../changelog.html">Changelog</a>
+    <a href="https://github.com/Kiet1308/Tovek">GitHub <span aria-hidden="true">↗</span></a>
+  </nav>
+</header>
+
+<main id="main">
+  <section class="theatre" aria-label="Film">
+    <div class="screen is-loading" id="screen" tabindex="-1">
+      <canvas class="stage" id="stage" aria-hidden="true"></canvas>
+
+      <div class="captions" id="captions" aria-live="off"><span id="caption-line"></span></div>
+
+      <div class="poster" id="poster">
+        <div class="poster-copy">
+          <p class="poster-kicker" id="poster-kicker">Film</p>
+          <p class="poster-title" id="poster-title"></p>
+          <button class="play-pill" id="play-pill" type="button" disabled>
+            <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path class="ico-play" d="M8 5.6v12.8a.8.8 0 0 0 1.2.7l10.2-6.4a.8.8 0 0 0 0-1.4L9.2 4.9A.8.8 0 0 0 8 5.6Z"/><path class="ico-replay" d="M12 5a7 7 0 1 1-6.7 5h2.1A5 5 0 1 0 12 7v2.6L8.2 6 12 2.4Z"/></svg>
+            <span class="play-pill-label" id="play-pill-label">Play</span>
+            <span class="play-pill-time" id="play-pill-time"></span>
+          </button>
+        </div>
+      </div>
+
+      <div class="notice" id="notice" hidden>
+        <p class="notice-kicker" id="notice-kicker"></p>
+        <p class="notice-title" id="notice-title"></p>
+        <p class="notice-note" id="notice-note"></p>
+        <a class="notice-link" id="notice-link" href="?film=story" hidden>Watch the story <span aria-hidden="true">→</span></a>
+      </div>
+
+      <div class="osd" id="osd" aria-hidden="true"></div>
+      <div class="loading-line" aria-hidden="true"></div>
+
+      <div class="controls" id="controls">
+        <div class="scrub" id="scrub" role="slider" tabindex="0" aria-label="Seek" aria-valuemin="0" aria-valuemax="0" aria-valuenow="0" aria-valuetext="0:00">
+          <div class="scrub-track" id="scrub-track"></div>
+          <div class="scrub-head" id="scrub-head"></div>
+          <div class="preview" id="preview" aria-hidden="true">
+            <canvas class="preview-frame" id="preview-frame"></canvas>
+            <p class="preview-meta"><span class="preview-time" id="preview-time">0:00</span><span class="preview-chapter" id="preview-chapter"></span></p>
+          </div>
+        </div>
+        <div class="bar">
+          <button class="ctl ctl-play" id="btn-play" type="button" aria-label="Play">
+            <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path class="ico-play" d="M8 5.6v12.8a.8.8 0 0 0 1.2.7l10.2-6.4a.8.8 0 0 0 0-1.4L9.2 4.9A.8.8 0 0 0 8 5.6Z"/><g class="ico-pause"><rect x="6.5" y="5" width="3.6" height="14" rx="1"/><rect x="13.9" y="5" width="3.6" height="14" rx="1"/></g></svg>
+          </button>
+          <p class="clock"><span class="clock-now" id="clock-now">0:00</span><span class="clock-sep">/</span><span class="clock-dur" id="clock-dur">0:00</span></p>
+          <p class="now-chapter" id="now-chapter"></p>
+          <span class="spacer"></span>
+          <button class="ctl ctl-cc" id="btn-cc" type="button" aria-pressed="true" aria-label="Captions">
+            <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="5.5" width="17" height="13" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M10.6 10.2a2.2 2.2 0 1 0 0 3.6M16.6 10.2a2.2 2.2 0 1 0 0 3.6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+          </button>
+          <div class="vol" id="vol">
+            <button class="ctl ctl-mute" id="btn-mute" type="button" aria-label="Mute">
+              <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 9.5h3l4.2-3.6a.6.6 0 0 1 1 .46v11.28a.6.6 0 0 1-1 .46L7.5 14.5h-3a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1Z"/><path class="ico-wave" d="M15.5 9.2a4 4 0 0 1 0 5.6M17.9 6.9a7.3 7.3 0 0 1 0 10.2" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path class="ico-x" d="m16 9.5 5 5m0-5-5 5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+            </button>
+            <input class="vol-range" id="vol-range" type="range" min="0" max="1" step="0.01" value="0.9" aria-label="Volume">
+          </div>
+          <button class="ctl ctl-fs" id="btn-fs" type="button" aria-label="Full screen">
+            <svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><g class="ico-enter" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4.5 9V5.5a1 1 0 0 1 1-1H9M15 4.5h3.5a1 1 0 0 1 1 1V9M19.5 15v3.5a1 1 0 0 1-1 1H15M9 19.5H5.5a1 1 0 0 1-1-1V15"/></g><g class="ico-exit" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 4.5V8a1 1 0 0 1-1 1H4.5M19.5 9H16a1 1 0 0 1-1-1V4.5M15 19.5V16a1 1 0 0 1 1-1h3.5M4.5 15H8a1 1 0 0 1 1 1v3.5"/></g></svg>
+          </button>
+        </div>
+      </div>
+
+      <noscript><p class="noscript">The films are drawn live in the browser and need JavaScript.</p></noscript>
+    </div>
+  </section>
+
+  <section class="programme" aria-labelledby="film-title">
+    <div class="prog-info">
+      <p class="prog-kicker" id="film-kicker">Film</p>
+      <h1 class="prog-title" id="film-title">Tovek films</h1>
+      <p class="prog-desc" id="film-desc"></p>
+      <dl class="prog-facts" id="film-facts"></dl>
+      <p class="prog-credit">Tovek began as <a href="https://github.com/Stefanuk12/medal-decompiler">medal</a>, by Jujhar Singh and Mathias Pedersen.</p>
+    </div>
+    <div class="prog-chapters">
+      <h2 class="chapters-head"><span>Chapters</span><span class="chapters-count" id="chapters-count"></span></h2>
+      <ol class="chapters" id="chapters"></ol>
+    </div>
+  </section>
+
+  <section class="stills" id="stills" aria-labelledby="stills-title" hidden>
+    <h2 class="stills-head" id="stills-title">The film in stills</h2>
+    <ol class="stills-grid" id="stills-grid"></ol>
+  </section>
+
+  <section class="keys" aria-label="Keyboard">
+    <ul class="keys-list">
+      <li><kbd>Space</kbd><span>Play or pause</span></li>
+      <li><kbd>←</kbd><kbd>→</kbd><span>5 seconds</span></li>
+      <li><kbd>,</kbd><kbd>.</kbd><span>One frame, paused</span></li>
+      <li><kbd>0</kbd>–<kbd>9</kbd><span>Jump</span></li>
+      <li><kbd>F</kbd><span>Full screen</span></li>
+      <li><kbd>M</kbd><span>Mute</span></li>
+      <li><kbd>C</kbd><span>Captions</span></li>
+    </ul>
+  </section>
+</main>
+
+<footer class="foot">
+  <p>Tovek is free and MIT licensed. <a href="../index.html">Overview</a> · <a href="../changelog.html">Changelog</a> · <a href="https://github.com/Kiet1308/Tovek/releases/latest">Download</a></p>
+</footer>
+</body>
+</html>

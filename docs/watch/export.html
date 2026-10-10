@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex">
+  <title>Film export</title>
+  <link rel="icon" href="../assets/favicon.svg?v=2" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,200..800&family=Geist:wght@300..800&family=Geist+Mono:wght@400..600&display=swap">
+  <style>
+    html, body { margin: 0; background: #0d0d0c; color: #a9a69c; font: 14px/1.5 "Geist Mono", monospace; }
+    canvas { display: block; }
+    #status { position: fixed; left: 12px; bottom: 8px; }
+  </style>
+</head>
+<body>
+  <!--
+    Frame-exact export hook. export.html?film=<id>&w=1920&h=1080[&t=12.5]
+      await window.__ready                -> { id, title, duration, chapters, hasScore }
+      await window.__renderFrame(t)       -> PNG data URL of the frame at t seconds (exact, any order)
+      await window.__renderScore()        -> base64 WAV of the whole score (OfflineAudioContext)
+    v26/export/export_film.py drives this with Playwright and muxes an MP4 with ffmpeg.
+  -->
+  <canvas id="frame"></canvas>
+  <p id="status">loading</p>
+  <script type="module" src="export.js"></script>
+</body>
+</html>
