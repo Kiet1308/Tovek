@@ -107,8 +107,11 @@ Register the film in `films/index.js` (`available: true`). The page then offers 
 
 - `font(size, { family: 'display' | 'text' | 'mono', weight, stretch })`. Families are Bricolage
   Grotesque, Geist and Geist Mono. `stretch` takes 75 / 87.5 / 100 (canvas only knows those steps).
-- `layoutText(text, font, { maxWidth, lineHeight })` measures once and caches: lines, words, glyph
-  pen positions (kerning kept). `y` arguments are the **first baseline**.
+- `layoutText(text, font, { maxWidth, lineHeight, around, pairs })` measures once and caches: lines,
+  words, glyph pen positions (kerning kept). `y` arguments are the **first baseline**. `around:
+  { '.': 0.032 }` opens a character on both sides (em); `pairs: { ov: 0.035 }` opens one pair only,
+  for a display face whose kerning lets two glyphs touch. Check display type with
+  `v26/work-story-r2/glyphcheck.py`, which renders every pair apart and measures the gap.
 - `drawText(ctx, L, x, y, { color, align, tracking, alpha })`; `tracking` is in em and may be
   animated (it costs nothing extra).
 - `reveal(ctx, L, x, y, t, opts)` kinetic type: `unit` 'glyph' | 'word' | 'line', `start`,
@@ -123,8 +126,12 @@ Register the film in `films/index.js` (`available: true`). The page then offers 
 - `countTo(t, { start, dur, from, to, ease })` → number; `formatNumber(n, { decimals })`.
 - `drawCounter(ctx, value, x, y, font, { align, decimals, prefix, suffix })` draws digits in
   fixed-width cells so a counting number never jitters.
-- `drawOdometer(ctx, t, { from, to, start, dur, x, y, font, align, turns })` rolls each digit
-  column (backwards when counting down), settling left to right. Returns `{ width }`.
+- `drawOdometer(ctx, t, { from, to, start, dur, x, y, font, align, turns, exact })` rolls each digit
+  column (backwards when counting down), settling left to right. The layout is the wider number's:
+  counting into a new column fades it in; counting down out of one (198 to 0) fades it out and the
+  digits left keep their alignment. `exact: true` is a mechanical odometer that shows the exact
+  count at every moment (a column turns only while the columns to its right wrap), so it stays in
+  step with marks counted beside it. Returns `{ width }`.
 
 ### Code (`code.js`)
 
