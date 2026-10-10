@@ -3,8 +3,8 @@
 // v26/export/gen_demo_data.py from the V2.5.1 and V2.6 binaries.
 
 import {
-  ease, progress, clamp, lerp, timeline, fade,
-  font, layoutText, reveal, decode, drawText,
+  ease, progress, clamp, lerp, timeline, fade, keyframes, spring, stagger,
+  font, layoutText, reveal, decode, drawText, typewriter,
   drawOdometer, drawCounter, formatNumber,
   drawCode, codeMorph, drawMorph, fitCamera, withCamera,
   defineScore, note, ticks, drawMark, markWidth, V26, rgba, pixel,
@@ -37,6 +37,9 @@ const T = {
   duration: 18.6,
 };
 
+// the title's hairline opens from the centre, holds, then closes as the title leaves
+const hairlineTrack = keyframes([[0.9, 0], [2.2, 1, ease.inOut], [T.titleOut, 1], [T.titleOut + 0.5, 0, ease.inOut]]);
+
 let D = null; // data, set in prepare()
 let plan = null;
 let views = null;
@@ -61,7 +64,7 @@ function drawTitle(ctx, s) {
   });
   const away = 1 - progress(t, T.titleOut + 0.1, 0.5);
   fade(ctx, away, () => {
-    hairline(ctx, 560, 1360, 668, progress(t, 0.9, 1.3, ease.inOut));
+    hairline(ctx, 560, 1360, 668, hairlineTrack(t));
     const v = layoutText(`${D.binaries.a.label}  →  ${D.binaries.b.label}`, F.versions);
     decode(ctx, v, 960, 740, t, { start: 1.25, dur: 0.9, stagger: 0.03, seed: 26, align: 'center', color: V26.onNight2, settledColor: V26.onNight2 });
   });
@@ -84,9 +87,10 @@ function drawCount(ctx, s) {
     const x0 = 150, barW = 1620, px = pixel(ctx);
     const grow = progress(t, t0 + 0.6, 2.3, ease.inOut);
     const rows = [
-      { label: D.binaries.a.label, value: D.set.linesA, w: barW, a: 0.3, p: progress(t, t0 + 0.3, 1.0, ease.out) },
-      { label: D.binaries.b.label, value: D.set.linesB, w: lerp(barW, (barW * D.set.linesB) / D.set.linesA, grow), a: 0.95, p: progress(t, t0 + 0.45, 1.0, ease.out) },
+      { label: D.binaries.a.label, value: D.set.linesA, w: barW, a: 0.3 },
+      { label: D.binaries.b.label, value: D.set.linesB, w: lerp(barW, (barW * D.set.linesB) / D.set.linesA, grow), a: 0.95 },
     ];
+    rows.forEach((r, i) => { r.p = progress(t, t0 + 0.3 + stagger(i, rows.length, 0.15), 1.0, ease.out); });
     rows.forEach((r, i) => {
       const y = 690 + i * 86;
       fade(ctx, r.p, () => {
@@ -177,13 +181,15 @@ function clip(ctx, fn) {
 
 function drawEnd(ctx, s) {
   const t = s.t, t0 = T.endIn;
-  const size = 170;
-  drawMark(ctx, 960 - markWidth(size) / 2, 268, size, { color: V26.onNight, body: progress(t, t0 + 0.1, 0.8, ease.out), bits: progress(t, t0 + 0.35, 1.4) });
+  // the mark settles on a soft spring while its eight bits land
+  const size = 170 * (0.94 + 0.06 * spring(t - t0 - 0.1, { freq: 1.1, damping: 0.55 }));
+  drawMark(ctx, 960 - markWidth(size) / 2, 268 + (170 - size) / 2, size, { color: V26.onNight, body: progress(t, t0 + 0.1, 0.8, ease.out), bits: progress(t, t0 + 0.35, 1.4) });
   const L = layoutText(`Tovek ${D.binaries.b.label}`, F.card);
   reveal(ctx, L, 960, 640, t, { unit: 'word', start: t0 + 0.6, stagger: 0.12, dur: 1.0, align: 'center', color: V26.onNight });
-  fade(ctx, progress(t, t0 + 1.3, 0.8), () => {
-    drawText(ctx, layoutText('github.com/Kiet1308/Tovek', F.mono), 960, 724, { color: V26.onNight2, align: 'center' });
-  });
+  const url = layoutText('github.com/Kiet1308/Tovek', F.mono);
+  const typed = clamp((t - t0 - 1.3) * 26, 0, url.glyphCount);
+  const caretOn = typed < url.glyphCount || Math.floor((t - t0) * 1.6) % 2 === 0;
+  typewriter(ctx, url, 960 - url.width / 2, 724, typed, { color: V26.onNight2, caret: t > t0 + 1.2, caretAlpha: caretOn ? 0.8 : 0 });
   fade(ctx, progress(t, t0 + 1.7, 0.8), () => {
     kicker(ctx, 'Built on medal by Jujhar Singh and Mathias Pedersen', 960, 900, 1, 'center');
   });
@@ -207,7 +213,7 @@ const demo = {
   chapters: [
     { t: 0, title: 'Title', still: 2.6 },
     { t: T.countIn, title: 'Count', still: 6.9 },
-    { t: T.morphIn, title: 'Morph', still: 11.6 },
+    { t: T.morphIn, title: 'Morph', still: 14.6 },
     { t: T.endIn, title: 'End card', still: 17.8 },
   ],
   captions: [],

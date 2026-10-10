@@ -385,13 +385,20 @@ button { font: inherit; color: inherit; }
 .chapters { list-style: none; margin: 0; padding: 0; border-bottom: 1px solid var(--rule-night); counter-reset: ch; }
 .chapter {
   position: relative;
-  display: grid; grid-template-columns: 40px minmax(0, 1fr) auto; align-items: baseline; gap: 12px;
-  width: 100%; padding: 15px 6px 16px; border: 0; border-top: 1px solid var(--rule-night);
+  display: grid; grid-template-columns: 104px 34px minmax(0, 1fr) auto; align-items: center; gap: 0 14px;
+  width: 100%; padding: 12px 6px 12px 0; border: 0; border-top: 1px solid var(--rule-night);
   background: none; text-align: left; cursor: pointer;
   transition: background-color 0.25s;
 }
 .chapter:hover { background: rgba(242, 240, 235, 0.035); }
 .chapter:focus-visible { outline-offset: -2px; }
+.chapter-still {
+  display: block; width: 104px; aspect-ratio: 16 / 9; border-radius: 6px;
+  background: var(--night-2); box-shadow: 0 0 0 1px var(--rule-night);
+  opacity: 0.72; transition: opacity 0.3s, box-shadow 0.3s;
+}
+.chapter:hover .chapter-still { opacity: 1; }
+.chapter.is-current .chapter-still { opacity: 1; box-shadow: 0 0 0 1px rgba(242, 240, 235, 0.55); }
 .chapter-n { font: 500 12px/1 var(--font-mono); font-variant-numeric: tabular-nums; color: var(--on-night-2); }
 .chapter-title { font: 500 16px/1.35 var(--font-text); color: var(--on-night-2); transition: color 0.3s; }
 .chapter-time { font: 500 12.5px/1 var(--font-mono); font-variant-numeric: tabular-nums; color: var(--on-night-2); }
@@ -468,7 +475,9 @@ body.lights-down .foot:hover, body.lights-down .foot:focus-within { opacity: 1; 
   .programme { padding-top: 28px; }
   .prog-title { font-size: 34px; }
   .prog-desc { font-size: 16px; }
-  .chapter { grid-template-columns: 32px minmax(0, 1fr) auto; padding: 14px 2px 15px; }
+  .chapter { grid-template-columns: 84px 28px minmax(0, 1fr) auto; gap: 0 10px; padding: 10px 2px 10px 0; }
+  .chapter-still { width: 84px; }
+  .chapter-title { font-size: 15px; }
   .foot { padding: 20px 16px 32px; }
   .foot p { width: auto; }
 }

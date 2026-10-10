@@ -61,7 +61,7 @@ function markReels() {
       const soon = document.createElement('span');
       soon.className = 'reel-soon';
       soon.textContent = 'soon';
-      a.append(soon);
+      a.append(' ', soon);
     }
   }
   if (entry.listed === false) {
@@ -115,10 +115,12 @@ function buildChapters() {
     const b = document.createElement('button');
     b.type = 'button';
     b.className = 'chapter';
-    b.innerHTML = '<span class="chapter-n"></span><span class="chapter-title"></span><span class="chapter-time"></span><i class="chapter-progress" aria-hidden="true"></i>';
-    b.children[0].textContent = String(i + 1).padStart(2, '0');
-    b.children[1].textContent = ch.title;
-    b.children[2].textContent = timecode(ch.t);
+    b.innerHTML = '<canvas class="chapter-still" aria-hidden="true"></canvas><span class="chapter-n"></span><span class="chapter-title"></span><span class="chapter-time"></span><i class="chapter-progress" aria-hidden="true"></i>';
+    b.children[1].textContent = String(i + 1).padStart(2, '0');
+    b.children[2].textContent = ch.title;
+    b.children[3].textContent = timecode(ch.t);
+    ch.still = ch.still ?? Math.min(ch.end - 0.01, ch.t + Math.min(2.5, (ch.end - ch.t) / 2));
+    ch.stillCanvas = b.children[0];
     b.setAttribute('aria-label', `Chapter ${i + 1}: ${ch.title}, at ${timecode(ch.t)}`);
     b.addEventListener('click', () => {
       seek(ch.t);
@@ -129,6 +131,19 @@ function buildChapters() {
     li.append(b);
     el.chapters.append(li);
   });
+
+  // one still per chapter, drawn from the film itself, one per frame so boot stays light
+  const stills = film.chapters.slice();
+  const nextStill = () => {
+    const ch = stills.shift();
+    if (!ch) return;
+    const r = ch.stillCanvas.getBoundingClientRect();
+    const s = createStage(ch.stillCanvas);
+    s.resize(r.width || 104, r.height || 58.5, Math.min(2, devicePixelRatio || 1));
+    try { s.draw(film, ch.still); } catch { /* the main stage reports errors */ }
+    requestAnimationFrame(nextStill);
+  };
+  requestAnimationFrame(nextStill);
 
   el.track.replaceChildren();
   film.chapters.forEach((ch) => {
@@ -256,6 +271,8 @@ function setStarted(v) {
 
 function play() {
   if (!film) return;
+  // the poster shows a frame from inside the film; the film itself starts at the top
+  if (!started) clock.seek(0);
   if (ended || clock.t >= film.duration - 1e-3) {
     ended = false;
     el.screen.classList.remove('is-ended');
@@ -566,7 +583,7 @@ function buildStills() {
       p.textContent = lines.join(' ');
       li.append(p);
     }
-    const at = ch.still ?? Math.min(ch.end - 0.01, ch.t + Math.min(2.5, (ch.end - ch.t) / 2));
+    const at = ch.still;
     b.addEventListener('click', () => {
       pause();
       seek(at);
