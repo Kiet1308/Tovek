@@ -400,6 +400,18 @@
       "bytes": 689,
       "lines": 55
     },
+    "semantic/closure_capturing_a_loop_local_function__O0.luau": {
+      "bytes": 402,
+      "lines": 37
+    },
+    "semantic/closure_capturing_a_loop_local_function__O1.luau": {
+      "bytes": 402,
+      "lines": 37
+    },
+    "semantic/closure_capturing_a_loop_local_function__O2.luau": {
+      "bytes": 429,
+      "lines": 40
+    },
     "semantic/closure_identity_across_inlined_copies__O0.luau": {
       "bytes": 1048,
       "lines": 77

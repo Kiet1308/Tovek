@@ -155,8 +155,12 @@ fn materialize_in_block(
     written_after
 }
 
-/// Loop variable(s) plus every local written in the loop body OUTSIDE a nested
-/// closure (a closure's writes are to its own private copy of a captured value).
+/// Loop variable(s) plus every local assigned in the loop body OUTSIDE a
+/// nested closure (a closure's writes are to its own private copy of a
+/// captured value). A `local` statement in the body binds its locals anew on
+/// every trip: a closure of one trip keeps that trip's binding, which only a
+/// later assignment changes (also counted after the closure, as
+/// `written_after`), so the declaration alone is no write of the loop.
 fn loop_mutated_set(block: &Block, loop_vars: &[RcLocal]) -> FxHashSet<RcLocal> {
     let mut set: FxHashSet<RcLocal> = loop_vars.iter().cloned().collect();
     collect_written_outside_closures(block, &mut set);
@@ -165,8 +169,10 @@ fn loop_mutated_set(block: &Block, loop_vars: &[RcLocal]) -> FxHashSet<RcLocal> 
 
 fn collect_written_outside_closures(block: &Block, set: &mut FxHashSet<RcLocal>) {
     for statement in &block.0 {
-        for written in statement.values_written() {
-            set.insert(written.clone());
+        if !matches!(statement, Statement::Assign(assign) if assign.prefix) {
+            for written in statement.values_written() {
+                set.insert(written.clone());
+            }
         }
         match statement {
             Statement::If(r#if) => {
@@ -489,6 +495,45 @@ mod tests {
             closure.function.lock().body[0],
             Statement::Return(ref ret) if ret.values == vec![RValue::Local(snapshot_local.clone())]
         ));
+    }
+
+    /// `for i = 1, 3 do local function h() end; slot = function() return h
+    /// end end`: the `local` statement binds `h` anew on every trip, so the
+    /// closure keeps its trip's `h` without a snapshot (one would make Luau
+    /// stop sharing the literal, as `h`'s own literal lets it). Assigned again
+    /// in the body, `h` is a write of the loop, and gets its snapshot.
+    #[test]
+    fn a_local_the_loop_body_declares_needs_no_snapshot() {
+        let run = |assigned_again: bool| -> Block {
+            let counter = local("i");
+            let bound = local("h");
+            let destination = local("slot");
+            let literal = |body: Block, upvalues: Vec<Upvalue>| {
+                RValue::Closure(Closure {
+                    node_origin: Default::default(),
+                    function: ByAddress(Arc::new(Mutex::new(Function { body, ..Function::default() }))),
+                    upvalues,
+                })
+            };
+            let mut declaration = Assign::new(vec![LValue::Local(bound.clone())], vec![literal(Block(vec![]), vec![])]);
+            declaration.prefix = true;
+            let reads_bound = Block(vec![Return::new(vec![RValue::Local(bound.clone())]).into()]);
+            let mut body = vec![
+                declaration.into(),
+                Assign::new(vec![LValue::Local(destination)], vec![literal(reads_bound, vec![Upvalue::Copy(bound.clone())])])
+                    .into(),
+            ];
+            if assigned_again {
+                body.push(Assign::new(vec![LValue::Local(bound)], vec![number(1.0)]).into());
+            }
+            let r#for = NumericFor::new(number(1.0), number(3.0), number(1.0), counter, Block(body));
+            let mut block = Block(vec![Statement::NumericFor(Box::new(r#for)).into()]);
+            materialize_value_captures(&mut block);
+            let body = block[0].as_numeric_for().unwrap().block.lock().clone();
+            body
+        };
+        assert_eq!(run(false).len(), 2, "no snapshot of a local the body declares");
+        assert_eq!(run(true).len(), 4, "a snapshot of one the body assigns again");
     }
 
     /// A body only its closure holds is renamed where it is: a copy would
