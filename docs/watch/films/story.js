@@ -1766,8 +1766,8 @@ function buildChaptersCaptionsScore() {
   }
   add(T.orig + 0.6, T.orig + 4.4, 'Beside the source it was compiled from.');
   add(T.orig + 4.6, 128.8, side.onlyNames ? 'Every keyword, call and operator matches. Only names, constants and comments differ.' : 'Most of it matches, token for token.');
-  add(130.0, 133.0, `${cap(word(D.totals.releases))} releases in ${D.totals.days_since_first_beta} days, built on medal.`);
-  add(133.4, 136.4, `${D.credits.origin.replace(/ \(.*?\)/, '')}. ${D.credits.luau.replace(/ \(.*?\)/, '')}.`);
+  add(130.0, 133.0, `${cap(word(D.totals.releases))} releases in ${D.totals.days_since_first_beta} days.`);
+  add(133.4, 136.4, `Built on ${D.credits.origin.replace(/ \(.*?\)/, '')}. ${D.credits.luau.replace(/ \(.*?\)/, '')}.`);
   story.captions = c;
 
   // ---- the score: a pulse for each release, ticks while code types, one swell for V2.6
