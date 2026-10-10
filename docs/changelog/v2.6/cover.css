@@ -14,8 +14,8 @@
 .cover--v26 .title {
   position: absolute; left: 7%; bottom: 10%;
   display: flex; flex-direction: column; color: #121210;
-  font: 720 clamp(40px, 4.6vw, 62px)/0.86 "Bricolage Grotesque", "Archivo", system-ui, sans-serif;
-  font-variation-settings: "opsz" 96, "wdth" 88; letter-spacing: -0.04em;
+  font: 660 clamp(40px, 4.5vw, 60px)/0.9 "Bricolage Grotesque", "Archivo", system-ui, sans-serif;
+  font-variation-settings: "opsz" 96, "wdth" 96; letter-spacing: -0.008em;
 }
 .cover--v26 .title small {
   margin-bottom: 14px; font: 500 11px/1 "Geist Mono", ui-monospace, monospace; letter-spacing: 0.1em;
