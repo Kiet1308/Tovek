@@ -3,7 +3,7 @@
 // change `t`, and every frame is drawn from `t` alone.
 
 import { FILMS, DEFAULT_FILM, filmById } from './films/index.js';
-import { createStage, openFilm, chapterAt, captionAt, ScorePlayer, timecode, clamp } from './engine/index.js';
+import { createStage, openFilm, chapterAt, captionAt, ScorePlayer, prepareScore, timecode, clamp } from './engine/index.js';
 
 const $ = (id) => document.getElementById(id);
 const el = {
@@ -280,7 +280,7 @@ function play() {
   }
   setStarted(true);
   clock.play();
-  if (score) score.start(clock.t);
+  startScore();
   el.screen.classList.add('is-playing');
   el.play.setAttribute('aria-label', 'Pause');
   document.body.classList.add('lights-down');
@@ -313,6 +313,24 @@ function finish() {
 
 const togglePlay = () => (clock.playing ? pause() : play());
 
+// Sound follows the picture. Building the audio graph costs 30-90 ms (the audio device, the reverb's
+// FFT setup), so it happens on the press that comes before play (warmAudio). If the very first
+// input is the play key itself, the first frame is drawn first and the sound joins a frame later.
+function startScore() {
+  if (!score) return;
+  if (score.ready) { score.start(clock.now()); return; }
+  requestAnimationFrame(() => setTimeout(() => { if (clock.playing) score.start(clock.now()); }, 0));
+}
+
+const PLAY_KEYS = new Set([' ', 'k', 'K', 'Enter']);
+function warmAudio(e) {
+  if (!score || score.ready) return;
+  if (e.type === 'keydown' && (PLAY_KEYS.has(e.key) || /^[0-9]$/.test(e.key))) return;
+  score.warm();
+}
+document.addEventListener('pointerdown', warmAudio, { capture: true, passive: true });
+document.addEventListener('keydown', warmAudio, { capture: true });
+
 function seek(t) {
   if (!film) return;
   t = clamp(t, 0, film.duration);
@@ -323,7 +341,7 @@ function seek(t) {
     el.pillLabel.textContent = 'Play';
   }
   if (!started) setStarted(true);
-  if (clock.playing && score) score.start(t);
+  if (clock.playing) startScore();
   requestDraw();
 }
 
@@ -474,7 +492,7 @@ const endDrag = (e) => {
   dragging = false;
   el.scrub.classList.remove('is-dragging');
   if (e.pointerType !== 'mouse') hideHover();
-  if (resumeAfterDrag && !ended) { clock.play(); if (score) score.start(clock.t); requestDraw(); }
+  if (resumeAfterDrag && !ended) { clock.play(); startScore(); requestDraw(); }
 };
 el.scrub.addEventListener('pointerup', endDrag);
 el.scrub.addEventListener('pointercancel', endDrag);
@@ -678,6 +696,7 @@ async function boot() {
   if (params.has('t')) setStarted(true);
   buildStills();
   requestDraw();
+  if (film.score) (window.requestIdleCallback || setTimeout)(() => prepareScore(film.score), { timeout: 2000 });
 }
 
 boot();

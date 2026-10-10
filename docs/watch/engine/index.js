@@ -13,7 +13,7 @@ export { FAMILIES, font, setFont, fontLoadSpec, measure, metrics, layoutText, dr
 export { countTo, formatNumber, drawCounter, counterWidth, drawOdometer } from './counter.js';
 export { KINDS, tokenizeLuau, layoutCode, codePalettes, codeFont, codeMetrics, codeSize, drawCode, roundRect, codeLength, typeChars } from './code.js';
 export { codeMorph, drawMorph, fitCamera, withCamera } from './morph.js';
-export { note, ticks, defineScore, VOICES, ScorePlayer, renderScore, encodeWav, renderScoreWav } from './score.js';
+export { note, ticks, defineScore, VOICES, ScorePlayer, prepareScore, renderScore, encodeWav, renderScoreWav } from './score.js';
 export { drawMark, markWidth } from './brand.js';
 export { DESIGN_W, DESIGN_H, createStage, pixel } from './stage.js';
 export { normalizeFilm, prepareFilm, openFilm, chapterAt, captionAt } from './film.js';

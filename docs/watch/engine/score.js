@@ -90,28 +90,30 @@ function envelope(param, points, when, offset, curve = 'lin') {
 
 // ---------------------------------------------------------------------------------------- the bus
 
+// The live context runs at a fixed rate, so the noise and the reverb tail can be computed ahead of
+// time (prepareScore, in idle time) for exactly the rate playback will use.
+const LIVE_RATE = 48000;
+
 const irCache = new Map();
 const noiseCache = new Map();
 
-function noiseBuffer(ac, seed) {
-  const key = ac.sampleRate + ':' + seed;
+function noiseData(sampleRate, seed) {
+  const key = sampleRate + ':' + seed;
   let data = noiseCache.get(key);
   if (!data) {
     const r = rng(seed * 7919 + 13);
-    data = new Float32Array(ac.sampleRate * 2);
+    data = new Float32Array(sampleRate * 2);
     for (let i = 0; i < data.length; i++) data[i] = r() * 2 - 1;
     noiseCache.set(key, data);
   }
-  const buf = ac.createBuffer(1, data.length, ac.sampleRate);
-  buf.copyToChannel(data, 0);
-  return buf;
+  return data;
 }
 
-function impulse(ac, seed, seconds) {
-  const key = `${ac.sampleRate}:${seed}:${seconds}`;
+function impulseData(sampleRate, seed, seconds) {
+  const key = `${sampleRate}:${seed}:${seconds}`;
   let chans = irCache.get(key);
   if (!chans) {
-    const len = Math.floor(ac.sampleRate * seconds);
+    const len = Math.floor(sampleRate * seconds);
     chans = [0, 1].map((c) => {
       const r = rng(seed * 104729 + c * 31 + 1);
       const d = new Float32Array(len);
@@ -120,26 +122,46 @@ function impulse(ac, seed, seconds) {
         const x = i / len;
         // dark, smooth tail: one-pole low-passed noise under an exponential decay
         lp += 0.35 * ((r() * 2 - 1) - lp);
-        d[i] = lp * Math.pow(1 - x, 2.2) * (i < ac.sampleRate * 0.012 ? i / (ac.sampleRate * 0.012) : 1);
+        d[i] = lp * Math.pow(1 - x, 2.2) * (i < sampleRate * 0.012 ? i / (sampleRate * 0.012) : 1);
       }
       return d;
     });
     irCache.set(key, chans);
   }
+  return chans;
+}
+
+function noiseBuffer(ac, seed) {
+  const data = noiseData(ac.sampleRate, seed);
+  const buf = ac.createBuffer(1, data.length, ac.sampleRate);
+  buf.copyToChannel(data, 0);
+  return buf;
+}
+
+function impulse(ac, seed, seconds) {
+  const chans = impulseData(ac.sampleRate, seed, seconds);
   const buf = ac.createBuffer(2, chans[0].length, ac.sampleRate);
   buf.copyToChannel(chans[0], 0);
   buf.copyToChannel(chans[1], 1);
   return buf;
 }
 
-/** input -> (dry + seeded convolution reverb) -> gentle compressor -> master gain -> destination. */
-function buildBus(ac, score) {
+/**
+ * Compute a score's noise and reverb tail ahead of time (about 15 ms of plain JS), so that pressing
+ * play costs little. Call it in idle time once the film is loaded. It only fills caches.
+ */
+export function prepareScore(score, sampleRate = LIVE_RATE) {
+  noiseData(sampleRate, score.seed);
+  impulseData(sampleRate, score.seed, score.reverb.seconds);
+}
+
+/**
+ * input -> (dry + seeded convolution reverb) -> gentle compressor -> master gain -> destination.
+ * With `reverb: false` the bus starts dry and attachReverb() adds the tail later: setting a
+ * convolver's buffer runs its FFT setup on the main thread (about 25 ms for a 3.6 s tail).
+ */
+function buildBus(ac, score, { reverb = true } = {}) {
   const input = ac.createGain();
-  const wet = ac.createGain();
-  wet.gain.value = score.reverb.wet;
-  const conv = ac.createConvolver();
-  conv.normalize = true;
-  conv.buffer = impulse(ac, score.seed, score.reverb.seconds);
   const comp = ac.createDynamicsCompressor();
   comp.threshold.value = -18;
   comp.knee.value = 12;
@@ -149,12 +171,24 @@ function buildBus(ac, score) {
   const master = ac.createGain();
   master.gain.value = score.gain;
   input.connect(comp);
-  input.connect(conv);
-  conv.connect(wet);
-  wet.connect(comp);
   comp.connect(master);
   master.connect(ac.destination);
-  return { input, master, noise: noiseBuffer(ac, score.seed) };
+  const bus = { input, comp, master, noise: noiseBuffer(ac, score.seed), reverb: false };
+  if (reverb) attachReverb(ac, bus, score);
+  return bus;
+}
+
+function attachReverb(ac, bus, score) {
+  if (bus.reverb) return;
+  const conv = ac.createConvolver();
+  conv.normalize = true;
+  conv.buffer = impulse(ac, score.seed, score.reverb.seconds);
+  const wet = ac.createGain();
+  wet.gain.value = score.reverb.wet;
+  bus.input.connect(conv);
+  conv.connect(wet);
+  wet.connect(bus.comp);
+  bus.reverb = true;
 }
 
 // ---------------------------------------------------------------------------------------- voices
@@ -341,15 +375,41 @@ export class ScorePlayer {
 
   get supported() { return typeof AudioContext !== 'undefined'; }
 
-  /** Call from a user gesture (play button / key). */
+  /** True once the audio graph exists; start() is then cheap. */
+  get ready() { return !!this.ac; }
+
+  open(reverb) {
+    try { this.ac = new AudioContext({ latencyHint: 'playback', sampleRate: LIVE_RATE }); } catch { this.ac = new AudioContext({ latencyHint: 'playback' }); }
+    this.bus = buildBus(this.ac, this.score, { reverb });
+    this.applyVolume(true);
+  }
+
+  /**
+   * Build the audio graph now, from a user gesture that comes before play (pointerdown, a key that
+   * does not start the film). Pressing play then only schedules notes. The context waits suspended.
+   */
+  warm() {
+    if (!this.supported || this.ac) return;
+    this.open(true);
+    if (!this.anchor) this.ac.suspend().catch(() => {});
+  }
+
+  /** Call from a user gesture (play button / key), or within a few seconds of one. */
   async start(t) {
     if (!this.supported) return;
     if (!this.ac) {
-      this.ac = new AudioContext({ latencyHint: 'playback' });
-      this.bus = buildBus(this.ac, this.score);
-      this.applyVolume(true);
+      // cold start: a dry bus now, the reverb tail one frame later, so no single frame pays for both
+      this.open(false);
+      const add = () => { if (this.bus && !this.bus.reverb) attachReverb(this.ac, this.bus, this.score); };
+      if (typeof requestAnimationFrame === 'function') requestAnimationFrame(() => setTimeout(add, 0));
+      else setTimeout(add, 0);
     }
-    if (this.ac.state === 'suspended') await this.ac.resume();
+    if (this.ac.state === 'suspended') {
+      const asked = performance.now();
+      await this.ac.resume();
+      // the film kept running while the context woke up
+      t += (performance.now() - asked) / 1000;
+    }
     this.anchorAt(t);
   }
 
