@@ -192,6 +192,14 @@ presses play and has its own mute and volume. The export renders the same schedu
 `OfflineAudioContext` (`renderScoreWav`). Offline renders agree to within one least significant bit:
 WebAudio does not fix the order in which it sums parallel voices.
 
+Starting sound is kept off the first frame. `prepareScore(score)` computes the noise and the reverb
+tail in idle time once the film is loaded (the live context runs at a fixed 48 kHz so the tail is
+ready for it). `ScorePlayer.warm()` builds the audio graph on the press before play (the player
+calls it on `pointerdown` and on keys that do not start the film), so a click on Play only
+schedules notes. If the very first input is the play key itself, the player draws the first frame
+and `start()` follows a frame later with a dry bus; the convolver, whose FFT setup costs about
+25 ms on the main thread, is attached one frame after that.
+
 ### Also
 
 - `drawMark(ctx, x, y, size, { color, body, bits })`: the Tovek mark; `bits` 0..1 lands its eight bits.
