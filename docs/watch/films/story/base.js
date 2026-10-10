@@ -28,11 +28,11 @@ export const T = {
   // July: 0.7, the goto arcs, 0.8 snaps them into a loop, 0.9
   r07: 55.0, r07Morph0: 56.0, r07Morph1: 58.4, arcs0: 59.6, nogoto: 63.8, snap0: 65.4, snap1: 67.6, r08wide: 68.0, r09: 73.0, july1: 76.2,
   // the release pages
-  v2: 76.2, v2settle: 77.0, v2Morph0: 77.8, v2Morph1: 81.6, v21: 86.0, v211: 92.4, v25: 97.6, fuzz0: 99.6, ctx25: 104.0, v251: 107.4,
+  v2: 76.2, v2settle: 77.0, v2Morph0: 77.8, v2Morph1: 81.6, v21: 86.0, v211: 92.4, v25: 96.8, fuzz0: 98.8, ctx25: 103.2, v251: 106.6,
   // V2.6: the flood, the copies come home, the constants, the numbers
-  flood: 111.4, title26: 112.0, homing0: 115.0, homing1: 131.0, consts0: 131.0, nums: 137.2,
+  flood: 110.6, title26: 111.2, homing0: 114.2, homing1: 130.2, consts0: 130.2, nums: 136.4,
   // the end
-  orig: 143.2, end: 151.0, duration: 160.0,
+  orig: 142.0, end: 149.6, duration: 160.0,
 };
 
 // --------------------------------------------------------------------------------------- the look

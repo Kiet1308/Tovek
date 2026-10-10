@@ -152,12 +152,28 @@ export function prepareClimax() {
     c.helper.arrive = Math.min(c.helper.arrive, c.arrive);
     c.helper.lastArrive = Math.max(c.helper.lastArrive ?? 0, c.arrive);
   });
+  // for every kept token, the helper whose lines it sits on in B (-1 for none)
+  H.keptHelper = new Map();
+  for (const [k, gr] of plan.kept) {
+    const idx = new Int8Array(gr.text.length);
+    for (let n = 0, q = 0; n < gr.text.length; n++, q += 5) {
+      const bl = gr.nums[q + 3];
+      idx[n] = H.helpers.findIndex((h) => bl >= h.line && bl <= h.end);
+    }
+    H.keptHelper.set(k, idx);
+  }
   const lastArrive = Math.max(...H.copies.map((c) => c.arrive), T.homing0 + 4);
   H.dissolve0 = lastArrive + 0.5;
   H.glide0 = lastArrive + 0.7; H.glide1 = H.glide0 + 2.2;
   H.type0 = H.glide1 - 0.2; H.type1 = H.type0 + 1.9;
   // the folded constants, each filling the frame in turn
-  H.exprs.forEach((x, i) => { x.t0 = T.consts0 + i * 3.1; x.plan = codeMorph(x.aText.trim(), x.bText.trim()); });
+  H.exprs.forEach((x, i) => {
+    x.t0 = T.consts0 + i * 3.1;
+    // the call's comment is shown as a label under the close-up, so the expression can fill the frame
+    const bare = x.bText.trim().replace(/\s*--\s*(.*)$/, '');
+    x.comment = (x.bText.match(/--\s*(.*)$/) || [])[1] || '';
+    x.plan = codeMorph(x.aText.trim(), bare);
+  });
   // where the paper floods from: the first token of the first pasted copy, as V2.5.1's shot shows it
   const c0 = H.copies[0];
   if (c0) {
@@ -172,11 +188,10 @@ export const hmeta = () => H;
 
 /** Design position of grid cell (line, col) in a two-column layout. */
 function at(C, line, col) {
-  const { cw, lh } = S.CM;
-  const right = line >= C.split;
-  const row = right ? line - C.split : line;
-  return [C.x[right ? 1 : 0] + col * cw * C.s, C.top + row * lh * C.s];
+  return [atX(C, line, col), atY(C, line)];
 }
+const atX = (C, line, col) => C.x[line >= C.split ? 1 : 0] + col * S.CM.cw * C.s;
+const atY = (C, line) => C.top + (line >= C.split ? line - C.split : line) * S.CM.lh * C.s;
 
 // ---------------------------------------------------------------------------------- the flood
 
@@ -282,24 +297,23 @@ function drawHoming(ctx, t) {
   const raw = clamp((t - H.glide0) / (H.glide1 - H.glide0));
   const spread = 0.3;
   const helperIn = H.helpers.map((h) => ease.inOut(clamp((t - h.arrive - 0.05) / 0.45)));
+  const inv = 1 / s, by0 = baseline * s;
   for (const [k, gr] of plan.kept) {
     ctx.fillStyle = pal[k] || pal.id;
     ctx.globalAlpha = base * fadeIn;
-    const nums = gr.nums, texts = gr.text;
+    const nums = gr.nums, texts = gr.text, hix = H.keptHelper.get(k);
     for (let n = 0, q = 0; n < texts.length; n++, q += 5) {
-      let [ax, ay] = posA(nums[q + 1], nums[q]);
-      const bl = nums[q + 3], bc = nums[q + 2];
-      const hi = H.helpers.findIndex((h) => bl >= h.line && bl <= h.end);
+      const al = nums[q + 1], ac = nums[q], bl = nums[q + 3], bc = nums[q + 2];
+      let ax = atX(A, al, ac), ay = atY(A, al);
+      const hi = hix[n];
       if (hi >= 0 && helperIn[hi] > 0) {
-        const h = H.helpers[hi];
-        const [hx, hy] = at(A, h.aLine + (bl - h.line), bc);
-        ax = lerp(ax, hx, helperIn[hi]); ay = lerp(ay, hy, helperIn[hi]);
+        const h = H.helpers[hi], hl = h.aLine + (bl - h.line), e2 = helperIn[hi];
+        ax += (atX(A, hl, bc) - ax) * e2; ay += (atY(A, hl) - ay) * e2;
       }
-      const [bx, by] = posB(bl, bc);
       const d = nums[q + 4] * spread;
       const ey = raw <= 0 ? 0 : raw >= 1 ? 1 : ease.inOut(clamp((raw - d) / (1 - spread)));
-      const x = lerp(ax, bx, g), y = lerp(ay, by, ey) + baseline * s;
-      ctx.fillText(texts[n], x / s, y / s);
+      const x = ax + (atX(B, bl, bc) - ax) * g, y = ay + (atY(B, bl) - ay) * ey + by0;
+      ctx.fillText(texts[n], x * inv, y * inv);
     }
   }
 
@@ -434,10 +448,17 @@ function drawHoming(ctx, t) {
     for (const pc of run.pieces) {
       const visible = typed - pc.at;
       if (visible <= 0) break;
-      // on helper lines the text rides the glide like kept text
-      const [ax, ay] = h ? at(A, h.aLine + (run.line - h.line), pc.col) : posB(run.line, pc.col);
-      const [bx, by] = posB(run.line, pc.col);
-      const x = h ? lerp(ax, bx, g) : bx, y = (h ? lerp(ay, by, g) : by) + baseline * s;
+      // on helper lines the text rides the glide exactly like the kept text of its line
+      const bx = atX(B, run.line, pc.col), by = atY(B, run.line);
+      let x = bx, y = by;
+      if (h) {
+        const al = h.aLine + (run.line - h.line);
+        const d = ((run.line / Math.max(1, plan.b.lineCount - 1)) * 0.6 + (al / Math.max(1, plan.a.lineCount - 1)) * 0.4) * spread;
+        const ey = raw <= 0 ? 0 : raw >= 1 ? 1 : ease.inOut(clamp((raw - d) / (1 - spread)));
+        const ax = atX(A, al, pc.col), ay = atY(A, al);
+        x = ax + (bx - ax) * g; y = ay + (by - ay) * ey;
+      }
+      y += baseline * s;
       ctx.fillStyle = e.accent;
       const whole = Math.min(pc.text.length, Math.floor(visible));
       ctx.globalAlpha = base;
@@ -467,13 +488,14 @@ function drawConstants(ctx, t) {
   const e = ERA.v26, pal = S.PAL.v26;
   const { cw, lh } = S.CM;
   for (const x of H.exprs) {
-    if (t < x.t0 - 0.05 || t > x.t0 + 3.15) continue;
+    if (t < x.t0 - 0.3 || t > x.t0 + 3.15) continue;
     const pl = x.plan;
     const a = 1;
     // A: the whole line, then a push until the folded constant fills the frame
     const iA = pl.a.lines[0].indexOf(x.from);
     const iB = pl.b.lines[0].indexOf(x.to);
-    const lineCam = { s: 2.6, x: 960 - (pl.a.cols * cw * 2.6) / 2, y: 540 - 0.5 * lh * 2.6 };
+    const first = x === H.exprs[0];
+    const lineCam = { s: 2.6, x: 960 - (first ? iA + x.from.length / 2 : pl.a.cols / 2) * cw * 2.6, y: 540 - 0.5 * lh * 2.6 };
     const sA = Math.min(7.2, 1600 / (x.from.length * cw));
     const camA = { s: sA, x: 960 - (iA + x.from.length / 2) * cw * sA, y: 540 - 0.5 * lh * sA };
     const sB = Math.min(12, 1100 / (x.to.length * cw));
@@ -483,7 +505,8 @@ function drawConstants(ctx, t) {
     ctx.save();
     if (pm <= 0) {
       const cam = zoomCam(lineCam, camA, push);
-      const typed = clamp((t - x.t0) / 0.45) * pl.a.src.length;
+      const typed = first ? Infinity : clamp((t - x.t0) / 0.45) * pl.a.src.length;
+      ctx.globalAlpha *= first ? ease.out(clamp((t - x.t0 + 0.25) / 0.35)) : 1;
       ctx.translate(cam.x, cam.y);
       ctx.scale(cam.s, cam.s);
       setFont(ctx, codeFont(CODE.size));
@@ -510,6 +533,7 @@ function drawConstants(ctx, t) {
     const la = envelope(t, x.t0 + 0.3, x.t0 + 3.05, 0.4, 0.35);
     label(ctx, 'FOLDED BY LUAU', 960, 230, e.ink2, { alpha: la * (1 - clamp(pm * 2)), align: 'center' });
     label(ctx, 'SOLVED BACK', 960, 230, e.accent, { alpha: la * clamp(pm * 2 - 1), align: 'center' });
+    if (x.comment) drawText(ctx, layoutText('-- ' + x.comment, TY.dark.line), 960, 820, { color: e.accent, align: 'center', alpha: la * clamp(pm * 2.2 - 1.2) });
   }
 }
 
@@ -520,7 +544,7 @@ function drawNumbers(ctx, t) {
   const n = S.N.v26a, z = S.N.v26b;
   if (!n) return;
   const t0 = T.nums;
-  const out = ease.inOut(clamp((t - (T.orig - 0.2)) / 0.6));
+  const out = ease.inOut(clamp((t - (T.orig - 0.6)) / 0.6));
   const side = ease.inOutCubic(clamp((t - t0 - 3.0) / 0.8));
   ctx.save();
   ctx.globalAlpha *= 1 - out;
@@ -586,6 +610,6 @@ export function drawV26(ctx, t) {
     drawCorner(ctx, t);
     drawHomingStats(ctx, t);
   }
-  if (t >= T.consts0 - 0.05 && t < T.nums + 0.3) drawConstants(ctx, t);
+  if (t >= T.consts0 - 0.3 && t < T.nums + 0.3) drawConstants(ctx, t);
   if (t >= T.nums - 0.05) drawNumbers(ctx, t);
 }

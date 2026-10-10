@@ -114,12 +114,13 @@ const whenOf = (st) => (st.published_at ? `${stamp(st.published_at)} UTC` : st.d
  * The terminal column: the binary's own version line, the release name, its publish time and its
  * headline. With `prev`, every line rolls from the previous release in place.
  */
-function terminal(ctx, t, st, prev, t0, { headAt = t0 + 0.4, alpha = 1, dateFrom = null, big = false } = {}) {
+function terminal(ctx, t, st, prev, t0, { headAt = t0 + 0.4, alpha = 1, dateFrom = null, big = false, roll = true } = {}) {
   if (alpha <= 0 || t < t0 - 0.1) return;
   const e = ERA.dark, ty = TY.dark;
   ctx.save();
   ctx.globalAlpha *= alpha;
   const P1 = layoutText('$ luau-lifter --version', ty.prompt);
+  if (!roll) prev = null; // the terminal was not on screen just before: type it fresh
   if (prev) drawText(ctx, P1, COL, 150, { color: e.ink2 });
   else typewriter(ctx, P1, COL, 150, clamp((t - t0) * 38, 0, P1.glyphCount), { color: e.ink2 });
   const ix = (s) => COL + COLW - s.length * measure('0', ty.prompt);
@@ -166,7 +167,7 @@ export function drawBeta01(ctx, t) {
     if (fa > 0) drawFlow(ctx, p <= 0 ? B.pB01.a : B.pB01.b, p <= 0 ? B.camMedalFor : B.camB01For, t, e.ink2, { gotoA: fa, loopA: fa });
     edgeFade(ctx, CLIP, e.surface);
   }));
-  terminal(ctx, t, st, null, T.b01 + 0.2, { headAt: T.b01 + 1.6, dateFrom: null });
+  terminal(ctx, t, st, null, T.b01 - 0.05, { headAt: T.b01 + 1.6, dateFrom: null });
   drawLedger(ctx, t, B.ledger, 'dark', COL, 828, ease.out(clamp((t - T.b01 - 0.8) / 0.8)) * (1 - ease.inOut(clamp((t - T.b011 + 0.3) / 0.3))));
 }
 
@@ -270,16 +271,22 @@ export function drawMontage(ctx, t) {
   const ctext = clockText(ck.ms);
   drawText(ctx, layoutText('UTC', TY.dark.small), 1770, 262, { color: e.ink3, align: 'right', tracking: 0.12 });
   drawText(ctx, layoutText(ctext, cf), 1770 - 64, 262, { color: ck.racing ? e.ink2 : e.ink, align: 'right' });
-  // 4. the version, slammed full frame
-  const s = ck.slot;
+  // 4. the version, slammed full frame; it holds until the next one lands on top of it
+  let s = ck.slot;
   if (!s) return;
+  if (t < s.slam) {
+    const i = B.slots.indexOf(s);
+    if (i <= 0) return;
+    s = B.slots[i - 1];
+  }
   const since = t - s.slam;
   const vf = TY.dark.slam;
   const v = versionOf(s.st);
   if (since >= 0) {
     const q = clamp(since / 0.16);
     const k = lerp(1.28, 1, ease.outExpo(q));
-    const leave = s.t1 - t < 0.08 ? (s.t1 - t) / 0.08 : 1;
+    const last = s === B.slots[B.slots.length - 1];
+    const leave = last && T.mont1 - t < 0.08 ? (T.mont1 - t) / 0.08 : 1;
     ctx.save();
     ctx.translate(960, 712);
     ctx.scale(k, k);
@@ -387,7 +394,7 @@ export function drawJuly(ctx, t) {
   // ---- 0.7 in the terminal: the code pans from the second function to the loop, then morphs
   if (t < T.arcs0 + 1.2) {
     const out = ease.inOut(clamp((t - T.arcs0) / 0.9));
-    terminal(ctx, t, s07, s06, T.r07 + 0.2, { headAt: T.r07 + 0.6, alpha: 1 - out, dateFrom: whenOf(s06) });
+    terminal(ctx, t, s07, s06, T.r07 + 0.1, { headAt: T.r07 + 1.4, alpha: 1 - out, dateFrom: whenOf(s06), roll: false });
     drawLedger(ctx, t, B.ledger, 'dark', COL, 828, ease.out(clamp((t - T.r07 - 0.4) / 0.6)) * (1 - out));
   }
   // the camera: the 0.6 loop, the morph to 0.7, then the arcs framing at the left of the frame
@@ -403,7 +410,7 @@ export function drawJuly(ctx, t) {
   const codeDim = 1 - 0.6 * nogotoDim - 0.62 * envelope(t, T.r09 - 0.2, T.july1 + 1, 0.5, 0.1);
   const clip = { x: 0, y: 40, w: 1920, h: 1000 };
   faded(ctx, codeDim, () => {
-    if (t < T.r07Morph0) codeAt(ctx, B.p07.a, camIn, pal, { clip });
+    if (t < T.r07Morph0) codeAt(ctx, B.p07.a, camIn, pal, { clip, lineAlpha: (l) => (l >= B.joinTop && l <= B.joinEnd ? 1 : ease.out(clamp((t - T.r07) / 0.8))) });
     else if (pm < 1) drawMorph(ctx, B.p07, pm, { size: CODE.size, lineHeight: CODE.lineHeight, palette: pal, cameraA: B.camB06For, cameraB: B.cam07For, blur: 5, highlight: B.R.r07 });
     else if (t < T.snap0) codeAt(ctx, B.L07, camHold, pal, { clip, highlight: B.R.r07, mix: settle(T.r07Morph1, 1.0, 0.8)(t), washAlpha: washIn(T.r07Morph1, 1.0, 0.8)(t), washColor: rgba(pal.accent, 0.2), lineAlpha: (l) => (l >= B.loop07[0] && l <= B.loop07[1] ? 1 : 1 - 0.85 * toArcs) });
     else if (ps < 1) drawMorph(ctx, B.p08, ps, { size: CODE.size, lineHeight: CODE.lineHeight, palette: pal, cameraA: B.camArcs, cameraB: B.cam08, blur: 5, inserted: 'base' });
@@ -431,7 +438,7 @@ export function drawJuly(ctx, t) {
     drawText(ctx, layoutText(whenOf(s08), ty.small), 96, 124, { color: e.ink2, tracking: 0.04 });
     ctx.restore();
   }
-  drawLedger(ctx, t, B.ledger, 'dark', 96, 828, envelope(t, T.snap0 + 0.2, T.r09 + 0.3, 0.6, 0.4), { width: 360 });
+  drawLedger(ctx, t, B.ledger, 'dark', 96, 828, envelope(t, T.snap1 - 0.3, T.r09 + 0.3, 0.6, 0.4), { width: 360 });
 
   // ---- 0.9 beta, quietly, over the dimmed code
   if (t > T.r09 - 0.1) {

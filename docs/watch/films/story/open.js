@@ -298,7 +298,7 @@ function drawByteStory(ctx, t) {
     const pairs = [[1, ops[1]], [2, ops[2]], [4, ops[3]]];
     cells.forEach((c, i) => {
       if (i === 0) return;
-      const st = T.instr + 0.15 + i * 0.05;
+      const st = T.instr + 0.5 + i * 0.05;
       const q = ease.out(clamp((t - st) / 0.4));
       if (q <= 0) return;
       const pair = pairs.find((p) => p[0] === i);

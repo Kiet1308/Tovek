@@ -323,13 +323,13 @@ function drawV25Page(ctx, t) {
     const s0 = Math.min(1.25, 1040 / (pJ.b.cols * cw), 860 / (pJ.b.lineCount * lh));
     const wide = { s: s0, x: 1300 - (pJ.b.cols * cw * s0) / 2, y: 560 - (pJ.b.lineCount * lh * s0) / 2 };
     const tk = P.ctxTok != null ? pJ.b.tokens[P.ctxTok] : null;
-    const sZ = 4.6;
-    const close = tk ? { s: sZ, x: 1180 - (tk.col + tk.text.length / 2) * cw * sZ, y: 600 - (tk.line + 0.5) * lh * sZ } : wide;
+    const sZ = Math.min(4.6, 1000 / ((tk ? tk.text.length : 10) * cw));
+    const close = tk ? { s: sZ, x: 1300 - (tk.col + tk.text.length / 2) * cw * sZ, y: 560 - (tk.line + 0.5) * lh * sZ } : wide;
     const pm = clamp((t - T.ctx25 - 0.2) / 1.6);
     const zoom = ease.inOutCubic(clamp((t - T.ctx25 - 2.0) / 1.1));
     faded(ctx, a, () => clipRect(ctx, { x: 700, y: 40, w: 1220, h: 1000 }, () => {
       if (pm < 1) drawMorph(ctx, pJ, pm, { size: CODE.size, lineHeight: CODE.lineHeight, palette: pal, cameraA: wide, cameraB: wide, blur: 5, highlight: P.rJ });
-      else codeAt(ctx, pJ.b, zoomCam(wide, close, zoom), pal, { clip: { x: 700, y: 0, w: 1220, h: 1080 }, highlight: P.rJ, mix: 1 });
+      else codeAt(ctx, pJ.b, zoomCam(wide, close, zoom), pal, { clip: { x: 700, y: 0, w: 1220, h: 1080 }, highlight: P.rJ, mix: 1, lineAlpha: (l) => (tk && l === tk.line ? 1 : 1 - 0.88 * zoom) });
     }));
   }
 

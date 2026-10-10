@@ -69,7 +69,8 @@ function warmUp(ctx, t) {
   if (!canvas || !canvas.transferToImageBitmap) return;
   const wctx = canvas.getContext('2d', { alpha: false });
   const n = Math.ceil(T.duration / WARM_STEP);
-  warm = { w: c.width, h: c.height, canvas, wctx, done: new Uint8Array(n), left: n, lastT: t, finished: false };
+  // playback starts at the top, whatever the poster shows: warm from there
+  warm = { w: c.width, h: c.height, canvas, wctx, done: new Uint8Array(n), left: n, lastT: 0, finished: false, t0: performance.now() };
   const idle = globalThis.requestIdleCallback || ((cb) => setTimeout(() => cb({ timeRemaining: () => 8 }), 40));
   const W = warm;
   const step = (deadline) => {
@@ -84,7 +85,7 @@ function warmUp(ctx, t) {
       try { render(W.wctx, i * WARM_STEP, 1920, 1080, true); W.canvas.transferToImageBitmap().close(); } catch { W.left = 0; }
     }
     if (W.left > 0) idle(step, { timeout: 500 });
-    else { W.finished = true; W.canvas.width = W.canvas.height = 1; }
+    else { W.finished = true; W.ms = performance.now() - W.t0; W.canvas.width = W.canvas.height = 1; }
   };
   idle(step, { timeout: 500 });
 }
@@ -96,7 +97,7 @@ const story = {
   title: 'One function, seventeen releases',
   description: 'The same function, decompiled by medal and by every Tovek release.',
   duration: T.duration,
-  poster: 8.9,
+  poster: 5.3,
   background: V26.night,
   fonts: Object.values(TY).flatMap((set) => Object.values(set)).filter((x) => !/Inter|Hanken|Google/.test(x.family)).map((x) => x.css),
   glyphs: 'Tovek 0123456789 →·—–…×#$-_/:()[]',
@@ -137,6 +138,8 @@ const story = {
   },
 
   render: (ctx, t, w, h) => render(ctx, t, w, h),
+  /** For tests: how far the idle warm-up has got. */
+  warmState: () => (warm ? { left: warm.left, total: warm.done.length, finished: warm.finished, ms: warm.ms ?? performance.now() - warm.t0 } : null),
 };
 
 /** Numbers from the release notes (a widget is skipped if a note is worded differently). */

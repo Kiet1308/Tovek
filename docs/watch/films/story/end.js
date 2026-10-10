@@ -50,7 +50,7 @@ export function prepareEnd() {
 export const smeta = () => SIDE;
 
 /** The time each panel line is wiped into night, top to bottom. */
-const wipeAt = (l) => T.end - 0.15 + l * 0.022;
+const wipeAt = (l) => T.end - 0.15 + l * 0.016;
 
 export function drawSide(ctx, t) {
   const e = ERA.v26, ty = TY.v26, S2 = SIDE;
@@ -74,6 +74,12 @@ export function drawSide(ctx, t) {
   drawText(ctx, statL, 960 - total / 2 + numW, 150, { color: e.ink });
   ctx.restore();
   const washA = ease.out(clamp((t - T.orig - 2.4) / 0.6));
+  // a slow push while the two are compared
+  const k = 1 + 0.035 * ease.inOutSine(clamp((t - T.orig) / (T.end - T.orig + 1)));
+  ctx.save();
+  ctx.translate(960, 600);
+  ctx.scale(k, k);
+  ctx.translate(-960, -600);
   panels.forEach((pn, i) => {
     const pa = ease.out(clamp((t - T.orig - 0.4 - i * 0.15) / 0.8));
     if (pa <= 0) return;
@@ -95,6 +101,7 @@ export function drawSide(ctx, t) {
     ctx.restore();
     ctx.restore();
   });
+  ctx.restore();
 }
 
 /** The wipe into night: each code line is covered by a band of night, sweeping left to right. */
@@ -110,7 +117,7 @@ export function drawWipe(ctx, t) {
   const rows = Math.ceil(1080 / lh) + 1;
   for (let r = 0; r < rows; r++) {
     const y0 = sn(r * lh - (S2.top % lh)), y1 = sn((r + 1) * lh - (S2.top % lh));
-    const q = ease.inOutCubic(clamp((t - wipeAt(r) ) / 0.55));
+    const q = ease.inOutCubic(clamp((t - wipeAt(r)) / 0.42));
     if (q < 1) full = false;
     if (q <= 0) continue;
     ctx.fillRect(-2, y0, sn(1924 * q), y1 - y0 + px);
@@ -130,7 +137,7 @@ export function drawEnd(ctx, t) {
     { v: tt.days_since_first_beta, label: `days since ${S.ST['v0.1.0-beta'].name}` },
     { v: tt.commits, label: 'commits' },
   ];
-  const outT = T.end + 3.6;
+  const outT = T.end + 3.4;
   items.forEach((it, i) => {
     const x = 960 + (i - 1) * 470;
     const st = t0 + i * 0.22;
