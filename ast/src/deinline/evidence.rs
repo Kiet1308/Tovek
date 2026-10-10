@@ -39,8 +39,14 @@ pub struct Copies {
     /// `(caller, value bits)` -> the caller's references to that number
     /// constant, every instruction loading it, operating with it or
     /// comparing with it, and every value of a table template: only for
-    /// callers with a [`Copies::constant_copies`] entry.
+    /// callers with a [`Copies::constant_copies`] or
+    /// [`Copies::copy_refs`] entry.
     pub constant_refs: FxHashMap<(u32, u64), u32>,
+    /// `(caller, helper, value bits)` -> the caller's references to that
+    /// number constant inside copies of the helper (or of a helper whose
+    /// copy holds one of it): constants its copies' folding may have made
+    /// ([`Copies::constant_in_copies`]).
+    pub copy_refs: FxHashMap<(u32, u32, u64), u32>,
     /// The helpers with a copy somewhere, read off `copies` by [`enter`].
     inlined: FxHashSet<u32>,
 }
@@ -85,6 +91,17 @@ impl Copies {
         let caller = caller.unwrap_or(self.main);
         match (u32::try_from(caller), u32::try_from(outer), u32::try_from(inner)) {
             (Ok(caller), Ok(outer), Ok(inner)) => self.nested.contains(&(caller, outer, inner)),
+            _ => false,
+        }
+    }
+
+    /// Whether copies of `helper` in the code of `caller` (`None`: the
+    /// chunk) refer to the number constant with `bits` (plan E2): a literal
+    /// of it may stand for what those copies folded.
+    pub fn constant_in_copies(&self, caller: Option<usize>, helper: usize, bits: u64) -> bool {
+        let caller = caller.unwrap_or(self.main);
+        match (u32::try_from(caller), u32::try_from(helper)) {
+            (Ok(caller), Ok(helper)) => self.copy_refs.contains_key(&(caller, helper, bits)),
             _ => false,
         }
     }

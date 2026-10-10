@@ -146,6 +146,7 @@ impl ExprTarget {
             params: &self.params,
             locals: &self.locals,
             captures: None,
+            fold: None,
         }
     }
 }

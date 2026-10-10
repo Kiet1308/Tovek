@@ -712,6 +712,18 @@
       "bytes": 3140,
       "lines": 157
     },
+    "semantic/deinline_constant_fold_equations__O0.luau": {
+      "bytes": 1988,
+      "lines": 115
+    },
+    "semantic/deinline_constant_fold_equations__O1.luau": {
+      "bytes": 1988,
+      "lines": 115
+    },
+    "semantic/deinline_constant_fold_equations__O2.luau": {
+      "bytes": 3287,
+      "lines": 131
+    },
     "semantic/deinline_constant_folded_helper_copies__O0.luau": {
       "bytes": 1146,
       "lines": 76

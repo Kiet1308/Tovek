@@ -105,8 +105,11 @@ for scope, methodology and remaining regressions.
   code at all. A copy Luau folded whole into one constant (`frames(13)` as
   `0.21666666666666667` for `return n / 60`) becomes the call where every use of that constant in
   the function is such a copy and an argument folds back to it bit for bit, by Luau's own constant
-  folding rules (never through a library call, which a script may replace). Line info only admits
-  a match, never proves one; without it (`-g0`) such code stays as written.
+  folding rules (never through a library call, which a script may replace). A copy with constant
+  arguments folded into its code (`part.Transparency = 0.5` for `fade(part, 0.5)` and `1 - k`) is
+  matched by solving for those arguments the same way, where its numbers are the copies' own and
+  its matches are exactly the helper's copies in the function. Line info only admits a match,
+  never proves one; without it (`-g0`) such code stays as written.
 - **Idiomatic cleanup.** Compound assignments, backtick string interpolation (where
   `("...%*"):format(x)` gives one value; a spreading last argument, constructor tail or `return`
   keeps `:format`, as a replaced `string.format` may return more),

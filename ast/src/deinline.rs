@@ -370,6 +370,14 @@ struct Target {
     /// value smaller than the expression helpers' floor, or a call saving
     /// less. It tries no other site shape.
     hosted_only: bool,
+    /// A fold variant ([`fold_variant`]): the module's pure helpers, which
+    /// its constant-fold equations may fold through. Its matches stand for
+    /// copies whose constant arguments Luau folded (`fade(part, 0.5)`).
+    fold: Option<std::rc::Rc<fold::PureHelpers>>,
+    /// For a fold variant: the values the helper returns whole, which no
+    /// equation may stand for (a copy folded whole is the constant
+    /// ledger's, [`constant_copies`]).
+    fold_roots: Vec<RValue>,
     /// What line info says of the module's inlined copies, when it has
     /// line info.
     lines: Option<std::rc::Rc<Evidence>>,
@@ -440,6 +448,10 @@ pub(crate) struct Bindings {
     /// stands for an empty site block, on whose path the result keeps that
     /// `nil` (nil-leaf elision, [`match_value`]).
     elide_nil: bool,
+    /// Constant-fold equations ([`MatchCtx::fold`]): a value of the
+    /// pattern computed from parameters, and the literal of the site it
+    /// must fold to.
+    pub(crate) equations: Vec<(RValue, Literal)>,
 }
 
 impl Bindings {
@@ -466,6 +478,13 @@ pub(crate) struct MatchCtx<'a> {
     /// The module's census, when the matcher has one: it tells the outer
     /// locals no code assigns after their declaration ([`unify_closure`]).
     pub(crate) captures: Option<&'a crate::deinline_safety::CaptureSafety>,
+    /// Constant-fold equations (plan E2): where a value of the pattern
+    /// computed from parameters meets a literal of the site, the match
+    /// records the equation ([`Bindings::equations`]) instead of failing,
+    /// for its target to prove ([`resolve_equations`]), with the pure
+    /// helpers its calls may fold through. `None`: a literal matches only
+    /// the same literal.
+    pub(crate) fold: Option<&'a fold::PureHelpers>,
 }
 
 impl Target {
@@ -474,6 +493,7 @@ impl Target {
             params: &self.params,
             locals: &self.locals,
             captures: Some(&self.captures),
+            fold: self.fold.as_deref(),
         }
     }
 
@@ -879,6 +899,13 @@ pub fn deinline_orphans_in(body: &mut Block, chunk_orphans: &mut Vec<(RcLocal, C
         crate::expr_deinline::collect_write_counts(&body.0, &mut write_counts);
         crate::telemetry::count("bindings", write_counts.len() as u64);
     }
+    // The module's pure helpers (plan E2), which fold variants' equations
+    // may fold through: only with line evidence, which admits those.
+    let pure = lines.as_ref().map(|_| {
+        let mut declarations = Vec::new();
+        each_closure_decl(&body.0, &mut |binder, function| declarations.push((binder.clone(), function.clone())));
+        std::rc::Rc::new(fold::PureHelpers::of(&declarations, &write_counts))
+    });
     // What the previous iteration rewrote: it decides which targets can match
     // anew (`Target::focused`).
     let mut previous: Option<Progress> = None;
@@ -934,7 +961,7 @@ pub fn deinline_orphans_in(body: &mut Block, chunk_orphans: &mut Vec<(RcLocal, C
                     if let Some(last) = last_targets.take() {
                         helper_cache.keep_targets(last);
                     }
-                    let mut targets = collect_targets(body, &write_counts, &single_valued, captures, lines.as_ref(), &orphans, &mut helper_cache);
+                    let mut targets = collect_targets(body, &write_counts, &single_valued, captures, lines.as_ref(), pure.as_ref(), &orphans, &mut helper_cache);
                     crate::telemetry::count("accepted_targets", targets.len() as u64);
                     // The budget counts helpers: a value helper's discard
                     // variant shares its definition. Helpers line evidence
@@ -943,7 +970,12 @@ pub fn deinline_orphans_in(body: &mut Block, chunk_orphans: &mut Vec<(RcLocal, C
                         targets
                             .iter()
                             .filter(|target| {
-                                target.evidence == evidence && !target.discarded && !target.hosted_only && target.inferred.is_none() && !target.earlier_body
+                                target.evidence == evidence
+                                    && !target.discarded
+                                    && !target.hosted_only
+                                    && target.inferred.is_none()
+                                    && target.fold.is_none()
+                                    && !target.earlier_body
                             })
                             .count()
                     };
@@ -3048,6 +3080,20 @@ pub(crate) fn unify_rvalue(
             _ => Err(()),
         };
     }
+    // A value computed from parameters only, where the site has a number:
+    // Luau folded it for constant arguments (`1 - k` as 0.5). The site's
+    // number may be a call of a pure helper on constants a rebuild put
+    // there (`frames(6)` for 0.1). The target proves the equation once
+    // every parameter is bound.
+    if let Some(helpers) = ctx.fold
+        && !matches!(p, RValue::Literal(_))
+        && let Some(value) = site_number(c, helpers)
+        && fold::foldable(p, &|local| ctx.params.contains(local), helpers)
+        && ctx.params.iter().any(|param| fold::reads(p, param) > 0)
+    {
+        b.equations.push((p.clone(), Literal::Number(value)));
+        return Ok(());
+    }
     match (p, c) {
         (RValue::Global(a), RValue::Global(d)) => {
             if a == d {
@@ -3099,6 +3145,22 @@ pub(crate) fn unify_rvalue(
         (RValue::VarArg(_), RValue::VarArg(_)) => Ok(()),
         (RValue::Select(a), RValue::Select(d)) => unify_select(ctx, a, d, b),
         _ => Err(()),
+    }
+}
+
+/// The number a site value is for a constant-fold equation
+/// ([`MatchCtx::fold`]): a number literal, or a call of a pure helper on
+/// constants (it computes the number it folds to, and has no effect).
+fn site_number(value: &RValue, helpers: &fold::PureHelpers) -> Option<f64> {
+    match value {
+        RValue::Literal(Literal::Number(number)) => Some(*number),
+        RValue::Call(_) | RValue::Select(Select::Call(_)) if fold::foldable(value, &|_| false, helpers) => {
+            match fold::evaluate(value, &|_| None, helpers)? {
+                fold::Value::Number(number) => Some(number),
+                _ => None,
+            }
+        }
+        _ => None,
     }
 }
 
@@ -4372,7 +4434,11 @@ fn try_match_at(
             if t.evidence && hit.host.is_some() && let (Some(pattern), Some(statement)) = (&t.hosted, stmts.get(anchor)) {
                 let shaped = std::cell::Cell::new(0);
                 holds_shape(statement, &|value| {
-                    if value_kind(value) == value_kind(pattern) && unify_returned_value(&t.ctx(), pattern, value, &mut Bindings::default()).is_ok() {
+                    if value_kind(value) == value_kind(pattern) && {
+                        let mut bindings = Bindings::default();
+                        unify_returned_value(&t.ctx(), pattern, value, &mut bindings).is_ok()
+                            && resolve_equations(t, &mut bindings, current_func).is_ok()
+                    } {
                         shaped.set(shaped.get() + 1);
                     }
                     false
@@ -6750,6 +6816,11 @@ fn finish_unified(
     // The function the site is in: its registers read alike across calls.
     current_func: Option<FnPtr>,
 ) -> Option<Unified> {
+    // A fold variant's equations, proven: the parameters they solve are
+    // the call's constant arguments.
+    if let Err(reason) = resolve_equations(t, &mut b, current_func) {
+        return reason.and_then(refused);
+    }
     // A specialization variant passes its constant, where nothing the
     // specialization kept (a function literal's capture) read the argument
     // the site passed instead.
@@ -6895,6 +6966,61 @@ fn finish_unified(
         written,
         first_moved,
     })
+}
+
+/// Proves a fold variant's equations ([`Bindings::equations`], plan E2):
+/// each parameter they read is bound to a constant by the match or solved
+/// from them ([`fold::solve_equations`]), and every equation folds to its
+/// literal bit for bit. The solved parameters join the bindings as the
+/// call's constant arguments. Refused (with the reason) where the match
+/// recorded no equation (the target itself stands for it), an equation is
+/// a value the helper returns whole (a copy folded whole is the constant
+/// ledger's), a parameter an equation reads is bound to anything but a
+/// constant, or no proof holds.
+fn resolve_equations(t: &Target, b: &mut Bindings, current_func: Option<FnPtr>) -> Result<(), Option<&'static str>> {
+    let Some(helpers) = t.fold.as_deref() else { return Ok(()) };
+    let equations = std::mem::take(&mut b.equations);
+    if equations.is_empty() {
+        return Err(None);
+    }
+    if equations.iter().any(|(pattern, _)| t.fold_roots.iter().any(|root| rvalue_exact_eq(root, pattern))) {
+        return Err(Some("fold_whole_value"));
+    }
+    // Each constant an equation stands for is one the helper's copies in
+    // this function refer to: a literal written by hand with another value
+    // (`{ time = 0.5 }` beside `linear(6)` copies) stays as it is.
+    let caller = t.lines.as_ref().and_then(|lines| lines.caller(current_func));
+    let inside = |literal: &Literal| match (literal, &t.lines, caller, t.proto) {
+        (Literal::Number(number), Some(lines), Some(caller), Some(helper)) => {
+            lines.copies.constant_in_copies(Some(caller), helper, number.to_bits())
+        }
+        _ => false,
+    };
+    if !equations.iter().all(|(_, literal)| inside(literal)) {
+        return Err(Some("fold_constant_outside_copies"));
+    }
+    let mut known = FxHashMap::default();
+    let mut unknowns = Vec::new();
+    for param in &t.param_order {
+        if !t.params.contains(param) || !equations.iter().any(|(pattern, _)| fold::reads(pattern, param) > 0) {
+            continue;
+        }
+        match b.params.get(param) {
+            Some(RValue::Literal(literal)) => {
+                known.insert(param.clone(), fold::Value::of(literal).ok_or(Some("fold_argument_not_constant"))?);
+            }
+            Some(_) => return Err(Some("fold_argument_not_constant")),
+            None => unknowns.push(param.clone()),
+        }
+    }
+    let solved = fold::solve_equations(&equations, &known, &unknowns, helpers).ok_or(Some("fold_unsolved"))?;
+    for (param, value) in solved {
+        if matches!(value, fold::Value::Number(number) if !number.is_finite()) {
+            return Err(Some("fold_unsolved"));
+        }
+        b.params.insert(param, RValue::Literal(value.literal()));
+    }
+    Ok(())
 }
 
 /// Whether every write of the result `r` in the canonical region `stmts` is
@@ -8521,6 +8647,7 @@ fn collect_targets(
     single_valued: &FxHashSet<RcLocal>,
     captures: std::rc::Rc<crate::deinline_safety::CaptureSafety>,
     lines: Option<&std::rc::Rc<Evidence>>,
+    pure: Option<&std::rc::Rc<fold::PureHelpers>>,
     orphans: &[Orphan],
     cache: &mut HelperCache,
 ) -> Vec<Target> {
@@ -8552,13 +8679,13 @@ fn collect_targets(
             deinline_reject!(RejectReason::TargetStillReferenced, f_local, "<binder>");
             continue;
         }
-        helper_targets(&f_local, &func, single_valued, &captures, lines, None, &mut targets, cache);
+        helper_targets(&f_local, &func, single_valued, &captures, lines, pure, None, &mut targets, cache);
     }
     // Orphans: functions only ever called where Luau inlined them, their
     // dead declarations kept aside ([`Orphan`]).
     for orphan in orphans {
         crate::telemetry::count("candidate_binders", 1);
-        helper_targets(&orphan.binder, &orphan.function, single_valued, &captures, lines, Some(orphan.scope), &mut targets, cache);
+        helper_targets(&orphan.binder, &orphan.function, single_valued, &captures, lines, pure, Some(orphan.scope), &mut targets, cache);
     }
     targets
 }
@@ -8576,6 +8703,7 @@ fn helper_targets(
     single_valued: &FxHashSet<RcLocal>,
     captures: &std::rc::Rc<crate::deinline_safety::CaptureSafety>,
     lines: Option<&std::rc::Rc<Evidence>>,
+    pure: Option<&std::rc::Rc<fold::PureHelpers>>,
     orphan: Option<Option<FnPtr>>,
     targets: &mut Vec<Target>,
     cache: &mut HelperCache,
@@ -8589,7 +8717,7 @@ fn helper_targets(
         entry => {
             let mut functions = vec![Arc::as_ptr(func)];
             functions_within(&g.body.0, &mut functions);
-            let analysis = analyze_helper(f_local, func, &g, single_valued, captures, lines);
+            let analysis = analyze_helper(f_local, func, &g, single_valued, captures, lines, pure);
             let (analysis, fresh) = match analysis {
                 Ok(fresh) => (HelperAnalysis::Accepted, Some(fresh)),
                 Err(refusal) => (refusal, None),
@@ -8753,6 +8881,7 @@ fn analyze_helper(
     single_valued: &FxHashSet<RcLocal>,
     captures: &std::rc::Rc<crate::deinline_safety::CaptureSafety>,
     lines: Option<&std::rc::Rc<Evidence>>,
+    pure: Option<&std::rc::Rc<fold::PureHelpers>>,
 ) -> Result<Vec<Target>, HelperAnalysis> {
     let f_local = f_local.clone();
     // P5-A: drop the `g.name.is_none()` gate. `g.name` is only the bytecode
@@ -8975,11 +9104,71 @@ fn analyze_helper(
             twin
         })
         .filter(|twin| twin.hosted.is_some());
+    // Copies whose constant arguments Luau folded match a variant of their
+    // own, which line evidence admits.
+    let fold_twin = pure.filter(|_| inlined).and_then(|pure| fold_variant(&target, &common, &body, pure));
     let mut found = vec![target];
     found.extend(discard_target);
     found.extend(variants);
     found.extend(hosted_twin);
+    found.extend(fold_twin);
     Ok(found)
+}
+
+/// The fold variant of `t` (plan E2, rule (a)): its pattern, matched where
+/// a value it computes from parameters only meets a literal of the site,
+/// which Luau folded for constant arguments (`fade(part, 0.5)` leaves
+/// `part.Transparency = 0.5` for `1 - k`, `linear(13)` the 0.21666666666666667
+/// of `frames(n)`). Each match proves its equations ([`resolve_equations`]).
+/// Line evidence admits it like a helper below the floor: in a function,
+/// its matches with the calls of the helper already rebuilt there must be
+/// exactly the helper's copies there. Only where the pattern has such a
+/// value, other than one it returns whole.
+fn fold_variant(t: &Target, common: &TargetCommon, raw: &[Statement], pure: &std::rc::Rc<fold::PureHelpers>) -> Option<Target> {
+    if t.loop_exit_at.is_some() || t.cps_loop_return {
+        return None;
+    }
+    let mut roots = Vec::new();
+    if t.kind == TKind::Value {
+        value_leaves(&t.pat, &mut roots);
+    }
+    // Whether `value` holds a value computed from parameters only that a
+    // literal may stand for.
+    fn folds(value: &RValue, t: &Target, pure: &fold::PureHelpers, roots: &[RValue]) -> bool {
+        if matches!(value, RValue::Closure(_)) {
+            return false;
+        }
+        let is_param = |local: &RcLocal| t.params.contains(local);
+        let site = !matches!(value, RValue::Literal(_) | RValue::Local(_))
+            && fold::foldable(value, &is_param, pure)
+            && t.params.iter().any(|param| fold::reads(value, param) > 0)
+            && !roots.iter().any(|root| rvalue_exact_eq(root, value));
+        site || !value.visit_rvalues(&mut |child| !folds(child, t, pure, roots))
+    }
+    fn block_folds(stmts: &[Statement], t: &Target, pure: &fold::PureHelpers, roots: &[RValue]) -> bool {
+        stmts.iter().any(|statement| {
+            !visit_stmt_rvalues(statement, &mut |value| !folds(value, t, pure, roots))
+                || nested_blocks(statement).iter().any(|block| block_folds(&block.lock().0, t, pure, roots))
+        })
+    }
+    if !block_folds(&t.pat, t, pure, &roots) {
+        return None;
+    }
+    let mut variant = common.target(t.kind, t.pat.clone(), raw);
+    variant.value_anchor = t.value_anchor;
+    variant.prefix_len = t.prefix_len;
+    variant.falls_off = t.falls_off;
+    variant.returns = t.returns.clone();
+    variant.identity_params = t.identity_params.clone();
+    variant.single_valued = t.single_valued;
+    variant.specializable = false;
+    variant.truth_params = Vec::new();
+    variant.optional_params = Vec::new();
+    variant.evidence = true;
+    variant.fold = Some(pure.clone());
+    variant.fold_roots = roots;
+    variant.hosted = hosted_pattern(&variant);
+    Some(variant)
 }
 
 /// Where a value pattern's result sits at its sites ([`ValueAnchor`]), and
@@ -9156,6 +9345,8 @@ impl TargetCommon<'_> {
             proto: self.proto,
             evidence: false,
             hosted_only: false,
+            fold: None,
+            fold_roots: Vec::new(),
             lines: self.lines.cloned(),
             captures: self.captures.clone(),
             search: Default::default(),
@@ -10276,6 +10467,53 @@ mod tests {
         Statement::Call(Call::new(global("print"), vec![string("x")]))
     }
 
+    /// Plan E2: with a fold context, a pattern value computed from
+    /// parameters only records an equation against a site number (or a
+    /// call of a pure helper on constants) instead of failing; `^`, a
+    /// builtin call, a value reading no parameter, strings and every match
+    /// without the context fail as before.
+    #[test]
+    fn fold_context_records_equations_only_for_foldable_values() {
+        let k = local("k");
+        let n = local("n");
+        let frames = local("frames");
+        let params: FxHashSet<RcLocal> = [k.clone()].into_iter().collect();
+        let locals = FxHashSet::default();
+        let helpers = {
+            let function = Arc::new(Mutex::new(Function {
+                parameters: vec![n.clone()],
+                body: Block(vec![return_one(RValue::Binary(Binary::new(local_value(&n), number(60.0), BinaryOperation::Div)))]),
+                bytecode_proto_id: Some(1),
+                ..Function::default()
+            }));
+            let counts: FxHashMap<RcLocal, usize> = [(frames.clone(), 1)].into_iter().collect();
+            fold::PureHelpers::of(&[(frames.clone(), function)], &counts)
+        };
+        assert!(helpers.get(&frames).is_some());
+        let with = MatchCtx { params: &params, locals: &locals, captures: None, fold: Some(&helpers) };
+        let without = MatchCtx { params: &params, locals: &locals, captures: None, fold: None };
+        let one_minus_k = RValue::Binary(Binary::new(number(1.0), local_value(&k), BinaryOperation::Sub));
+        let mut b = Bindings::default();
+        assert!(unify_rvalue(&with, &one_minus_k, &number(0.5), &mut b).is_ok());
+        assert_eq!(b.equations.len(), 1);
+        assert!(unify_rvalue(&without, &one_minus_k, &number(0.5), &mut Bindings::default()).is_err());
+        // A rebuilt `frames(6)` stands for the 0.1 it computes.
+        let site_call = RValue::Call(Call::new(local_value(&frames), vec![number(6.0)]));
+        let mut b = Bindings::default();
+        assert!(unify_rvalue(&with, &one_minus_k, &site_call, &mut b).is_ok());
+        assert!(matches!(b.equations.as_slice(), [(_, Literal::Number(value))] if value.to_bits() == (6.0f64 / 60.0).to_bits()));
+        // Refused: `k ^ 2`, `math.floor(k)`, a value reading no parameter,
+        // a string site.
+        let pow = RValue::Binary(Binary::new(local_value(&k), number(2.0), BinaryOperation::Pow));
+        let floor = RValue::Call(Call::new(RValue::Index(Index::new(global("math"), string("floor"))), vec![local_value(&k)]));
+        let constant = RValue::Binary(Binary::new(number(1.0), number(2.0), BinaryOperation::Sub));
+        for pattern in [&pow, &floor, &constant] {
+            assert!(unify_rvalue(&with, pattern, &number(9.0), &mut Bindings::default()).is_err());
+        }
+        let concat = RValue::Binary(Binary::new(string("a"), local_value(&k), BinaryOperation::Concat));
+        assert!(unify_rvalue(&with, &concat, &string("ab"), &mut Bindings::default()).is_err());
+    }
+
     fn void_target(pat: Vec<Statement>, locals: FxHashSet<RcLocal>) -> Target {
         let pat0 = pat.first().expect("test pat must be non-empty");
         let pat0_kind = std::mem::discriminant(pat0);
@@ -10322,6 +10560,8 @@ mod tests {
             proto: None,
             evidence: false,
             hosted_only: false,
+            fold: None,
+            fold_roots: Vec::new(),
             lines: None,
             captures: Default::default(),
             search: Default::default(),
@@ -11121,6 +11361,8 @@ mod tests {
             proto: None,
             evidence: false,
             hosted_only: false,
+            fold: None,
+            fold_roots: Vec::new(),
             lines: None,
             captures: Default::default(),
             search: Default::default(),
@@ -11216,6 +11458,8 @@ mod tests {
             proto: None,
             evidence: false,
             hosted_only: false,
+            fold: None,
+            fold_roots: Vec::new(),
             lines: None,
             captures: Default::default(),
             search: Default::default(),
@@ -11301,6 +11545,8 @@ mod tests {
             proto: None,
             evidence: false,
             hosted_only: false,
+            fold: None,
+            fold_roots: Vec::new(),
             lines: None,
             captures: Default::default(),
             search: Default::default(),
@@ -11401,6 +11647,8 @@ mod tests {
             proto: None,
             evidence: false,
             hosted_only: false,
+            fold: None,
+            fold_roots: Vec::new(),
             lines: None,
             captures: Default::default(),
             search: Default::default(),
@@ -11759,6 +12007,8 @@ mod tests {
             proto: None,
             evidence: false,
             hosted_only: false,
+            fold: None,
+            fold_roots: Vec::new(),
             lines: None,
             captures: Default::default(),
             search: Default::default(),
@@ -11867,6 +12117,8 @@ mod tests {
             proto: None,
             evidence: false,
             hosted_only: false,
+            fold: None,
+            fold_roots: Vec::new(),
             lines: None,
             captures: Default::default(),
             search: Default::default(),
@@ -12037,6 +12289,8 @@ mod tests {
             proto: None,
             evidence: false,
             hosted_only: false,
+            fold: None,
+            fold_roots: Vec::new(),
             lines: None,
             captures: Default::default(),
             search: Default::default(),
@@ -12102,6 +12356,8 @@ mod tests {
             proto: None,
             evidence: false,
             hosted_only: false,
+            fold: None,
+            fold_roots: Vec::new(),
             lines: None,
             captures: Default::default(),
             search: Default::default(),
@@ -12559,6 +12815,7 @@ mod tests {
             params: &params,
             locals: &locals,
             captures: None,
+            fold: None,
         };
 
         let mut b = Bindings::default();
@@ -12629,6 +12886,7 @@ mod tests {
             params: &params,
             locals: &locals,
             captures: None,
+            fold: None,
         };
         let mut bindings = Bindings::default();
 
@@ -13284,6 +13542,8 @@ mod tests {
             proto: None,
             evidence: false,
             hosted_only: false,
+            fold: None,
+            fold_roots: Vec::new(),
             lines: None,
             captures: Default::default(),
             search: Default::default(),
@@ -14048,7 +14308,7 @@ mod tests {
         let closure = |upvalue: Upvalue| Closure { node_origin: Default::default(), function: function.clone(), upvalues: vec![upvalue] };
         let (params, locals) = (FxHashSet::default(), FxHashSet::default());
         let unify = |captures: &crate::deinline_safety::CaptureSafety, pattern: Upvalue, site: Upvalue| {
-            let ctx = MatchCtx { params: &params, locals: &locals, captures: Some(captures) };
+            let ctx = MatchCtx { params: &params, locals: &locals, captures: Some(captures), fold: None };
             unify_closure(&ctx, &closure(pattern), &closure(site), false, &mut Bindings::default()).is_ok()
         };
         // The helper's closure reaches it through its own upvalue, the copy

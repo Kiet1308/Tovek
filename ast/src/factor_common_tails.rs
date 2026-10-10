@@ -706,6 +706,7 @@ pub(crate) fn block_alpha_bindings_with_locals(
         params: &params,
         locals: &locals,
         captures: None,
+        fold: None,
     };
     let mut bindings = Bindings::default();
     alpha_block(pattern, candidate, &ctx, &mut bindings).then_some(bindings)
