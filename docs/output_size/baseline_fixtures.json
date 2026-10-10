@@ -725,16 +725,16 @@
       "lines": 64
     },
     "semantic/deinline_error_level_reads_the_caller__O0.luau": {
-      "bytes": 1115,
-      "lines": 56
+      "bytes": 1818,
+      "lines": 89
     },
     "semantic/deinline_error_level_reads_the_caller__O1.luau": {
-      "bytes": 1132,
-      "lines": 60
+      "bytes": 1835,
+      "lines": 93
     },
     "semantic/deinline_error_level_reads_the_caller__O2.luau": {
-      "bytes": 1516,
-      "lines": 68
+      "bytes": 2291,
+      "lines": 103
     },
     "semantic/deinline_free_cell_read_late__O0.luau": {
       "bytes": 161,

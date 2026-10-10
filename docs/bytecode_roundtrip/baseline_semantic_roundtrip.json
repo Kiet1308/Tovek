@@ -566,7 +566,7 @@
    "file": "deinline_error_level_reads_the_caller",
    "status": "ok",
    "nonequiv": 0,
-   "protos": 9
+   "protos": 13
   },
   {
    "file": "deinline_free_cell_read_late",

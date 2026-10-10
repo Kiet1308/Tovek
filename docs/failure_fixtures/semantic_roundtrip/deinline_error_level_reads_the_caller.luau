@@ -12,6 +12,10 @@
 -- Level 1 (or none) names the function calling `error`, in this script on
 -- a line no output keeps, and level 0 no position: `need` stays a helper
 -- (`need(x, label)`).
+-- `_G.error` (`_G["error"]`) is `error`, as `_G.debug` is `debug`: the
+-- hand-written copies of `checkName` in `setName` and of the expression
+-- helper `needName` in `nameOf` keep their frames too (rebuilt, both
+-- printed a position where the source has none).
 local function checkNumber(v, name)
 	if type(v) ~= "number" then
 		error("bad " .. name, 2)
@@ -49,6 +53,31 @@ local function setTitle(x, label)
 	return label
 end
 
+local function checkName(v)
+	if type(v) ~= "string" then
+		_G.error("bad name", 2)
+	end
+	print("name", v)
+end
+
+local function setName(v)
+	if type(v) ~= "string" then
+		_G.error("bad name", 2)
+	end
+	print("name", v)
+	return #v
+end
+
+local function needName(v)
+	return v or _G["error"]("no name", 2)
+end
+
+local function nameOf(v)
+	local name = v or _G["error"]("no name", 2)
+	print("named", name)
+	return name
+end
+
 local function where(message)
 	return if string.find(message, "^.-:%d+: ") then "with a position" else "without a position"
 end
@@ -65,3 +94,9 @@ ok, message = pcall(setAngle, "wide")
 print(ok, text(message))
 ok, message = pcall(setLabel, nil, "label")
 print(ok, text(message))
+checkName("first")
+print(setName("ab"), needName("cd"), nameOf("ef"))
+ok, message = pcall(setName, 5)
+print(ok, text(message), where(message))
+ok, message = pcall(nameOf, false)
+print(ok, text(message), where(message))

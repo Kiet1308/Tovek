@@ -49,9 +49,9 @@ struct FrameReads {
     /// The locals naming every function that reads call frames, itself or
     /// through another such call; `None` when one also runs otherwise.
     observers: Option<FxHashSet<u64>>,
-    /// Reads of the global `error`, against its direct calls: `error(m,
-    /// level)` names the position of the frame `level` up ([`error_level`]),
-    /// and any other use may call it under another name.
+    /// Reads of the global `error` (or `_G.error`), against its direct
+    /// calls: `error(m, level)` names the position of the frame `level` up
+    /// ([`error_level`]), and any other use may call it under another name.
     error_reads: u32,
     error_calls: u32,
 }
@@ -445,7 +445,7 @@ impl CaptureSafety {
         }
         match value {
             RValue::Local(local) => *self.calls.reads.entry(local.stable_id()).or_default() += 1,
-            RValue::Global(global) if global.0 == b"error" => self.frames.error_reads += 1,
+            _ if is_error(value) => self.frames.error_reads += 1,
             RValue::Call(call) | RValue::Select(crate::Select::Call(call)) => {
                 self.call(call, owner);
                 self.error_call(call);
@@ -505,14 +505,19 @@ impl CaptureSafety {
     }
 }
 
-/// `debug`, or `_G.debug`.
-fn is_debug_library(value: &RValue) -> bool {
+/// The global `name`, or `_G.name` (`_G["name"]`).
+fn names_global(value: &RValue, name: &[u8]) -> bool {
     match value {
-        RValue::Global(global) => global.0 == b"debug",
+        RValue::Global(global) => global.0 == name,
         RValue::Index(index) => matches!(index.left.as_ref(), RValue::Global(global) if global.0 == b"_G")
-            && matches!(index.right.as_ref(), RValue::Literal(Literal::String(name)) if name == b"debug"),
+            && matches!(index.right.as_ref(), RValue::Literal(Literal::String(key)) if key == name),
         _ => false,
     }
+}
+
+/// `debug`, or `_G.debug`.
+fn is_debug_library(value: &RValue) -> bool {
+    names_global(value, b"debug")
 }
 
 /// For `debug.<name>`, `Some(Some(name))`; for a computed member of
@@ -576,9 +581,9 @@ fn calls_debug_info(value: &RValue) -> bool {
     }
 }
 
-/// The global `error`.
+/// The global `error`, or `_G.error`.
 fn is_error(value: &RValue) -> bool {
-    matches!(value, RValue::Global(global) if global.0 == b"error")
+    names_global(value, b"error")
 }
 
 /// The level of the frame whose position a call of `error` prefixes to its
@@ -943,5 +948,16 @@ mod tests {
         }
         // Passed on as a value: called under another name.
         assert!(census(vec![global("error")]).call_frames_untracked());
+        // `_G.error` is `error`, as `_G.debug` is `debug`.
+        let through_g = |arguments: Vec<RValue>| crate::Call::new(member(global("_G"), "error"), arguments);
+        let quiet = through_g(vec![string.clone()]);
+        let safety = CaptureSafety::new(&Block(vec![quiet.clone().into()]));
+        assert!(!safety.reads_call_frames() && !safety.call_frames_untracked() && !safety.reads_frames(&[quiet.into()]));
+        let reading = through_g(vec![string.clone(), number(2.0)]);
+        let safety = CaptureSafety::new(&Block(vec![reading.clone().into()]));
+        assert!(safety.reads_call_frames() && !safety.call_frames_untracked());
+        assert!(safety.reads_frames(&[reading.clone().into()]));
+        assert!(safety.reads_frames(&[crate::Return::new(vec![reading.into()]).into()]));
+        assert!(census(vec![member(global("_G"), "error")]).call_frames_untracked());
     }
 }
