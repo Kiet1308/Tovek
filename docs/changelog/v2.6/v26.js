@@ -1867,7 +1867,7 @@ function draw(t, intro, now = performance.now()) {
   const pk = peekAt(now);
   const clock = typeof window.__diveClock === 'number' ? window.__diveClock : now / 1000;
   render(main, ready ? scene : null, st, { intro: outCubic(intro), peek: pk, clock, live: mode === 'motion' && !window.__diveStill ? 1 : 0 });
-  ui(st, t);
+  ui(st, t, pk);
   if (perf) { perf.push([t, performance.now() - t0]); if (window.__diveMarks) performance.mark(`t=${t.toFixed(2)}`); }
   return ready && Math.max(st.z, PEEK_Z * pk) < 0.5 && (!st.risen || st.fin > 0.9);
 }
@@ -1911,9 +1911,10 @@ function bindCue() {
   });
 }
 
-function ui(st, t) {
-  // ruler
-  const f = st.z / 6;
+function ui(st, t, pk = 0) {
+  // ruler: it follows the camera, the lean of "Scroll to dive" included, so the scale reads as the zoom
+  const zv = Math.max(st.z, PEEK_Z * pk);
+  const f = zv / 6;
   const mobile = scene ? scene.mobile : els.stage.clientWidth <= 700;
   const len = railLen || (railLen = mobile ? els.rail.clientWidth : els.rail.clientHeight);
   els.head.style.transform = mobile ? `translate3d(${(f * len - 4.5).toFixed(1)}px,0,0)` : `translate3d(0,${(f * len - 4.5).toFixed(1)}px,0)`;
@@ -1923,7 +1924,7 @@ function ui(st, t) {
     lastLevel = level;
     els.links.forEach((a) => { if (String(a.dataset.level) === String(level)) a.setAttribute('aria-current', 'step'); else a.removeAttribute('aria-current'); });
   }
-  const mag = `×${fmt(Math.pow(10, st.z))}`;
+  const mag = `×${fmt(Math.pow(10, zv))}`;
   if (mag !== lastMag) { lastMag = mag; els.readout.textContent = mag; }
   // captions
   const cap = st.cap;
