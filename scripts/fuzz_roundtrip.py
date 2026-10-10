@@ -20,7 +20,7 @@ what the closure captures (through a factory Luau -O2 inlines, or as a call
 argument at every level), and `recursive-arm` defines a recursive local
 function in one arm of a value branch.
 
-Five de-inline families come from a third stream the same way. Each defines
+Six de-inline families come from a third stream the same way. Each defines
 a helper Luau -O2 inlines (a plain call below -O2) beside code shaped like
 its copies: `written-param` writes its parameter, with copies that write a
 caller's local read after an enclosing `if`, around a loop or in a `while`
@@ -30,7 +30,9 @@ outer local to a statement that reads other outer state first;
 whether the message has a position; `closure-identity` compares closures
 made in a loop with `==` (DUPCLOSURE against NEWCLOSURE), partly in the
 main chunk; `service-handle` passes GetService/require handles (global
-stubs) to the helper.
+stubs) to the helper; `constant-args` passes constants that the inlined
+copies fold (a pure helper's copy to one number, `1 - k` in a statement
+helper's), beside the same numbers written by hand.
 
 A failure keeps its directory and, with `--reduce`, a reduced program (whole
 units deleted while the failure category stays). Passing seeds leave nothing.
@@ -158,7 +160,8 @@ RECURSIVE_ARMS = ("then", "else", "diamond", "diamond-value")
 # Helpers Luau -O2 really inlines, in the shapes the de-inliner rebuilds as
 # calls. Drawn like the capture families, each with this chance, from a third
 # stream of the seed (see `Generator.deinline_units`).
-DEINLINE_FAMILIES = ("written-param", "returned-cell", "error-level", "closure-identity", "service-handle")
+DEINLINE_FAMILIES = ("written-param", "returned-cell", "error-level", "closure-identity", "service-handle",
+                     "constant-args")
 DEINLINE_CHANCE = 0.15
 # Where the caller's local stands that a copy of the helper body writes.
 WRITTEN_PARAM_SITES = ("after-if", "loop", "while", "same-block", "dead")
@@ -169,6 +172,12 @@ CELL_HOSTS = ("tag-first", "count-first", "cell-first", "concat", "constructor",
 ERROR_LEVELS = ("", ", 1", ", 2", ", 3", ", 0")
 IDENTITY_SHAPES = ("chunk", "computed", "function")
 HANDLE_SITES = ("declared", "statement-between", "declaration-between", "argument", "require", "twice")
+# A pure helper's body (`n` its parameter): `^`, `//` and `%` fold too, but
+# only some through rules a rebuilt call may rely on.
+PURE_BODIES = ("n / 60", "n * 2.5", "-n * 3", "n - 0.25", "(n + 1) / 4", "n // 2", "n % 7", "n ^ 2")
+# Its arguments: constants, signed zero, a huge value, and a variable.
+CONSTANT_ARGUMENTS = ("13", "21", "6", "0.5", "-3", "0", "-0", "143", "1e300", "input")
+CONSTANT_SITES = ("call", "by-hand", "statement", "statement-by-hand")
 
 REFUSALS = ("headroom for the vector constructor", "a method name no identifier spells",
             "a NaN constant whose payload", "a global name no identifier spells",
@@ -666,7 +675,7 @@ class Generator:
         the capture families' ones."""
         rng = self.deinline_rng
         builders = (self.written_param, self.returned_cell, self.error_level, self.closure_identity,
-                    self.service_handle)
+                    self.service_handle, self.constant_args)
         units = []
         for family, build in zip(DEINLINE_FAMILIES, builders):
             if rng.random() < DEINLINE_CHANCE:
@@ -870,6 +879,32 @@ class Generator:
                                   configure("Players", amount)],
             }[rng.choice(HANDLE_SITES)]()
         lines.append(f"record({services}.Lighting, {services}.Players, {services}.Config)")
+        return [self.unit(lines)]
+
+    def constant_args(self):
+        """Helpers -O2 inlines with constant arguments, which it folds into
+        the copies: a pure helper's copy becomes one number
+        (`frames(13)` as 0.21666666666666667), a statement helper's `1 - k`
+        and `k * 10` numbers in its statements. Beside them, the same
+        numbers by hand (a constant expression -O2 folds alike, in the
+        caller's own code) and copies with a variable argument. The
+        de-inliner may rebuild such a call only where Luau's folding rules
+        prove it, and never through `^`."""
+        rng = self.deinline_rng
+        pure, put, sink = self.fresh("frames"), self.fresh("put"), self.fresh("sink")
+        body = rng.choice(PURE_BODIES)
+        lines = [f"local function {pure}(n) return {body} end",
+                 f"local function {put}(t, k)", "    t.a = 1 - k", "    t.b = k * 10", "    record(t.a, t.b)", "end",
+                 f"local {sink} = {{}}"]
+        for _ in range(rng.randint(2, 5)):
+            argument = rng.choice(CONSTANT_ARGUMENTS)
+            lines += {
+                "call": lambda: [f"record({pure}({argument}))"],
+                "by-hand": lambda: [f"record({body.replace('n', f'({argument})')})"],
+                "statement": lambda: [f"{put}({sink}, {argument})"],
+                "statement-by-hand": lambda: [f"{sink}.a = 1 - {argument}", f"{sink}.b = {argument} * 10",
+                                              f"record({sink}.a, {sink}.b)"],
+            }[rng.choice(CONSTANT_SITES)]()
         return [self.unit(lines)]
 
     @staticmethod

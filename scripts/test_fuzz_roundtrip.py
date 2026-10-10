@@ -9,8 +9,8 @@ import unittest
 from unittest import mock
 
 import fuzz_roundtrip
-from fuzz_roundtrip import (CAPTURE_FAMILIES, CAPTURE_SHAPES, CELL_HOSTS, CLOSURE_BINDERS, DEINLINE_FAMILIES, ENDING,
-                            ERROR_LEVELS, FAMILIES, HANDLE_SITES, IDENTITY_SHAPES, PRELUDE, RECURSIVE_ARMS,
+from fuzz_roundtrip import (CAPTURE_FAMILIES, CAPTURE_SHAPES, CELL_HOSTS, CLOSURE_BINDERS, CONSTANT_SITES, DEINLINE_FAMILIES, ENDING,
+                            ERROR_LEVELS, FAMILIES, HANDLE_SITES, IDENTITY_SHAPES, PRELUDE, PURE_BODIES, RECURSIVE_ARMS,
                             WRITTEN_PARAM_SITES, ChunkUnit, Generator, comparable, generate, mutate, source_of)
 
 
@@ -285,6 +285,24 @@ class FuzzRoundtripTests(unittest.TestCase):
                 if re.search(pattern.format(setup), source):
                     sites.add(site)
         self.assertEqual(sites, set(HANDLE_SITES))
+
+    def test_constant_arguments_meet_numbers_by_hand(self):
+        sites, bodies = set(), set()
+        for seed in range(150):
+            source = text_of(Generator(seed).constant_args())
+            pure = re.search(r"local function (frames\d+)\(n\) return (.+) end", source)
+            put = re.search(r"local function (put\d+)\(t, k\)\n\s+t\.a = 1 - k\n\s+t\.b = k \* 10", source)
+            self.assertTrue(pure and put, seed)
+            bodies.add(pure.group(2))
+            for site, pattern in (
+                    ("call", r"record\({0}\("),
+                    ("statement", r"\n\s+{1}\(sink\d+, "),
+                    ("statement-by-hand", r"sink\d+\.a = 1 - "),
+                    ("by-hand", r"record\(.*\((?:-?[\d.e]+|input)\)")):
+                if re.search(pattern.format(pure.group(1), put.group(1)), source):
+                    sites.add(site)
+        self.assertEqual(sites, set(CONSTANT_SITES))
+        self.assertEqual(bodies, set(PURE_BODIES))
 
     def test_mutations_keep_the_length_and_spell_no_identifier(self):
         data = b"\x06\x03\x02\x06record\x04next" + struct.pack("<d", 0.5)
