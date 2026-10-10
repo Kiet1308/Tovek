@@ -217,7 +217,8 @@
    "deinline_arithmetic_select_beside_its_evidence_twin": "m3-e1 regression fixture (2026-10-10): an arithmetic helper's evidence twin never ties with the helper in the select form; nonequiv 2 by construction (the helper prints `local result` without the explicit nil Luau loads, LOADNIL lost in the helper and in run's copy); baselined from the fixing commit output.",
    "deinline_constant_folded_helper_copies": "m3-e2 constant ledger: main nonequiv by construction (the test driver; mixed, byHand and later inline into it)",
    "deinline_constant_fold_equations": "m3-e2 fold equations: main, 9 (main) and 1 (part's method) nonequiv by construction (the test parts: a method defined in a table template); m3-e1 gives 5",
-   "deinline_left_out_argument_after_spreading_call": "m3-e2 left-out arguments after a spreading call"
+   "deinline_left_out_argument_after_spreading_call": "m3-e2 left-out arguments after a spreading call",
+   "deinline_trailing_false_flag_left_out": "m3-e2 trailing false flag left out"
   }
  },
  "summary": {
@@ -710,6 +711,12 @@
    "status": "ok",
    "nonequiv": 1,
    "protos": 11
+  },
+  {
+   "file": "deinline_trailing_false_flag_left_out",
+   "status": "ok",
+   "nonequiv": 0,
+   "protos": 9
   },
   {
    "file": "deinline_tuple_returns",

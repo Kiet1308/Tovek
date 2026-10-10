@@ -518,6 +518,15 @@ impl Target {
         self.param_order.iter().rposition(|param| !self.unread.contains(param)).map_or(0, |at| at + 1)
     }
 
+    /// Whether `param` is the last parameter the body reads: a call may
+    /// leave its argument out, and every one after it.
+    fn trailing(&self, param: &RcLocal) -> bool {
+        self.param_order
+            .iter()
+            .position(|other| other == param)
+            .is_some_and(|at| self.param_order[at + 1..].iter().all(|later| self.unread.contains(later)))
+    }
+
     /// A specialization variant ([`Target::inferred`]) is tried only once
     /// the other targets are stable, with the assignment phase: a copy for
     /// a non-constant argument (`f(x, p >= 50)`, an `if` around both
@@ -6885,10 +6894,12 @@ fn finish_unified(
     // non-variadic helper, and the shorter form reads better. Only OUR inserted nils
     // are trimmed (the position's param is in `unread`); a real trailing `nil` the
     // caller passed to a READ param is kept (its param is not in `unread`).
+    // A variant's flag left out ([`InferredTruth::Omitted`]).
     while args
         .last()
         .is_some_and(|a| matches!(a, RValue::Literal(Literal::Nil)))
-        && t.unread.contains(&t.param_order[args.len() - 1])
+        && (t.unread.contains(&t.param_order[args.len() - 1])
+            || matches!(&t.inferred, Some((param, InferredTruth::Omitted)) if *param == t.param_order[args.len() - 1]))
     {
         args.pop();
     }
@@ -7577,8 +7588,10 @@ fn try_inferred_constant(t: &Target, cwin: &[Statement], current_func: Option<Fn
     for (index, param) in t.truth_params.iter().enumerate() {
         let optional = t.optional_params.contains(param);
         let truthy = try_truth(t, cwin, current_func, index, InferredTruth::True);
-        let preferred = if optional { InferredTruth::Nil } else { InferredTruth::False };
-        let other = if optional { InferredTruth::False } else { InferredTruth::Nil };
+        // A flag passed last that only switches extra work on reads `nil`
+        // alike: left out where `nil` gives the copy too ([`omittable`]).
+        let preferred = if optional || omittable(t, param) { InferredTruth::Nil } else { InferredTruth::False };
+        let other = if preferred == InferredTruth::Nil { InferredTruth::False } else { InferredTruth::Nil };
         let falsy = try_truth(t, cwin, current_func, index, preferred)
             .or_else(|| try_truth(t, cwin, current_func, index, other));
         match (truthy, falsy) {
@@ -7595,6 +7608,9 @@ enum InferredTruth {
     True,
     False,
     Nil,
+    /// A flag passed last as `false` that only switches extra work on,
+    /// left out of the call ([`omittable`]): `nil` in the body.
+    Omitted,
 }
 
 impl InferredTruth {
@@ -7602,9 +7618,22 @@ impl InferredTruth {
         match self {
             InferredTruth::True => Literal::Boolean(true),
             InferredTruth::False => Literal::Boolean(false),
-            InferredTruth::Nil => Literal::Nil,
+            InferredTruth::Nil | InferredTruth::Omitted => Literal::Nil,
         }
     }
+}
+
+/// Whether a constant `false` inferred for truth parameter `param` of `t`
+/// may be left out of the call (plan E2, rule (c)): the last parameter the
+/// body reads, not the first (a call keeps an argument, which Luau's
+/// inliner needs to weigh the others as constants), and one that only
+/// switches extra work on ([`enables_only`]). Leaving it out is exact where
+/// `nil` gives the same copy, which the caller checks.
+fn omittable(t: &Target, param: &RcLocal) -> bool {
+    !t.optional_params.contains(param)
+        && t.param_order.iter().position(|other| other == param).is_some_and(|at| at > 0)
+        && t.trailing(param)
+        && enables_only(&t.pat, param)
 }
 
 /// `t`'s body with truth parameter `index` given `truth`, unified exactly
@@ -7659,6 +7688,27 @@ fn try_truth(
         return refused("specialization_no_larger_than_call");
     }
     Some(unified)
+}
+
+/// Whether `param` only switches extra work on: every read of it is the
+/// whole condition of an `if` without `else` (`if sizeText then ... end`).
+/// Passed `false`, such a flag reads as left out, which is how an option is
+/// usually written (`SetText(obj, label, text)`); any other use (`if not
+/// force`, `if active then ... else`, `visible and 0 or 1`) makes `false`
+/// the argument a reader expects (`bindJumpAction(false)`).
+fn enables_only(pattern: &[Statement], param: &RcLocal) -> bool {
+    fn guards(stmts: &[Statement], param: &RcLocal) -> usize {
+        stmts
+            .iter()
+            .map(|statement| {
+                let own = matches!(statement, Statement::If(branch)
+                    if matches!(&branch.condition, RValue::Local(local) if local == param) && branch.else_block.lock().0.is_empty());
+                usize::from(own) + nested_blocks(statement).iter().map(|block| guards(&block.lock().0, param)).sum::<usize>()
+            })
+            .sum()
+    }
+    let found = guards(pattern, param);
+    found > 0 && count_local_reads(pattern, param) == found
 }
 
 /// The statement after a window matched with a constant inferred for `param`
@@ -9248,14 +9298,27 @@ fn specialization_variants(t: &Target, common: &TargetCommon, raw: &[Statement])
     }
     let mut variants = Vec::new();
     for param in &t.truth_params {
-        let falsy = if t.optional_params.contains(param) { InferredTruth::Nil } else { InferredTruth::False };
-        let mut shapes: Vec<(InferredTruth, Vec<Statement>, bool)> = Vec::new();
-        for truth in [InferredTruth::True, falsy] {
+        let specialize = |truth: InferredTruth| {
             // `canon` deep-copies every block-bearing statement, avoiding
             // mutation of the recovered function body's shared Arcs.
             let mut specialized = canon(&t.pat);
             specialize_block(&mut specialized, &FxHashMap::from_iter([(param.clone(), RValue::Literal(truth.literal()))]));
-            let specialized = canon(&specialized);
+            canon(&specialized)
+        };
+        // A flag passed last that only switches extra work on, where `nil`
+        // specializes the body alike, is left out ([`omittable`]).
+        let falsy = if t.optional_params.contains(param) {
+            InferredTruth::Nil
+        } else if omittable(t, param)
+            && crate::factor_common_tails::block_alpha_eq(&specialize(InferredTruth::False), &specialize(InferredTruth::Nil))
+        {
+            InferredTruth::Omitted
+        } else {
+            InferredTruth::False
+        };
+        let mut shapes: Vec<(InferredTruth, Vec<Statement>, bool)> = Vec::new();
+        for truth in [InferredTruth::True, falsy] {
+            let specialized = specialize(truth);
             let changed = match t.kind {
                 TKind::Value => specialized.len() != t.pat.len() && value_leaf_shape(&specialized),
                 TKind::Void => specialized.len() > t.pat.len() && !block_has_return(&specialized),
@@ -10552,6 +10615,29 @@ mod tests {
         let mut args = vec![spreading];
         fill_left_out(&mut args, 1);
         assert_eq!(args.len(), 1);
+    }
+
+    /// Plan E2 (c): a trailing flag is left out only where it switches
+    /// extra work on: `if flag then ... end` and nothing else reads it.
+    #[test]
+    fn a_flag_enables_only_through_ifs_without_else() {
+        let flag = local("flag");
+        let guard = |condition: RValue, otherwise: Vec<Statement>| {
+            Statement::If(If::new(condition, Block(vec![print_x()]), Block(otherwise)))
+        };
+        assert!(enables_only(&[print_x(), guard(local_value(&flag), vec![])], &flag));
+        // `if flag then ... else ... end`, `if not flag then`, `flag and 0 or 1`.
+        assert!(!enables_only(&[guard(local_value(&flag), vec![print_x()])], &flag));
+        let negated = RValue::Unary(Unary::new(local_value(&flag), UnaryOperation::Not));
+        assert!(!enables_only(&[guard(negated, vec![])], &flag));
+        let select = RValue::Binary(Binary::new(
+            RValue::Binary(Binary::new(local_value(&flag), number(0.0), BinaryOperation::And)),
+            number(1.0),
+            BinaryOperation::Or,
+        ));
+        let other = local("other");
+        assert!(!enables_only(&[guard(local_value(&flag), vec![]), assign_local(&other, select, true)], &flag));
+        assert!(!enables_only(&[print_x()], &flag));
     }
 
     fn void_target(pat: Vec<Statement>, locals: FxHashSet<RcLocal>) -> Target {

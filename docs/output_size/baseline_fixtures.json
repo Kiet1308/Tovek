@@ -988,6 +988,18 @@
       "bytes": 2196,
       "lines": 93
     },
+    "semantic/deinline_trailing_false_flag_left_out__O0.luau": {
+      "bytes": 1502,
+      "lines": 98
+    },
+    "semantic/deinline_trailing_false_flag_left_out__O1.luau": {
+      "bytes": 1502,
+      "lines": 98
+    },
+    "semantic/deinline_trailing_false_flag_left_out__O2.luau": {
+      "bytes": 1898,
+      "lines": 98
+    },
     "semantic/deinline_tuple_returns__O0.luau": {
       "bytes": 1201,
       "lines": 69
