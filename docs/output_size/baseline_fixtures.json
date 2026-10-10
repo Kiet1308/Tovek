@@ -844,6 +844,18 @@
       "bytes": 746,
       "lines": 47
     },
+    "semantic/deinline_left_out_argument_after_spreading_call__O0.luau": {
+      "bytes": 557,
+      "lines": 43
+    },
+    "semantic/deinline_left_out_argument_after_spreading_call__O1.luau": {
+      "bytes": 557,
+      "lines": 43
+    },
+    "semantic/deinline_left_out_argument_after_spreading_call__O2.luau": {
+      "bytes": 827,
+      "lines": 45
+    },
     "semantic/deinline_line_evidence_admits_small_helpers__O0.luau": {
       "bytes": 2508,
       "lines": 128

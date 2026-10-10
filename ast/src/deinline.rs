@@ -512,6 +512,12 @@ impl Target {
         })
     }
 
+    /// How many leading parameters reach the last one the body reads: a
+    /// call passing fewer leaves read parameters out ([`fill_left_out`]).
+    fn read_arity(&self) -> usize {
+        self.param_order.iter().rposition(|param| !self.unread.contains(param)).map_or(0, |at| at + 1)
+    }
+
     /// A specialization variant ([`Target::inferred`]) is tried only once
     /// the other targets are stable, with the assignment phase: a copy for
     /// a non-constant argument (`f(x, p >= 50)`, an `if` around both
@@ -3708,7 +3714,9 @@ fn deinline_block(
             }
             // Another copy may stand in the statement a rebuilt one stays in.
             let again = hit.evidence && hit.host.is_some() && matches!(round, EvidenceRound::Admit(_));
-            let mut call = Call::new(RValue::Local(hit.f_local.clone()), hit.args)
+            let mut args = hit.args;
+            fill_left_out(&mut args, hit.read_arity);
+            let mut call = Call::new(RValue::Local(hit.f_local.clone()), args)
                 .reconstructed(crate::call_origins::Kind::StatementDeinline);
             call.one_result = hit.single_valued;
             let stmt = match hit.host {
@@ -4222,6 +4230,8 @@ struct Hit {
     /// statement shaped as the helper's value, all of which a probe counts
     /// (rounds rebuild one per statement at a time).
     shaped: usize,
+    /// [`Target::read_arity`] of the helper.
+    read_arity: usize,
 }
 
 impl Hit {
@@ -4250,6 +4260,7 @@ impl Hit {
             evidence: t.evidence,
             proto: t.proto,
             shaped: 1,
+            read_arity: t.read_arity(),
         }
     }
 
@@ -6025,7 +6036,8 @@ fn hosted_spread(t: &Target, pattern: &RValue, site: &RValue, spread: Spread) ->
 
 /// The rebuilt call of a hosted copy, `(f(args))` where it must keep one
 /// result.
-fn hosted_call(t: &Target, args: Vec<RValue>, wrap: bool) -> RValue {
+fn hosted_call(t: &Target, mut args: Vec<RValue>, wrap: bool) -> RValue {
+    fill_left_out(&mut args, t.read_arity());
     let mut call = Call::new(RValue::Local(t.f_local.clone()), args).reconstructed(crate::call_origins::Kind::StatementDeinline);
     call.one_result = t.single_valued;
     if wrap { RValue::Select(Select::Call(call)) } else { RValue::Call(call) }
@@ -6326,6 +6338,17 @@ fn kind_bit(value: &RValue) -> u32 {
 /// taken.
 fn is_multiple(value: &RValue) -> bool {
     matches!(value, RValue::Call(_) | RValue::MethodCall(_) | RValue::VarArg(_))
+}
+
+/// `args` with `nil` for each parameter the body reads that they leave out
+/// (a trailing `nil`, a constant inferred `nil`), where the last argument
+/// may give several values: a call or `...` there would fill those
+/// parameters with its other results (`show(g())` is not `show(g(), nil)`
+/// when `g` returns two). A parameter the body never reads may take them.
+fn fill_left_out(args: &mut Vec<RValue>, read_arity: usize) {
+    if args.len() < read_arity && args.last().is_some_and(is_multiple) {
+        args.resize(read_arity, RValue::Literal(Literal::Nil));
+    }
 }
 
 /// How many results a statement takes from a value ([`visit_leading_values`]).
@@ -10512,6 +10535,23 @@ mod tests {
         }
         let concat = RValue::Binary(Binary::new(string("a"), local_value(&k), BinaryOperation::Concat));
         assert!(unify_rvalue(&with, &concat, &string("ab"), &mut Bindings::default()).is_err());
+    }
+
+    /// A rebuilt call leaving out parameters the body reads gets `nil` for
+    /// them after a last argument that may give several values, and only
+    /// there.
+    #[test]
+    fn left_out_read_parameters_get_nil_after_a_spreading_argument() {
+        let spreading = RValue::Call(Call::new(global("g"), vec![]));
+        let mut args = vec![spreading.clone()];
+        fill_left_out(&mut args, 2);
+        assert_eq!(args, vec![spreading.clone(), RValue::Literal(Literal::Nil)]);
+        let mut args = vec![number(1.0)];
+        fill_left_out(&mut args, 2);
+        assert_eq!(args.len(), 1);
+        let mut args = vec![spreading];
+        fill_left_out(&mut args, 1);
+        assert_eq!(args.len(), 1);
     }
 
     fn void_target(pat: Vec<Statement>, locals: FxHashSet<RcLocal>) -> Target {

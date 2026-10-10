@@ -216,7 +216,8 @@
    "deinline_line_evidence_expression_helpers": "m3-e1 line evidence, expression helpers (2026-10-10): nonequiv 4 by construction: the test driver in main differs from the source; build's sorts are written into one constructor and its `Compare` literals print once per copy as calls of `sorter`, whose recompiled literal Luau compiles inside `sorter` (an outlined body and a missing copy prototype); baselined from the introducing commit output.",
    "deinline_arithmetic_select_beside_its_evidence_twin": "m3-e1 regression fixture (2026-10-10): an arithmetic helper's evidence twin never ties with the helper in the select form; nonequiv 2 by construction (the helper prints `local result` without the explicit nil Luau loads, LOADNIL lost in the helper and in run's copy); baselined from the fixing commit output.",
    "deinline_constant_folded_helper_copies": "m3-e2 constant ledger: main nonequiv by construction (the test driver; mixed, byHand and later inline into it)",
-   "deinline_constant_fold_equations": "m3-e2 fold equations: main, 9 (main) and 1 (part's method) nonequiv by construction (the test parts: a method defined in a table template); m3-e1 gives 5"
+   "deinline_constant_fold_equations": "m3-e2 fold equations: main, 9 (main) and 1 (part's method) nonequiv by construction (the test parts: a method defined in a table template); m3-e1 gives 5",
+   "deinline_left_out_argument_after_spreading_call": "m3-e2 left-out arguments after a spreading call"
   }
  },
  "summary": {
@@ -636,6 +637,12 @@
    "file": "deinline_late_register_read_of_a_cell",
    "status": "ok",
    "nonequiv": 2,
+   "protos": 6
+  },
+  {
+   "file": "deinline_left_out_argument_after_spreading_call",
+   "status": "ok",
+   "nonequiv": 0,
    "protos": 6
   },
   {
