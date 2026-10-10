@@ -32,7 +32,7 @@ export const T = {
   v2: 74.9, v2settle: 75.7, v2scroll: 77.5, v2Morph0: 78.2, v2Morph1: 81.2, v2num: 82.0,
   v21: 84.7, v21race: 87.2, v211: 90.9, v25: 95.1, fuzz0: 97.2, ctx25: 101.9, v251: 105.2,
   // V2.6: the flood, the copies come home, the constants, the numbers
-  flood: 108.8, title26: 109.4, homing0: 113.0, homing1: 130.0, consts0: 130.0, nums: 136.2,
+  flood: 108.8, title26: 110.05, homing0: 113.4, homing1: 130.0, consts0: 130.0, nums: 136.2,
   // the end
   orig: 142.6, end: 150.0, duration: 160.0,
 };
