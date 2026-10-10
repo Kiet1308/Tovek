@@ -334,7 +334,7 @@ export function drawV25(ctx, t) {
 }
 
 /** When the fuzz count runs, from T.fuzz0 (the score's ticks follow it). */
-export const FUZZ = { start: 0.75, dur: 2.7 };
+export const FUZZ = { start: 1.0, dur: 2.5 };
 
 /**
  * The fuzz field: a grid that fills the frame with a window in the middle for the count. The marks
@@ -394,7 +394,8 @@ function drawV25Page(ctx, t) {
       const appear = ease.out(clamp((t - T.fuzz0 - 0.2 - c.d * 0.05 - hash01(26, i) * 0.08) / 0.45));
       if (appear <= 0) continue;
       // a mark goes out when the count passes its rank: it flashes, shrinks and dims
-      const goneP = clamp((outCount - P.order[i]) / 5);
+      const rank = P.order[i];
+      const goneP = clamp((outCount - rank) / Math.min(5, fz.from - rank)); // the last is out as the count lands
       const k = lerp(1, 0.26, ease.out(goneP)) * lerp(0.4, 1, appear) * (1 - 0.6 * leave);
       const sz = size * k;
       ctx.globalAlpha = appear * (1 - leave * 0.9) * lerp(1, 0.55, goneP);

@@ -199,17 +199,17 @@ function buildChaptersCaptionsScore() {
   const hl = (g) => stripDot(s(g).headline);
   const Bm = bmeta(), Hm = hmeta(), Sd = smeta();
   story.chapters = [
-    { t: 0, title: 'One script, as bytes', still: 8.9 },
-    { t: T.medal0, title: stripDot(s('medal').headline), still: 17.6 },
-    { t: T.date0, title: cap(s('v0.1.0-beta').name), still: 33.4 },
-    { t: T.mont0, title: stripDot(Bm.title), still: 38.4 },
-    { t: T.r07, title: `${s('v0.8').name}: ${hl('v0.8')}`, still: 62.6 },
-    { t: T.v2, title: `${s('v2-v0.1').name}: ${hl('v2-v0.1')}`, still: 83.0 },
-    { t: T.v21, title: `${s('v2.1').name}: ${hl('v2.1')}`, still: 90.8 },
-    { t: T.v25, title: `${s('v2.5').name}: ${hl('v2.5')}`, still: 101.6 },
-    { t: T.flood, title: `${v26.name}: ${hl('last')}`, still: 120.9 },
-    { t: T.orig, title: 'Beside the original', still: 149.0 },
-    { t: T.end, title: `${cap(word(D.totals.releases))} releases`, still: 159.0 },
+    { t: 0, title: 'One script, as bytes', still: T.opcode + 1.3 },
+    { t: T.medal0, title: stripDot(s('medal').headline), still: T.medalTitle + 1.4 },
+    { t: T.date0, title: cap(s('v0.1.0-beta').name), still: T.b01Morph1 - 0.2 },
+    { t: T.mont0, title: stripDot(Bm.title), still: T.slams0 + 1.4 },
+    { t: T.r07, title: `${s('v0.8').name}: ${hl('v0.8')}`, still: T.nogoto - 0.9 },
+    { t: T.v2, title: `${s('v2-v0.1').name}: ${hl('v2-v0.1')}`, still: T.v21 - 0.25 },
+    { t: T.v21, title: `${s('v2.1').name}: ${hl('v2.1')}`, still: T.v211 - 0.3 },
+    { t: T.v25, title: `${s('v2.5').name}: ${hl('v2.5')}`, still: T.fuzz0 + FUZZ.start - 0.02 },
+    { t: T.flood, title: `${v26.name}: ${hl('last')}`, still: Hm.copies.length ? Hm.copies[0].depart + 0.4 : T.homing0 + 3 },
+    { t: T.orig, title: 'Beside the original', still: T.end - 1.0 },
+    { t: T.end, title: `${cap(word(D.totals.releases))} releases`, still: T.duration - 1.0 },
   ];
 
   // names a release brought, read from the morph: the new local names in its output
