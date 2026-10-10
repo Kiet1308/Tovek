@@ -1,0 +1,89 @@
+{
+  "schema": "tovek-compare51/1",
+  "what": "51 Luau scripts (14 public open-source modules and 37 scripts from real games), decompiled by Tovek V2.5.1, Tovek V2.6 and luacid (luacid.dev outputs saved with each sample).",
+  "metrics": {
+    "calls": "helper calls rebuilt (Tovek: --stats-json when the binary has it, else printed call-site comments; luacid: its own \"N call sites recovered\" banner)",
+    "lines": "non-blank output lines (luacid banner lines left out); lower is shorter",
+    "gen_share": "share of declared names that are generated (v1, p2, var3, ...); lower is better",
+    "name_recall": "14 public samples (Fusion_Types left out): share of the source's declared names the output also declares",
+    "token_sim": "same 13 samples: token-sequence similarity to the original source (difflib ratio, mean)",
+    "census_recall": "Tovek only: inlined copies of named helpers found from -g1 line info that came back as calls"
+  },
+  "rows": {
+    "tovek_v251": {
+      "lines": 28813,
+      "calls": 229,
+      "markers": 229,
+      "gen_share": 0.3049,
+      "generated": 2222,
+      "decls": 7288,
+      "name_recall": 0.2714,
+      "name_hit": 282,
+      "name_total": 1039,
+      "token_sim": 0.7236
+    },
+    "tovek_v26": {
+      "lines": 26664,
+      "calls": 637,
+      "markers": 615,
+      "gen_share": 0.2989,
+      "generated": 2018,
+      "decls": 6751,
+      "name_recall": 0.3051,
+      "name_hit": 317,
+      "name_total": 1039,
+      "token_sim": 0.7162,
+      "census": 780,
+      "census_hits": 633,
+      "census_recall": 0.8115
+    },
+    "luacid": {
+      "lines": 25566,
+      "calls": 509,
+      "markers": 509,
+      "gen_share": 0.4624,
+      "generated": 3339,
+      "decls": 7221,
+      "name_recall": 0.2397,
+      "name_hit": 249,
+      "name_total": 1039,
+      "token_sim": 0.7304
+    }
+  },
+  "leader": {
+    "calls": "tovek_v26",
+    "lines": "luacid",
+    "gen_share": "tovek_v26",
+    "name_recall": "tovek_v26",
+    "token_sim": "luacid"
+  },
+  "sample51_sh": {
+    "tovek_v251": {
+      "lines": 28813,
+      "calls": 229,
+      "gen_share": 0.305,
+      "generated": 2222,
+      "decls": 7288,
+      "name_recall": 0.271,
+      "name_hit": 282,
+      "name_total": 1039,
+      "token_sim": 0.724
+    },
+    "tovek_v26": {
+      "lines": 26664,
+      "calls": 615,
+      "gen_share": 0.299,
+      "generated": 2018,
+      "decls": 6751,
+      "name_recall": 0.305,
+      "name_hit": 317,
+      "name_total": 1039,
+      "token_sim": 0.716
+    },
+    "note": "tools/sample51.sh (metrics.py): calls = printed call-site comments"
+  },
+  "binaries": {
+    "v251_sha256": "8df15ad38731a1b146e0f3e761035b234689ee2a04c83d70eaed8584bf1198c5",
+    "v26_sha256": "0d59f6e3592e6c4019578c09ee5b4352a1222b8b69437eccef508c6962dbf89f"
+  }
+}
