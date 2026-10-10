@@ -7,6 +7,10 @@
 -- all the results of a helper giving exactly one.
 -- Negative: `track:Stop()` after `stopAll()`, which ends `return nil`:
 -- another helper, its call stays a statement.
+-- Negative: the copies of `show` in the chunk and in `showTwice` read
+-- `stamp` before `cache`, and `refill` writes `stamp`: in the read of
+-- `cache` the call would run after `stamp` was read, so the copy stays the
+-- call statement before the `print` (`refill(5, 3)`).
 local log = {}
 local animator = { LoadAnimation = function(_, name) return { name = name, Play = function(self) table.insert(log, "play " .. self.name) end } end }
 local track = nil
@@ -65,7 +69,27 @@ function M.stop()
 	return track and track.stopped
 end
 
+local cache = {}
+local stamp = "old"
+local function refill(a, b)
+	table.clear(cache)
+	cache[1] = a
+	cache[2] = b
+	stamp = "new:" .. tostring(a)
+	return cache
+end
+local function show(a)
+	local l = refill(a, 3)
+	print(stamp, l[1], l[2])
+end
+local function showTwice()
+	show(5)
+	show(6)
+end
+
 print(M.play(animator), M.play(nil))
 print(M.cast("r1"), M.count(), M.first())
 print(M.stop())
 print(table.concat(log, ";"))
+show(7)
+showTwice()

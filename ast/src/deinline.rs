@@ -5453,9 +5453,12 @@ fn match_hosted_value(
 /// local `cell` (`return ignoreList`), matched as the body its call runs
 /// for no result (`hit`, a discard target's), and the statement right
 /// after the copy reading `cell` first of all it evaluates, after only
-/// reads (`FindPartOnRayWithIgnoreList(ray, ignoreList)`): that read gets
-/// the value the call returns, the one the copy left in `cell`. Rebuilt as
-/// that statement with the call there (`...(ray, getIgnoreList())`). A
+/// values no call can change (`FindPartOnRayWithIgnoreList(ray,
+/// ignoreList)`): that read gets the value the call returns, the one the
+/// copy left in `cell`. Rebuilt as that statement with the call there
+/// (`...(ray, getIgnoreList())`), the copy's body run after those values;
+/// before one that may see a change, the copy stays the call statement it
+/// is (`refill(a, 3); print(tag, list[1])`). A
 /// register Luau reads only when an operation runs, after a value that may
 /// change it, would see another value: refused. Where all of the results
 /// are taken, only a `single_valued` helper's call stands for the read.
@@ -5491,12 +5494,13 @@ fn host_returned_cell(stmts: &[Statement], i: usize, mut hit: Hit, t: &Target, c
         // The first read of the cell decides: a later one ran after it.
         true
     });
-    let Some(absorbs) = taken else { return Err(hit) };
-    if absorbs {
-        hit.placeholder = Some((placeholder, false));
-    } else {
-        fill_placeholder(&mut host, &placeholder, hosted_call(t, hit.args.clone(), false));
+    // The copy's body moves past everything the statement evaluates before
+    // the read: none of it may see a change the body makes. Otherwise the
+    // copy is the plain call statement, before the statement as it stands.
+    if taken != Some(true) {
+        return Err(hit);
     }
+    hit.placeholder = Some((placeholder, false));
     hit.consume = at + 1 - i;
     hit.host = Some(host);
     hit.partial = Some(1);
