@@ -98,6 +98,12 @@ for scope, methodology and remaining regressions.
   Tovek inferred a call that behaves the same, which says nothing about where the source called
   the helper. The helper's definition line states how many such calls the output holds:
   `local function emit(part, n) -- 3 equivalent calls inferred from this helper`.
+  Luau keeps a helper's own lines on the code it inlines, so line info tells how many copies of
+  each helper a function holds. A small helper (`if c then c:Disconnect() end`, `a + (b - a) * t`)
+  is rebuilt in a function only where its exact matches there are exactly those copies, and a call
+  claiming a constant argument its copy folded away only where the function holds that helper's
+  code at all. Line info only admits a match, never proves one; without it (`-g0`) such code
+  stays as written.
 - **Idiomatic cleanup.** Compound assignments, backtick string interpolation (where
   `("...%*"):format(x)` gives one value; a spreading last argument, constructor tail or `return`
   keeps `:format`, as a replaced `string.format` may return more),

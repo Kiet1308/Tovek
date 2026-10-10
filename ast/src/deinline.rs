@@ -21,6 +21,7 @@
 //! (upvalues by pointer identity, globals, method/field names, literals,
 //! operators, node kinds) to match exactly.
 
+pub mod evidence;
 mod statement_values;
 pub(crate) use statement_values::{visit_stmt_rvalues, visit_stmt_rvalues_mut};
 
@@ -356,8 +357,62 @@ struct Target {
     /// patterns, [`HelperCache::earlier`]): its copies at sites may still
     /// hold the code a call of another helper now stands for there.
     earlier_body: bool,
+    /// The helper's bytecode prototype, which line evidence names.
+    proto: Option<usize>,
+    /// Below the readability floor (`anchor_score`): the helper is matched
+    /// only where line info shows its copies, all of them or none, in each
+    /// function ([`Evidence`], the evidence rounds of [`deinline`]).
+    evidence: bool,
+    /// An evidence target standing for a value helper's copies evaluated in
+    /// place ([`match_hosted_value`]) that only the size floors refuse: a
+    /// value smaller than the expression helpers' floor, or a call saving
+    /// less. It tries no other site shape.
+    hosted_only: bool,
+    /// What line info says of the module's inlined copies, when it has
+    /// line info.
+    lines: Option<std::rc::Rc<Evidence>>,
     captures: std::rc::Rc<crate::deinline_safety::CaptureSafety>,
     search: std::rc::Rc<crate::deinline_safety::SearchBudget>,
+}
+
+/// What line info says of the inlined copies in one de-inline run (plan
+/// E1, [`evidence`]): the copies of each helper in each function, and each
+/// function body's prototype, read where the scan enters the body (it is
+/// locked then). Evidence only admits a helper below the floor in a
+/// function, or refuses a match; unification proves every rewrite.
+pub(crate) struct Evidence {
+    copies: std::rc::Rc<evidence::Copies>,
+    protos: std::cell::RefCell<FxHashMap<FnPtr, Option<usize>>>,
+}
+
+impl Evidence {
+    /// The prototype of `function` (`None`: the chunk's main one), once the
+    /// scan entered it.
+    fn caller(&self, function: Option<FnPtr>) -> Option<usize> {
+        match function {
+            None => Some(self.copies.main),
+            Some(function) => self.protos.borrow().get(&function).copied().flatten(),
+        }
+    }
+
+    /// The copies of the helper of prototype `helper` in `function`'s code.
+    fn copies(&self, function: Option<FnPtr>, helper: Option<usize>) -> u32 {
+        match (self.caller(function), helper) {
+            (Some(caller), Some(helper)) => self.copies.copies(Some(caller), helper),
+            _ => 0,
+        }
+    }
+
+    /// Honesty refusal, part (b): line info shows none of `helper`'s code
+    /// in `function`, so a match there specialized for constants is code
+    /// of something else (`table.clone(tbl)` in `DeepCopy`'s body is no
+    /// copy of `Copy(t, false)`). Unknown prototypes say nothing.
+    fn absent(&self, function: Option<FnPtr>, helper: Option<usize>) -> bool {
+        match (self.caller(function), helper) {
+            (Some(caller), Some(helper)) => !self.copies.present(Some(caller), helper),
+            _ => false,
+        }
+    }
 }
 
 #[derive(Default, Clone)]
@@ -491,6 +546,160 @@ struct Progress {
     /// The orphans' targets active in each function body ([`Orphan`]),
     /// by the body (`None`: the chunk).
     orphan_scopes: FxHashMap<Option<FnPtr>, Vec<usize>>,
+    /// The evidence round this iteration is ([`EvidenceRound`]).
+    evidence: EvidenceRound,
+    /// The module's line evidence, where the scan records the prototype of
+    /// each body it enters.
+    lines: Option<std::rc::Rc<Evidence>>,
+    /// In a probe: the matches of each evidence helper (by binder) in each
+    /// function body, with the helper's prototype.
+    probed: FxHashMap<(Option<FnPtr>, RcLocal), (usize, Option<usize>)>,
+    /// In a probe: the calls of each evidence helper already rebuilt in
+    /// each function body.
+    rebuilt: FxHashMap<(Option<FnPtr>, RcLocal), usize>,
+}
+
+/// The rounds in which helpers below the readability floor are matched
+/// (plan E1, [`Target::evidence`]), once every other target is stable.
+#[derive(Default, Clone)]
+enum EvidenceRound {
+    /// An ordinary iteration: evidence targets are not tried.
+    #[default]
+    Off,
+    /// Each evidence target is tried in every function where line info
+    /// shows copies of its helper, and its matches are counted there,
+    /// nothing rewritten.
+    Probe,
+    /// The helpers whose matches in a function, with the calls of them
+    /// already rebuilt there, are exactly its copies there are rebuilt in
+    /// it (by body and binder); none of the others.
+    Admit(std::rc::Rc<FxHashSet<(Option<FnPtr>, RcLocal)>>),
+}
+
+/// The pairs of a function body and an evidence helper the count oracle
+/// admits after a probe ([`evidence::admitted`]).
+fn admitted_pairs(progress: &Progress) -> FxHashSet<(Option<FnPtr>, RcLocal)> {
+    let Some(lines) = &progress.lines else { return FxHashSet::default() };
+    let pairs: Vec<_> = progress.probed.iter().collect();
+    let counts: Vec<evidence::Probed> = pairs
+        .iter()
+        .map(|&(key, &(hits, proto))| evidence::Probed {
+            caller: lines.caller(key.0),
+            helper: proto,
+            hits,
+            rebuilt: progress.rebuilt.get(key).copied().unwrap_or(0),
+        })
+        .collect();
+    let admit = evidence::admitted(&lines.copies, &counts);
+    let mut admitted = FxHashSet::default();
+    for (((function, binder), _), (count, admit)) in pairs.into_iter().zip(counts.iter().zip(admit)) {
+        let copies = match (count.caller, count.helper) {
+            (Some(caller), Some(helper)) => lines.copies.copies(Some(caller), helper) as usize,
+            _ => 0,
+        };
+        let agrees = count.hits > 0 && count.hits + count.rebuilt == copies;
+        crate::telemetry::count(if agrees { "evidence_admitted_pairs" } else { "evidence_refused_pairs" }, 1);
+        if !agrees {
+            crate::reconstruction_stats::refuse_site("evidence_count_mismatch");
+        }
+        if crate::env_flag!("MEDAL_TRACE_EVIDENCE") {
+            eprintln!(
+                "EVIDENCE caller=p{:?} helper={} proto=p{:?} hits={} rebuilt={} copies={copies} admit={admit}",
+                count.caller, binder, count.helper, count.hits, count.rebuilt
+            );
+        }
+        if admit {
+            admitted.insert((*function, binder.clone()));
+        }
+    }
+    admitted
+}
+
+/// The calls of the helpers bound to `binders` that a de-inliner rebuilt in
+/// `stmts`, nested blocks and function bodies aside, added to `out` under
+/// `function`.
+pub(crate) fn count_rebuilt_calls(
+    stmts: &[Statement],
+    binders: &FxHashSet<RcLocal>,
+    function: Option<FnPtr>,
+    out: &mut FxHashMap<(Option<FnPtr>, RcLocal), usize>,
+) {
+    fn visit(value: &RValue, binders: &FxHashSet<RcLocal>, function: Option<FnPtr>, out: &mut FxHashMap<(Option<FnPtr>, RcLocal), usize>) {
+        if let RValue::Call(call) | RValue::Select(Select::Call(call)) = value
+            && call.rebuilt.is_some()
+            && let RValue::Local(callee) = call.value.as_ref()
+            && binders.contains(callee)
+        {
+            *out.entry((function, callee.clone())).or_default() += 1;
+        }
+        if matches!(value, RValue::Closure(_)) {
+            return;
+        }
+        value.visit_rvalues(&mut |child| {
+            visit(child, binders, function, out);
+            true
+        });
+    }
+    for statement in stmts {
+        if let Statement::Call(call) = statement
+            && call.rebuilt.is_some()
+            && let RValue::Local(callee) = call.value.as_ref()
+            && binders.contains(callee)
+        {
+            *out.entry((function, callee.clone())).or_default() += 1;
+        }
+        visit_stmt_rvalues(statement, &mut |value| {
+            visit(value, binders, function, out);
+            true
+        });
+    }
+}
+
+/// The local a wrapper pattern calls: a body that is one call of another
+/// local, as a statement or returned (`updateChildren(node, parent,
+/// children)`). Its copy is that call, which a call written by hand is too;
+/// the count oracle tells them apart, and a call a de-inliner rebuilt never
+/// stands for a copy of it.
+fn wrapped_callee(pattern: &[Statement]) -> Option<&RcLocal> {
+    let call = match pattern {
+        [Statement::Call(call)] => call,
+        [Statement::Return(ret)] => match ret.values.as_slice() {
+            [RValue::Call(call)] | [RValue::Select(Select::Call(call))] => call,
+            _ => return None,
+        },
+        _ => return None,
+    };
+    match call.value.as_ref() {
+        RValue::Local(callee) => Some(callee),
+        _ => None,
+    }
+}
+
+/// Whether `stmts` holds a call of `callee` a de-inliner rebuilt (function
+/// bodies aside).
+fn holds_rebuilt_call(stmts: &[Statement], callee: &RcLocal) -> bool {
+    let binders = FxHashSet::from_iter([callee.clone()]);
+    let mut out = FxHashMap::default();
+    count_rebuilt_calls(stmts, &binders, None, &mut out);
+    !out.is_empty() || stmts.iter().any(|statement| {
+        let mut found = false;
+        for block in nested_blocks(statement) {
+            found |= holds_rebuilt_call(&block.lock().0, callee);
+        }
+        found
+    })
+}
+
+/// The statement blocks `statement` holds, function bodies aside.
+fn nested_blocks(statement: &Statement) -> Vec<Arc<Mutex<Block>>> {
+    match statement {
+        Statement::If(branch) => vec![branch.then_block.clone(), branch.else_block.clone()],
+        Statement::While(node) => vec![node.block.clone()],
+        Statement::Repeat(node) => vec![node.block.clone()],
+        Statement::NumericFor(node) => vec![node.block.clone()],
+        Statement::GenericFor(node) => vec![node.block.clone()],
+        _ => Vec::new(),
+    }
 }
 
 /// A function only ever called, all of whose calls Luau `-O2` inlined: an
@@ -611,9 +820,11 @@ pub fn deinline_with_orphans(body: &mut Block, chunk_orphans: &mut Vec<(RcLocal,
 /// the chunk may hold orphans of its own (else none is looked for).
 pub fn deinline_orphans_in(body: &mut Block, chunk_orphans: &mut Vec<(RcLocal, Closure)>, nested: bool) {
     let orphans = if nested || !chunk_orphans.is_empty() { collect_orphans(body, chunk_orphans, nested) } else { Vec::new() };
+    // What line info shows of the inlined copies (E1), if the chunk has any.
+    let copies = evidence::current();
     // Every rewrite needs a target; the module-wide censuses below are only
     // worth building when some helper passes the per-declaration gates.
-    if !any_structural_target(body) && orphans.is_empty() {
+    if !any_structural_target(body, copies.as_deref()) && orphans.is_empty() {
         crate::telemetry::count("skipped_without_targets", 1);
         return;
     }
@@ -642,6 +853,11 @@ pub fn deinline_orphans_in(body: &mut Block, chunk_orphans: &mut Vec<(RcLocal, C
     // retained across a revision, and this summary owns only numeric IDs.
     let mut initial_captures = Some(std::rc::Rc::new(captures));
     let search = std::rc::Rc::new(crate::deinline_safety::SearchBudget::default());
+    let lines = copies.map(|copies| std::rc::Rc::new(Evidence { copies, protos: Default::default() }));
+    // The evidence rounds (E1) have a budget of their own, so the targets
+    // above the floor search as they would without line evidence.
+    let evidence_search = std::rc::Rc::new(crate::deinline_safety::SearchBudget::default());
+    let mut evidence_round = EvidenceRound::Off;
     let mut converted: FxHashSet<RcLocal> = FxHashSet::default();
     // P4 perf: the write-once census is INVARIANT across fixed-point iterations for
     // the only thing we query — TARGET BINDERS (a `local f = function…end` local,
@@ -712,20 +928,34 @@ pub fn deinline_orphans_in(body: &mut Block, chunk_orphans: &mut Vec<(RcLocal, C
                     if let Some(last) = last_targets.take() {
                         helper_cache.keep_targets(last);
                     }
-                    let targets = collect_targets(body, &write_counts, &single_valued, captures, &orphans, &mut helper_cache);
+                    let mut targets = collect_targets(body, &write_counts, &single_valued, captures, lines.as_ref(), &orphans, &mut helper_cache);
                     crate::telemetry::count("accepted_targets", targets.len() as u64);
                     // The budget counts helpers: a value helper's discard
-                    // variant shares its definition.
-                    if targets.iter().filter(|target| !target.discarded && target.inferred.is_none() && !target.earlier_body).count() > 256 {
+                    // variant shares its definition. Helpers line evidence
+                    // admits have one of their own.
+                    let helpers = |evidence: bool| {
+                        targets
+                            .iter()
+                            .filter(|target| {
+                                target.evidence == evidence && !target.discarded && !target.hosted_only && target.inferred.is_none() && !target.earlier_body
+                            })
+                            .count()
+                    };
+                    if helpers(false) > 256 {
                         crate::telemetry::count("target_budget_exhausted", 1);
                         break;
+                    }
+                    if helpers(true) > 256 {
+                        crate::telemetry::count("evidence_target_budget_exhausted", 1);
+                        targets.retain(|target| !target.evidence);
                     }
                     targets
                 }
             };
+            let evidence_on = !matches!(evidence_round, EvidenceRound::Off);
             for target in &mut targets {
-                target.search = search.clone();
-                target.assigns = assign_phase;
+                target.search = if evidence_on { evidence_search.clone() } else { search.clone() };
+                target.assigns = assign_phase || evidence_on;
                 if entering_assign_phase {
                     // Only a value helper can match anew, through a store,
                     // or a late target ([`Target::late`]).
@@ -750,9 +980,13 @@ pub fn deinline_orphans_in(body: &mut Block, chunk_orphans: &mut Vec<(RcLocal, C
         for (idx, t) in targets.iter().enumerate() {
             decl_map.entry(t.f_local.clone()).and_modify(|range| range.end = idx + 1).or_insert(idx..idx + 1);
         }
+        // An evidence round tries its targets afresh at every position.
+        let rescan = rescan.take().filter(|_| matches!(evidence_round, EvidenceRound::Off));
         let mut newly = Progress {
             revisit: previous.as_ref().map(|previous| previous.bodies.clone()).unwrap_or_default(),
-            rescan: rescan.take(),
+            rescan,
+            evidence: evidence_round.clone(),
+            lines: lines.clone(),
             ..Progress::default()
         };
         for (index, target) in targets.iter().enumerate() {
@@ -796,17 +1030,45 @@ pub fn deinline_orphans_in(body: &mut Block, chunk_orphans: &mut Vec<(RcLocal, C
         // (`anchors_in_rvalue`), below the `anchors_in_block(&pat) < 2` collection
         // floor, so it can never be re-collected as a target body. Thus the count of
         // matchable inlined regions strictly decreases each productive iteration and
-        // is bounded by the initial AST size.
+        // is bounded by the initial AST size. A helper below the floor (E1) matches
+        // only in evidence rounds, never a window that is nothing but a rebuilt call
+        // (a wrapper's copy is a call written as such), so each of its splices takes
+        // in code outside rebuilt calls too; and an evidence round that rewrites
+        // nothing ends the loop.
         entering_assign_phase = false;
-        if newly.binders.is_empty() {
-            if assign_phase || !targets.iter().any(|target| target.kind == TKind::Value || target.late()) {
-                break;
+        match std::mem::take(&mut evidence_round) {
+            // The probe counted the evidence targets' matches; the pairs
+            // whose counts agree are rebuilt on the same tree next.
+            EvidenceRound::Probe if newly.binders.is_empty() => {
+                let admitted = admitted_pairs(&newly);
+                if admitted.is_empty() {
+                    break;
+                }
+                evidence_round = EvidenceRound::Admit(std::rc::Rc::new(admitted));
+                unchanged_targets = Some(targets);
+                previous = Some(newly);
+                continue;
             }
-            assign_phase = true;
-            entering_assign_phase = true;
-            unchanged_targets = Some(targets);
-            previous = Some(newly);
-            continue;
+            EvidenceRound::Admit(_) if newly.binders.is_empty() => break,
+            _ => {}
+        }
+        if newly.binders.is_empty() {
+            if !assign_phase && targets.iter().any(|target| !target.evidence && (target.kind == TKind::Value || target.late())) {
+                assign_phase = true;
+                entering_assign_phase = true;
+                unchanged_targets = Some(targets);
+                previous = Some(newly);
+                continue;
+            }
+            // Every other target is stable: the helpers below the floor
+            // get their evidence rounds.
+            if lines.is_some() && targets.iter().any(|target| target.evidence) && !evidence_search.exhausted() {
+                evidence_round = EvidenceRound::Probe;
+                unchanged_targets = Some(targets);
+                previous = Some(newly);
+                continue;
+            }
+            break;
         }
         current_captures = None;
         converted.extend(newly.binders.iter().cloned());
@@ -3252,11 +3514,44 @@ fn deinline_block(
             crate::reconstruction_search::priority_keys(current_func.map(|p| p as usize), &helpers).map(std::rc::Rc::new)
         })
         .clone();
+    // Evidence targets (E1) are tried only in evidence rounds, where they
+    // come first and every other target is a rival: in a probe, in every
+    // function holding copies of their helper; then only where the counts
+    // agreed, the other ones still rivals as in the probe.
+    let round = newly.evidence.clone();
+    let lines = newly.lines.clone();
+    let copies_here = |i: usize| lines.as_ref().map_or(0, |lines| lines.copies(current_func, targets[i].proto));
+    let admitted_here = |i: usize| match &round {
+        EvidenceRound::Admit(admitted) => admitted.contains(&(current_func, targets[i].f_local.clone())),
+        _ => false,
+    };
     // `reconstruction_search::prioritize` of the focused targets: a stable
     // partition by the body's keys.
     let prioritize = |active: &[usize]| {
-        let (mut focused, rivals): (Vec<usize>, Vec<usize>) =
-            active.iter().partition(|&&i| revisit || targets[i].focused);
+        let (mut focused, rivals): (Vec<usize>, Vec<usize>) = match &round {
+            EvidenceRound::Off => active.iter().filter(|&&i| !targets[i].evidence).partition(|&&i| revisit || targets[i].focused),
+            EvidenceRound::Probe => {
+                let evidence: Vec<usize> = active.iter().copied().filter(|&i| targets[i].evidence && copies_here(i) > 0).collect();
+                if evidence.is_empty() {
+                    (Vec::new(), Vec::new())
+                } else {
+                    (evidence, active.iter().copied().filter(|&i| !targets[i].evidence).collect())
+                }
+            }
+            EvidenceRound::Admit(_) => {
+                let evidence: Vec<usize> = active.iter().copied().filter(|&i| targets[i].evidence && admitted_here(i)).collect();
+                if evidence.is_empty() {
+                    (Vec::new(), Vec::new())
+                } else {
+                    let rivals = active
+                        .iter()
+                        .copied()
+                        .filter(|&i| !targets[i].evidence || (!admitted_here(i) && copies_here(i) > 0))
+                        .collect();
+                    (evidence, rivals)
+                }
+            }
+        };
         if let Some(keys) = &keys {
             let (first, rest): (Vec<usize>, Vec<usize>) = focused.iter().partition(|&&i| keys[i]);
             focused = first;
@@ -3265,6 +3560,19 @@ fn deinline_block(
         (focused, rivals)
     };
     let (mut ordered, mut rivals) = prioritize(&active);
+    if matches!(round, EvidenceRound::Probe) {
+        // The calls of the evidence helpers tried here already rebuilt in
+        // this block: the count oracle counts them with the matches.
+        let binders: FxHashSet<RcLocal> = targets
+            .iter()
+            .enumerate()
+            .filter(|&(i, target)| target.evidence && copies_here(i) > 0)
+            .map(|(_, target)| target.f_local.clone())
+            .collect();
+        if !binders.is_empty() {
+            count_rebuilt_calls(stmts, &binders, current_func, &mut newly.rebuilt);
+        }
+    }
     let mut i = 0;
     let mut anchor = 0;
     // Tail-liveness index, replacing the per-window O(N) `any_local_live` rescan
@@ -3304,6 +3612,14 @@ fn deinline_block(
             &mut last_occ,
             &mut canon_cache,
         ) {
+            if hit.evidence && matches!(round, EvidenceRound::Probe) {
+                // Counted, not rewritten: the oracle needs every count first.
+                newly.probed.entry((current_func, hit.f_local.clone())).or_insert((0, hit.proto)).0 += hit.shaped;
+                i += hit.consume.max(1);
+                continue;
+            }
+            // Another copy may stand in the statement a rebuilt one stays in.
+            let again = hit.evidence && hit.host.is_some() && matches!(round, EvidenceRound::Admit(_));
             let mut call = Call::new(RValue::Local(hit.f_local.clone()), hit.args)
                 .reconstructed(crate::call_origins::Kind::StatementDeinline);
             call.one_result = hit.single_valued;
@@ -3348,7 +3664,7 @@ fn deinline_block(
             newly.binders.insert(hit.f_local);
             newly.splices += 1;
             newly.bodies.insert(current_func);
-            i = start + advance;
+            i = if again { start } else { start + advance };
             // The block changed; drop the cached index so the next query rebuilds
             // it against the spliced `stmts`.
             last_occ.index = None;
@@ -3465,6 +3781,9 @@ fn recurse_into_closures(
             };
             let mut function = c.function.0.lock();
             let function = &mut *function;
+            if let Some(lines) = &newly.lines {
+                lines.protos.borrow_mut().insert(fp, function.bytecode_proto_id);
+            }
             deinline_block(
                 &mut function.body.0,
                 targets,
@@ -3808,6 +4127,13 @@ struct Hit {
     /// arguments not counted; `None` where every statement covered goes
     /// ([`Hit::extent`]).
     partial: Option<usize>,
+    /// [`Target::evidence`] and [`Target::proto`] of the target matched.
+    evidence: bool,
+    proto: Option<usize>,
+    /// For an evidence target's copy evaluated in place: the values of its
+    /// statement shaped as the helper's value, all of which a probe counts
+    /// (rounds rebuild one per statement at a time).
+    shaped: usize,
 }
 
 impl Hit {
@@ -3833,6 +4159,9 @@ impl Hit {
             mode: "",
             single_valued: t.single_valued,
             partial: None,
+            evidence: t.evidence,
+            proto: t.proto,
+            shaped: 1,
         }
     }
 
@@ -3956,7 +4285,16 @@ fn try_match_at(
         if t.late() && !t.assigns {
             return Ok(None);
         }
-        let mut hit = if seen_without_site { None } else { match (t.kind, t.value_anchor) {
+        // A variant claims constants its copy folded away: refused where
+        // line info shows none of the helper's code (honesty, part b).
+        if t.inferred.is_some() && t.lines.as_ref().is_some_and(|lines| lines.absent(current_func, t.proto)) {
+            return Ok(None);
+        }
+        let mut hit = if seen_without_site {
+            None
+        } else if t.hosted_only {
+            match_hosted_value(stmts, i, anchor, t, canon_cache, current_func)
+        } else { match (t.kind, t.value_anchor) {
             (TKind::Void, _) => match_void(
                 stmts,
                 i,
@@ -3991,11 +4329,32 @@ fn try_match_at(
             found_at.insert((block, i, ti));
         }
         // A value stored into a local the caller already has.
-        if hit.is_none() && t.assigns && t.kind == TKind::Value && assign_head_may_match(t, anchor_stmt, anchor_key) {
+        if hit.is_none() && t.assigns && t.kind == TKind::Value && !t.hosted_only && assign_head_may_match(t, anchor_stmt, anchor_key) {
             hit = match_assigned_value(stmts, i, t, is_func_body_top, last_occ, canon_cache, current_func);
         }
         let hit = hit.filter(|hit| !hit.inferred.as_ref().is_some_and(|param| continues_pruned_branch(t, param, stmts, i + hit.consume)));
         let hit = hit.map(|hit| host_returned_cell(stmts, i, hit, t, current_func).unwrap_or_else(|hit| hit));
+        // A wrapper's copy is a plain call of the local it wraps; one a
+        // de-inliner rebuilt is no copy of it.
+        let hit = hit.filter(|hit| {
+            !t.evidence
+                || wrapped_callee(&t.pat).is_none_or(|callee| !holds_rebuilt_call(&stmts[i..(i + hit.consume).min(stmts.len())], callee))
+        });
+        // Every value of the statement a copy evaluated in place stands in
+        // that may be another copy: the count oracle counts them all.
+        let hit = hit.map(|mut hit| {
+            if t.evidence && hit.host.is_some() && let (Some(pattern), Some(statement)) = (&t.hosted, stmts.get(anchor)) {
+                let shaped = std::cell::Cell::new(0);
+                holds_shape(statement, &|value| {
+                    if value_kind(value) == value_kind(pattern) && unify_returned_value(&t.ctx(), pattern, value, &mut Bindings::default()).is_ok() {
+                        shaped.set(shaped.get() + 1);
+                    }
+                    false
+                });
+                hit.shaped = shaped.get().max(1);
+            }
+            hit
+        });
         Ok(hit.and_then(|hit| absorb_arguments(stmts, i, t, Hit { discarded: t.discarded, ..hit }, last_occ, is_func_body_top)))
     };
     // Where several helpers match, the one standing for the most code wins
@@ -5346,7 +5705,9 @@ fn hosted_pattern(t: &Target) -> Option<RValue> {
     {
         return None;
     }
-    (value_nodes(value) >= crate::expr_deinline::NODE_COUNT_FLOOR).then(|| value.clone())
+    // Below the floor, line evidence admits it, and only the saving gate
+    // of the matcher applies.
+    (t.evidence || value_nodes(value) >= crate::expr_deinline::NODE_COUNT_FLOOR).then(|| value.clone())
 }
 
 /// The nodes of `value`, a function literal's body included: the size of
@@ -5428,10 +5789,10 @@ fn match_hosted_value(
         let u = try_unify_site(t, &window, current_func)?;
         let argument_nodes: usize = u.args.iter().map(value_nodes).sum();
         let nodes = value_nodes(value);
-        if u.result.as_ref() != Some(&result)
-            || !u.callee_locals.is_empty()
-            || nodes < 1 + argument_nodes + crate::expr_deinline::NET_SAVING_FLOOR
-        {
+        // Where line evidence admits the helper, the call (itself, its
+        // callee and its arguments) need only be no larger than the copy.
+        let saves = if t.evidence { nodes >= 2 + argument_nodes } else { nodes >= 1 + argument_nodes + crate::expr_deinline::NET_SAVING_FLOOR };
+        if u.result.as_ref() != Some(&result) || !u.callee_locals.is_empty() || !saves {
             return None;
         }
         Some((u, wrap, nodes - argument_nodes))
@@ -6915,7 +7276,13 @@ fn may_specialize(t: &Target) -> bool {
 }
 
 fn try_unify_specialized_site(t: &Target, cwin: &[Statement], current_func: Option<FnPtr>) -> Option<Unified> {
-    try_seeded_specialization(t, cwin, current_func).or_else(|| try_inferred_constant(t, cwin, current_func))
+    let unified = try_seeded_specialization(t, cwin, current_func).or_else(|| try_inferred_constant(t, cwin, current_func))?;
+    // Honesty, part (b): no specialized copy where line info shows none
+    // of the helper's code.
+    if t.lines.as_ref().is_some_and(|lines| lines.absent(current_func, t.proto)) {
+        return refused("specialization_outside_copies");
+    }
+    Some(unified)
 }
 
 fn try_seeded_specialization(t: &Target, cwin: &[Statement], current_func: Option<FnPtr>) -> Option<Unified> {
@@ -7088,7 +7455,8 @@ fn try_truth(
             let bindings = FxHashMap::from_iter([(param.clone(), RValue::Literal(truth.literal()))]);
             specialize_block(&mut specialized, &bindings);
             let specialized = canon(&specialized);
-            (!specialized.is_empty() && anchor_score(&specialized, &t.param_order) >= 2)
+            // Below the floor only for a helper line evidence admits.
+            (!specialized.is_empty() && (t.evidence || anchor_score(&specialized, &t.param_order) >= 2))
                 .then(|| std::rc::Rc::new(specialized))
         })
         .clone()?;
@@ -7850,7 +8218,7 @@ fn has_loop_void_return(stmts: &[Statement], inside_loop: bool) -> bool {
 /// Whether some `local f = function ... end` passes the gates of
 /// [`collect_targets`] that depend only on the helper itself (a necessary
 /// condition for any target).
-fn any_structural_target(body: &Block) -> bool {
+fn any_structural_target(body: &Block, copies: Option<&evidence::Copies>) -> bool {
     let mut found = false;
     each_closure_decl(&body.0, &mut |_, function| {
         if found {
@@ -7867,7 +8235,10 @@ fn any_structural_target(body: &Block) -> bool {
             return;
         }
         let loop_exit = kind == TKind::Value && !value_leaf_shape(&pattern) && loop_return_split(&pattern).is_some();
-        if anchor_score(&pattern, &g.parameters) + LOOP_EXIT_ANCHORS * usize::from(loop_exit) < 2 {
+        // Below the floor only where line info shows copies (E1).
+        if anchor_score(&pattern, &g.parameters) + LOOP_EXIT_ANCHORS * usize::from(loop_exit) < 2
+            && !g.bytecode_proto_id.is_some_and(|proto| copies.is_some_and(|copies| copies.inlined_anywhere(proto)))
+        {
             return;
         }
         found = match kind {
@@ -8123,6 +8494,7 @@ fn collect_targets(
     write_counts: &FxHashMap<RcLocal, usize>,
     single_valued: &FxHashSet<RcLocal>,
     captures: std::rc::Rc<crate::deinline_safety::CaptureSafety>,
+    lines: Option<&std::rc::Rc<Evidence>>,
     orphans: &[Orphan],
     cache: &mut HelperCache,
 ) -> Vec<Target> {
@@ -8154,13 +8526,13 @@ fn collect_targets(
             deinline_reject!(RejectReason::TargetStillReferenced, f_local, "<binder>");
             continue;
         }
-        helper_targets(&f_local, &func, single_valued, &captures, None, &mut targets, cache);
+        helper_targets(&f_local, &func, single_valued, &captures, lines, None, &mut targets, cache);
     }
     // Orphans: functions only ever called where Luau inlined them, their
     // dead declarations kept aside ([`Orphan`]).
     for orphan in orphans {
         crate::telemetry::count("candidate_binders", 1);
-        helper_targets(&orphan.binder, &orphan.function, single_valued, &captures, Some(orphan.scope), &mut targets, cache);
+        helper_targets(&orphan.binder, &orphan.function, single_valued, &captures, lines, Some(orphan.scope), &mut targets, cache);
     }
     targets
 }
@@ -8177,6 +8549,7 @@ fn helper_targets(
     func: &Arc<Mutex<Function>>,
     single_valued: &FxHashSet<RcLocal>,
     captures: &std::rc::Rc<crate::deinline_safety::CaptureSafety>,
+    lines: Option<&std::rc::Rc<Evidence>>,
     orphan: Option<Option<FnPtr>>,
     targets: &mut Vec<Target>,
     cache: &mut HelperCache,
@@ -8190,7 +8563,7 @@ fn helper_targets(
         entry => {
             let mut functions = vec![Arc::as_ptr(func)];
             functions_within(&g.body.0, &mut functions);
-            let analysis = analyze_helper(f_local, func, &g, single_valued, captures);
+            let analysis = analyze_helper(f_local, func, &g, single_valued, captures, lines);
             let (analysis, fresh) = match analysis {
                 Ok(fresh) => (HelperAnalysis::Accepted, Some(fresh)),
                 Err(refusal) => (refusal, None),
@@ -8353,6 +8726,7 @@ fn analyze_helper(
     g: &Function,
     single_valued: &FxHashSet<RcLocal>,
     captures: &std::rc::Rc<crate::deinline_safety::CaptureSafety>,
+    lines: Option<&std::rc::Rc<Evidence>>,
 ) -> Result<Vec<Target>, HelperAnalysis> {
     let f_local = f_local.clone();
     // P5-A: drop the `g.name.is_none()` gate. `g.name` is only the bytecode
@@ -8425,7 +8799,11 @@ fn analyze_helper(
             cps_loop_return,
         );
     }
-    if anchor_score(&pat, &g.parameters) + LOOP_EXIT_ANCHORS * usize::from(loop_exit_at.is_some()) < 2 {
+    // Below the readability floor, a helper is matched only where line
+    // info shows its copies, all of them in a function or none (E1).
+    let inlined = g.bytecode_proto_id.is_some_and(|proto| lines.is_some_and(|lines| lines.copies.inlined_anywhere(proto)));
+    let evidence = anchor_score(&pat, &g.parameters) + LOOP_EXIT_ANCHORS * usize::from(loop_exit_at.is_some()) < 2;
+    if evidence && !inlined {
         return Err(HelperAnalysis::RefusedLater(RejectReason::LowAnchorScore));
     }
     // Written params (see `Target::written_params`) are matched as callee
@@ -8511,9 +8889,12 @@ fn analyze_helper(
         .then(|| discard_body(&body))
         .flatten()
         .map(|raw| (canon(&raw), raw))
-        .filter(|(pattern, _)| {
-            !pattern.is_empty() && !block_has_return(pattern) && anchor_score(pattern, &g.parameters) >= 2
-        });
+        .filter(|(pattern, _)| !pattern.is_empty() && !block_has_return(pattern))
+        .map(|(pattern, raw)| {
+            let below_floor = anchor_score(&pattern, &g.parameters) < 2;
+            (pattern, raw, below_floor)
+        })
+        .filter(|&(_, _, below_floor)| !below_floor || inlined);
     let common = TargetCommon {
         f_local: &f_local,
         func_ptr: Arc::as_ptr(&func),
@@ -8522,8 +8903,11 @@ fn analyze_helper(
         written_params: &written_params,
         unread: &unread,
         captures: &captures,
+        proto: g.bytecode_proto_id,
+        lines,
     };
     let mut target = common.target(kind, pat, &body);
+    target.evidence = evidence;
     target.value_anchor = value_anchor;
     target.prefix_len = prefix_len;
     target.falls_off = falls_off;
@@ -8544,17 +8928,31 @@ fn analyze_helper(
         }
         _ => None,
     };
-    let discard_target = discard.map(|(pattern, raw)| Target {
+    let discard_target = discard.map(|(pattern, raw, below_floor)| Target {
         discarded: true,
         returns_parameter,
         returns_cell,
         single_valued: target.single_valued,
+        evidence: evidence || below_floor,
         ..common.target(TKind::Void, pattern, &raw)
     });
     let variants = specialization_variants(&target, &common, &body);
+    // The copies evaluated in place that only the size floors refuse are
+    // matched where line info shows copies, by a twin of the target.
+    let hosted_twin = (!evidence && inlined)
+        .then(|| {
+            let mut twin = common.target(kind, target.pat.clone(), &body);
+            twin.evidence = true;
+            twin.hosted_only = true;
+            twin.single_valued = target.single_valued;
+            twin.hosted = hosted_pattern(&twin);
+            twin
+        })
+        .filter(|twin| twin.hosted.is_some());
     let mut found = vec![target];
     found.extend(discard_target);
     found.extend(variants);
+    found.extend(hosted_twin);
     Ok(found)
 }
 
@@ -8601,6 +8999,7 @@ fn narrow_prefix_only() -> bool {
 /// variant stands only where the copy is larger than its call
 /// ([`specialization_is_honest`]). Built once per helper.
 fn specialization_variants(t: &Target, common: &TargetCommon, raw: &[Statement]) -> Vec<Target> {
+    let inlined = common.proto.is_some_and(|proto| common.lines.is_some_and(|lines| lines.copies.inlined_anywhere(proto)));
     if t.truth_params.is_empty()
         || t.truth_params.len() > MAX_TRUTH_PARAMS
         || t.loop_exit_at.is_some()
@@ -8612,7 +9011,7 @@ fn specialization_variants(t: &Target, common: &TargetCommon, raw: &[Statement])
     let mut variants = Vec::new();
     for param in &t.truth_params {
         let falsy = if t.optional_params.contains(param) { InferredTruth::Nil } else { InferredTruth::False };
-        let mut shapes: Vec<(InferredTruth, Vec<Statement>)> = Vec::new();
+        let mut shapes: Vec<(InferredTruth, Vec<Statement>, bool)> = Vec::new();
         for truth in [InferredTruth::True, falsy] {
             // `canon` deep-copies every block-bearing statement, avoiding
             // mutation of the recovered function body's shared Arcs.
@@ -8623,16 +9022,20 @@ fn specialization_variants(t: &Target, common: &TargetCommon, raw: &[Statement])
                 TKind::Value => specialized.len() != t.pat.len() && value_leaf_shape(&specialized),
                 TKind::Void => specialized.len() > t.pat.len() && !block_has_return(&specialized),
             };
-            if changed && anchor_score(&specialized, &t.param_order) >= 2 {
-                shapes.push((truth, specialized));
+            // Below the floor, a variant needs line evidence too.
+            if changed {
+                let below_floor = anchor_score(&specialized, &t.param_order) < 2;
+                if !below_floor || inlined {
+                    shapes.push((truth, specialized, below_floor));
+                }
             }
         }
-        if let [(_, a), (_, b)] = shapes.as_slice()
+        if let [(_, a, _), (_, b, _)] = shapes.as_slice()
             && crate::factor_common_tails::block_alpha_eq(a, b)
         {
             continue;
         }
-        for (truth, pattern) in shapes {
+        for (truth, pattern, below_floor) in shapes {
             let (value_anchor, prefix_len) = value_anchor_of(t.kind, &pattern, None);
             let mut variant = common.target(t.kind, pattern, raw);
             variant.value_anchor = value_anchor;
@@ -8643,6 +9046,7 @@ fn specialization_variants(t: &Target, common: &TargetCommon, raw: &[Statement])
             variant.truth_params = Vec::new();
             variant.optional_params = Vec::new();
             variant.inferred = Some((param.clone(), truth));
+            variant.evidence = t.evidence || below_floor;
             variants.push(variant);
         }
     }
@@ -8658,6 +9062,8 @@ struct TargetCommon<'a> {
     written_params: &'a [RcLocal],
     unread: &'a FxHashSet<RcLocal>,
     captures: &'a std::rc::Rc<crate::deinline_safety::CaptureSafety>,
+    proto: Option<usize>,
+    lines: Option<&'a std::rc::Rc<Evidence>>,
 }
 
 impl TargetCommon<'_> {
@@ -8721,6 +9127,10 @@ impl TargetCommon<'_> {
             private_closures,
             orphan: None,
             earlier_body: false,
+            proto: self.proto,
+            evidence: false,
+            hosted_only: false,
+            lines: self.lines.cloned(),
             captures: self.captures.clone(),
             search: Default::default(),
         }
@@ -9883,6 +10293,10 @@ mod tests {
             private_closures: Default::default(),
             orphan: None,
             earlier_body: false,
+            proto: None,
+            evidence: false,
+            hosted_only: false,
+            lines: None,
             captures: Default::default(),
             search: Default::default(),
         }
@@ -10678,6 +11092,10 @@ mod tests {
             private_closures: Default::default(),
             orphan: None,
             earlier_body: false,
+            proto: None,
+            evidence: false,
+            hosted_only: false,
+            lines: None,
             captures: Default::default(),
             search: Default::default(),
         };
@@ -10769,6 +11187,10 @@ mod tests {
             private_closures: Default::default(),
             orphan: None,
             earlier_body: false,
+            proto: None,
+            evidence: false,
+            hosted_only: false,
+            lines: None,
             captures: Default::default(),
             search: Default::default(),
         };
@@ -10850,6 +11272,10 @@ mod tests {
             private_closures: Default::default(),
             orphan: None,
             earlier_body: false,
+            proto: None,
+            evidence: false,
+            hosted_only: false,
+            lines: None,
             captures: Default::default(),
             search: Default::default(),
         };
@@ -10946,6 +11372,10 @@ mod tests {
             private_closures: Default::default(),
             orphan: None,
             earlier_body: false,
+            proto: None,
+            evidence: false,
+            hosted_only: false,
+            lines: None,
             captures: Default::default(),
             search: Default::default(),
         };
@@ -11300,6 +11730,10 @@ mod tests {
             private_closures: Default::default(),
             orphan: None,
             earlier_body: false,
+            proto: None,
+            evidence: false,
+            hosted_only: false,
+            lines: None,
             captures: Default::default(),
             search: Default::default(),
         };
@@ -11404,6 +11838,10 @@ mod tests {
             private_closures: Default::default(),
             orphan: None,
             earlier_body: false,
+            proto: None,
+            evidence: false,
+            hosted_only: false,
+            lines: None,
             captures: Default::default(),
             search: Default::default(),
         }
@@ -11570,6 +12008,10 @@ mod tests {
             private_closures: Default::default(),
             orphan: None,
             earlier_body: false,
+            proto: None,
+            evidence: false,
+            hosted_only: false,
+            lines: None,
             captures: Default::default(),
             search: Default::default(),
         }
@@ -11631,6 +12073,10 @@ mod tests {
             private_closures: Default::default(),
             orphan: None,
             earlier_body: false,
+            proto: None,
+            evidence: false,
+            hosted_only: false,
+            lines: None,
             captures: Default::default(),
             search: Default::default(),
         }
@@ -12809,6 +13255,10 @@ mod tests {
             private_closures: Default::default(),
             orphan: None,
             earlier_body: false,
+            proto: None,
+            evidence: false,
+            hosted_only: false,
+            lines: None,
             captures: Default::default(),
             search: Default::default(),
         };
@@ -12864,6 +13314,8 @@ mod tests {
             written_params: &[],
             unread: &FxHashSet::default(),
             captures: &Default::default(),
+            proto: None,
+            lines: None,
         };
         let mut target = common.target(kind, canon(body), body);
         let mut leaves = Vec::new();
@@ -13483,6 +13935,77 @@ mod tests {
         // A last argument takes all of them, which the helper cuts to one.
         let output = run(vec![number(1.0), RValue::Call(produce(&x))]);
         assert!(output.contains("print(1, produce(x.name, \"!\"))"), "{output}");
+    }
+
+    /// A probe's counts, with line evidence of `copies` (`(caller, helper,
+    /// count)`) and `nested` copies; functions are fake pointers mapped to
+    /// prototypes `1..`.
+    fn probe(copies: &[(u32, u32, u32)], nested: &[(u32, u32, u32)]) -> Progress {
+        let mut census = evidence::Copies::new(0);
+        for &(caller, helper, count) in copies {
+            census.copies.insert((caller, helper), count);
+        }
+        census.nested.extend(nested.iter().copied());
+        let lines = Evidence { copies: std::rc::Rc::new(census), protos: Default::default() };
+        for proto in 1..8usize {
+            lines.protos.borrow_mut().insert(proto as FnPtr, Some(proto));
+        }
+        Progress { lines: Some(std::rc::Rc::new(lines)), ..Progress::default() }
+    }
+
+    #[test]
+    fn helpers_below_the_floor_are_rebuilt_in_a_function_only_where_matches_are_its_copies() {
+        let (f, g, h) = (local("f"), local("g"), local("h"));
+        let mut progress = probe(&[(1, 10, 3), (2, 10, 2), (3, 11, 2), (0, 12, 1)], &[]);
+        // Three matches for three copies: rebuilt. Three for two (a copy
+        // written by hand): refused, all of them.
+        progress.probed.insert((Some(1 as FnPtr), f.clone()), (3, Some(10)));
+        progress.probed.insert((Some(2 as FnPtr), f.clone()), (3, Some(10)));
+        // A call of the helper rebuilt before counts with the matches.
+        progress.probed.insert((Some(3 as FnPtr), g.clone()), (1, Some(11)));
+        progress.rebuilt.insert((Some(3 as FnPtr), g.clone()), 1);
+        // The chunk is the main prototype.
+        progress.probed.insert((None, h.clone()), (1, Some(12)));
+        let admitted = admitted_pairs(&progress);
+        assert!(admitted.contains(&(Some(1 as FnPtr), f.clone())));
+        assert!(!admitted.contains(&(Some(2 as FnPtr), f)));
+        assert!(admitted.contains(&(Some(3 as FnPtr), g)));
+        assert!(admitted.contains(&(None, h)));
+    }
+
+    #[test]
+    fn a_helper_whose_copies_sit_inside_another_admitted_one_waits_for_it() {
+        let (outer, inner) = (local("outer"), local("inner"));
+        let mut progress = probe(&[(1, 10, 1), (1, 11, 1)], &[(1, 10, 11)]);
+        progress.probed.insert((Some(1 as FnPtr), outer.clone()), (1, Some(10)));
+        progress.probed.insert((Some(1 as FnPtr), inner.clone()), (1, Some(11)));
+        let admitted = admitted_pairs(&progress);
+        assert!(admitted.contains(&(Some(1 as FnPtr), outer)));
+        assert!(!admitted.contains(&(Some(1 as FnPtr), inner)));
+    }
+
+    #[test]
+    fn rebuilt_calls_of_a_helper_are_counted_in_a_block_but_not_in_function_bodies() {
+        let (f, x) = (local("f"), local("x"));
+        let rebuilt = || Call::new(RValue::Local(f.clone()), vec![RValue::Local(x.clone())]).reconstructed(crate::call_origins::Kind::StatementDeinline);
+        let raw = Call::new(RValue::Local(f.clone()), vec![]);
+        let body = Function { body: Block(vec![Statement::Call(rebuilt())]), ..Function::default() };
+        let closure = RValue::Closure(Closure {
+            node_origin: Default::default(),
+            function: ByAddress(Arc::new(Mutex::new(body))),
+            upvalues: vec![],
+        });
+        let stmts = vec![
+            Statement::Call(rebuilt()),
+            assign_local(&x, RValue::Call(rebuilt()), true),
+            Statement::Call(raw),
+            assign_local(&x, closure, false),
+        ];
+        let mut out = FxHashMap::default();
+        count_rebuilt_calls(&stmts, &FxHashSet::from_iter([f.clone()]), None, &mut out);
+        assert_eq!(out.get(&(None, f.clone())), Some(&2));
+        assert!(wrapped_callee(&stmts[..1]) == Some(&f));
+        assert!(holds_rebuilt_call(&stmts[2..3], &f) == false && holds_rebuilt_call(&stmts[..1], &f));
     }
 
     #[test]

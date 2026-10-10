@@ -13,6 +13,8 @@ use crate::{
 };
 
 pub(super) const MAX_TARGETS: usize = 32;
+/// Every parameter count a prototype can have (`Det3x3` takes nine).
+pub(crate) const MAX_PARAMETERS: usize = 255;
 const MAX_NODES: usize = 64;
 const MAX_ATTEMPTS: usize = 8192;
 
@@ -43,7 +45,7 @@ pub(crate) fn pattern(function: &Function) -> Option<RValue> {
             .is_some_and(crate::valid_source_name)
         || function.is_variadic
         || function.parameters.is_empty()
-        || function.parameters.len() > 8
+        || function.parameters.len() > MAX_PARAMETERS
     {
         return None;
     }

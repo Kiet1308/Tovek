@@ -626,6 +626,9 @@ fn decompile_bytecode_internal(
             let setup_timer = prof::Timer::new(&prof::SETUP);
             // Which prototypes Luau inlined somewhere, read off line info.
             let mut inlined_prototypes = vec![false; chunk.functions.len()];
+            // The inlined copies of each helper in each function, read off
+            // line info (`ast::deinline::evidence`): none without it.
+            let mut inlined_copies = None;
             let _reconstruction_search = if chunk.functions.len() <= 4096
                 && chunk.functions.iter().map(|p| p.instructions.len()).sum::<usize>() <= ast::reconstruction_search::PC_LIMIT {
                 if chunk.functions.len() == 1 {
@@ -633,9 +636,18 @@ fn decompile_bytecode_internal(
                 } else {
                     let lines: Vec<Vec<Option<u32>>> = chunk.functions.iter().map(upvalue_analysis::decode_source_lines).collect();
                     inlined_prototypes = reconstruction_candidates::inlined_prototypes(&chunk.functions, &lines);
+                    inlined_copies = reconstruction_candidates::inlined_copies(&chunk.functions, &lines, chunk.main);
+                    if ast::env_flag!("MEDAL_TRACE_COPIES") && let Some(copies) = &inlined_copies {
+                        let mut rows: Vec<_> = copies.copies.iter().collect();
+                        rows.sort();
+                        for ((caller, helper), count) in rows {
+                            eprintln!("COPIES caller=p{caller} helper=p{helper} copies={count}");
+                        }
+                    }
                     ast::reconstruction_search::enter(lines)
                 }
             } else { ast::reconstruction_search::enter_truncated() };
+            let _inlined_copies = ast::deinline::evidence::enter(inlined_copies);
             let capture_effects = capture_effects::CaptureEffects::build(&chunk);
             let globals = std::sync::Arc::new(chunk_globals(&chunk));
             // A global no identifier spells is written `getfenv(1)["name"]`,

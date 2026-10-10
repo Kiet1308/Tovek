@@ -808,6 +808,18 @@
       "bytes": 746,
       "lines": 47
     },
+    "semantic/deinline_line_evidence_admits_small_helpers__O0.luau": {
+      "bytes": 2508,
+      "lines": 128
+    },
+    "semantic/deinline_line_evidence_admits_small_helpers__O1.luau": {
+      "bytes": 2499,
+      "lines": 128
+    },
+    "semantic/deinline_line_evidence_admits_small_helpers__O2.luau": {
+      "bytes": 3328,
+      "lines": 149
+    },
     "semantic/deinline_method_receiver_read_late__O0.luau": {
       "bytes": 301,
       "lines": 22
@@ -878,6 +890,18 @@
     },
     "semantic/deinline_returns_distributed_and_short_circuit__O2.luau": {
       "bytes": 1818,
+      "lines": 72
+    },
+    "semantic/deinline_specialization_outside_copies__O0.luau": {
+      "bytes": 1172,
+      "lines": 69
+    },
+    "semantic/deinline_specialization_outside_copies__O1.luau": {
+      "bytes": 1172,
+      "lines": 69
+    },
+    "semantic/deinline_specialization_outside_copies__O2.luau": {
+      "bytes": 1491,
       "lines": 72
     },
     "semantic/deinline_specialized_copies__O0.luau": {

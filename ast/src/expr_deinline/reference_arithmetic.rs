@@ -89,7 +89,7 @@ pub(crate) fn pattern(function: &Function) -> Option<RValue> {
             .is_some_and(crate::valid_source_name)
         || function.is_variadic
         || function.parameters.is_empty()
-        || function.parameters.len() > 8
+        || function.parameters.len() > crate::expr_deinline::arithmetic::MAX_PARAMETERS
     {
         return None;
     }

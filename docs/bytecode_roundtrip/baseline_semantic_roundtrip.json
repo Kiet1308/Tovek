@@ -6,7 +6,16 @@
   "migration": "Replayed the original baseline lifter with corrected normalization; thresholds are not regenerated from current decompiler output.",
   "reviewed_count_changes": {
    "alias_iterators": "Historical output adds an implicit zero for the private sum field before its closure store. The same difference is present in current output; the fixture passes runtime round-trips at O0/O1/O2.",
-   "deinline_method_receiver_read_late": "Main inlines `make` twice; both copies of its `report` literal load one DUPCLOSURE constant, so the old and new tables share one closure. The copies now print as one hoisted `local function report` stored at both sites (closure identity, M0 2026-10-06), which adds a local to the main prototype; the fixture passes runtime round-trips at O0/O1/O2."
+   "deinline_method_receiver_read_late": "Main inlines `make` twice; both copies of its `report` literal load one DUPCLOSURE constant, so the old and new tables share one closure. The copies now print as one hoisted `local function report` stored at both sites (closure identity, M0 2026-10-06), which adds a local to the main prototype; the fixture passes runtime round-trips at O0/O1/O2.",
+   "conditional_value_before_short_circuit": "m3-e1 (line evidence, 2026-10-10): `callback`, below the anchor floor, is one copy in `test` by line info and rebuilds as `local v = not p and callback()` (the select splits off `not p`); the recompiled `test` tests with NOT/AND where the bytecode branched, so it differs by construction (nonequiv 1 -> 2); runtime round-trips and the bytecode reference hold.",
+   "constructor_key_error_after_branch_call": "m3-e1 (line evidence, 2026-10-10): `change`, below the anchor floor, rebuilds as `local v = not p and change()`; the recompiled function tests with NOT/AND where the bytecode branched (nonequiv 0 -> 1, by construction).",
+   "deinline_fresh_closure_capturing_a_constant": "m3-e1 (line evidence, 2026-10-10): at -g1 the loop copies of `bind` and `nest` rebuild as calls (`bind(true)`, `bind(name)`, `nest(name)`, `bind(title)`), each a new closure as in the bytecode; main compiles them as calls where the bytecode inlined them (nonequiv 3 -> 4); the private-copy cases still apply where the copies stay inline (-g0).",
+   "returned_parameter_helper": "m3-e1 (line evidence, 2026-10-10): `bump(v, 10)` rebuilds in `run` as the source has it; recompiled, `run` costs more than the -O2 inline budget (cost 28) and main calls it where the bytecode inlined it (outlined by construction, nonequiv 0 -> 1).",
+   "captured_copy_into_plain_local": "m3-e1 ratchet 2 -> 1 (2026-10-10): a helper copy line evidence admits rebuilds as the source calls it.",
+   "loop_after_breaking_for": "m3-e1 ratchet 2 -> 1 (2026-10-10): the copies of `done` rebuild as `until done()`.",
+   "naming_counter_compaction_respects_captures": "m3-e1 ratchet 2 -> 1 (2026-10-10): a helper copy line evidence admits rebuilds as the source calls it.",
+   "swap_of_two_captured_cells": "m3-e1 ratchet 2 -> 1 (2026-10-10): a helper copy line evidence admits rebuilds as the source calls it.",
+   "upvalue_operand_read_before_call": "m3-e1 ratchet 1 -> 0 (2026-10-10): `v + change()` and `v2 * 3 + changeY() * 2 - 1` rebuild as the source has them; recompiled equal to the bytecode."
   },
   "added_fixtures": {
    "call_before_capture_read": "Regression fixture for a reported bug (2026-09-29); baselined from the fixing commit output.",
@@ -201,7 +210,9 @@
    "deinline_written_parameter_live_outside": "m2fix finding 1 (written parameter live outside its block), nonequiv 2 by construction: cut prints its default store as the else arm of a value-less declaration (an extra LOADNIL); drainParts' loop, unrolled by -O2, prints its first store into a table literal sized 1 where the bytecode reserved 3",
    "deinline_absorb_keeps_source_handles": "m2fix finding 4 (D4 handles kept out of absorbed arguments), nonequiv 0",
    "deinline_error_level_reads_the_caller": "m2fix finding 5 (error with a caller's level is a frame read), nonequiv 0",
-   "closure_capturing_a_loop_local_function": "m2verify N2 (a loop-body local is no loop write for the C6 snapshot), nonequiv 2 by construction: -O2 unrolls the tick loop into two NEWCLOSUREs of one prototype, printed as two literals (an extra prototype); the two-table local statement prints as two declarations, each NEWTABLE sized for its later stores"
+   "closure_capturing_a_loop_local_function": "m2verify N2 (a loop-body local is no loop write for the C6 snapshot), nonequiv 2 by construction: -O2 unrolls the tick loop into two NEWCLOSUREs of one prototype, printed as two literals (an extra prototype); the two-table local statement prints as two declarations, each NEWTABLE sized for its later stores",
+   "deinline_line_evidence_admits_small_helpers": "m3-e1 line evidence (2026-10-10): nonequiv by construction: the test driver in main differs from the source (the module table prints as a constructor whose functions main calls through locals), and in the evidence fixture `tick` merges its two copies of `running()` into one `or` and the `conn` literal folds its constant name; baselined from the introducing commit output.",
+   "deinline_specialization_outside_copies": "m3-e1 line evidence (2026-10-10): nonequiv by construction: the test driver in main differs from the source (the module table prints as a constructor whose functions main calls through locals), and in the evidence fixture `tick` merges its two copies of `running()` into one `or` and the `conn` literal folds its constant name; baselined from the introducing commit output."
   }
  },
  "summary": {
@@ -320,7 +331,7 @@
   {
    "file": "captured_copy_into_plain_local",
    "status": "ok",
-   "nonequiv": 2,
+   "nonequiv": 1,
    "protos": 7
   },
   {
@@ -464,7 +475,7 @@
   {
    "file": "conditional_value_before_short_circuit",
    "status": "ok",
-   "nonequiv": 1,
+   "nonequiv": 2,
    "protos": 3
   },
   {
@@ -488,7 +499,7 @@
   {
    "file": "constructor_key_error_after_branch_call",
    "status": "ok",
-   "nonequiv": 0,
+   "nonequiv": 1,
    "protos": 3
   },
   {
@@ -584,7 +595,7 @@
   {
    "file": "deinline_fresh_closure_capturing_a_constant",
    "status": "ok",
-   "nonequiv": 3,
+   "nonequiv": 4,
    "protos": 15
   },
   {
@@ -604,6 +615,12 @@
    "status": "ok",
    "nonequiv": 2,
    "protos": 6
+  },
+  {
+   "file": "deinline_line_evidence_admits_small_helpers",
+   "status": "ok",
+   "nonequiv": 5,
+   "protos": 22
   },
   {
    "file": "deinline_method_receiver_read_late",
@@ -640,6 +657,12 @@
    "status": "ok",
    "nonequiv": 1,
    "protos": 11
+  },
+  {
+   "file": "deinline_specialization_outside_copies",
+   "status": "ok",
+   "nonequiv": 1,
+   "protos": 10
   },
   {
    "file": "deinline_specialized_copies",
@@ -956,7 +979,7 @@
   {
    "file": "loop_after_breaking_for",
    "status": "ok",
-   "nonequiv": 2,
+   "nonequiv": 1,
    "protos": 3
   },
   {
@@ -1040,7 +1063,7 @@
   {
    "file": "naming_counter_compaction_respects_captures",
    "status": "ok",
-   "nonequiv": 2,
+   "nonequiv": 1,
    "protos": 7
   },
   {
@@ -1250,7 +1273,7 @@
   {
    "file": "returned_parameter_helper",
    "status": "ok",
-   "nonequiv": 0,
+   "nonequiv": 1,
    "protos": 5
   },
   {
@@ -1352,7 +1375,7 @@
   {
    "file": "swap_of_two_captured_cells",
    "status": "ok",
-   "nonequiv": 2,
+   "nonequiv": 1,
    "protos": 11
   },
   {
@@ -1412,7 +1435,7 @@
   {
    "file": "upvalue_operand_read_before_call",
    "status": "ok",
-   "nonequiv": 1,
+   "nonequiv": 0,
    "protos": 7
   },
   {
