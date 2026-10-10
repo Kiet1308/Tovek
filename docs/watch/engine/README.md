@@ -160,7 +160,9 @@ following `drawCode(..., { highlight: plan.inserted })` continues seamlessly). I
 - tokens both versions share glide from their old cell to their new one, rippling down the lines
   (`wave`);
 - tokens only A has fade, drift up and blur (`blur`, one composited layer per frame);
-- tokens only B type in, run by run, in the accent (`inserted: 'base'` or `insertedMix` to settle it);
+- tokens only B type in, run by run, in the accent (`inserted: 'base'` or `insertedMix` to settle it;
+  `highlight: Set | (i) => bool` gives the accent only to the inserted B tokens that show what was
+  recovered, and the rest type in in their base tone);
 - a camera eases from the fit of A to the fit of B (`fit`, `align`, `maxScale`, `linesA`/`linesB`).
 
 `timing: { out: [0, .42], move: [.12, .84], in: [.5, 1] }` sets the three phases inside 0..1.

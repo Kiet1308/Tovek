@@ -107,7 +107,7 @@ export function codeMorph(srcA, srcB, { tabSize = 4 } = {}) {
         run = { line: pt.line, pieces: [], chars: 0 };
         runs.push(run);
       }
-      run.pieces.push({ k: tk.k, text: pt.text, col: pt.col, at: run.chars });
+      run.pieces.push({ k: tk.k, text: pt.text, col: pt.col, at: run.chars, i: tk.i });
       run.chars += pt.text.length + 1;
     }
   });
@@ -174,6 +174,8 @@ function layerFor(ctx) {
  *   blur           max blur (design px) on leaving tokens (default 6; 0 to skip the blur layer)
  *   inserted       'accent' (default) | 'base': tone of typed-in tokens at the end
  *   insertedMix    0..1, accent amount for inserted tokens (animate it to let the accent settle)
+ *   highlight      optional Set of B token indices (or (index) => bool): only these inserted tokens
+ *                  take the accent, the rest type in in their base tone (default: every inserted token)
  *   cameraA, cameraB  override either camera ({ s, x, y })
  */
 export function drawMorph(ctx, plan, p, o = {}) {
@@ -260,6 +262,8 @@ export function drawMorph(ctx, plan, p, o = {}) {
   if (pi > 0 && plan.runs.length) {
     const tone = o.inserted || 'accent';
     const amt = tone === 'base' ? 0 : o.insertedMix ?? 1;
+    const hl = o.highlight;
+    const lit = !hl ? null : typeof hl === 'function' ? hl : (i) => hl.has(i);
     const step = 0.028;
     for (const r of plan.runs) {
       const startAt = r.wave * 0.45;
@@ -271,7 +275,8 @@ export function drawMorph(ctx, plan, p, o = {}) {
         const visible = typed - pc.at;
         if (visible <= 0) break;
         const base = pal[pc.k] || pal.id;
-        ctx.fillStyle = amt >= 1 ? pal.accent : amt <= 0 ? base : mix(base, pal.accent, amt);
+        const a = lit && !lit(pc.i) ? 0 : amt;
+        ctx.fillStyle = a >= 1 ? pal.accent : a <= 0 ? base : mix(base, pal.accent, a);
         const whole = Math.min(pc.text.length, Math.floor(visible));
         const px = pc.col * cw, py = r.line * lh + baseline;
         ctx.globalAlpha = parentAlpha;

@@ -424,6 +424,29 @@ function morphShot(t0, t1, plan, camA, camB, opts = {}) {
 
 const clipFor = (era) => (era === 'v26' ? CLIP26 : CLIP);
 
+// Generated names (v, v2, p, p3, v_u_2) are never a recovery, so they never take the accent.
+const GENERATED = /^(?:[vp](?:_u)?_?\d*|_)$/;
+const NAME_KINDS = new Set(['id', 'fn', 'prop', 'glob']);
+/**
+ * The inserted tokens of a morph that show what the release recovered. `focus`: 'names' (new real
+ * names only), 'all' (every new token except generated names), or 'none' (nothing was recovered:
+ * a generated name was only renumbered).
+ */
+function recovered(plan, focus) {
+  const out = new Set();
+  if (focus === 'none') return out;
+  const toks = plan.b.tokens;
+  for (const i of plan.inserted) {
+    const tk = toks[i];
+    if (GENERATED.test(tk.text)) continue;
+    // goto and its labels are jumps, not recoveries (Luau has no goto keyword, so they lex as names)
+    if (tk.text === 'goto' || toks[i - 1]?.text === 'goto' || toks[i - 1]?.text === '::' || tk.text === '::') continue;
+    if (focus === 'names' && !NAME_KINDS.has(tk.k)) continue;
+    out.add(i);
+  }
+  return out;
+}
+
 /** The highlight of a morph's new tokens after it lands: wash in, hold, then settle. */
 const settle = (t1, hold = 1.8, out = 1.4) => (t) => (t < t1 ? 0 : 1 - clamp((t - t1 - hold) / out));
 const washIn = (t1, hold = 1.8, out = 1.4) => (t) => (t < t1 ? 0 : Math.min(ease.out(clamp((t - t1) / 0.45)), 1 - clamp((t - t1 - hold) / out)));
@@ -472,6 +495,11 @@ function buildShots() {
   const pV2 = plan('v0.9.0-beta', 'v2-v0.1');
   const pV21 = plan('v2-v0.1', 'v2.1');
   const pV25 = plan('v2.1.1', 'v2.5');
+  const R = {
+    b01: recovered(pB01, 'names'), b02: recovered(pB02, 'names'), b04: recovered(pB04, 'names'),
+    b05: recovered(pB05, 'all'), r07: recovered(p07, 'names'), v2: recovered(pV2, 'all'),
+    v21: recovered(pV21, 'none'), v25: recovered(pV25, 'all'),
+  };
 
   const last = V26_STAGE;
   const v251 = S('v2.5.1');
@@ -494,24 +522,24 @@ function buildShots() {
   return [
     { t0: T.decode0, t1: T.decode1, draw: (ctx, t, era) => drawDecode(ctx, L('medal'), camMedalTop, t, PAL[era]) },
     holdShot(T.decode1, m['v0.1.0-beta'][0], L('medal'), camTrack([[10.6, camMedalTop], [17.6, camMedalFor, ease.inOutSine]]), { flow: flowOn(11.6, 21.4, 0.8) }),
-    morphShot(...m['v0.1.0-beta'], pB01, camMedalFor, camB01For, { flowA: {}, flowB: {} }),
-    holdShot(m['v0.1.0-beta'][1], m['v0.2.0-beta'][0], L('v0.1.0-beta'), camTrack([[26.6, camB01For], [27.6, camB01Join]]), { highlight: pB01.inserted, mix: settle(m['v0.1.0-beta'][1], 1.2, 1.0), wash: washIn(m['v0.1.0-beta'][1], 1.0, 0.9), flow: flowOn(m['v0.1.0-beta'][1] - 0.01, 26.7, 0, 0.5) }),
-    morphShot(...m['v0.2.0-beta'], pB02, camB01Join, camB01Join),
-    holdShot(m['v0.2.0-beta'][1], m['v0.4.0-beta'][0], L('v0.3.0-beta'), camB01Join, { highlight: pB02.inserted, mix: settle(m['v0.2.0-beta'][1]), wash: washIn(m['v0.2.0-beta'][1]) }),
-    morphShot(...m['v0.4.0-beta'], pB04, camB01Join, camB01Join),
-    holdShot(m['v0.4.0-beta'][1], m['v0.5.0-beta'][0], L('v0.4.0-beta'), camB01Join, { highlight: pB04.inserted, mix: settle(m['v0.4.0-beta'][1], 0.9, 0.5), wash: washIn(m['v0.4.0-beta'][1], 0.9, 0.5) }),
-    morphShot(...m['v0.5.0-beta'], pB05, camB01Join, camB01Join),
-    holdShot(m['v0.5.0-beta'][1], m['v0.7.0'][0], L('v0.6.0-beta'), camTrack([[45.4, camB01Join], [46.4, camB06For]]), { highlight: pB05.inserted, mix: settle(m['v0.5.0-beta'][1], 2.2), wash: washIn(m['v0.5.0-beta'][1], 2.2) }),
-    morphShot(...m['v0.7.0'], p07, camB06For, cam07For),
-    holdShot(m['v0.7.0'][1], m['v0.8'][0], L('v0.7.0'), cam07For, { highlight: p07.inserted, mix: settle(m['v0.7.0'][1], 1.0, 0.8), wash: washIn(m['v0.7.0'][1], 1.0, 0.8), flow: flowOn(50.2, 54.2, 0.7, 0.3) }),
+    morphShot(...m['v0.1.0-beta'], pB01, camMedalFor, camB01For, { flowA: {}, flowB: {}, highlight: R.b01 }),
+    holdShot(m['v0.1.0-beta'][1], m['v0.2.0-beta'][0], L('v0.1.0-beta'), camTrack([[26.6, camB01For], [27.6, camB01Join]]), { highlight: R.b01, mix: settle(m['v0.1.0-beta'][1], 1.2, 1.0), wash: washIn(m['v0.1.0-beta'][1], 1.0, 0.9), flow: flowOn(m['v0.1.0-beta'][1] - 0.01, 26.7, 0, 0.5) }),
+    morphShot(...m['v0.2.0-beta'], pB02, camB01Join, camB01Join, { highlight: R.b02 }),
+    holdShot(m['v0.2.0-beta'][1], m['v0.4.0-beta'][0], L('v0.3.0-beta'), camB01Join, { highlight: R.b02, mix: settle(m['v0.2.0-beta'][1]), wash: washIn(m['v0.2.0-beta'][1]) }),
+    morphShot(...m['v0.4.0-beta'], pB04, camB01Join, camB01Join, { highlight: R.b04 }),
+    holdShot(m['v0.4.0-beta'][1], m['v0.5.0-beta'][0], L('v0.4.0-beta'), camB01Join, { highlight: R.b04, mix: settle(m['v0.4.0-beta'][1], 0.9, 0.5), wash: washIn(m['v0.4.0-beta'][1], 0.9, 0.5) }),
+    morphShot(...m['v0.5.0-beta'], pB05, camB01Join, camB01Join, { highlight: R.b05 }),
+    holdShot(m['v0.5.0-beta'][1], m['v0.7.0'][0], L('v0.6.0-beta'), camTrack([[45.4, camB01Join], [46.4, camB06For]]), { highlight: R.b05, mix: settle(m['v0.5.0-beta'][1], 2.2), wash: washIn(m['v0.5.0-beta'][1], 2.2) }),
+    morphShot(...m['v0.7.0'], p07, camB06For, cam07For, { highlight: R.r07 }),
+    holdShot(m['v0.7.0'][1], m['v0.8'][0], L('v0.7.0'), cam07For, { highlight: R.r07, mix: settle(m['v0.7.0'][1], 1.0, 0.8), wash: washIn(m['v0.7.0'][1], 1.0, 0.8), flow: flowOn(50.2, 54.2, 0.7, 0.3) }),
     morphShot(...m['v0.8'], p08, cam07For, cam08Wide, { flowA: { loopA: 1 }, flowB: { gotoA: 0 }, inserted: 'base' }),
     holdShot(m['v0.8'][1], m['v2-v0.1'][0], L08, cam08Wide, { flow: flowOn(m['v0.8'][1] - 0.01, 66.6, 0, 0.5) }),
-    morphShot(...m['v2-v0.1'], pV2, cam08Wide, camV2For, { flowA: { gotoA: 0 }, flowB: {} }),
-    holdShot(m['v2-v0.1'][1], m['v2.1'][0], L('v2-v0.1'), camTrack([[73.6, camV2For], [74.4, camV2While]]), { highlight: pV2.inserted, mix: settle(m['v2-v0.1'][1], 1.6), wash: washIn(m['v2-v0.1'][1], 1.6), flow: flowOn(m['v2-v0.1'][1] - 0.01, 73.8, 0, 0.5) }),
-    morphShot(...m['v2.1'], pV21, camV2While, camV2While),
-    holdShot(m['v2.1'][1], m['v2.5'][0], L('v2.1.1'), camV21While, { highlight: pV21.inserted, mix: settle(m['v2.1'][1], 1.2), wash: washIn(m['v2.1'][1], 1.2) }),
-    morphShot(...m['v2.5'], pV25, camV21While, camV25Join),
-    holdShot(m['v2.5'][1], T.homing0, L251, camTrack([[98.2, camV25Join], [99.6, macroA, ease.glide]]), { highlight: pV25.inserted, mix: settle(m['v2.5'][1], 2.0), wash: washIn(m['v2.5'][1], 2.0) }),
+    morphShot(...m['v2-v0.1'], pV2, cam08Wide, camV2For, { flowA: { gotoA: 0 }, flowB: {}, highlight: R.v2 }),
+    holdShot(m['v2-v0.1'][1], m['v2.1'][0], L('v2-v0.1'), camTrack([[73.6, camV2For], [74.4, camV2While]]), { highlight: R.v2, mix: settle(m['v2-v0.1'][1], 1.6), wash: washIn(m['v2-v0.1'][1], 1.6), flow: flowOn(m['v2-v0.1'][1] - 0.01, 73.8, 0, 0.5) }),
+    morphShot(...m['v2.1'], pV21, camV2While, camV2While, { highlight: R.v21 }),
+    holdShot(m['v2.1'][1], m['v2.5'][0], L('v2.1.1'), camV21While),
+    morphShot(...m['v2.5'], pV25, camV21While, camV25Join, { highlight: R.v25 }),
+    holdShot(m['v2.5'][1], T.homing0, L251, camTrack([[98.2, camV25Join], [99.6, macroA, ease.glide]]), { highlight: R.v25, mix: settle(m['v2.5'][1], 2.0), wash: washIn(m['v2.5'][1], 2.0) }),
     { t0: T.homing0, t1: T.homing1, draw: (ctx, t, era) => drawHoming(ctx, HOMING, (t - T.homing0) / (T.homing1 - T.homing0), macroA, macroB, PAL[era], ERA[era]) },
     holdShot(T.homing1, T.orig + 0.8, L26, camTrack([[109.8, macroB], [111.2, read26, ease.glide], [112.6, read26], [113.8, read26b]]), { highlight: HOMING.plan.inserted, mix: settle(T.homing1, 3.6, 1.8), wash: washIn(T.homing1 - 0.45, 3.6, 1.8), lineAlpha: exprFocus }),
   ];
@@ -1129,7 +1157,7 @@ function pageBlock(ctx, t, era, list, opts = {}) {
     const same = i > 0 && list[i - 1].meta === r.meta;
     if (!same) reveal(ctx, layoutText(r.meta, ty.meta), COL, y.meta, t, { unit: 'line', start: r.head, dur: 0.8, color: opts.metaColor || e.ink2, tracking: opts.metaTracking || 0, out: next && next.meta !== r.meta ? out : undefined });
     reveal(ctx, layoutText(r.name, titleF), COL - 8, y.title, t, { unit: 'glyph', start: r.head + 0.1, stagger: 0.05, dur: 0.85, color: e.ink, tracking: opts.titleTracking ?? -0.03, out });
-    const H = layoutText(r.stage.headline, ty.head, { maxWidth: opts.headWidth || COLW, lineHeight: 1.12 });
+    const H = layoutText(r.stage.headline, opts.headFont || ty.head, { maxWidth: opts.headWidth || COLW, lineHeight: 1.12 });
     const hOut = opts.headOut ? { start: opts.headOut, stagger: 0.04, dur: 0.45 } : out;
     reveal(ctx, H, COL, y.head, t, { unit: 'word', start: r.head + 0.45, stagger: 0.06, dur: 0.8, color: opts.headColor || e.ink2, out: hOut });
   });
@@ -1140,7 +1168,7 @@ function pageBlock(ctx, t, era, list, opts = {}) {
 function textV2(ctx, t) {
   const e = ERA.v2, ty = TY.v2, s = ST['v2-v0.1'];
   const list = [{ stage: s, head: HEAD['v2-v0.1'], name: s.name, meta: `${usDate(s.date)}  ·  Release ${RIDX.get(s)} of ${D.totals.releases}` }];
-  pageBlock(ctx, t, 'v2', list, { titleTracking: -0.05 });
+  pageBlock(ctx, t, 'v2', list, { titleTracking: -0.05, headFont: HEAD_FIT.v2 });
   // anonymous bindings across the corpus, from the release notes
   const n = N.v2;
   if (n) {
@@ -1163,7 +1191,7 @@ function textV21(ctx, t) {
     { stage: s1, head: HEAD['v2.1'], name: s1.name, meta: `RELEASE NOTES  ·  ${usDate(s1.date).toUpperCase()}` },
     { stage: s2, head: HEAD['v2.1.1'], name: s2.name, meta: `RELEASE NOTES  ·  ${usDate(s2.date).toUpperCase()}` },
   ];
-  pageBlock(ctx, t, 'v21', list, { titleFont: TITLE_FIT.v21, metaColor: e.accent, metaTracking: 0.12, titleTracking: -0.035 });
+  pageBlock(ctx, t, 'v21', list, { titleFont: TITLE_FIT.v21, headFont: HEAD_FIT.v21, metaColor: e.accent, metaTracking: 0.12, titleTracking: -0.035 });
   // V2 against V2.1 on one game, one thread: two timers racing
   const n = N.v21;
   if (n) {
@@ -1200,7 +1228,7 @@ function textV21(ctx, t) {
       const cols = 75, rows = Math.ceil(d.scripts / cols), step = 8, r0 = 2;
       const fixed = ease.inOut(clamp((t - t0 - 1.5) / 0.9));
       for (let i = 0; i < d.scripts; i++) {
-        const cx = COL + 3 + (i % cols) * step, cy = 596 + Math.floor(i / cols) * step;
+        const cx = COL + 3 + (i % cols) * step, cy = 568 + Math.floor(i / cols) * step;
         const bad = ABORTED.has(i);
         ctx.fillStyle = bad ? mix(e.accent, e.ink3, fixed) : e.ink3;
         ctx.globalAlpha = a * (bad ? lerp(1, 0.35, fixed) : 0.35);
@@ -1208,7 +1236,7 @@ function textV21(ctx, t) {
         ctx.fillRect(cx - rr, cy - rr, rr * 2, rr * 2);
       }
       ctx.globalAlpha = a;
-      const yb = 596 + rows * step + 26;
+      const yb = 568 + rows * step + 30;
       drawText(ctx, layoutText(`${formatNumber(d.scripts)} damaged scripts`, ty.unit), COL, yb, { color: e.ink2 });
       const msg = layoutText(fixed < 0.5 ? `V2 aborted ${formatNumber(d.aborted)} times` : `${s2.name}: never`, ty.num);
       drawText(ctx, msg, COL + COLW, yb, { color: fixed < 0.5 ? e.ink : e.accent, align: 'right' });
@@ -1226,7 +1254,7 @@ function textV25(ctx, t) {
     { stage: s1, head: HEAD['v2.5'], name: s1.name, meta: usDate(s1.date) },
     { stage: s2, head: HEAD['v2.5.1'], name: s2.name, meta: usDate(s2.date) },
   ];
-  pageBlock(ctx, t, 'v25', list, { titleFont: TITLE_FIT.v25, titleTracking: -0.025 });
+  pageBlock(ctx, t, 'v25', list, { titleFont: TITLE_FIT.v25, headFont: HEAD_FIT.v25, titleTracking: -0.025 });
   // semantic fuzzing: wrong or missing outputs, V2.1.1 to V2.5
   const n = N.v25;
   if (n) {
@@ -1340,6 +1368,7 @@ function textV26(ctx, t) {
 let RIDX = null;        // stage -> release number (1..17)
 let REPO = '';          // the Tovek repository, read from the release binaries' sources
 let TITLE_FIT = null;   // per-era title fonts sized so the longest release name fits the column
+let HEAD_FIT = null;    // per-era headline fonts sized so every headline of the era fits one line
 
 // ------------------------------------------------------------------- beside the original source
 
@@ -1538,12 +1567,7 @@ function render(ctx, t, w, h, warming = false) {
   // a page turn: the next era's page slides in from the right edge
   const edge = snap(lerp(w + 2, -2, p));
   clipRect(ctx, { x: 0, y: 0, w: edge, h }, () => drawEra(ctx, t, from.id));
-  clipRect(ctx, { x: edge, y: 0, w: w - edge, h }, () => {
-    ctx.save();
-    ctx.translate((edge / w) * 70, 0);
-    drawEra(ctx, t, to.id);
-    ctx.restore();
-  });
+  clipRect(ctx, { x: edge, y: 0, w: w - edge, h }, () => drawEra(ctx, t, to.id));
   ctx.save();
   ctx.fillStyle = rgba(ERA[to.id].ink, 0.22);
   ctx.fillRect(edge, 0, Math.max(1, pixel(ctx)), h);
@@ -1589,6 +1613,13 @@ const story = {
     TITLE_FIT = {
       v21: font(Math.min(TY.v21.title.size, ...['v2.1', 'v2.1.1'].map((g) => fitSize(ST[g].name, TY.v21.title, COLW))), { family: FAM.hanken, weight: 600 }),
       v25: font(Math.min(TY.v25.title.size, ...['v2.5', 'v2.5.1'].map((g) => fitSize(ST[g].name, TY.v25.title, COLW))), { family: FAM.gsans, weight: 500 }),
+    };
+
+    const headFit = (era, tags, family, weight) => font(Math.max(38, Math.min(TY[era].head.size, ...tags.map((g) => fitSize(ST[g].headline, TY[era].head, COLW)))), { family, weight });
+    HEAD_FIT = {
+      v2: headFit('v2', ['v2-v0.1'], FAM.inter, 500),
+      v21: headFit('v21', ['v2.1', 'v2.1.1'], FAM.hanken, 500),
+      v25: headFit('v25', ['v2.5', 'v2.5.1'], FAM.gsans, 400),
     };
 
     // the terminal era: every release from beta 0.1 to the last one before V2
