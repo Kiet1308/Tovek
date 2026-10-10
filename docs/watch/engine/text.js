@@ -95,7 +95,7 @@ export function metrics(f) {
 const segmenter = typeof Intl !== 'undefined' && Intl.Segmenter ? new Intl.Segmenter('en', { granularity: 'grapheme' }) : null;
 const graphemes = (s) => (segmenter ? Array.from(segmenter.segment(s), (x) => x.segment) : Array.from(s));
 
-function layoutLine(text, f) {
+function layoutLine(text, f, around) {
   const chars = graphemes(text);
   const xs = new Float64Array(chars.length + 1);
   let prefix = '';
@@ -104,6 +104,18 @@ function layoutLine(text, f) {
     prefix += chars[i];
   }
   xs[chars.length] = chars.length ? measure(prefix, f) : 0;
+  // extra space around particular characters (em), e.g. the period of a version number in a
+  // display face whose own spacing lets it touch its neighbours
+  if (around) {
+    let off = 0;
+    for (let i = 0; i < chars.length; i++) {
+      const a = (around[chars[i]] || 0) * f.size;
+      if (a && i > 0) off += a;
+      xs[i] += off;
+      if (a && i < chars.length - 1) off += a;
+    }
+    xs[chars.length] += off;
+  }
   const words = [];
   let i = 0;
   while (i < chars.length) {
@@ -119,12 +131,13 @@ function layoutLine(text, f) {
 const layoutCache = new Map();
 
 /**
- * Lay out text. `\n` breaks lines; with `maxWidth` words wrap greedily.
+ * Lay out text. `\n` breaks lines; with `maxWidth` words wrap greedily. `around: { '.': 0.03 }` adds
+ * that many em on both sides of a character (to open a display face's tight pairs).
  * Returns `{ font, lines: [{ text, chars, xs, width, words, y }], width, height, lineGap, glyphCount, wordCount }`
  * where `y` is each line's baseline offset from the first baseline and `xs[i]` the pen x of glyph i.
  */
-export function layoutText(text, f, { maxWidth = Infinity, lineHeight = 1.12 } = {}) {
-  const key = `${f.css}\u0000${maxWidth}\u0000${lineHeight}\u0000${text}`;
+export function layoutText(text, f, { maxWidth = Infinity, lineHeight = 1.12, around = null } = {}) {
+  const key = `${f.css}\u0000${maxWidth}\u0000${lineHeight}\u0000${around ? JSON.stringify(around) : ''}\u0000${text}`;
   const hit = layoutCache.get(key);
   if (hit) return hit;
   const rows = [];
@@ -141,7 +154,7 @@ export function layoutText(text, f, { maxWidth = Infinity, lineHeight = 1.12 } =
   const lineGap = f.size * lineHeight;
   let glyphCount = 0, wordCount = 0;
   const lines = rows.map((r, i) => {
-    const L = layoutLine(r, f);
+    const L = layoutLine(r, f, around);
     L.y = i * lineGap;
     L.glyphBase = glyphCount;
     L.wordBase = wordCount;
@@ -150,7 +163,7 @@ export function layoutText(text, f, { maxWidth = Infinity, lineHeight = 1.12 } =
     return L;
   });
   const out = {
-    font: f, lines, lineGap, glyphCount, wordCount,
+    font: f, lines, lineGap, glyphCount, wordCount, spaced: !!around,
     width: Math.max(0, ...lines.map((l) => l.width)),
     height: (lines.length - 1) * lineGap,
     metrics: metrics(f),
@@ -178,7 +191,7 @@ export function drawText(ctx, L, x, y, { color = '#f2f0eb', align = 'left', trac
   const size = L.font.size;
   for (const line of L.lines) {
     const ox = x + alignShift(align, trackedWidth(line, tracking, size));
-    if (tracking === 0) ctx.fillText(line.text, ox, y + line.y);
+    if (tracking === 0 && !L.spaced) ctx.fillText(line.text, ox, y + line.y);
     else for (let i = 0; i < line.chars.length; i++) ctx.fillText(line.chars[i], ox + line.xs[i] + i * tracking * size, y + line.y);
   }
   ctx.restore();
@@ -251,14 +264,15 @@ export function reveal(ctx, L, x, y, t, o = {}) {
       ctx.fillStyle = o.colorOf ? o.colorOf(idx) || color : color;
       ctx.fillText(text, px, by + dy);
     };
+    const whole = tracking === 0 && !L.spaced;
     if (unit === 'line') {
-      if (tracking === 0) drawUnit(li, line.text, ox);
+      if (whole) drawUnit(li, line.text, ox);
       else for (let i = 0; i < line.chars.length; i++) drawUnit(li, line.chars[i], ox + line.xs[i] + i * tracking * size);
     } else if (unit === 'word') {
       for (let w = 0; w < line.words.length; w++) {
         const wd = line.words[w];
         const idx = line.wordBase + w;
-        if (tracking === 0) drawUnit(idx, line.chars.slice(wd.start, wd.end).join(''), ox + line.xs[wd.start]);
+        if (whole) drawUnit(idx, line.chars.slice(wd.start, wd.end).join(''), ox + line.xs[wd.start]);
         else for (let i = wd.start; i < wd.end; i++) drawUnit(idx, line.chars[i], ox + line.xs[i] + i * tracking * size);
       }
     } else {
