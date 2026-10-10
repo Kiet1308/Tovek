@@ -1,0 +1,37 @@
+{
+  "schema": "tovek-expression/1",
+  "source": {
+    "file": "SpawnShield.luau",
+    "origin": "written by the Tovek project for these pages (public)",
+    "compiler": "luau-compile --binary -O2 -g1",
+    "bytecode_version": 14
+  },
+  "frames": {
+    "helper_source": "local function frames(count)\n\treturn count / 60\nend",
+    "call_source": "task.wait(frames(1))",
+    "bytecode": {
+      "instruction": "LOADK",
+      "constant": "0.016666666666666666",
+      "loads": [
+        {
+          "function": "shield",
+          "pc": 78,
+          "line": 11
+        }
+      ],
+      "note": "the folded constant carries line 11, the helper's `return count / 60`"
+    },
+    "v251": "task.wait(0.016666666666666666)",
+    "v26": "task.wait(frames(1)) -- inferred equivalent call"
+  },
+  "fraction": {
+    "source": "glow.Transparency = 2 / 3",
+    "constant": "0.6666666666666666",
+    "v251": "clone.Transparency = 0.6666666666666666",
+    "v26": "clone.Transparency = 2 / 3"
+  },
+  "binaries": {
+    "v251_sha256": "8df15ad38731a1b146e0f3e761035b234689ee2a04c83d70eaed8584bf1198c5",
+    "v26_sha256": "0d59f6e3592e6c4019578c09ee5b4352a1222b8b69437eccef508c6962dbf89f"
+  }
+}

@@ -1,0 +1,129 @@
+{
+  "schema": "tovek-opcode/1",
+  "source": {
+    "file": "ClosureIdentity.luau",
+    "text": "local function makeHandler(state)\n\treturn function()\n\t\treturn state\n\tend\nend\n\nlocal handlers = {}\nfor _, button in { \"Play\", \"Shop\" } do\n\thandlers[button] = makeHandler(\"idle\")\nend\nprint(handlers.Play == handlers.Shop)",
+    "origin": "written by the Tovek project for these pages (public)",
+    "compiler": "luau-compile -O2 (outputs are compiled again at -O2 and run with luau -O2)"
+  },
+  "cases": [
+    {
+      "debug_level": 1,
+      "original": {
+        "prints": "false",
+        "closures": [
+          {
+            "function": "makeHandler",
+            "op": "NEWCLOSURE",
+            "text": "NEWCLOSURE R1 P0"
+          },
+          {
+            "function": "??",
+            "op": "DUPCLOSURE",
+            "text": "DUPCLOSURE R0 K0 ['makeHandler']"
+          },
+          {
+            "function": "??",
+            "op": "NEWCLOSURE",
+            "text": "NEWCLOSURE R7 P1"
+          }
+        ]
+      },
+      "v251": {
+        "text": "local function makeHandler(p)\n\treturn function()\n\t\treturn p\n\tend\nend\n\nlocal v = {}\n\nfor _, v2 in { \"Play\", \"Shop\" } do\n\tlocal v4 = \"idle\"\n\n\tv[v2] = function()\n\t\treturn v4\n\tend\nend\n\nprint(v.Play == v.Shop)",
+        "prints": "true",
+        "closures_when_recompiled": [
+          {
+            "function": "makeHandler",
+            "op": "NEWCLOSURE",
+            "text": "NEWCLOSURE R1 P0"
+          },
+          {
+            "function": "??",
+            "op": "DUPCLOSURE",
+            "text": "DUPCLOSURE R0 K0 ['makeHandler']"
+          },
+          {
+            "function": "??",
+            "op": "DUPCLOSURE",
+            "text": "DUPCLOSURE R7 K3 []"
+          }
+        ],
+        "same_as_original": false
+      },
+      "v26": {
+        "text": "local function makeHandler(p) -- 1 equivalent call inferred from this helper\n\treturn function()\n\t\treturn p\n\tend\nend\n\nlocal v = {}\n\nfor _, v2 in { \"Play\", \"Shop\" } do\n\tv[v2] = makeHandler(\"idle\") -- inferred equivalent call\nend\n\nprint(v.Play == v.Shop)",
+        "prints": "false",
+        "closures_when_recompiled": [
+          {
+            "function": "makeHandler",
+            "op": "NEWCLOSURE",
+            "text": "NEWCLOSURE R1 P0"
+          },
+          {
+            "function": "??",
+            "op": "DUPCLOSURE",
+            "text": "DUPCLOSURE R0 K0 ['makeHandler']"
+          },
+          {
+            "function": "??",
+            "op": "NEWCLOSURE",
+            "text": "NEWCLOSURE R7 P1"
+          }
+        ],
+        "same_as_original": true
+      }
+    },
+    {
+      "debug_level": 0,
+      "original": {
+        "prints": "false",
+        "closures": [
+          {
+            "function": "makeHandler",
+            "op": "NEWCLOSURE",
+            "text": "NEWCLOSURE R1 P0"
+          },
+          {
+            "function": "??",
+            "op": "DUPCLOSURE",
+            "text": "DUPCLOSURE R0 K0 ['makeHandler']"
+          },
+          {
+            "function": "??",
+            "op": "NEWCLOSURE",
+            "text": "NEWCLOSURE R7 P1"
+          }
+        ]
+      },
+      "v251": {
+        "text": "local v = {}\n\nfor _, v2 in { \"Play\", \"Shop\" } do\n\tlocal v4 = \"idle\"\n\n\tv[v2] = function()\n\t\treturn v4\n\tend\nend\n\nprint(v.Play == v.Shop)",
+        "prints": "true",
+        "closures_when_recompiled": [
+          {
+            "function": "??",
+            "op": "DUPCLOSURE",
+            "text": "DUPCLOSURE R6 K2 []"
+          }
+        ],
+        "same_as_original": false
+      },
+      "v26": {
+        "text": "local v = {}\n\nfor _, v2 in { \"Play\", \"Shop\" } do\n\tlocal v3\n\tv3 = \"idle\"\n\n\tv[v2] = function()\n\t\treturn v3\n\tend\nend\n\nprint(v.Play == v.Shop)",
+        "prints": "false",
+        "closures_when_recompiled": [
+          {
+            "function": "??",
+            "op": "NEWCLOSURE",
+            "text": "NEWCLOSURE R7 P0"
+          }
+        ],
+        "same_as_original": true
+      }
+    }
+  ],
+  "binaries": {
+    "v251_sha256": "8df15ad38731a1b146e0f3e761035b234689ee2a04c83d70eaed8584bf1198c5",
+    "v26_sha256": "0d59f6e3592e6c4019578c09ee5b4352a1222b8b69437eccef508c6962dbf89f"
+  }
+}

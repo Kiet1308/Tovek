@@ -7,7 +7,9 @@
     "source": "github.com/Kiet1308/Tovek/releases/tag/v2.5.1 (Windows zip)"
   },
   "parts": [
+    "expression",
     "field",
+    "opcode",
     "script",
     "story"
   ]
