@@ -1,0 +1,443 @@
+{
+  "schema": "tovek-lines/1",
+  "what": "Per-instruction source line numbers (-g1 line info) in DisconnectEvents: the first inlined copy",
+  "function": "DisconnectEvents",
+  "proto": 40,
+  "helper": {
+    "name": "DisconnectEvent",
+    "span": [
+      850,
+      854
+    ],
+    "code_lines": [
+      851,
+      852,
+      854
+    ],
+    "source_lines": [
+      {
+        "line": 850,
+        "text": "local function DisconnectEvent(event)"
+      },
+      {
+        "line": 851,
+        "text": "\tif event then"
+      },
+      {
+        "line": 852,
+        "text": "\t\tevent:Disconnect()"
+      },
+      {
+        "line": 853,
+        "text": "\tend"
+      },
+      {
+        "line": 854,
+        "text": "end"
+      }
+    ]
+  },
+  "call_site": {
+    "line": 893,
+    "text": "\tDisconnectEvent(self.tapConn)"
+  },
+  "copy": [
+    {
+      "pc": 0,
+      "op": "GETTABLEKS",
+      "text": "GETTABLEKS R1 R0 K0 ['tapConn']",
+      "line": 893,
+      "from": "caller"
+    },
+    {
+      "pc": 2,
+      "op": "JUMPIFNOT",
+      "text": "JUMPIFNOT R1 L0",
+      "line": 851,
+      "from": "helper"
+    },
+    {
+      "pc": 3,
+      "op": "NAMECALL",
+      "text": "NAMECALL R2 R1 K1 ['Disconnect']",
+      "line": 852,
+      "from": "helper"
+    },
+    {
+      "pc": 5,
+      "op": "CALLFB",
+      "text": "CALLFB R2 1 0 [0]",
+      "line": 852,
+      "from": "helper"
+    }
+  ],
+  "context_before": [],
+  "context_after": [
+    {
+      "pc": 7,
+      "op": "GETTABLEKS",
+      "text": "GETTABLEKS R1 R0 K2 ['inputBeganConn']",
+      "line": 894,
+      "from": "caller"
+    },
+    {
+      "pc": 9,
+      "op": "JUMPIFNOT",
+      "text": "JUMPIFNOT R1 L1",
+      "line": 851,
+      "from": "helper"
+    },
+    {
+      "pc": 10,
+      "op": "NAMECALL",
+      "text": "NAMECALL R2 R1 K1 ['Disconnect']",
+      "line": 852,
+      "from": "helper"
+    },
+    {
+      "pc": 12,
+      "op": "CALLFB",
+      "text": "CALLFB R2 1 0 [1]",
+      "line": 852,
+      "from": "helper"
+    },
+    {
+      "pc": 14,
+      "op": "GETTABLEKS",
+      "text": "GETTABLEKS R1 R0 K3 ['inputChangedConn']",
+      "line": 895,
+      "from": "caller"
+    }
+  ],
+  "all_instructions": [
+    {
+      "pc": 0,
+      "op": "GETTABLEKS",
+      "text": "GETTABLEKS R1 R0 K0 ['tapConn']",
+      "line": 893,
+      "from": "caller"
+    },
+    {
+      "pc": 2,
+      "op": "JUMPIFNOT",
+      "text": "JUMPIFNOT R1 L0",
+      "line": 851,
+      "from": "helper"
+    },
+    {
+      "pc": 3,
+      "op": "NAMECALL",
+      "text": "NAMECALL R2 R1 K1 ['Disconnect']",
+      "line": 852,
+      "from": "helper"
+    },
+    {
+      "pc": 5,
+      "op": "CALLFB",
+      "text": "CALLFB R2 1 0 [0]",
+      "line": 852,
+      "from": "helper"
+    },
+    {
+      "pc": 7,
+      "op": "GETTABLEKS",
+      "text": "GETTABLEKS R1 R0 K2 ['inputBeganConn']",
+      "line": 894,
+      "from": "caller"
+    },
+    {
+      "pc": 9,
+      "op": "JUMPIFNOT",
+      "text": "JUMPIFNOT R1 L1",
+      "line": 851,
+      "from": "helper"
+    },
+    {
+      "pc": 10,
+      "op": "NAMECALL",
+      "text": "NAMECALL R2 R1 K1 ['Disconnect']",
+      "line": 852,
+      "from": "helper"
+    },
+    {
+      "pc": 12,
+      "op": "CALLFB",
+      "text": "CALLFB R2 1 0 [1]",
+      "line": 852,
+      "from": "helper"
+    },
+    {
+      "pc": 14,
+      "op": "GETTABLEKS",
+      "text": "GETTABLEKS R1 R0 K3 ['inputChangedConn']",
+      "line": 895,
+      "from": "caller"
+    },
+    {
+      "pc": 16,
+      "op": "JUMPIFNOT",
+      "text": "JUMPIFNOT R1 L2",
+      "line": 851,
+      "from": "helper"
+    },
+    {
+      "pc": 17,
+      "op": "NAMECALL",
+      "text": "NAMECALL R2 R1 K1 ['Disconnect']",
+      "line": 852,
+      "from": "helper"
+    },
+    {
+      "pc": 19,
+      "op": "CALLFB",
+      "text": "CALLFB R2 1 0 [2]",
+      "line": 852,
+      "from": "helper"
+    },
+    {
+      "pc": 21,
+      "op": "GETTABLEKS",
+      "text": "GETTABLEKS R1 R0 K4 ['inputEndedConn']",
+      "line": 896,
+      "from": "caller"
+    },
+    {
+      "pc": 23,
+      "op": "JUMPIFNOT",
+      "text": "JUMPIFNOT R1 L3",
+      "line": 851,
+      "from": "helper"
+    },
+    {
+      "pc": 24,
+      "op": "NAMECALL",
+      "text": "NAMECALL R2 R1 K1 ['Disconnect']",
+      "line": 852,
+      "from": "helper"
+    },
+    {
+      "pc": 26,
+      "op": "CALLFB",
+      "text": "CALLFB R2 1 0 [3]",
+      "line": 852,
+      "from": "helper"
+    },
+    {
+      "pc": 28,
+      "op": "GETTABLEKS",
+      "text": "GETTABLEKS R1 R0 K5 ['humanoidDiedConn']",
+      "line": 897,
+      "from": "caller"
+    },
+    {
+      "pc": 30,
+      "op": "JUMPIFNOT",
+      "text": "JUMPIFNOT R1 L4",
+      "line": 851,
+      "from": "helper"
+    },
+    {
+      "pc": 31,
+      "op": "NAMECALL",
+      "text": "NAMECALL R2 R1 K1 ['Disconnect']",
+      "line": 852,
+      "from": "helper"
+    },
+    {
+      "pc": 33,
+      "op": "CALLFB",
+      "text": "CALLFB R2 1 0 [4]",
+      "line": 852,
+      "from": "helper"
+    },
+    {
+      "pc": 35,
+      "op": "GETTABLEKS",
+      "text": "GETTABLEKS R1 R0 K6 ['characterChildAddedConn']",
+      "line": 898,
+      "from": "caller"
+    },
+    {
+      "pc": 37,
+      "op": "JUMPIFNOT",
+      "text": "JUMPIFNOT R1 L5",
+      "line": 851,
+      "from": "helper"
+    },
+    {
+      "pc": 38,
+      "op": "NAMECALL",
+      "text": "NAMECALL R2 R1 K1 ['Disconnect']",
+      "line": 852,
+      "from": "helper"
+    },
+    {
+      "pc": 40,
+      "op": "CALLFB",
+      "text": "CALLFB R2 1 0 [5]",
+      "line": 852,
+      "from": "helper"
+    },
+    {
+      "pc": 42,
+      "op": "GETTABLEKS",
+      "text": "GETTABLEKS R1 R0 K7 ['onCharacterAddedConn']",
+      "line": 899,
+      "from": "caller"
+    },
+    {
+      "pc": 44,
+      "op": "JUMPIFNOT",
+      "text": "JUMPIFNOT R1 L6",
+      "line": 851,
+      "from": "helper"
+    },
+    {
+      "pc": 45,
+      "op": "NAMECALL",
+      "text": "NAMECALL R2 R1 K1 ['Disconnect']",
+      "line": 852,
+      "from": "helper"
+    },
+    {
+      "pc": 47,
+      "op": "CALLFB",
+      "text": "CALLFB R2 1 0 [6]",
+      "line": 852,
+      "from": "helper"
+    },
+    {
+      "pc": 49,
+      "op": "GETTABLEKS",
+      "text": "GETTABLEKS R1 R0 K8 ['renderSteppedConn']",
+      "line": 900,
+      "from": "caller"
+    },
+    {
+      "pc": 51,
+      "op": "JUMPIFNOT",
+      "text": "JUMPIFNOT R1 L7",
+      "line": 851,
+      "from": "helper"
+    },
+    {
+      "pc": 52,
+      "op": "NAMECALL",
+      "text": "NAMECALL R2 R1 K1 ['Disconnect']",
+      "line": 852,
+      "from": "helper"
+    },
+    {
+      "pc": 54,
+      "op": "CALLFB",
+      "text": "CALLFB R2 1 0 [7]",
+      "line": 852,
+      "from": "helper"
+    },
+    {
+      "pc": 56,
+      "op": "GETTABLEKS",
+      "text": "GETTABLEKS R1 R0 K9 ['characterChildRemovedConn']",
+      "line": 901,
+      "from": "caller"
+    },
+    {
+      "pc": 58,
+      "op": "JUMPIFNOT",
+      "text": "JUMPIFNOT R1 L8",
+      "line": 851,
+      "from": "helper"
+    },
+    {
+      "pc": 59,
+      "op": "NAMECALL",
+      "text": "NAMECALL R2 R1 K1 ['Disconnect']",
+      "line": 852,
+      "from": "helper"
+    },
+    {
+      "pc": 61,
+      "op": "CALLFB",
+      "text": "CALLFB R2 1 0 [8]",
+      "line": 852,
+      "from": "helper"
+    },
+    {
+      "pc": 63,
+      "op": "GETTABLEKS",
+      "text": "GETTABLEKS R1 R0 K10 ['menuOpenedConnection']",
+      "line": 902,
+      "from": "caller"
+    },
+    {
+      "pc": 65,
+      "op": "JUMPIFNOT",
+      "text": "JUMPIFNOT R1 L9",
+      "line": 851,
+      "from": "helper"
+    },
+    {
+      "pc": 66,
+      "op": "NAMECALL",
+      "text": "NAMECALL R2 R1 K1 ['Disconnect']",
+      "line": 852,
+      "from": "helper"
+    },
+    {
+      "pc": 68,
+      "op": "CALLFB",
+      "text": "CALLFB R2 1 0 [9]",
+      "line": 852,
+      "from": "helper"
+    },
+    {
+      "pc": 70,
+      "op": "GETTABLEKS",
+      "text": "GETTABLEKS R1 R0 K11 ['preferredInputChangedConnection']",
+      "line": 903,
+      "from": "caller"
+    },
+    {
+      "pc": 72,
+      "op": "JUMPIFNOT",
+      "text": "JUMPIFNOT R1 L10",
+      "line": 851,
+      "from": "helper"
+    },
+    {
+      "pc": 73,
+      "op": "NAMECALL",
+      "text": "NAMECALL R2 R1 K1 ['Disconnect']",
+      "line": 852,
+      "from": "helper"
+    },
+    {
+      "pc": 75,
+      "op": "CALLFB",
+      "text": "CALLFB R2 1 0 [10]",
+      "line": 852,
+      "from": "helper"
+    },
+    {
+      "pc": 77,
+      "op": "RETURN",
+      "text": "RETURN R0 0",
+      "line": 904,
+      "from": "caller"
+    }
+  ],
+  "v251_copy": {
+    "first_line": 996,
+    "last_line": 1000,
+    "text": "\tlocal tapConn = self.tapConn\n\n\tif tapConn then\n\t\ttapConn:Disconnect()\n\tend"
+  },
+  "v26_call": {
+    "line": 952,
+    "text": "DisconnectEvent(self.tapConn) -- inferred equivalent call"
+  },
+  "count_oracle": {
+    "copies_in_line_info": 12,
+    "calls_rebuilt": 12,
+    "note": "Line info alone shows 12 copies of DisconnectEvent; V2.6 rebuilds exactly 12 calls."
+  }
+}
