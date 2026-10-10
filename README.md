@@ -471,7 +471,15 @@ register). Hai nhóm `capture-factory` và `recursive-arm` rút từ luồng ng�
 riêng, nên seed không rút chúng vẫn sinh đúng chương trình cũ: closure gán đè lên
 biến đang giữ chính giá trị nó capture (qua factory mà -O2 inline, hoặc làm đối
 số gọi ở mọi mức tối ưu), và hàm đệ quy cục bộ trong một nhánh của phép chọn giá
-trị. Tham chiếu là bytecode đã biên dịch, chạy trên benchmark VM; output
+trị. Năm nhóm de-inline rút từ luồng thứ ba theo cùng cách, mỗi nhóm một helper mà
+-O2 thật sự inline cạnh code có dạng bản sao của nó: `written-param` (tham số bị
+ghi, bản sao ghi vào biến của caller còn được đọc sau `if`, quanh vòng lặp hay
+trong điều kiện `while`), `returned-cell` (trả về biến ngoài cho câu lệnh đọc
+trạng thái khác trước), `error-level` (`error(msg, level)` trong `pcall`),
+`closure-identity` (so sánh `==` closure tạo trong vòng lặp; seed có nhóm này
+được biên dịch lại cùng phía -O1 với bytecode, vì DUPCLOSURE chỉ có từ -O1) và
+`service-handle` (handle GetService/require qua stub toàn cục). Tham chiếu là
+bytecode đã biên dịch, chạy trên benchmark VM; output
 được biên dịch lại ở một mức ngẫu nhiên và chạy cùng driver. `--mutate` sửa
 bytecode theo cách chỉ chunk tự tạo mới có (string không phải identifier, NaN
 payload): decompiler phải từ chối hoặc giữ nguyên hành vi. Grammar tránh những

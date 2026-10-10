@@ -20,6 +20,18 @@ what the closure captures (through a factory Luau -O2 inlines, or as a call
 argument at every level), and `recursive-arm` defines a recursive local
 function in one arm of a value branch.
 
+Five de-inline families come from a third stream the same way. Each defines
+a helper Luau -O2 inlines (a plain call below -O2) beside code shaped like
+its copies: `written-param` writes its parameter, with copies that write a
+caller's local read after an enclosing `if`, around a loop or in a `while`
+condition (or dead); `returned-cell` changes outer state and returns an
+outer local to a statement that reads other outer state first;
+`error-level` calls `error(message, level)` under `pcall` and records
+whether the message has a position; `closure-identity` compares closures
+made in a loop with `==` (DUPCLOSURE against NEWCLOSURE), partly in the
+main chunk; `service-handle` passes GetService/require handles (global
+stubs) to the helper.
+
 A failure keeps its directory and, with `--reduce`, a reduced program (whole
 units deleted while the failure category stays). Passing seeds leave nothing.
 """
@@ -36,7 +48,7 @@ import struct
 import subprocess
 import sys
 
-VERSION = "typed-families-v2"
+VERSION = "typed-families-v3"
 
 PRELUDE = r'''local ids, nextId = {}, 0
 local function describe(value)
@@ -143,13 +155,29 @@ CAPTURE_SHAPES = ("branch", "two-branches", "second-use", "loop", "parallel")
 CLOSURE_BINDERS = ("factory", "keep", "record")
 RECURSIVE_ARMS = ("then", "else", "diamond", "diamond-value")
 
+# Helpers Luau -O2 really inlines, in the shapes the de-inliner rebuilds as
+# calls. Drawn like the capture families, each with this chance, from a third
+# stream of the seed (see `Generator.deinline_units`).
+DEINLINE_FAMILIES = ("written-param", "returned-cell", "error-level", "closure-identity", "service-handle")
+DEINLINE_CHANCE = 0.15
+# Where the caller's local stands that a copy of the helper body writes.
+WRITTEN_PARAM_SITES = ("after-if", "loop", "while", "same-block", "dead")
+# A conditional write (its test also guards the `while` site).
+PARAM_WRITES = (("{v} > 100", "{v} = {v} - 100"), ("{v} < 0", "{v} = -{v}"), ("{v} ~= {v}", "{v} = 0"))
+# The statement reading what the uniform-cell helper returns.
+CELL_HOSTS = ("tag-first", "count-first", "cell-first", "concat", "constructor", "length", "direct")
+ERROR_LEVELS = ("", ", 1", ", 2", ", 3", ", 0")
+IDENTITY_SHAPES = ("chunk", "computed", "function")
+HANDLE_SITES = ("declared", "statement-between", "declaration-between", "argument", "require", "twice")
+
 REFUSALS = ("headroom for the vector constructor", "a method name no identifier spells",
             "a NaN constant whose payload", "a global name no identifier spells",
             "more locals at once than Luau allows", "more registers than Luau allows",
             "no faithful source", "a builtin call names another function", "a loop prepared for")
 
-# `describe` prints every function as `fn`: the grammar never observes closure
-# identity, which DUPCLOSURE shares only from -O1. A mutation renaming the
+# `describe` prints every function as `fn`: only `closure-identity` observes
+# closure identity (with `==`), which DUPCLOSURE shares only from -O1, and its
+# seeds are recompiled within one regime (`run_seed`). A mutation renaming the
 # string "function" sends functions to `tostring`, a heap address that differs
 # between two runs of one chunk, so outputs compare with addresses as one token.
 HEAP_ADDRESS = re.compile(r"\b(function|table|thread|userdata|buffer): 0x[0-9a-fA-F]+")
@@ -159,11 +187,17 @@ def comparable(output):
     return HEAP_ADDRESS.sub(r"\1: 0x", output)
 
 
+class ChunkUnit(list):
+    """The lines of a unit that runs in the main chunk, before `body`."""
+
+
 class Generator:
     def __init__(self, seed):
         self.rng = random.Random(seed)
         # A second stream: drawing the capture families never shifts `rng`.
         self.capture_rng = random.Random(f"capture-families:{seed}")
+        # A third, for the de-inline families: it shifts neither.
+        self.deinline_rng = random.Random(f"deinline-families:{seed}")
         count = self.rng.randint(1, 4)
         self.families = set(self.rng.sample(FAMILIES, count))
         self.locals = []  # numeric locals in scope: list of scopes
@@ -624,6 +658,220 @@ class Generator:
                           f"local {chosen} = {callee}(flip, function() return \"fallback\" end)",
                           f"record({use})"])
 
+    def deinline_units(self):
+        """The de-inline families' units, drawn from `deinline_rng` after the
+        capture families, so neither earlier stream shifts. Each family
+        defines a helper that Luau -O2 inlines (a real call below -O2) and
+        code shaped like its inlined copies; `program` puts the units with
+        the capture families' ones."""
+        rng = self.deinline_rng
+        builders = (self.written_param, self.returned_cell, self.error_level, self.closure_identity,
+                    self.service_handle)
+        units = []
+        for family, build in zip(DEINLINE_FAMILIES, builders):
+            if rng.random() < DEINLINE_CHANCE:
+                self.families.add(family)
+                units += build()
+        return units
+
+    def written_param(self):
+        """A helper writing its parameter, beside copies of its body that
+        write a caller's local itself. Such a copy stands for a call only
+        where that local is dead afterwards (out-of-SSA coalesces an inlined
+        parameter into it only then). Here the local is read after an
+        enclosing `if`, around a loop or in a `while` condition (M2 review
+        finding 1), later in its own block, or never again. Calls of the
+        helper sit beside the copies: -O2 inlines them with the argument in
+        a register of its own. A function holding a site is reached through
+        `record`, so -O2 does not fold a constant argument into it. The
+        write is conditional: an unconditional one folds into the use."""
+        rng = self.deinline_rng
+        out, helper = self.fresh("out"), self.fresh("put")
+        value = rng.random() < 0.5
+        test, change = rng.choice(PARAM_WRITES)
+        write = lambda local: f"if {test.format(v=local)} then {change.format(v=local)} end"
+
+        def site(local, at, copy):
+            """The helper's body on `local` (a copy), or a call of it. A
+            value helper's result goes to `s`: declared at the site, or the
+            host's own `s`, which the host returns."""
+            if not value:
+                return [write(local), f"{out}[{at}] = tostring({local})"] if copy else [f"{helper}({at}, {local})"]
+            result = f"\"<\" .. tostring({local}) .. \">\"" if copy else f"{helper}({local})"
+            target = rng.choice(["local s", "s"])
+            return [*([write(local)] if copy else []), f"{target} = {result}", f"{out}[{at}] = s"]
+
+        lines = [f"local {out} = {{}}", f"local function {helper}({'v' if value else 'at, v'})", "    " + write("v"),
+                 "    return \"<\" .. tostring(v) .. \">\"" if value else f"    {out}[at] = tostring(v)", "end",
+                 *(["local s = \"-\""] if value else []), *site("input", 8, False)]
+        indent = lambda block, depth=1: ["    " * depth + line for line in block]
+        for _ in range(rng.randint(1, 3)):
+            where, copy = rng.choice(WRITTEN_PARAM_SITES), rng.random() < 0.7
+            argument = rng.choice(["input + 250", "input - 250", "input * 100", "250"])
+            name = self.fresh("host")
+            start = ["    local s = \"-\""] if value else []
+            returned = ", s" if value else ""
+            if where == "after-if":
+                lines += [f"local function {name}(v, go)", *start, "    if go then", *indent(site("v", 9, copy), 2),
+                          "    end", f"    return v{returned}", "end",
+                          f"record(record({name})({argument}, flip))"]
+            elif where == "loop":
+                header = rng.choice(["for i = 1, count do", "for i in iterate(count) do"])
+                lines += [f"local function {name}(v, count)", *start, f"    {header}",
+                          *indent(site("v", "i", copy), 2), "    end", f"    return v{returned}", "end",
+                          f"record(record({name})({argument}, {rng.randint(2, 3)}))"]
+            elif where == "while":
+                lines += [f"local function {name}(v)", *start, "    local n = 0",
+                          f"    while {test.format(v='v')} and n < 3 do", "        n += 1",
+                          *indent(site("v", "n", copy), 2), "    end", f"    return v, n{returned}", "end",
+                          f"record(record({name})({argument}))"]
+            elif where == "same-block":
+                lines += [f"local function {name}(v)", *start, *indent(site("v", 6, copy)),
+                          f"    return v{returned}", "end", f"record(record({name})({argument}))"]
+            else:
+                # Dead afterwards: a parameter, or a local of the same block.
+                local = rng.choice(["v", "w"])
+                lines += [f"local function {name}(v, k)", *start, "    local w = v + k",
+                          *indent(site(local, 7, copy)), f"    return {out}[7]", "end",
+                          f"record(record({name})({argument}, 1))"]
+        # Every store the copies and calls made, read once they all ran.
+        return [self.unit([*lines, f"record({out})"])]
+
+    def returned_cell(self):
+        """A helper changing outer state and returning an outer local (the
+        same cell on every path), whose result the next statement reads
+        after other outer state. Rebuilt inside that statement, the call
+        runs after the values read before the cell, so it may only go there
+        when none of them can see its changes (M2 review finding 2). The
+        site is in the unit, or in a function -O2 inlines into it (or
+        reaches through `record`, where -O2 inlines only the helper)."""
+        rng = self.deinline_rng
+        cell, tag, count, helper = self.fresh("list"), self.fresh("tag"), self.fresh("count"), self.fresh("refill")
+        lines = [f"local {cell}, {tag}, {count} = {{}}, \"old\", 0", f"local function {helper}(x, y)"]
+        lines += ["    " + line for line in rng.choice([
+            [f"table.clear({cell})", f"{cell}[1] = x", f"{cell}[2] = y", f"{tag} = \"new:\" .. tostring(x)",
+             f"return {cell}"],
+            ["if x ~= x then", f"    {tag} = \"nan\"", f"    return {cell}", "end", f"{cell}[1] = x",
+             f"{tag} = {tag} .. \"+\"", f"return {cell}"],
+            [f"{count} += 1", f"{cell}[{count}] = x", f"{tag} = tostring(y)", f"return {cell}"],
+        ])] + ["end"]
+        for _ in range(rng.randint(1, 3)):
+            host = rng.choice(CELL_HOSTS)
+            result = self.fresh("l")
+            call = f"{helper}(x, {rng.choice(['3', 'y'])})"
+            read = {
+                "tag-first": [f"record({tag}, {result}[1], {result}[2])"],
+                "count-first": [f"record({count}, {result}[1])"],
+                "cell-first": [f"record({result}[1], {tag}, {count})"],
+                "concat": [f"local joined = {tag} .. \"|\" .. tostring({result}[1])", "record(joined)"],
+                "constructor": [f"record({{{tag}, {result}[2], {count}}})"],
+                "length": [f"record(#{result}, {tag})"],
+                "direct": [],
+            }[host]
+            body = [f"record({tag}, {call}[1])"] if host == "direct" else [f"local {result} = {call}", *read]
+            arguments = rng.choice(["input, flip", "5, 3", "flip and 6 or 7, input"])
+            place = rng.choice(["block", "inlined", "reached"])
+            if place == "block":
+                lines += ["do", f"    local x, y = {arguments}", *("    " + line for line in body), "end"]
+            else:
+                show = self.fresh("show")
+                callee = show if place == "inlined" else f"record({show})"
+                lines += [f"local function {show}(x, y)", *("    " + line for line in body), "end",
+                          f"{callee}({arguments})"]
+        return [self.unit(lines)]
+
+    def error_level(self):
+        """A helper raising `error(message, level)`, called under `pcall`.
+        In an -O2 copy, level 2 names the caller's caller; rebuilt as a
+        call, the caller (M2 review finding 5). The message keeps whether it
+        has a position (`@:`), not the position itself."""
+        rng = self.deinline_rng
+        check, setter = self.fresh("check"), self.fresh("set")
+        message = rng.choice(["\"bad \" .. name", "{reason = name}"])
+        lines = [f"local function {check}(v, name)",
+                 f"    if typeof(v) ~= \"number\" then error({message}{rng.choice(ERROR_LEVELS)}) end",
+                 "    record(\"ok\", name)", "end",
+                 f"local function {setter}(v)", f"    {check}(v, \"speed\")", "    return v * 2", "end"]
+        for _ in range(rng.randint(1, 2)):
+            argument = rng.choice(["if flip then \"fast\" else input", "\"fast\"", "input"])
+            protected = rng.choice([f"{setter}, {argument}", f"function() {check}({argument}, \"size\") end"])
+            ok, problem = self.fresh("ok"), self.fresh("problem")
+            lines += [f"local {ok}, {problem} = pcall({protected})",
+                      f"record({ok}, if typeof({problem}) == \"string\" then "
+                      f"(string.gsub({problem}, \"^[^:]*:%d+: \", \"@:\")) else {problem})"]
+        return [self.unit(lines)]
+
+    def closure_identity(self):
+        """Closures made in a loop, compared with `==`. From -O1, DUPCLOSURE
+        shares a literal whose captures are all unwritten main-chunk locals
+        (or locals bound to such a literal); NEWCLOSURE makes one per trip.
+        A local initialized once (a computed constant, or a local function)
+        is captured beside a capture-free literal, and the -O2 copy of a
+        closure-making helper (always NEWCLOSURE: it captures the helper's
+        parameter) beside a literal over the same local. M2 review finding 3
+        needs that local to be a register of the main chunk, so the `chunk`
+        shape runs there (a `ChunkUnit`) and the body records what it made.
+        `run_seed` recompiles these seeds within their bytecode's regime:
+        below -O1 nothing is shared.
+
+        A local initialized with a literal (`local tag = 7`) is left out
+        while the decompiler loses its capture at -g2: Luau keeps the
+        capture (NEWCLOSURE) but folds the constant into the closure body,
+        and the printed `function() return 7 end` is shared once recompiled
+        (pre-existing; M2 fuzz report, N1)."""
+        rng = self.deinline_rng
+        shape = rng.choice(IDENTITY_SHAPES)
+        bind, made, kept, free = self.fresh("bind"), self.fresh("made"), self.fresh("kept"), self.fresh("free")
+        captured = self.fresh("tag")
+        initial = {"chunk": "tostring(#{1, 2, 3} + 7)", "computed": "tostring(7)", "function": None}[shape]
+        declaration = f"local {captured} = {initial}" if initial else f"local function {captured}() return 3 end"
+        loop = rng.choice(["for i = 1, 2 do", "for _, i in {1, 2} do" if shape == "chunk" else "for i in iterate(2) do"])
+        returned = rng.choice(["5", "nil", '"free"'])
+        compared = f"record({made}[1] == {made}[2], {kept}[1] == {kept}[2], {free}[1] == {free}[2], " \
+                   f"{made}[1]() == {kept}[2]())"
+        lines = [declaration, f"local function {bind}(p)", "    return function() return p end", "end", loop,
+                 f"    {made}[i] = {bind}({captured})", f"    {kept}[i] = function() return {captured} end",
+                 f"    {free}[i] = function() return {returned} end", "end"]
+        if shape != "chunk":
+            return [self.unit([f"local {made}, {kept}, {free} = {{}}, {{}}, {{}}", *lines, compared])]
+        return [ChunkUnit([f"local {made}, {kept}, {free} = {{}}, {{}}, {{}}", *self.unit(lines)]),
+                self.unit([compared])]
+
+    def service_handle(self):
+        """GetService and require handles passed to a helper -O2 inlines
+        (D4: the source's handle declarations stay as they are). `game` and
+        `require` are global stubs, so the program runs in the benchmark VM;
+        both log their calls, so a handle call moved past other code shows."""
+        rng = self.deinline_rng
+        services, setup = self.fresh("services"), self.fresh("setup")
+        returns = rng.random() < 0.5
+        lines = [f"local {services} = {{Lighting = {{}}, Players = {{}}, Config = {{name = \"Config\"}}}}",
+                 f"game = {{GetService = function(_, name) record(\"service\", name) return {services}[name] end}}",
+                 "require = function(module) record(\"require\", module.name) return module end",
+                 f"local function {setup}(s, n)", "    s.Brightness = n", "    s.ClockTime = n * 2",
+                 *(["    return s"] if returns else []), "end"]
+
+        def configure(handle, amount):
+            if returns and rng.random() < 0.5:
+                return f"local {self.fresh('configured')} = {setup}({handle}, {amount})"
+            return f"{setup}({handle}, {amount})"
+
+        for _ in range(rng.randint(1, 3)):
+            amount = rng.choice(["input", "1", "flip and 2 or 3"])
+            lighting = "local Lighting = game:GetService(\"Lighting\")"
+            lines += {
+                "declared": lambda: [lighting, configure("Lighting", amount)],
+                "statement-between": lambda: [lighting, "record(\"between\")", configure("Lighting", amount)],
+                "declaration-between": lambda: [lighting, f"local amount = record({amount})",
+                                                configure("Lighting", "amount")],
+                "argument": lambda: [configure("game:GetService(\"Players\")", amount)],
+                "require": lambda: [f"local Config = require({services}.Config)", configure("Config", amount)],
+                "twice": lambda: ["local Players = game:GetService(\"Players\")", configure("Players", "1"),
+                                  configure("Players", amount)],
+            }[rng.choice(HANDLE_SITES)]()
+        lines.append(f"record({services}.Lighting, {services}.Players, {services}.Config)")
+        return [self.unit(lines)]
+
     @staticmethod
     def unit(lines):
         # Its own block, so its locals end with it: the pressure unit after
@@ -643,8 +891,11 @@ class Generator:
         if self.has("pressure"):
             tail.append(self.pressure())
         self.locals.pop()
-        units += self.capture_units() + tail
-        return ["\n".join("    " + line for line in unit) + "\n" for unit in units]
+        units += self.capture_units() + self.deinline_units() + tail
+        # Units run in `body`, one level in; a `ChunkUnit` runs in the main
+        # chunk and stays unindented (see `source_of`).
+        return ["".join(("" if isinstance(unit, ChunkUnit) else "    ") + line + "\n" for line in unit)
+                for unit in units]
 
 
 def generate(seed):
@@ -653,7 +904,13 @@ def generate(seed):
 
 
 def source_of(units):
-    return PRELUDE + "".join(units) + ENDING
+    """The program: main-chunk units (unindented) go right before `body`,
+    the others into it. Without main-chunk units, the prelude, the units
+    and the ending, as before there were any."""
+    split = PRELUDE.index("local function body(")
+    chunk = "".join(unit for unit in units if not unit.startswith(" "))
+    inner = "".join(unit for unit in units if unit.startswith(" "))
+    return PRELUDE[:split] + chunk + PRELUDE[split:] + inner + ENDING
 
 
 def run(command, timeout):
@@ -772,7 +1029,12 @@ def run_seed(args, seed):
         # callee read an upvalue), so output of bytecode built below -O2 is
         # not compiled again at -O2.
         out_opts = (0, 1, 2) if opt == 2 else (0, 1)
-        profile = (opt, debug, rng.choice(out_opts), seed if args.mutate and rng.random() < 0.5 else None)
+        out_opt = rng.choice(out_opts)
+        if "closure-identity" in families and (out_opt == 0) != (opt == 0):
+            # Luau shares closures (DUPCLOSURE) only from -O1: identity
+            # survives a recompile only within the regime of the bytecode.
+            out_opt = opt
+        profile = (opt, debug, out_opt, seed if args.mutate and rng.random() < 0.5 else None)
         case = directory / f"O{opt}g{debug}"
         status, detail = check(args, units, case, *profile)
         if status == "failed":
@@ -823,7 +1085,14 @@ def main():
                     print(f"seed {row['seed']} O{row['opt']}g{row['debug']} {row['families']}: {row['detail'][:300]}",
                           flush=True)
     summary = dict(collections.Counter(row["status"] for row in rows))
-    report = {"schema_version": 1, "generator": VERSION, "summary": summary, "rows": rows,
+    # A failing row counts for every family its program drew: a hint for
+    # triage, not a cause (the reduced program shows which unit it needs).
+    by_family = collections.defaultdict(collections.Counter)
+    for row in rows:
+        for family in row["families"]:
+            by_family[family][row["status"]] += 1
+    report = {"schema_version": 1, "generator": VERSION, "summary": summary,
+              "by_family": {family: dict(counts) for family, counts in sorted(by_family.items())}, "rows": rows,
               "limitations": "Finite typed grammar and inputs; no exhaustive equivalence claim. "
                              "The reducer keeps the failure category, not necessarily the root cause."}
     args.report.parent.mkdir(parents=True, exist_ok=True)
