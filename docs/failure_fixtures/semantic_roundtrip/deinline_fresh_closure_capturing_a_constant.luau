@@ -13,6 +13,12 @@
 -- too, and stays as it is.
 -- Negative: `label`'s literal captures the parameter `p`, which Luau never
 -- shares either; nothing changes there.
+-- A top-level local captured both by the copy of `bind` in a loop (`made`,
+-- a new object each run) and by a literal the bytecode shares (`kept`,
+-- DUPCLOSURE: one object). Splitting its declaration would make `kept` new
+-- on every run too. The copy captures a private copy of the local instead
+-- (`local name2` / `name2 = name`, right before it), and `kept` stays one
+-- object.
 local function bind(tag)
 	return function()
 		return tag
@@ -53,3 +59,13 @@ print(count)
 
 local l1, l2 = label(1), label(1)
 print(l1 == l2, l1(), l2())
+
+local name = tostring(#list + 7)
+local made, kept = {}, {}
+for i = 1, 2 do
+	made[i] = bind(name)
+	kept[i] = function()
+		return name
+	end
+end
+print(made[1] == made[2], kept[1] == kept[2], made[1](), kept[2]())
