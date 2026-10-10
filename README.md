@@ -202,7 +202,11 @@ literal is never rebuilt into a helper call: the call would load the helper's
 own constant, one object for every caller, where each calling function's copy
 loaded a constant of its own. A literal bound to a local of the helper that is
 only ever called (a local recursive function such as `deepCopy`) is the
-exception: no code can tell those objects apart.
+exception: no code can tell those objects apart. A literal the bytecode makes
+anew on every run keeps doing so: where a copy left inline captures a local
+holding a constant (an `-O2` copy of `bind("y")`), that local is declared
+first and assigned after (`local tag` / `tag = "y"`), since Luau would fold
+the constant into the literal and share one closure object.
 
 Bytecode that no source spells is refused rather than approximated: a NAMECALL
 method that is no identifier, a FASTCALL whose fallback names another function

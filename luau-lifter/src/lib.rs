@@ -1109,6 +1109,15 @@ fn decompile_bytecode_internal(
                 let _span = ast::telemetry::Span::new("S_COMPACT_CONDITIONALS");
                 ast::compact_conditionals::compact_conditionals(&mut body);
             }
+            // A closure the bytecode makes anew stays new where the output
+            // would share it (`fresh_closures`). Only a chunk compiled with
+            // sharing (one DUPCLOSURE at least) can tell.
+            if chunk.functions.iter().any(|function| function.instructions.iter().any(|instruction| {
+                matches!(instruction, instruction::Instruction::AD { op_code: op_code::OpCode::LOP_DUPCLOSURE, .. })
+            })) {
+                let _span = ast::telemetry::Span::new("S_FRESH_CLOSURES");
+                ast::fresh_closures::keep_fresh_closures(&mut body);
+            }
             ast::forward_declarations::bare_forward_declarations(&mut body);
             ast::compound_bases::fold_compound_bases(&mut body);
             ast::fold_import_callees::fold_import_callees(&mut body);

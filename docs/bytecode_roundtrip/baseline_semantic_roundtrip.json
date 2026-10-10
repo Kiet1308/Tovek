@@ -196,7 +196,8 @@
    "deinline_tuple_returns": "m2c D7 straight and last-slot tuple returns, nonequiv 1: main recompiles the constructor-literal functions it prints (dir, sel, cone, flag, tick, words) as inlined copies, by construction",
    "deinline_orphan_function": "m2c D7 orphan helper, nonequiv 4: the unused function literals shift and folded stay out as before (2 missing protos); main keeps its constant-folded copies of writeb, which recompile folded further, by construction",
    "deinline_value_sites_without_prefix_limit": "m2c D2 value sites without a prefix limit, nonequiv 6: main recompiles the constructor-literal functions it prints as inlined copies; makeNode and getParent print their stores as table literals; firsts and health keep a value-less declaration and health its continuation cloned into the early exit (the lp_a shape, not rebuilt), by construction",
-   "deinline_earlier_body_and_extents": "m2c D7 dual-version patterns and extents, nonequiv 1: main prints rng's method as a constructor field (`next = function`), by construction"
+   "deinline_earlier_body_and_extents": "m2c D7 dual-version patterns and extents, nonequiv 1: main prints rng's method as a constructor field (`next = function`), by construction",
+   "deinline_fresh_closure_capturing_a_constant": "m2-integrate fresh_closures: nonequiv 2 by construction (main, make): the copy of bind left inline keeps the constant its fresh literal captures in a local declared then assigned (LOADNIL + CAPTURE ref) where the bytecode captured a LOADK temp by value; only the helper call spells that capture, and folded the literal would be shared (DUPCLOSURE)"
   }
  },
  "summary": {
@@ -557,6 +558,12 @@
    "status": "ok",
    "nonequiv": 0,
    "protos": 3
+  },
+  {
+   "file": "deinline_fresh_closure_capturing_a_constant",
+   "status": "ok",
+   "nonequiv": 2,
+   "protos": 8
   },
   {
    "file": "deinline_helper_kept_beside_its_named_store",
