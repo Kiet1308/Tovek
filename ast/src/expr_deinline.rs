@@ -852,7 +852,7 @@ fn try_rewrite_select(
     stmts: &mut Vec<Statement>, index: usize, targets: &[ExprTarget], active: &[usize],
     current_func: Option<FnPtr>,
 ) {
-    if active.is_empty() || current_func.is_some_and(|p| targets.iter().any(|t| t.func_ptr == p)) { return; }
+    if active.is_empty() || current_func.is_some_and(|p| targets.iter().any(|t| !t.evidence && t.func_ptr == p)) { return; }
     let [Statement::Assign(decl), Statement::If(_)] = &stmts[index..stmts.len().min(index + 2)] else { return; };
     if !decl.prefix || decl.parallel || decl.left.len() != 1 { return; }
     let LValue::Local(result) = &decl.left[0] else { return; };
@@ -866,6 +866,9 @@ fn try_rewrite_select(
     let ordered = crate::reconstruction_search::prioritize(active, current_func.map(|p| p as usize), |i| targets[i].func_ptr as usize);
     for idx in ordered {
         let target = &targets[idx];
+        // Evidence targets wait for the evidence rounds, which never
+        // rewrite statement regions.
+        if target.evidence { continue; }
         let Some(safety) = &target.arithmetic else { continue; };
         if !safety.spend_attempt() { return; }
         if let Some(found) = try_match(target, &value, current_func) {
@@ -889,13 +892,16 @@ fn try_rewrite_region(
     current_func: Option<FnPtr>,
 ) -> bool {
     if active.is_empty() || stmts.len() > 8 || matches!(stmts, [Statement::Return(_)]) { return false; }
-    if current_func.is_some_and(|ptr| targets.iter().any(|t| t.func_ptr == ptr)) { return false; }
+    if current_func.is_some_and(|ptr| targets.iter().any(|t| !t.evidence && t.func_ptr == ptr)) { return false; }
     let Some(value) = arithmetic::region(stmts, &targets[active[0]].captures) else { return false; };
     let mut declared = FxHashSet::default();
     crate::deinline::collect_declared_locals(stmts, &mut declared);
     let mut pick = Pick::default();
     for &idx in active {
         let target = &targets[idx];
+        // Evidence targets wait for the evidence rounds, which never
+        // rewrite statement regions.
+        if target.evidence { continue; }
         let Some(safety) = &target.arithmetic else { continue; };
         if current_func == Some(target.func_ptr) { continue; }
         if !safety.spend_attempt() { return false; }

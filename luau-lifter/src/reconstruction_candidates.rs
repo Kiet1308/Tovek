@@ -304,16 +304,19 @@ pub(crate) fn inlined_copies(functions: &[Function], lines: &[Vec<Option<u32>>],
         let mut current: Option<(u32, u32, usize)> = None;
         // Where a one-line helper's copy goes on with the operation at `pc`
         // on its line: the operations it passed then, or `None` where the
-        // copy went past the helper's first operation and the next two
-        // operations on the line are the helper's first two again (a new
-        // copy). Any other operation is the copy's or the code using its
-        // value, which Luau leaves on the helper's line (`if active(x)
-        // then`, `(c and ratio(a, b) or ratio(b, a)) + 1`).
+        // copy went past the helper's first operation and that operation
+        // comes again, on no value the instruction before it made, followed
+        // by the helper's second one if it has one (a new copy). Any other
+        // operation is the copy's or the code using its value, which Luau
+        // leaves on the helper's line (`if active(x) then`, `(c and ratio(a,
+        // b) or ratio(b, a)) + 1`).
         let advance = |single: &[u8], passed: usize, pc: usize| -> Option<usize> {
             let Some(here) = instructions.get(pc).and_then(|instruction| kind(opcode_of(instruction))) else { return Some(passed) };
             let passed = passed.min(single.len());
             match single[passed..].iter().position(|&own| own == here) {
                 Some(at) => Some(passed + at + 1),
+                None if passed > 0 && single[0] == here && reads_previous_result(instructions, pc) => Some(passed),
+                None if passed > 0 && single.len() == 1 && single[0] == here => None,
                 None if passed > 0 && single.len() >= 2 && single[0] == here => {
                     // The next operation on this line.
                     let mut next = pc + if opcode_of(&instructions[pc]).has_aux() { 2 } else { 1 };
@@ -390,6 +393,56 @@ pub(crate) fn inlined_copies(functions: &[Function], lines: &[Vec<Option<u32>>],
     Some(copies)
 }
 
+/// Whether the instruction at `pc` reads the register the instruction right
+/// before it wrote: it uses that value rather than starting anew. Only the
+/// operations a one-line helper's copy and the code using its value are
+/// made of are told apart; any other says no.
+fn reads_previous_result(instructions: &[Instruction], pc: usize) -> bool {
+    use OpCode::*;
+    let previous = match pc.checked_sub(1).and_then(|before| instructions.get(before)) {
+        // The word before is the auxiliary word of the instruction before it.
+        Some(Instruction::BC { op_code: LOP_NOP, .. }) => pc.checked_sub(2).and_then(|before| instructions.get(before)),
+        other => other,
+    };
+    let written = match previous {
+        Some(Instruction::BC { op_code, a, .. } | Instruction::AD { op_code, a, .. })
+            if !matches!(
+                op_code,
+                LOP_JUMP | LOP_JUMPBACK | LOP_JUMPIF | LOP_JUMPIFNOT | LOP_JUMPIFEQ | LOP_JUMPIFNOTEQ | LOP_JUMPIFLE
+                    | LOP_JUMPIFNOTLE | LOP_JUMPIFLT | LOP_JUMPIFNOTLT | LOP_JUMPXEQKNIL | LOP_JUMPXEQKB | LOP_JUMPXEQKN
+                    | LOP_JUMPXEQKS | LOP_SETTABLE | LOP_SETTABLEKS | LOP_SETTABLEN | LOP_SETGLOBAL | LOP_SETUPVAL
+                    | LOP_RETURN | LOP_NOP | LOP_COVERAGE
+            ) =>
+        {
+            *a
+        }
+        _ => return false,
+    };
+    match instructions.get(pc) {
+        Some(Instruction::BC { op_code, a, b, c, .. }) => match op_code {
+            LOP_ADD | LOP_SUB | LOP_MUL | LOP_DIV | LOP_MOD | LOP_POW | LOP_IDIV | LOP_AND | LOP_OR => *b == written || *c == written,
+            LOP_ADDK | LOP_SUBK | LOP_MULK | LOP_DIVK | LOP_MODK | LOP_POWK | LOP_IDIVK | LOP_ANDK | LOP_ORK | LOP_NOT | LOP_MINUS
+            | LOP_LENGTH | LOP_GETTABLEKS | LOP_GETTABLEN | LOP_NAMECALL => *b == written,
+            LOP_SUBRK | LOP_DIVRK => *c == written,
+            LOP_GETTABLE => *b == written || *c == written,
+            LOP_CALL | LOP_CALLFB => {
+                let last = if *b == 0 { u8::MAX } else { a.saturating_add(*b - 1) };
+                (*a..=last).contains(&written)
+            }
+            LOP_CONCAT => (*b..=*c).contains(&written),
+            _ => false,
+        },
+        Some(Instruction::AD { op_code, a, aux, .. }) => match op_code {
+            LOP_JUMPIF | LOP_JUMPIFNOT | LOP_JUMPXEQKNIL | LOP_JUMPXEQKB | LOP_JUMPXEQKN | LOP_JUMPXEQKS => *a == written,
+            LOP_JUMPIFEQ | LOP_JUMPIFNOTEQ | LOP_JUMPIFLE | LOP_JUMPIFNOTLE | LOP_JUMPIFLT | LOP_JUMPIFNOTLT => {
+                *a == written || *aux == written as u32
+            }
+            _ => false,
+        },
+        _ => false,
+    }
+}
+
 fn scalar_body(instructions: &[Instruction]) -> bool {
     use OpCode::*;
     if instructions.len() > 128 { return false; }
@@ -463,32 +516,49 @@ mod tests {
     #[test]
     fn copies_of_a_one_line_helper_back_to_back_are_told_apart_from_the_code_using_them() {
         use OpCode::*;
+        let op = |op_code, a, b, c| Instruction::BC { op_code, a, b, c, aux: 0 };
+        let with = |line_defined, instructions: Vec<Instruction>| Function { instructions, ..prototype(line_defined, &[]) };
+        let chunk = || prototype(1, &[LOP_NEWCLOSURE, LOP_NEWCLOSURE, LOP_RETURN]);
         // p0, lines 1-2: `local function lerp(a, b, t) return a + (b - a) * t end`, its code on line 2.
         let lerp = prototype(1, &[LOP_SUB, LOP_MUL, LOP_ADD, LOP_RETURN]);
-        // p1 at line 4: two copies back to back on line 2, the second with a
-        // constant folded into its `MULK`, then a test of the value Luau
-        // keeps on the helper's line (`if lerp(...) then`).
-        let caller = prototype(4, &[LOP_SUB, LOP_MUL, LOP_ADD, LOP_SUB, LOP_MULK, LOP_ADD, LOP_JUMPIFNOT, LOP_RETURN]);
-        let chunk = prototype(1, &[LOP_NEWCLOSURE, LOP_NEWCLOSURE, LOP_RETURN]);
+        // p1 at line 4: two copies back to back on line 2 (the second with a
+        // constant folded into its `MULK`), then a test of the value, which
+        // Luau leaves on the helper's line (`if lerp(...) then`).
+        let caller = with(4, vec![
+            op(LOP_SUB, 4, 1, 0), op(LOP_MUL, 4, 4, 2), op(LOP_ADD, 3, 0, 4),
+            op(LOP_SUB, 5, 1, 0), op(LOP_MULK, 5, 5, 0), op(LOP_ADD, 4, 0, 5),
+            op(LOP_JUMPIFNOT, 4, 0, 0), op(LOP_RETURN, 0, 1, 0),
+        ]);
         let lines = vec![
             vec![Some(2), Some(2), Some(2), Some(2)],
             vec![Some(2), Some(2), Some(2), Some(2), Some(2), Some(2), Some(2), Some(6)],
             vec![Some(1), Some(4), Some(7)],
         ];
-        let copies = inlined_copies(&[lerp, caller, chunk], &lines, 2).unwrap();
+        let copies = inlined_copies(&[lerp, caller, chunk()], &lines, 2).unwrap();
         assert_eq!(copies.copies(Some(1), 0), 2);
         // `(c and ratio(a, b) or ratio(b, a)) + 1`: the caller's `+ 1` is an
-        // `ADDK` left on the helper's line, like the helper's first
-        // operation, but the helper's second one does not follow it.
+        // `ADDK` on the helper's line, the kind of the helper's first
+        // operation, but on the value the copy before it made.
         let ratio = prototype(1, &[LOP_ADD, LOP_DIV, LOP_RETURN]);
-        let caller = prototype(4, &[LOP_JUMPIFNOT, LOP_ADD, LOP_DIV, LOP_JUMPIF, LOP_ADD, LOP_DIV, LOP_ADDK, LOP_RETURN]);
-        let chunk = prototype(1, &[LOP_NEWCLOSURE, LOP_NEWCLOSURE, LOP_RETURN]);
+        let caller = with(4, vec![
+            op(LOP_JUMPIFNOT, 2, 0, 0), op(LOP_ADD, 5, 1, 0), op(LOP_DIV, 4, 0, 5), op(LOP_JUMPIF, 4, 0, 0),
+            op(LOP_ADD, 5, 0, 1), op(LOP_DIV, 4, 1, 5), op(LOP_ADDK, 3, 4, 0), op(LOP_RETURN, 3, 2, 0),
+        ]);
         let lines = vec![
             vec![Some(2), Some(2), Some(2)],
             vec![Some(5), Some(2), Some(2), Some(2), Some(2), Some(2), Some(2), Some(2)],
             vec![Some(1), Some(4), Some(7)],
         ];
-        let copies = inlined_copies(&[ratio, caller, chunk], &lines, 2).unwrap();
+        let copies = inlined_copies(&[ratio, caller, chunk()], &lines, 2).unwrap();
+        assert_eq!(copies.copies(Some(1), 0), 2);
+        // `{ one(n), one(n) }` for `one(x) return x * 2`: a one-operation
+        // helper's copies back to back, each on the argument, split; one
+        // copy on the other's value (`one(one(n))`) does not (it merges,
+        // which only refuses).
+        let one = prototype(1, &[LOP_MULK, LOP_RETURN]);
+        let caller = with(4, vec![op(LOP_MULK, 2, 0, 0), op(LOP_MULK, 3, 0, 0), op(LOP_MULK, 4, 3, 0), op(LOP_RETURN, 2, 3, 0)]);
+        let lines = vec![vec![Some(2), Some(2)], vec![Some(2), Some(2), Some(2), Some(5)], vec![Some(1), Some(4), Some(7)]];
+        let copies = inlined_copies(&[one, caller, chunk()], &lines, 2).unwrap();
         assert_eq!(copies.copies(Some(1), 0), 2);
     }
 

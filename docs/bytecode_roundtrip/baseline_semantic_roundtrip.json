@@ -213,7 +213,8 @@
    "closure_capturing_a_loop_local_function": "m2verify N2 (a loop-body local is no loop write for the C6 snapshot), nonequiv 2 by construction: -O2 unrolls the tick loop into two NEWCLOSUREs of one prototype, printed as two literals (an extra prototype); the two-table local statement prints as two declarations, each NEWTABLE sized for its later stores",
    "deinline_line_evidence_admits_small_helpers": "m3-e1 line evidence (2026-10-10): nonequiv by construction: the test driver in main differs from the source (the module table prints as a constructor whose functions main calls through locals), and in the evidence fixture `tick` merges its two copies of `running()` into one `or` and the `conn` literal folds its constant name; baselined from the introducing commit output.",
    "deinline_specialization_outside_copies": "m3-e1 line evidence (2026-10-10): nonequiv by construction: the test driver in main differs from the source (the module table prints as a constructor whose functions main calls through locals), and in the evidence fixture `tick` merges its two copies of `running()` into one `or` and the `conn` literal folds its constant name; baselined from the introducing commit output.",
-   "deinline_line_evidence_expression_helpers": "m3-e1 line evidence, expression helpers (2026-10-10): nonequiv 4 by construction: the test driver in main differs from the source; build's sorts are written into one constructor and its `Compare` literals print once per copy as calls of `sorter`, whose recompiled literal Luau compiles inside `sorter` (an outlined body and a missing copy prototype); baselined from the introducing commit output."
+   "deinline_line_evidence_expression_helpers": "m3-e1 line evidence, expression helpers (2026-10-10): nonequiv 4 by construction: the test driver in main differs from the source; build's sorts are written into one constructor and its `Compare` literals print once per copy as calls of `sorter`, whose recompiled literal Luau compiles inside `sorter` (an outlined body and a missing copy prototype); baselined from the introducing commit output.",
+   "deinline_arithmetic_select_beside_its_evidence_twin": "m3-e1 regression fixture (2026-10-10): an arithmetic helper's evidence twin never ties with the helper in the select form; nonequiv 2 by construction (the helper prints `local result` without the explicit nil Luau loads, LOADNIL lost in the helper and in run's copy); baselined from the fixing commit output."
   }
  },
  "summary": {
@@ -556,6 +557,12 @@
    "status": "ok",
    "nonequiv": 0,
    "protos": 8
+  },
+  {
+   "file": "deinline_arithmetic_select_beside_its_evidence_twin",
+   "status": "ok",
+   "nonequiv": 2,
+   "protos": 3
   },
   {
    "file": "deinline_closure_factories",

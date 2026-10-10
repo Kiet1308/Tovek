@@ -688,6 +688,18 @@
       "bytes": 1624,
       "lines": 71
     },
+    "semantic/deinline_arithmetic_select_beside_its_evidence_twin__O0.luau": {
+      "bytes": 606,
+      "lines": 20
+    },
+    "semantic/deinline_arithmetic_select_beside_its_evidence_twin__O1.luau": {
+      "bytes": 589,
+      "lines": 21
+    },
+    "semantic/deinline_arithmetic_select_beside_its_evidence_twin__O2.luau": {
+      "bytes": 672,
+      "lines": 21
+    },
     "semantic/deinline_closure_factories__O0.luau": {
       "bytes": 2331,
       "lines": 139
