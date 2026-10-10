@@ -49,6 +49,11 @@ struct FrameReads {
     /// The locals naming every function that reads call frames, itself or
     /// through another such call; `None` when one also runs otherwise.
     observers: Option<FxHashSet<u64>>,
+    /// Reads of the global `error`, against its direct calls: `error(m,
+    /// level)` names the position of the frame `level` up ([`error_level`]),
+    /// and any other use may call it under another name.
+    error_reads: u32,
+    error_calls: u32,
 }
 
 /// How the module's functions reach each other, by function identity: what
@@ -201,16 +206,19 @@ impl CaptureSafety {
             || frames.computed
             || frames.library > frames.members
             || frames.info > frames.info_calls
+            || frames.error_reads > frames.error_calls
             || frames.observers.is_none()
     }
 
     /// Whether running `statements` reads call frames: a `debug.info` call
-    /// in them, or a call of a local function that makes one, itself or
-    /// through others. Moved into a helper, that code runs a frame deeper.
-    /// A closure's body runs in a frame of its own wherever it is created.
+    /// or an `error` naming its caller's position in them, or a call of a
+    /// local function that makes one, itself or through others. Moved into a
+    /// helper, that code runs a frame deeper. A closure's body runs in a
+    /// frame of its own wherever it is created.
     pub(crate) fn reads_frames(&self, statements: &[Statement]) -> bool {
         statements.iter().any(|statement| {
-            crate::deinline::stmt_rvalues(statement).into_iter().any(|value| self.value_reads_frames(value))
+            matches!(statement, Statement::Call(call) if error_reads_frame(call))
+                || crate::deinline::stmt_rvalues(statement).into_iter().any(|value| self.value_reads_frames(value))
                 || match statement {
                     Statement::If(node) => {
                         self.reads_frames(&node.then_block.lock().0) || self.reads_frames(&node.else_block.lock().0)
@@ -324,7 +332,10 @@ impl CaptureSafety {
             };
             if width > 200_000usize.saturating_sub(self.nodes) { self.exhausted = true; return; }
             match statement {
-                Statement::Call(call) => self.call(call, owner),
+                Statement::Call(call) => {
+                    self.call(call, owner);
+                    self.error_call(call);
+                }
                 // `local function f` / `local f = function`: the closure's name.
                 Statement::Assign(assign) if assign.prefix => {
                     for left in &assign.left {
@@ -392,6 +403,23 @@ impl CaptureSafety {
         }
     }
 
+    /// A direct call of the global `error`: like `debug.info(level, "sl")`,
+    /// it reads the frame it names the position of ([`error_reads_frame`]).
+    ///
+    /// Unlike `debug.info`, a function calling `error` with level 3 or
+    /// deeper is not tracked as an observer for the code that calls it
+    /// (`reads_beyond_caller`): the frame above its caller moves when a
+    /// helper calling it is rebuilt, but tracking it would close every
+    /// module where such a function is not called by one local name only,
+    /// every copy of the Promise library among them (`Promise._all`), 153
+    /// of the corpus's 2,189 rebuilt calls.
+    fn error_call(&mut self, call: &crate::Call) {
+        if is_error(&call.value) {
+            self.frames.error_calls += 1;
+            self.frames.read |= error_reads_frame(call);
+        }
+    }
+
     /// A call by a local's name, made in `owner`.
     fn call(&mut self, call: &crate::Call, owner: Option<usize>) {
         if let RValue::Local(callee) = call.value.as_ref() {
@@ -417,8 +445,10 @@ impl CaptureSafety {
         }
         match value {
             RValue::Local(local) => *self.calls.reads.entry(local.stable_id()).or_default() += 1,
+            RValue::Global(global) if global.0 == b"error" => self.frames.error_reads += 1,
             RValue::Call(call) | RValue::Select(crate::Select::Call(call)) => {
                 self.call(call, owner);
+                self.error_call(call);
                 if debug_member(&call.value) == Some(Some(b"info".as_slice())) {
                     self.frames.info_calls += 1;
                     if reads_frame_identity(call) {
@@ -531,16 +561,49 @@ fn reads_beyond_caller(call: &crate::Call) -> bool {
     ] if *level == 1.0 || (*level == 2.0 && options.iter().all(|option| matches!(option, b's' | b'l'))))
 }
 
-/// Whether `value` calls `debug.info` reading which frames run, closure
-/// bodies aside.
+/// Whether `value` calls `debug.info` reading which frames run, or `error`
+/// naming its caller's position, closure bodies aside.
 fn calls_debug_info(value: &RValue) -> bool {
     match value {
         RValue::Closure(_) => false,
         RValue::Call(call) | RValue::Select(crate::Select::Call(call))
-            if debug_member(&call.value) == Some(Some(b"info".as_slice())) && reads_frame_identity(call) => true,
+            if (debug_member(&call.value) == Some(Some(b"info".as_slice())) && reads_frame_identity(call))
+                || error_reads_frame(call) =>
+        {
+            true
+        }
         _ => !value.visit_rvalues(&mut |child| !calls_debug_info(child)),
     }
 }
+
+/// The global `error`.
+fn is_error(value: &RValue) -> bool {
+    matches!(value, RValue::Global(global) if global.0 == b"error")
+}
+
+/// The level of the frame whose position a call of `error` prefixes to its
+/// message (a string one): 1 where it gives none, the function calling
+/// `error`; `None` where the call may pass any (a value Luau computes, or a
+/// last argument giving all its values, which a hooked library function
+/// may make several of; a `Select` is one).
+fn error_level(call: &crate::Call) -> Option<f64> {
+    match call.arguments.as_slice() {
+        [] => Some(1.0),
+        [message] => (!matches!(message, RValue::Call(_) | RValue::MethodCall(_) | RValue::VarArg(_))).then_some(1.0),
+        [_, RValue::Literal(Literal::Number(level)), ..] => Some(*level),
+        _ => None,
+    }
+}
+
+/// Whether a call of `error` reads which frames run, as `debug.info(level,
+/// "sl")` does ([`reads_frame_identity`]): level 0 adds no position, level
+/// 1 the running function's, in this script on a line no output keeps; a
+/// caller's position (level 2 or deeper) may be in another script, or none
+/// at all (`pcall`).
+fn error_reads_frame(call: &crate::Call) -> bool {
+    is_error(&call.value) && !matches!(error_level(call), Some(level) if level == 0.0 || level == 1.0)
+}
+
 
 /// Whether `value` calls one of `names` (`f(...)`), closure bodies aside.
 fn calls_any(value: &RValue, names: &FxHashSet<u64>) -> bool {
@@ -844,5 +907,41 @@ mod tests {
         assert!(CaptureSafety::new(&method(info(vec![number(2.0), string("n")]))).call_frames_untracked());
         assert!(CaptureSafety::new(&method(info(vec![number(3.0), string("s")]))).call_frames_untracked());
         assert!(CaptureSafety::new(&method(info(vec![global("level"), string("s")]))).call_frames_untracked());
+    }
+
+    /// `error(message, level)` prefixes the position of the frame `level` up:
+    /// level 2 or deeper, or one Luau computes, reads a caller's frame, as
+    /// `debug.info(2, "sl")` does; levels 0 and 1, or none, read nothing a
+    /// helper changes. Any other use of `error` may call it under another
+    /// name.
+    #[test]
+    fn error_levels_read_frames_like_debug_info() {
+        let number = |n: f64| RValue::Literal(Literal::Number(n));
+        let string = RValue::Literal(Literal::String(b"bad".to_vec()));
+        let error = |arguments: Vec<RValue>| crate::Call::new(global("error"), arguments);
+        let one_value = crate::Select::Call(crate::Call::new(global("tostring"), vec![]));
+        for quiet in [vec![string.clone()], vec![string.clone(), number(1.0)], vec![string.clone(), number(0.0)], vec![], vec![one_value.into()]] {
+            let call = error(quiet);
+            assert!(!error_reads_frame(&call));
+            let safety = CaptureSafety::new(&Block(vec![call.clone().into()]));
+            assert!(!safety.reads_call_frames() && !safety.call_frames_untracked() && !safety.reads_frames(&[call.into()]));
+        }
+        for reading in [
+            vec![string.clone(), number(2.0)],
+            vec![string.clone(), number(3.0)],
+            vec![string.clone(), global("level")],
+            // All the values of a call: a hooked one may give a level.
+            vec![crate::Call::new(global("reason"), vec![]).into()],
+        ] {
+            let call = error(reading);
+            assert!(error_reads_frame(&call));
+            let safety = CaptureSafety::new(&Block(vec![call.clone().into()]));
+            assert!(safety.reads_call_frames() && !safety.call_frames_untracked());
+            // In a statement or in a value.
+            assert!(safety.reads_frames(&[call.clone().into()]));
+            assert!(safety.reads_frames(&[crate::Return::new(vec![call.into()]).into()]));
+        }
+        // Passed on as a value: called under another name.
+        assert!(census(vec![global("error")]).call_frames_untracked());
     }
 }
