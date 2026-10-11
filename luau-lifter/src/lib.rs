@@ -249,6 +249,105 @@ fn import_names<'a>(aux: u32, string: &impl Fn(u32) -> Option<&'a [u8]>) -> Opti
     Some((names, count))
 }
 
+/// The function a register holds for a generic loop to be prepared over.
+#[derive(Clone, Copy)]
+enum Generator {
+    Unknown,
+    /// GETIMPORT: the import word.
+    Import(u32),
+    /// GETGLOBAL: the constant naming the global.
+    Global(u32),
+}
+
+/// The pcs a jump, a loop or a fast call's skip can land on: where facts
+/// gathered in straight-line code stop holding.
+fn jump_targets(instructions: &[instruction::Instruction]) -> Vec<bool> {
+    use crate::{instruction::Instruction, op_code::OpCode::*};
+    let mut targets = vec![false; instructions.len()];
+    let mut mark = |pc: usize, offset: i64| {
+        if let Ok(target) = usize::try_from(pc as i64 + 1 + offset)
+            && let Some(slot) = targets.get_mut(target)
+        {
+            *slot = true;
+        }
+    };
+    for (pc, instruction) in instructions.iter().enumerate() {
+        match *instruction {
+            Instruction::AD {
+                op_code:
+                    LOP_JUMP | LOP_JUMPBACK | LOP_JUMPIF | LOP_JUMPIFNOT | LOP_JUMPIFEQ | LOP_JUMPIFLE | LOP_JUMPIFLT
+                    | LOP_JUMPIFNOTEQ | LOP_JUMPIFNOTLE | LOP_JUMPIFNOTLT | LOP_FORNPREP | LOP_FORNLOOP | LOP_FORGLOOP
+                    | LOP_FORGPREP_INEXT | LOP_FORGPREP_NEXT | LOP_FORGPREP | LOP_JUMPXEQKNIL | LOP_JUMPXEQKB
+                    | LOP_JUMPXEQKN | LOP_JUMPXEQKS | LOP_CMPPROTO,
+                d,
+                ..
+            } => mark(pc, d.into()),
+            Instruction::E { op_code: LOP_JUMPX, e } => mark(pc, e.into()),
+            Instruction::BC {
+                op_code:
+                    LOP_LOADB | LOP_FASTCALL | LOP_FASTCALL1 | LOP_FASTCALL2 | LOP_FASTCALL2K | LOP_FASTCALL3 | LOP_FASTPCALL,
+                c,
+                ..
+            } if c != 0 => mark(pc, c.into()),
+            _ => {}
+        }
+    }
+    targets
+}
+
+/// Updates `generators` for the registers `instruction` writes. A loaded
+/// import or global survives the CALL in its own register, whose results are
+/// the loop's generator triple (`pairs(t)` calls `pairs`); every other write
+/// forgets what the register held. Writes this cannot bound forget all.
+fn track_generators(generators: &mut [Generator; 256], instruction: &instruction::Instruction) {
+    use crate::{instruction::Instruction, op_code::OpCode::*};
+    let mut forget = |from: usize, to: usize| {
+        for generator in generators.iter_mut().take(to).skip(from) {
+            *generator = Generator::Unknown;
+        }
+    };
+    match *instruction {
+        Instruction::AD { op_code: LOP_GETIMPORT, a, aux, .. } => generators[usize::from(a)] = Generator::Import(aux),
+        Instruction::BC { op_code: LOP_GETGLOBAL, a, aux, .. } => generators[usize::from(a)] = Generator::Global(aux),
+        // Results land in A..A+C-2, all registers from A for a multiple return.
+        Instruction::BC { op_code: LOP_CALL, a, c, .. } => {
+            let a = usize::from(a);
+            forget(a + 1, if c == 0 { 256 } else { a + usize::from(c) - 1 });
+        }
+        Instruction::BC { op_code: LOP_GETVARARGS, a, b, .. } => {
+            let a = usize::from(a);
+            forget(a, if b == 0 { 256 } else { a + usize::from(b) - 1 });
+        }
+        Instruction::BC { op_code: LOP_NAMECALL | LOP_NAMECALLUDATA, a, .. } => forget(usize::from(a), usize::from(a) + 2),
+        Instruction::AD { op_code: LOP_FORNPREP | LOP_FORNLOOP | LOP_FORGPREP | LOP_FORGPREP_INEXT | LOP_FORGPREP_NEXT, a, .. } => {
+            forget(usize::from(a), usize::from(a) + 3)
+        }
+        Instruction::AD { op_code: LOP_FORGLOOP, a, .. } => forget(usize::from(a) + 2, 256),
+        // Writes nothing: stores, jumps, returns, captures, fast-call guards
+        // (their results land through the CALL that follows) and markers.
+        Instruction::BC {
+            op_code:
+                LOP_NOP | LOP_BREAK | LOP_SETGLOBAL | LOP_SETUPVAL | LOP_CLOSEUPVALS | LOP_SETTABLE | LOP_SETTABLEKS
+                | LOP_SETTABLEN | LOP_SETUDATAKS | LOP_RETURN | LOP_SETLIST | LOP_CAPTURE | LOP_PREPVARARGS | LOP_FASTCALL
+                | LOP_FASTCALL1 | LOP_FASTCALL2 | LOP_FASTCALL2K | LOP_FASTCALL3 | LOP_FASTPCALL,
+            ..
+        }
+        | Instruction::AD {
+            op_code:
+                LOP_JUMP | LOP_JUMPBACK | LOP_JUMPIF | LOP_JUMPIFNOT | LOP_JUMPIFEQ | LOP_JUMPIFLE | LOP_JUMPIFLT
+                | LOP_JUMPIFNOTEQ | LOP_JUMPIFNOTLE | LOP_JUMPIFNOTLT | LOP_JUMPXEQKNIL | LOP_JUMPXEQKB | LOP_JUMPXEQKN
+                | LOP_JUMPXEQKS,
+            ..
+        }
+        | Instruction::E { .. } => {}
+        // Calls and members whose writes are not bounded here.
+        Instruction::BC { op_code: LOP_CALLFB | LOP_NATIVECALL | LOP_NEWCLASSMEMBER, .. }
+        | Instruction::AD { op_code: LOP_CMPPROTO, .. } => forget(0, 256),
+        // Every other instruction writes its A register only.
+        Instruction::BC { a, .. } | Instruction::AD { a, .. } => forget(usize::from(a), usize::from(a) + 1),
+    }
+}
+
 /// Whether import `names` spell the dotted `path`.
 fn names_path(names: &[&[u8]], path: &str) -> bool {
     path.split('.').map(str::as_bytes).eq(names.iter().copied())
@@ -1385,14 +1484,15 @@ fn validate_source_spellings(chunk: &deserializer::chunk::Chunk) -> Result<(), S
     use deserializer::constant::Constant;
     let spelled_nan = |value: f64| !value.is_nan() || value.to_bits() << 1 == 0x7ff8_0000_0000_0000 << 1;
     let spelled_component = |value: f32| !value.is_nan() || value.to_bits() << 1 == 0x7fc0_0000 << 1;
-    // The import each register last received (a generic loop's generator),
-    // stamped with its prototype: one array for the chunk, never cleared.
-    let mut imported = [(usize::MAX, 0u32); 256];
     for (prototype, function) in chunk.functions.iter().enumerate() {
         let string = |constant: u32| match function.constants.get(constant as usize) {
             Some(Constant::String(index)) => index.checked_sub(1).and_then(|index| chunk.string_table.get(index)).copied(),
             _ => None,
         };
+        // The function each register was last loaded with in straight-line
+        // code: the generator a generic loop is prepared over.
+        let mut generators = [Generator::Unknown; 256];
+        let targets = jump_targets(&function.instructions);
         let mut pc = 0;
         while let Some(instruction) = function.instructions.get(pc) {
             let (Instruction::BC { op_code, .. } | Instruction::AD { op_code, .. } | Instruction::E { op_code, .. }) =
@@ -1400,8 +1500,10 @@ fn validate_source_spellings(chunk: &deserializer::chunk::Chunk) -> Result<(), S
             let at = pc;
             pc += if op_code.has_aux() { 2 } else { 1 };
             let pc = at;
+            if targets[pc] {
+                generators = [Generator::Unknown; 256];
+            }
             match *instruction {
-                Instruction::AD { op_code: OpCode::LOP_GETIMPORT, a, aux, .. } => imported[usize::from(a)] = (prototype, aux),
                 // With the standard environment a loop prepared for `next` or
                 // `ipairs` iterates the table itself, whatever the generator;
                 // otherwise it calls the generator. Source names one function
@@ -1409,9 +1511,14 @@ fn validate_source_spellings(chunk: &deserializer::chunk::Chunk) -> Result<(), S
                 Instruction::AD { op_code: op_code @ (OpCode::LOP_FORGPREP_NEXT | OpCode::LOP_FORGPREP_INEXT), a, .. } => {
                     let paths: &[&str] =
                         if op_code == OpCode::LOP_FORGPREP_NEXT { &["next", "pairs"] } else { &["ipairs"] };
-                    let (owner, aux) = imported[usize::from(a)];
-                    if owner == prototype
-                        && let Some((names, count)) = import_names(aux, &string)
+                    let names = match generators[usize::from(a)] {
+                        Generator::Import(aux) => import_names(aux, &string),
+                        // Past constant 1023 an import cannot encode its name,
+                        // so the compiler loads the builtin as a global.
+                        Generator::Global(constant) => string(constant).map(|name| ([name, &[][..], &[][..]], 1)),
+                        Generator::Unknown => None,
+                    };
+                    if let Some((names, count)) = names
                         && !paths.iter().any(|path| names_path(&names[..count], path))
                     {
                         return Err(format!(
@@ -1477,6 +1584,7 @@ fn validate_source_spellings(chunk: &deserializer::chunk::Chunk) -> Result<(), S
                 }
                 _ => {}
             }
+            track_generators(&mut generators, instruction);
         }
         let spelled = function.constants.iter().all(|constant| match *constant {
             Constant::Number(value) => spelled_nan(value),
