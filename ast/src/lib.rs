@@ -93,6 +93,7 @@ mod repeat;
 pub mod replace_locals;
 pub mod library_constants;
 pub mod link_upvalues;
+pub mod literal_sharing;
 mod r#return;
 mod select_value;
 mod set_list;

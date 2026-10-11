@@ -884,6 +884,9 @@ pub fn deinline_orphans_in(body: &mut Block, chunk_orphans: &mut Vec<(RcLocal, C
         crate::telemetry::count("skipped_without_targets", 1);
         return;
     }
+    // What each literal captures, so no rewrite changes whether Luau shares
+    // it (`literal_sharing`).
+    let _sharing = crate::literal_sharing::enter(body);
     // Helpers every call of which returns exactly one value, read off the
     // declarations before any rewrite can replace one (`local f = factory()`
     // no longer shows `f`'s body). Only their calls may move into a place
@@ -3785,6 +3788,25 @@ fn deinline_block(
             // The absorbed argument temps and copies right before `i` go too.
             let start = i - hit.absorbed;
             let removed = i + hit.consume - start;
+            // The call must leave every literal around it as Luau shares it.
+            if current_func.is_some() {
+                let (mut gone, mut new) = (Vec::new(), Vec::new());
+                for statement in &stmts[start..start + removed] {
+                    crate::literal_sharing::statement_locals(statement, &mut gone);
+                }
+                for statement in &replacement {
+                    crate::literal_sharing::statement_locals(statement, &mut new);
+                }
+                let mut declared = FxHashSet::default();
+                crate::literal_sharing::declared_locals(&replacement, &mut declared);
+                if !crate::literal_sharing::admit(current_func, &gone, &new, &declared) {
+                    if let Some(declared) = target_decl_index(&stmts[i], decl_map, targets) {
+                        active.extend(declared);
+                    }
+                    i += 1;
+                    continue;
+                }
+            }
             stmts.splice(start..start + removed, replacement);
             if !hit.mode.is_empty() {
                 crate::telemetry::count(hit.mode, 1);

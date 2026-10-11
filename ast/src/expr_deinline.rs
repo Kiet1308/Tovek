@@ -172,6 +172,9 @@ fn run(body: &mut Block, arithmetic_only: bool) {
     }) {
         return;
     }
+    // What each literal captures, so no rewrite changes whether Luau shares
+    // it (`literal_sharing`).
+    let _sharing = crate::literal_sharing::enter(body);
     // f_local -> its targets' indices (a helper and its evidence twin sit
     // side by side), so we recognise each helper's declaration during the
     // scan and only activate it for sites in its lexical scope.
@@ -1000,7 +1003,17 @@ fn try_rewrite(
                 let call = Call::new(RValue::Local(t.f_local.clone()), args).reconstructed(
                     if t.arithmetic.is_some() { crate::call_origins::Kind::ArithmeticDeinline }
                     else { crate::call_origins::Kind::ExpressionDeinline });
-                *rv = RValue::Call(call);
+                let call = RValue::Call(call);
+                // The call must leave every literal around it as Luau shares it.
+                if current_func.is_some() {
+                    let (mut gone, mut new) = (Vec::new(), Vec::new());
+                    crate::literal_sharing::value_locals(rv, &mut gone);
+                    crate::literal_sharing::value_locals(&call, &mut new);
+                    if !crate::literal_sharing::admit(current_func, &gone, &new, &FxHashSet::default()) {
+                        return;
+                    }
+                }
+                *rv = call;
                 // Do NOT descend into the freshly-emitted args (idempotence +
                 // largest-match): the call root is never a pattern (scalar-root gate
                 // excludes Call), and the args are already-final caller expressions.

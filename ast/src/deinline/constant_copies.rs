@@ -226,6 +226,8 @@ impl Walk<'_> {
                     Some(decided) => {
                         if let Some(arguments) = decided.get(&(pointer, bits))
                             && in_scope
+                            && (pointer.is_none()
+                                || crate::literal_sharing::admit(pointer, &[], std::slice::from_ref(&planned.binder), &FxHashSet::default()))
                         {
                             let mut call = Call::new(RValue::Local(planned.binder.clone()), arguments.clone())
                                 .reconstructed(crate::call_origins::Kind::StatementDeinline);
