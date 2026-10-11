@@ -370,10 +370,24 @@ mod policy_tests {
     }
 }
 
+/// The single-file mode's usage line (`luau-lifter --help` lists the folder
+/// subcommands).
+const SINGLE_FILE_USAGE: &str = "usage: luau-lifter <bytecode file> [-e] [--script-name NAME] \
+[--stats-json PATH] [--style default|compact] [--strict-no-synthetic-control] \
+[--allow-certified-dispatcher] [--dont-reuse-var] [--no-synth-helpers] [--assume-no-nan] \
+[--assume-standard-libraries] [--synthesize-arithmetic-loops]\n       luau-lifter --help";
+
+/// Report a bad invocation and exit 2. The process-wide quiet panic hook
+/// swallows panic messages, so an `expect` here exited 101 with nothing said.
+fn usage_error(message: &str) -> ! {
+    eprintln!("error: {message}\n{SINGLE_FILE_USAGE}");
+    std::process::exit(2);
+}
+
 /// Legacy single-file mode: `luau-lifter <file> [-e] [--script-name NAME]`.
 fn run_single_file() {
     let mut args = std::env::args().skip(1);
-    let file_name = args.next().expect("expected exactly one file");
+    let Some(file_name) = args.next() else { usage_error("expected a bytecode file") };
     let mut key = 1;
     let mut script_name: Option<String> = None;
     let mut stats_json = None;
@@ -396,30 +410,33 @@ fn run_single_file() {
                     luau_lifter::ControlFlowOutputPolicy::StrictNoSyntheticControl;
             }
             "--script-name" => {
-                script_name = Some(args.next().expect("--script-name requires a value"));
+                script_name = Some(args.next().unwrap_or_else(|| usage_error("--script-name requires a value")));
             }
             "--stats-json" => {
-                stats_json = Some(PathBuf::from(args.next().expect("--stats-json requires a path")));
+                stats_json = Some(PathBuf::from(args.next().unwrap_or_else(|| usage_error("--stats-json requires a path"))));
             }
             "--style" | "--style=default" | "--style=compact" => {
                 let style = match arg.strip_prefix("--style=") {
                     Some(style) => style.to_owned(),
-                    None => args.next().expect("--style requires `default` or `compact`"),
+                    None => args.next().unwrap_or_else(|| usage_error("--style requires `default` or `compact`")),
                 };
                 options.compact_style = match style.as_str() {
                     "compact" => true,
                     "default" => false,
-                    other => panic!("--style must be `default` or `compact`, got `{other}`"),
+                    other => usage_error(&format!("--style must be `default` or `compact`, got `{other}`")),
                 };
             }
-            _ => panic!("unexpected argument: {arg}"),
+            _ => usage_error(&format!("unexpected argument: {arg}")),
         }
     }
 
     if let Some(path) = stats_json {
         luau_lifter::stats::enable(path, file_name.clone());
     }
-    let bytecode = std::fs::read(&file_name).expect("failed to read file");
+    let bytecode = std::fs::read(&file_name).unwrap_or_else(|error| {
+        eprintln!("error: cannot read {file_name}: {error}");
+        std::process::exit(2);
+    });
     match luau_lifter::try_decompile_bytecode_with_options(
         &bytecode,
         key,
