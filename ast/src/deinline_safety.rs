@@ -436,11 +436,6 @@ impl CaptureSafety {
                     // `debug.info(thread, level, options)`, `debug.info(f, options)`.
                     self.frames.functions |= !matches!(call.arguments.last(),
                         Some(RValue::Literal(Literal::String(options))) if !options.contains(&b'f'));
-                } else if debug_member(&call.value) == Some(Some(b"traceback".as_slice())) {
-                    // The trace lists every frame: one a helper adds, and
-                    // every one above it.
-                    self.frames.read = true;
-                    self.frames.callers.extend(owner);
                 }
             }
             _ if is_debug_library(value) => self.frames.library += 1,
@@ -547,9 +542,13 @@ fn reads_beyond_caller(call: &crate::Call) -> bool {
 }
 
 /// Whether `value` calls `debug.info` reading which frames run, or
-/// `debug.traceback`, which lists them, closure bodies aside. (Passed on as
-/// a value, `xpcall(f, debug.traceback)`, the trace is a diagnostic of an
-/// error, like the position `error` prefixes: no frame read.)
+/// `debug.traceback`, which lists them, closure bodies aside: a helper taking
+/// a trace itself lists one more frame once its copies are calls. Unlike a
+/// `debug.info` call, a trace taken elsewhere (in a function the code calls,
+/// in an error handler, `xpcall(f, debug.traceback)`) marks nothing for the
+/// module: it is the diagnostic of an error, like the position `error`
+/// prefixes, and tracking its callers closed every Promise library, whose
+/// error handler (an anonymous closure) takes one.
 fn calls_debug_info(value: &RValue) -> bool {
     match value {
         RValue::Closure(_) => false,
@@ -797,16 +796,17 @@ mod tests {
         assert!(census(vec![member(global("_G"), "getfenv")]).dynamic_environment());
     }
 
-    /// A direct `debug.info(...)` or `debug.traceback(...)` call reads
-    /// frames; any other use of the library may call it under another name.
+    /// A direct `debug.info(...)` call reads frames; any other use of the
+    /// library may call it under another name. Code calling
+    /// `debug.traceback(...)` itself reads frames too, but marks nothing for
+    /// the module.
     #[test]
     fn debug_info_is_tracked_by_its_calls() {
         let call = |callee: RValue| -> RValue { crate::Call::new(callee, vec![]).into() };
         let traceback = census(vec![call(member(global("debug"), "traceback"))]);
-        assert!(traceback.reads_call_frames() && !traceback.call_frames_untracked());
+        assert!(!traceback.reads_call_frames() && !traceback.call_frames_untracked());
         let traced = crate::Call::new(member(global("debug"), "traceback"), vec![]);
         assert!(traceback.reads_frames(&[crate::Return::new(vec![traced.into()]).into()]));
-        // An error handler: the trace of an error, not of this code.
         let handler = census(vec![member(global("debug"), "traceback")]);
         assert!(!handler.reads_call_frames());
         for direct in [member(global("debug"), "info"), member(member(global("_G"), "debug"), "info")] {
