@@ -715,6 +715,8 @@ playBtn.addEventListener('click', () => {
 let autoStarted = false;
 frame.addEventListener('pointerenter', (e) => { if (e.pointerType === 'mouse' && autoStarted) hovered = true; });
 frame.addEventListener('pointerleave', () => { hovered = false; });
+// a touch on the frame means the visitor is reading it: the pages stop turning by themselves
+frame.addEventListener('pointerdown', (e) => { if (e.pointerType !== 'mouse' && playing && !e.target.closest('#fr-play')) stopPlay(); });
 frame.addEventListener('focusin', (e) => { if (autoStarted && e.target.matches(':focus-visible') && e.target !== playBtn) hovered = true; });
 frame.addEventListener('focusout', (e) => { if (!frame.contains(e.relatedTarget)) hovered = false; });
 
@@ -1089,6 +1091,79 @@ function markDownload() {
   const hero = $('.hero .btn-ink');
   hero.href = dl.href;
   hero.title = `Tovek V2.6 for ${plat} (${dl.querySelector('span').textContent})`;
+}
+
+// ------------------------------------------------------------------ films: a card plays its film while the pointer rests on it
+
+// The films are pure functions of time (watch/engine): the card draws its own film from the poster frame on, muted,
+// in a canvas over the poster, and lets go of it when the pointer leaves.
+const liveFilms = new Map();
+const canHover = matchMedia('(hover: hover) and (pointer: fine)');
+function liveFilm(card) {
+  let entry = liveFilms.get(card);
+  if (!entry) {
+    entry = (async () => {
+      const watch = new URL('../../../watch/', import.meta.url);
+      const [registry, engine] = await Promise.all([import(new URL('films/index.js', watch).href), import(new URL('engine/index.js', watch).href)]);
+      const f = registry.filmById(card.dataset.film);
+      if (!f || !f.available) throw new Error('no film');
+      const mod = await import(new URL(f.src, new URL('films/', watch)).href);
+      const film = await engine.openFilm(mod, { base: watch.href });
+      const canvas = document.createElement('canvas');
+      canvas.className = 'film-live';
+      canvas.setAttribute('aria-hidden', 'true');
+      card.querySelector('.film-frame img').after(canvas);
+      const stage = engine.createStage(canvas);
+      return { film, stage, canvas, t: film.poster || 0, raf: 0, last: 0, on: false };
+    })();
+    entry.catch(() => liveFilms.delete(card));
+    liveFilms.set(card, entry);
+  }
+  return entry;
+}
+const clock = (n) => `${Math.floor(n / 60)}:${String(Math.floor(n % 60)).padStart(2, '0')}`;
+async function playCard(card) {
+  if (reduced.matches || !canHover.matches) return;
+  let live;
+  try { live = await liveFilm(card); } catch { return; }
+  if (!card.matches(':hover, :focus-visible')) return;
+  const frameEl = card.querySelector('.film-frame');
+  const timeEl = card.querySelector('.film-time');
+  const total = timeEl.dataset.total || (timeEl.dataset.total = timeEl.textContent);
+  const r = frameEl.getBoundingClientRect();
+  live.stage.resize(r.width, r.height, Math.min(devicePixelRatio || 1, 2));
+  live.on = true;
+  live.last = performance.now();
+  card.classList.add('is-live');
+  cancelAnimationFrame(live.raf);
+  const tick = (now) => {
+    if (!live.on) return;
+    live.t += Math.min(0.1, (now - live.last) / 1000);
+    live.last = now;
+    if (live.t >= live.film.duration) live.t = 0;
+    live.stage.draw(live.film, live.t);
+    timeEl.textContent = `${clock(live.t)} / ${total}`;
+    live.raf = requestAnimationFrame(tick);
+  };
+  live.stage.draw(live.film, live.t);
+  live.raf = requestAnimationFrame(tick);
+}
+async function stopCard(card) {
+  const entry = liveFilms.get(card);
+  card.classList.remove('is-live');
+  if (!entry) return;
+  let live;
+  try { live = await entry; } catch { return; }
+  live.on = false;
+  cancelAnimationFrame(live.raf);
+  const timeEl = card.querySelector('.film-time');
+  if (timeEl.dataset.total) timeEl.textContent = timeEl.dataset.total;
+}
+for (const card of $$('.film[data-live]')) {
+  card.addEventListener('pointerenter', (e) => { if (e.pointerType === 'mouse') playCard(card); });
+  card.addEventListener('pointerleave', () => stopCard(card));
+  card.addEventListener('focus', () => { if (card.matches(':focus-visible')) playCard(card); });
+  card.addEventListener('blur', () => stopCard(card));
 }
 
 // ------------------------------------------------------------------ films: built with the registry's films; re-check here
