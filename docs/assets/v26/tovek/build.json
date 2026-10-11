@@ -1,13 +1,13 @@
 {
   "schema": "tovek-wasm-build/1",
   "file": "tovek.wasm",
-  "sha256": "8af76453186acc990490cc33bf5b7626c329a40c6f3fcc6214859488b5d12acb",
-  "bytes": 2838216,
-  "gzip_bytes": 1083940,
-  "brotli_bytes": 807321,
+  "sha256": "13195563c4da01a712daae4893979f41b31420b8daf38f595762c37a50743f94",
+  "bytes": 2830528,
+  "gzip_bytes": 1083419,
+  "brotli_bytes": 806886,
   "sections": {
     "type": 941,
-    "function": 7100,
+    "function": 7099,
     "table": 7,
     "memory": 4,
     "tag": 3,
@@ -15,8 +15,8 @@
     "export": 84,
     "element": 2331,
     "datacount": 2,
-    "code": 2654944,
-    "data": 172753
+    "code": 2654626,
+    "data": 165384
   },
   "cli_version": "V2.5.1",
   "code_commit": "e938654",
@@ -25,6 +25,6 @@
   "toolchain": "nightly-2026-06-15",
   "opt_level": "z",
   "wasm_opt": "Oz (wasm-opt version 132 (version_132))",
-  "bytes_before_wasm_opt": 3447963,
+  "bytes_before_wasm_opt": 3440334,
   "stack_bytes": 8388608
 }

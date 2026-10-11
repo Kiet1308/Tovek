@@ -95,10 +95,18 @@
   .ok { color: var(--signal-deep); }
   footer { margin-top: 36px; color: var(--ink-3); font-size: 13px; }
   footer a { color: var(--ink-2); }
+  @media (prefers-reduced-motion: reduce) {
+    button, .file { transition: none; }
+  }
   @media (max-width: 560px) {
     .wrap { padding-top: 22px; }
     pre { font-size: 12px; tab-size: 2; }
     pre .l::before { width: 3ch; padding-right: 1ch; }
+    /* Four columns fit a phone: the sample name wraps and the input size steps aside. */
+    table { font-size: 12px; }
+    th, td { padding: 8px 6px; }
+    th, td:first-child { white-space: normal; }
+    th:nth-child(2), td:nth-child(2) { display: none; }
   }
 </style>
 </head>

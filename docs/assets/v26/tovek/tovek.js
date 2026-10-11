@@ -6,8 +6,12 @@
 //   if (result.source !== undefined) show(result.source); else showError(result.error);
 //
 // decompile(input, options) never throws. It resolves
-//   { source, ms, version, key, form }     on success
-//   { error, stage, ms, version, key, form } on failure (stage: input | decompile | load | crash | timeout | cancelled)
+//   { source, ms, version, key, form, memory }       on success
+//   { error, stage, ms, version, key, form, memory } on failure (stage: input | decompile | load | crash | timeout |
+//                                                    cancelled; load/timeout/cancelled carry only error, stage, ms)
+// key: 1 plain Luau bytecode, 203 Roblox client bytecode. form: 'raw' | 'text'. ms: time inside the worker.
+// memory: bytes of WebAssembly memory the worker holds after the call (it never shrinks; past 256 MB the worker
+// starts a fresh instance for the next call).
 // The source is byte-for-byte what the native CLI prints (without its trailing newline):
 //   raw bytecode -> `luau-lifter <file> [--script-name <name>]` (Roblox client bytecode: `-e`)
 //   saved text   -> `luau-lifter decompile-folder` on a folder holding that file, named <name>
@@ -83,10 +87,10 @@ export function load(options = {}) {
         if (!job) return;
         pending.delete(data.id);
         clearTimeout(job.timer);
-        const { ok, source, error, stage, ms, key, form } = data;
+        const { ok, source, error, stage, ms, key, form, memory } = data;
         job.resolve(ok
-          ? { source, ms, version: info?.version, key, form }
-          : { error, stage, ms, version: info?.version, key, form });
+          ? { source, ms, version: info?.version, key, form, memory }
+          : { error, stage, ms, version: info?.version, key, form, memory });
       }
     };
     worker.onerror = (event) => {
@@ -152,6 +156,11 @@ export async function decompile(input, options = {}) {
   }
   const id = nextId++;
   return new Promise((resolve) => {
+    // cancel() (or a timed-out request) may have stopped the worker while this call waited for load().
+    if (!worker) {
+      resolve({ error: 'cancelled', stage: 'cancelled', ms: 0, version: info?.version });
+      return;
+    }
     const job = { resolve, timer: 0 };
     if (options.timeout > 0) {
       job.timer = setTimeout(() => {
