@@ -263,6 +263,16 @@ const departAt = (i) => {
 function drawGather(ctx, t) {
   const cam = wideCam();
   const base = ctx.globalAlpha;
+  // the scan will draw the code's letters at this scale for the first time: touch them once, invisibly
+  // (ink at 1/1024 on the night does not change a pixel), so the GPU has them before the head arrives
+  if (t >= T.gather1 - 0.8) {
+    ctx.save();
+    ctx.globalAlpha = 1 / 1024;
+    ctx.translate(960 - cam.x * cam.s, 540 - cam.y * cam.s);
+    ctx.scale(cam.s, cam.s);
+    drawHero(ctx, S.hero);
+    ctx.restore();
+  }
   ctx.save();
   if (t >= T.gather1 + 0.05) {
     // every byte has landed: the silhouette as whole lines

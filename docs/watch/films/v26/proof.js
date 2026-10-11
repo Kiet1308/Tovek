@@ -184,6 +184,13 @@ export function drawScale(ctx, t) {
   const ka = envelope(t, T.scale + 0.6, T.total + 0.4, 0.5, 0.4);
   if (ka > 0) kicker(ctx, `Every script with bytecode, decompiled · one mark per script, as tall as its output is long`, 144, 290, { color: C.onNight2, alpha: ka, size: 17 });
   const elapsed = clockAt(t);
+  // the waveforms are drawn from bitmaps: let the GPU take them in before the clock starts
+  if (t < T.sweep0) {
+    ctx.save();
+    ctx.globalAlpha = 1 / 1024;
+    for (const g of W.games) if (g.bitmap) ctx.drawImage(g.bitmap.cv, 0, 0, 4, 4);
+    ctx.restore();
+  }
   const outA = 1 - 0.92 * progress(t, T.total + 0.25, 0.6, ease.inOut);
   // the bands
   W.games.forEach((g, k) => {
