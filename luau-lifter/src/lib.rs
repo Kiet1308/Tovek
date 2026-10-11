@@ -1277,7 +1277,8 @@ fn decompile_bytecode_internal(
                 matches!(instruction, instruction::Instruction::BC { op_code: op_code::OpCode::LOP_SETLIST, .. })
             })) {
                 let _span = ast::telemetry::Span::new("S_RESERVE_LIST_SLOTS");
-                ast::rebuild_table_literals::reserve_unfolded_list_slots(&mut body);
+                ast::rebuild_table_literals::reserve_unfolded_list_slots(&mut body)
+                    .map_err(DecompileFailure::message)?;
             }
             drop(late_timer);
             // Temporaries left apart for the folding passes may, where some

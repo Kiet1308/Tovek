@@ -187,7 +187,8 @@ CONSTANT_SITES = ("call", "by-hand", "statement", "statement-by-hand")
 REFUSALS = ("headroom for the vector constructor", "a method name no identifier spells",
             "a NaN constant whose payload", "a global name no identifier spells",
             "more locals at once than Luau allows", "more registers than Luau allows",
-            "no faithful source", "a builtin call names another function", "a loop prepared for")
+            "no faithful source", "a builtin call names another function", "a loop prepared for",
+            "a SETLIST index far past the array")
 
 # `describe` prints every function as `fn`: only `closure-identity` observes
 # closure identity (with `==`), which DUPCLOSURE shares only from -O1, and its
