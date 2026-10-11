@@ -215,8 +215,9 @@ fn alias(
 
 /// `local _ = local` first in a literal's body: Luau captures only a local
 /// the literal names, and the literal stays new only through that capture.
-/// Named `_`, or `_2` and on past every name the body spells, so it hides
-/// nothing the body reads.
+/// Named `_`, or `_2` and on past every name the body spells, locals and
+/// globals alike, so it hides nothing the body reads or writes (`_ = v`
+/// discards into a global `_`).
 fn read_capture(body: &mut Block, local: RcLocal) {
     let mut spelled = FxHashSet::default();
     spelled_names(body, &mut spelled);
@@ -230,9 +231,21 @@ fn read_capture(body: &mut Block, local: RcLocal) {
     body.0.insert(0, read.into());
 }
 
-/// Every local name `block` spells, nested blocks and function literals
-/// included.
+/// Every name `block` spells, locals and globals, nested blocks and function
+/// literals included.
 fn spelled_names(block: &Block, names: &mut FxHashSet<String>) {
+    fn global_names(value: &RValue, names: &mut FxHashSet<String>) {
+        if let RValue::Global(global) = value {
+            names.insert(String::from_utf8_lossy(&global.0).into_owned());
+        }
+        // A literal's body is walked on its own below.
+        if !matches!(value, RValue::Closure(_)) {
+            value.visit_rvalues(&mut |child| {
+                global_names(child, names);
+                true
+            });
+        }
+    }
     for statement in &block.0 {
         let mut record = |local: &RcLocal| {
             if let Some(name) = &local.0.lock().0 {
@@ -242,6 +255,23 @@ fn spelled_names(block: &Block, names: &mut FxHashSet<String>) {
         };
         statement.visit_local_reads(&mut record);
         statement.visit_local_writes(&mut record);
+        statement.visit_rvalues(&mut |value| {
+            global_names(value, names);
+            true
+        });
+        statement.visit_lvalues(&mut |target| {
+            match target {
+                LValue::Global(global) => {
+                    names.insert(String::from_utf8_lossy(&global.0).into_owned());
+                }
+                LValue::Index(index) => {
+                    global_names(&index.left, names);
+                    global_names(&index.right, names);
+                }
+                LValue::Local(_) => {}
+            }
+            true
+        });
         let mut nested = Vec::new();
         crate::inline_temps::collect_closures_in_statement(statement, &mut |closure| nested.push(closure.function.0.clone()));
         for function in nested {
@@ -635,6 +665,28 @@ mod tests {
         let Statement::Assign(assign) = &block.0[0] else { panic!() };
         let RValue::Closure(closure) = &assign.right[0] else { panic!() };
         closure.function.lock().body.clone()
+    }
+
+    #[test]
+    fn the_capture_read_hides_no_global() {
+        // `return _` reads a global `_`; `_ = 1` in a nested literal writes
+        // one. The read the literal gets must take neither name.
+        let flag = RcLocal::default();
+        let underscore = || crate::Global(b"_".to_vec());
+        let underscore2 = Assign::new(vec![LValue::Global(crate::Global(b"_2".to_vec()))], vec![Literal::Number(1.0).into()]);
+        let nested = closure(2, Some(1), vec![]);
+        if let RValue::Closure(closure) = &nested {
+            closure.function.lock().body = Block(vec![underscore2.into()]);
+        }
+        let mut body = Block(vec![
+            Statement::Call(crate::Call::new(nested, vec![])),
+            Return::new(vec![RValue::Global(underscore())]).into(),
+        ]);
+        read_capture(&mut body, flag.clone());
+        let Statement::Assign(read) = &body.0[0] else { panic!() };
+        let LValue::Local(local) = &read.left[0] else { panic!() };
+        assert_eq!(local.0.lock().0.as_deref(), Some("_3"));
+        assert_eq!(read.right, vec![RValue::Local(flag)]);
     }
 
     #[test]
