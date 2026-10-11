@@ -389,13 +389,17 @@ fn run_single_file() {
     let mut args = std::env::args().skip(1);
     let Some(file_name) = args.next() else { usage_error("expected a bytecode file") };
     let mut key = 1;
+    let mut encoded = false;
     let mut script_name: Option<String> = None;
     let mut stats_json = None;
     let mut options = luau_lifter::DecompileOptions::default();
 
     while let Some(arg) = args.next() {
         match arg.as_str() {
-            "-e" => key = 203,
+            "-e" => {
+                key = 203;
+                encoded = true;
+            }
             "--dont-reuse-var" => options.dont_reuse_var = true,
             "--no-synth-helpers" => options.no_synth_helpers = true,
             "--assume-no-nan" => options.assume_no_nan = true,
@@ -437,12 +441,20 @@ fn run_single_file() {
         eprintln!("error: cannot read {file_name}: {error}");
         std::process::exit(2);
     });
-    match luau_lifter::try_decompile_bytecode_with_options(
-        &bytecode,
-        key,
-        script_name.as_deref(),
-        options,
-    ) {
+    let mut result =
+        luau_lifter::try_decompile_bytecode_with_options(&bytecode, key, script_name.as_deref(), options);
+    // Roblox client bytecode (from getscriptbytecode) encodes its opcodes;
+    // without -e, a file the plain key cannot read is read once more with
+    // the Roblox key before giving up.
+    if !encoded
+        && let Err(error) = &result
+        && error.starts_with("deserialize:")
+        && let Ok(source) =
+            luau_lifter::try_decompile_bytecode_with_options(&bytecode, 203, script_name.as_deref(), options)
+    {
+        result = Ok(source);
+    }
+    match result {
         Ok(source) => println!("{source}"),
         Err(err) => {
             eprintln!("{err}");

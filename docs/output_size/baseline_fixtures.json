@@ -1480,6 +1480,18 @@
       "bytes": 659,
       "lines": 65
     },
+    "semantic/generic_loop_global_generator__O0.luau": {
+      "bytes": 13340,
+      "lines": 1110
+    },
+    "semantic/generic_loop_global_generator__O1.luau": {
+      "bytes": 13340,
+      "lines": 1110
+    },
+    "semantic/generic_loop_global_generator__O2.luau": {
+      "bytes": 13342,
+      "lines": 1110
+    },
     "semantic/generic_loop_result_keeps_outer_value__O0.luau": {
       "bytes": 358,
       "lines": 22
