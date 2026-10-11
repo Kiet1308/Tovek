@@ -121,6 +121,25 @@ function tokens(line) {
   return out;
 }
 const TOKCOL = { kw: 'ink', id: 'ink2', str: 'ink2', num: 'ink', com: 'ink3', seam: 'signalDeep', p: 'ink2' };
+// The first 100 columns of a line as runs of one shade, [column, text, shade]: neighbouring tokens of a shade join
+// (the gap between them kept as spaces), so the hundreds of lines on screen at 10^3 cost a few text calls each,
+// not one per token, and look exactly the same (the font is monospaced).
+const runCache = new Map();
+function shadeRuns(line) {
+  let out = runCache.get(line);
+  if (out) return out;
+  out = [];
+  for (const [ci, s, kd] of tokens(line)) {
+    if (ci >= 100) break;
+    const text = ci + s.length > 100 ? s.slice(0, 100 - ci) : s;
+    const shade = TOKCOL[kd];
+    const last = out[out.length - 1];
+    if (last && last[2] === shade) last[1] += ' '.repeat(ci - last[0] - last[1].length) + text;
+    else out.push([ci, text, shade]);
+  }
+  runCache.set(line, out);
+  return out;
+}
 
 // ------------------------------------------------------------------ data
 
@@ -1026,6 +1045,7 @@ function waveDots(x, R, pl, F, front, W) {
 }
 
 function drawField(R, sc, st, pl, use, vw, intro, life, rawIntro = intro) {
+  if (R.warm) return;
   // the field stays around the window into the script until the window is nearly the whole view
   const a = env(pl.d, -0.9, -0.35, 0.62, 0.98) * intro;
   if (a <= 0.003) return;
@@ -1106,6 +1126,8 @@ function drawDiscLabels(R, pl, F, a) {
 }
 
 // --- 10^3 (and the code you read at 10^2)
+// scratch for the silhouette's bars, reused every frame
+const BARS = { xywh: null, kind: null };
 function drawSil(R, sc, st, pl, use, vw, intro) {
   const d = pl.d;
   const a = smooth(-1.6, -1.5, d) * (1 - smooth(1.55, 1.98, d)) * intro; // in: its window opens it
@@ -1152,7 +1174,12 @@ function drawSil(R, sc, st, pl, use, vw, intro) {
   }
 
   if (barA > 0.01) {
-    const pN = new Path2D(), pD = new Path2D(), pS = new Path2D();
+    // plain rectangles, one style at a time: one path of thousands of rectangles sends Skia to its stencil-and-cover
+    // renderer, whose shaders took 36 ms to compile in the middle of the first dive (bars never overlap, so the
+    // alphas come out the same)
+    if (!BARS.kind || BARS.kind.length < S.n) { BARS.xywh = new Float32Array(S.n * 4); BARS.kind = new Uint8Array(S.n); }
+    const B = BARS.xywh, kind = BARS.kind;
+    let nb = 0;
     for (let k = 0; k < S.n; k++) {
       const hh = pos.h[k];
       if (hh < 0.03) continue;
@@ -1165,18 +1192,16 @@ function drawSil(R, sc, st, pl, use, vw, intro) {
       const ind = Math.min(shape[0] * TAB, 60);
       const w = Math.min(shape[1], 100 - ind) * cw;
       const bh = p * 0.56 * hh;
-      const bx = colX(col) + ind * cw, by = rowY(yy - col * R_ROWS) + (p * hh - bh) / 2;
-      const isCopy = e[1] < 0 && S.oldCopy[e[0]] >= 0;
-      (shape[2] === 2 ? pS : isCopy ? pD : pN).rect(bx, by, Math.max(w, cw), bh);
+      const o = nb * 4;
+      B[o] = colX(col) + ind * cw; B[o + 1] = rowY(yy - col * R_ROWS) + (p * hh - bh) / 2; B[o + 2] = Math.max(w, cw); B[o + 3] = bh;
+      kind[nb++] = shape[2] === 2 ? 2 : e[1] < 0 && S.oldCopy[e[0]] >= 0 ? 1 : 0;
     }
-    ctx.fillStyle = COL.ink;
-    ctx.globalAlpha = a * barA * 0.36 * (1 - dim * 0.6);
-    ctx.fill(pN);
-    ctx.globalAlpha = a * barA * 0.78;
-    ctx.fill(pD);
-    ctx.fillStyle = COL.signal;
-    ctx.globalAlpha = a * barA;
-    ctx.fill(pS);
+    const styles = [[COL.ink, a * barA * 0.36 * (1 - dim * 0.6)], [COL.ink, a * barA * 0.78], [COL.signal, a * barA]];
+    for (let g = 0; g < 3; g++) {
+      ctx.fillStyle = styles[g][0];
+      ctx.globalAlpha = styles[g][1];
+      for (let k = 0; k < nb; k++) if (kind[k] === g) ctx.fillRect(B[k * 4], B[k * 4 + 1], B[k * 4 + 2], B[k * 4 + 3]);
+    }
   }
 
   // the end of the script, a marker that moves as it shortens
@@ -1227,11 +1252,10 @@ function drawSil(R, sc, st, pl, use, vw, intro) {
           roundRect(ctx, tx + (ind - 0.6) * cw, ty - p * 0.47, (Math.min(100, t.length) - ind + 1.2) * cw, p * 0.94, p * 0.18);
           ctx.fill();
         }
-        for (const [ci, s, kd] of tokens(line)) {
-          if (ci >= 100) break;
-          ctx.globalAlpha = la * (kd === 'seam' ? 1 : 0.96);
-          ctx.fillStyle = COL[TOKCOL[kd]];
-          ctx.fillText(ci + s.length > 100 ? s.slice(0, 100 - ci) : s, tx + ci * cw, ty);
+        for (const [ci, s, shade] of shadeRuns(line)) {
+          ctx.globalAlpha = la * (shade === 'signalDeep' ? 1 : 0.96);
+          ctx.fillStyle = COL[shade];
+          ctx.fillText(s, tx + ci * cw, ty);
         }
       }
     }
@@ -1849,6 +1873,7 @@ function frame(now) {
   if (ready && scrollY > diveTop + diveH + 40 && Math.abs(tTarget - tCur) <= 0.0004) return;
   peekSchedule(now);
   const intro = introAt(now);
+  if (warm.length && intro >= 1 && Math.abs(tTarget - tCur) <= 0.0004) warmOne();
   const live = draw(tCur, intro, now);
   // keep drawing while the camera settles, the field is alive on screen, or the camera leans in or out
   if (Math.abs(tTarget - tCur) > 0.0004 || (ready && intro < 1) || now - peek.t0 < peek.dur || peek.cycle
@@ -2042,24 +2067,27 @@ function jumpToHash() {
 
 // ------------------------------------------------------------------ the static version (reduced motion)
 
-// Draw every level once off screen while the page is idle, so the first real pass finds its glyphs, shadows and
-// paths already prepared and does not stutter.
+// Draw every level once while the visitor is still at the top, so the first real pass into a level finds its GPU
+// shaders compiled and its glyphs prepared (without it, the first frame of 10^2 on a phone took 50-60 ms, and Skia
+// compiled its stencil-and-cover path shaders for 36 ms in the middle of the first dive). It has to be the visible
+// canvas, whose GPU context the real frames use. One warm-up picture per frame goes in just before the real one;
+// a snapshot (createImageBitmap, no pixels read back) plays it on the GPU before the real picture's clear would
+// drop it, and only the real picture is ever shown. The field is skipped: WebGL draws it, already warm.
+const warm = [];
 function warmUp() {
-  const samples = [];
-  for (const s of TL) samples.push(s.t0 + s.len * 0.5, s.t0 + s.len * 0.92);
-  const cv = document.createElement('canvas');
-  const R = makeRenderer(cv);
-  R.resize(main.W, main.H);
-  let i = 0;
-  const idle = window.requestIdleCallback || ((f) => setTimeout(() => f({ timeRemaining: () => 8 }), 60));
-  const step = (dl) => {
-    while (i < samples.length && dl.timeRemaining() > 6) {
-      render(R, scene, stateAt(samples[i++]), { intro: 1 });
-    }
-    if (i < samples.length) idle(step);
-    else { cv.width = cv.height = 0; }
-  };
-  idle(step);
+  warm.length = 0;
+  if (window.__noWarm) return; // for timing checks: the page without its warm-up
+  // several points of every segment, the entries included, where pictures come in at small sizes and alphas
+  for (const s of TL) for (const f of [0.04, 0.3, 0.6, 0.85]) warm.push(s.t0 + s.len * f);
+  kick();
+}
+function warmOne() {
+  if (!scene) return;
+  main.warm = true;
+  render(main, scene, stateAt(warm.shift()), { intro: 1 });
+  main.warm = false;
+  createImageBitmap(els.world).then((b) => b.close(), () => {});
+  if (warm.length) kick();
 }
 
 function renderStatic() {
@@ -2156,6 +2184,7 @@ start();
 // for headless checks: draw any t and read the frame state
 window.__dive = {
   stateAt, TOTAL, REST, TL, levelT: (id) => levelT(id), unit: () => unitPx, top: () => diveTop, ready: () => ready, scene: () => scene,
+  warmLeft: () => warm.length,
   // put the dive exactly at t now (screenshots and frame sequences)
   seek(t) { cancelFlight(); scrollTo(0, Math.round(diveTop + t * unitPx)); tTarget = tCur = t; draw(t, introAt(performance.now())); },
   // hold the camera's lean at v (0..1) and stop the automatic leans
