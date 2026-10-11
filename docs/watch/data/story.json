@@ -1862,7 +1862,7 @@
       "tag": "v2.6",
       "name": "V2.6",
       "era": "v26",
-      "date": "2026-10-10",
+      "date": "2026-10-11",
       "released": false,
       "published_at": null,
       "headline": "Inlined copies come home.",
@@ -1873,11 +1873,11 @@
       ],
       "numbers": [
         {
-          "text": "4,260 to 8,842 rebuilt helper calls across four real games (8,822 scripts)",
+          "text": "4,260 to 8,845 rebuilt helper calls across four real games (8,822 scripts)",
           "source": "changelog/v2.6/data/field.json"
         },
         {
-          "text": "0 wrong outputs in 3,000 fresh fuzz programs (V2.5.1: 615)",
+          "text": "0 wrong outputs in 3,000 fresh fuzz programs (V2.5.1: 635)",
           "source": "changelog/v2.6/data/fuzz.json"
         },
         {
@@ -1916,10 +1916,10 @@
         "fractions": 1
       },
       "output": "local Players = game:GetService(\"Players\")\nlocal ReplicatedStorage = game:GetService(\"ReplicatedStorage\")\nlocal ShieldGlow = ReplicatedStorage:WaitForChild(\"ShieldGlow\")\n\nlocal function frames(p) -- 1 equivalent call inferred from this helper\n\treturn p / 60\nend\n\nlocal function isAlive(humanoid) -- 2 equivalent calls inferred from this helper\n\treturn humanoid ~= nil and humanoid.Health > 0\nend\n\nlocal function shield(folder)\n\tlocal humanoid = folder:FindFirstChildOfClass(\"Humanoid\")\n\n\tif not isAlive(humanoid) then -- inferred equivalent call\n\t\treturn\n\tend\n\n\tlocal clone = ShieldGlow:Clone()\n\tclone.Transparency = 2 / 3\n\tclone.Parent = folder\n\tlocal count = 0\n\n\tfor _, part in folder:GetDescendants() do\n\t\tif part:IsA(\"BasePart\") then\n\t\t\tif part.Transparency == 1 then\n\t\t\t\tcontinue\n\t\t\tend\n\n\t\t\tpart.Color = clone.Color\n\t\t\tcount += 1\n\t\tend\n\n\t\tif count >= 12 then\n\t\t\tbreak\n\t\tend\n\tend\n\n\tlocal lastTime = os.clock()\n\n\twhile os.clock() - lastTime < 3 do\n\t\tif not isAlive(humanoid) then -- inferred equivalent call\n\t\t\tbreak\n\t\tend\n\n\t\ttask.wait(frames(1)) -- inferred equivalent call\n\tend\n\n\tclone:Destroy()\nend\n\nlocal function onPlayerAdded(player)\n\tlocal character = player.Character or player.CharacterAdded:Wait()\n\n\tif character:IsDescendantOf(workspace) then\n\t\tshield(character)\n\tend\n\n\tlocal now = 0\n\tlocal chattedConnection = nil\n\n\tif player.MembershipType == Enum.MembershipType.Premium then\n\t\tchattedConnection = player.Chatted:Connect(function(p)\n\t\t\tif p == \"/stop\" then\n\t\t\t\tchattedConnection:Disconnect()\n\t\t\telseif not (os.clock() - now < 30) then\n\t\t\t\tnow = os.clock()\n\t\t\t\tshield(player.Character)\n\t\t\tend\n\t\tend)\n\tend\nend\n\nPlayers.PlayerAdded:Connect(onPlayerAdded)\n",
-      "tool": "Tovek V2.6 build luau-lifter.exe",
-      "binary_sha256": "0d59f6e3592e6c4019578c09ee5b4352a1222b8b69437eccef508c6962dbf89f",
+      "tool": "Tovek V2.6 build v26.exe",
+      "binary_sha256": "16d618191c03b9c3a4b84a4eea7d24449b88e03d23e3176932e13ec6a7eaf1c8",
       "cli": {
-        "version": "luau-lifter V2.5.1",
+        "version": "luau-lifter V2.6",
         "commands": [
           "decompile-folder",
           "validate-folder"
@@ -1956,9 +1956,9 @@
     "releases": 17,
     "published_releases": 16,
     "first_beta": "2026-06-19",
-    "today": "2026-10-10",
-    "days_since_first_beta": 113,
-    "commits": 454,
+    "today": "2026-10-11",
+    "days_since_first_beta": 114,
+    "commits": 511,
     "commits_note": "git rev-list --count HEAD in the Tovek repository (site branch, includes code history)",
     "lines_medal": 67,
     "lines_v26": 75

@@ -9,8 +9,8 @@ import unittest
 from unittest import mock
 
 import fuzz_roundtrip
-from fuzz_roundtrip import (CAPTURE_FAMILIES, CAPTURE_SHAPES, CELL_HOSTS, CLOSURE_BINDERS, DEINLINE_FAMILIES, ENDING,
-                            ERROR_LEVELS, FAMILIES, HANDLE_SITES, IDENTITY_SHAPES, PRELUDE, RECURSIVE_ARMS,
+from fuzz_roundtrip import (CAPTURE_FAMILIES, CAPTURE_SHAPES, CELL_HOSTS, CLOSURE_BINDERS, CONSTANT_SITES, DEINLINE_FAMILIES, ENDING,
+                            ERROR_LEVELS, FAMILIES, HANDLE_SITES, IDENTITY_SHAPES, PRELUDE, PURE_BODIES, RECURSIVE_ARMS,
                             WRITTEN_PARAM_SITES, ChunkUnit, Generator, comparable, generate, mutate, source_of)
 
 
@@ -191,7 +191,7 @@ class FuzzRoundtripTests(unittest.TestCase):
         self.assertEqual(set(hosts), set(CELL_HOSTS) | {"block", "inlined", "reached"})
         self.assertTrue(all(hosts.values()), hosts)
 
-    def test_error_levels_are_recorded_by_whether_a_position_is_there(self):
+    def test_error_levels_are_recorded_without_a_position(self):
         levels = set()
         for seed in range(100):
             source = text_of(Generator(seed).error_level())
@@ -200,7 +200,7 @@ class FuzzRoundtripTests(unittest.TestCase):
             levels.add(level.group(2))
             self.assertRegex(source, r"local ok\d+, problem\d+ = pcall\((set\d+, |function\(\) check\d+\()")
             self.assertIn('(string.gsub(problem', source)
-            self.assertIn('"^[^:]*:%d+: ", "@:"))', source)
+            self.assertIn('"^[^:]*:%d+: ", ""))', source)
         self.assertEqual(levels, set(ERROR_LEVELS))
 
     def test_closure_identity_compares_closures_made_in_a_loop(self):
@@ -224,9 +224,10 @@ class FuzzRoundtripTests(unittest.TestCase):
             else:
                 initial = re.search(r"local (function )?tag\d+( = (.*))?", source)
                 shapes.add("function" if initial.group(1) else initial.group(3))
-        # No local starts as a literal constant (N1: its capture is lost at -g2).
-        self.assertEqual(shapes, {"chunk", "function", "tostring(7)"})
-        self.assertEqual(set(IDENTITY_SHAPES), {"chunk", "function", "computed"})
+        # A literal constant too: with -g2 Luau keeps its capture but folds
+        # its reads (N1).
+        self.assertEqual(shapes, {"chunk", "function", "tostring(7)", "7", "\"k\"", "true"})
+        self.assertEqual(set(IDENTITY_SHAPES), {"chunk", "constant", "function", "computed"})
 
     def test_main_chunk_units_stay_unindented(self):
         for seed in range(300):
@@ -251,7 +252,8 @@ class FuzzRoundtripTests(unittest.TestCase):
             calls = []
             args = mock.Mock(work=work, profiles=9, mutate=True, reduce=False)
             with mock.patch.object(fuzz_roundtrip, "check",
-                                   lambda args, units, case, *profile: calls.append(profile) or ("passed", None)):
+                                   lambda args, units, case, *profile: calls.append(profile) or ("passed", None)), \
+                    mock.patch.object(fuzz_roundtrip, "source_differs", lambda *_: False):
                 fuzz_roundtrip.run_seed(args, seed)
             return calls
 
@@ -267,6 +269,50 @@ class FuzzRoundtripTests(unittest.TestCase):
             with mock.patch.object(fuzz_roundtrip, "generate", lambda seed: ([], [])):
                 self.assertEqual(profiles(seed), calls)
         self.assertGreater(crossing, 0)
+
+    def test_level_dependent_sources_recompile_minus_o0_bytecode_at_minus_o0(self):
+        # Where the program itself prints differently at -O0 and -O1, -O0
+        # bytecode is compiled again at -O0, and its row says so. Only -O0
+        # bytecode drawn another level asks; nothing else changes.
+        work = pathlib.Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, work, ignore_errors=True)
+
+        def run(seed, differs):
+            calls, asked = [], []
+            args = mock.Mock(work=work, profiles=9, mutate=True, reduce=False)
+
+            def source_differs(args, units, case, out_opt, debug):
+                asked.append((case.name, out_opt))
+                return differs
+            with mock.patch.object(fuzz_roundtrip, "check",
+                                   lambda args, units, case, *profile: calls.append(profile) or ("passed", None)), \
+                    mock.patch.object(fuzz_roundtrip, "source_differs", source_differs):
+                rows = fuzz_roundtrip.run_seed(args, seed)
+            return calls, asked, rows
+
+        seed = next(seed for seed in range(200) if "closure-identity" not in generate(seed)[1]
+                    and any(opt == 0 and out_opt != 0 for opt, _, out_opt, _ in run(seed, False)[0]))
+        same, asked, rows = run(seed, False)
+        self.assertTrue(asked and all(name.startswith("O0") and out_opt != 0 for name, out_opt in asked))
+        self.assertFalse(any("source_differs" in row for row in rows))
+        clamped, _, rows = run(seed, True)
+        for before, after, row in zip(same, clamped, rows):
+            expected = (before[0], before[1], 0, before[3]) if before[0] == 0 else before
+            self.assertEqual(after, expected)
+            self.assertEqual(row.get("source_differs", False), before[0] == 0 and before[2] != 0)
+
+    def test_source_differs_compares_the_two_levels(self):
+        work = pathlib.Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, work, ignore_errors=True)
+        args = mock.Mock(timeout=5)
+        outputs = {}
+        with mock.patch.object(fuzz_roundtrip, "compile_luau", lambda args, path, opt, debug: bytes([opt])), \
+                mock.patch.object(fuzz_roundtrip, "run",
+                                  lambda command, timeout: (0, outputs[pathlib.Path(command[1]).read_bytes()[0]], "")):
+            outputs.update({0: "1:6,6 table: 0x1", 1: "1:6,6 table: 0x2"})
+            self.assertFalse(fuzz_roundtrip.source_differs(args, [], work / "a", 1, 1))
+            outputs[1] = "1:6,6.5 table: 0x2"
+            self.assertTrue(fuzz_roundtrip.source_differs(args, [], work / "b", 1, 1))
 
     def test_service_handles_use_global_stubs(self):
         sites = set()
@@ -285,6 +331,24 @@ class FuzzRoundtripTests(unittest.TestCase):
                 if re.search(pattern.format(setup), source):
                     sites.add(site)
         self.assertEqual(sites, set(HANDLE_SITES))
+
+    def test_constant_arguments_meet_numbers_by_hand(self):
+        sites, bodies = set(), set()
+        for seed in range(150):
+            source = text_of(Generator(seed).constant_args())
+            pure = re.search(r"local function (frames\d+)\(n\) return (.+) end", source)
+            put = re.search(r"local function (put\d+)\(t, k\)\n\s+t\.a = 1 - k\n\s+t\.b = k \* 10", source)
+            self.assertTrue(pure and put, seed)
+            bodies.add(pure.group(2))
+            for site, pattern in (
+                    ("call", r"record\({0}\("),
+                    ("statement", r"\n\s+{1}\(sink\d+, "),
+                    ("statement-by-hand", r"sink\d+\.a = 1 - "),
+                    ("by-hand", r"record\(.*\((?:-?[\d.e]+|input)\)")):
+                if re.search(pattern.format(pure.group(1), put.group(1)), source):
+                    sites.add(site)
+        self.assertEqual(sites, set(CONSTANT_SITES))
+        self.assertEqual(bodies, set(PURE_BODIES))
 
     def test_mutations_keep_the_length_and_spell_no_identifier(self):
         data = b"\x06\x03\x02\x06record\x04next" + struct.pack("<d", 0.5)

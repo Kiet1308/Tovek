@@ -349,7 +349,7 @@ struct Target {
     /// DeepCopy(t)`): no code can see whether the helper's object or the
     /// copy's runs, so such a literal may match ([`unify_closure`]). The
     /// site's local is the region's own, dead after it, and unifies with
-    /// these reads one for one.
+    /// these reads one for one. Read through [`Target::private_closure`].
     private_closures: FxHashSet<RcLocal>,
     /// An orphan's target ([`Orphan`]): the function whose body its
     /// kept-aside declaration belongs to (`None`: the chunk). Active in all
@@ -488,6 +488,16 @@ pub(crate) struct MatchCtx<'a> {
 }
 
 impl Target {
+    /// Whether `binder` holds a shared literal no code but calls sees
+    /// ([`Target::private_closures`]). The pattern of a helper returning
+    /// several values ends in its results, not in the `return` reading them
+    /// ([`Target::returns`]): a result reaches the caller, whose code may
+    /// compare it (`local a, b = pair(); print(a == b)`), and the helper's
+    /// object is not its inlined copy's.
+    fn private_closure(&self, binder: &RcLocal) -> bool {
+        self.private_closures.contains(binder) && !self.returns.contains(binder)
+    }
+
     fn ctx(&self) -> MatchCtx<'_> {
         MatchCtx {
             params: &self.params,
@@ -620,11 +630,15 @@ fn admitted_pairs(progress: &Progress) -> FxHashSet<(Option<FnPtr>, RcLocal)> {
     let pairs: Vec<_> = progress.probed.iter().collect();
     let counts: Vec<evidence::Probed> = pairs
         .iter()
-        .map(|&(key, &(hits, proto))| evidence::Probed {
-            caller: lines.caller(key.0),
-            helper: proto,
-            hits,
-            rebuilt: progress.rebuilt.get(key).copied().unwrap_or(0),
+        .map(|&(key, &(hits, proto))| {
+            let caller = lines.caller(key.0);
+            evidence::Probed {
+                caller,
+                helper: proto,
+                hits,
+                rebuilt: progress.rebuilt.get(key).copied().unwrap_or(0),
+                folded_left: proto.map_or(0, |helper| evidence::folded_left(&lines.copies, caller, helper)),
+            }
         })
         .collect();
     let admit = evidence::admitted(&lines.copies, &counts);
@@ -634,15 +648,15 @@ fn admitted_pairs(progress: &Progress) -> FxHashSet<(Option<FnPtr>, RcLocal)> {
             (Some(caller), Some(helper)) => lines.copies.copies(Some(caller), helper) as usize,
             _ => 0,
         };
-        let agrees = count.hits > 0 && count.hits + count.rebuilt == copies;
+        let agrees = count.hits > 0 && count.folded_left == 0 && count.hits + count.rebuilt == copies;
         crate::telemetry::count(if agrees { "evidence_admitted_pairs" } else { "evidence_refused_pairs" }, 1);
         if !agrees {
             crate::reconstruction_stats::refuse_site("evidence_count_mismatch");
         }
         if crate::env_flag!("MEDAL_TRACE_EVIDENCE") {
             eprintln!(
-                "EVIDENCE caller=p{:?} helper={} proto=p{:?} hits={} rebuilt={} copies={copies} admit={admit}",
-                count.caller, binder, count.helper, count.hits, count.rebuilt
+                "EVIDENCE caller=p{:?} helper={} proto=p{:?} hits={} rebuilt={} copies={copies} folded_left={} admit={admit}",
+                count.caller, binder, count.helper, count.hits, count.rebuilt, count.folded_left
             );
         }
         if admit {
@@ -870,6 +884,9 @@ pub fn deinline_orphans_in(body: &mut Block, chunk_orphans: &mut Vec<(RcLocal, C
         crate::telemetry::count("skipped_without_targets", 1);
         return;
     }
+    // What each literal captures, so no rewrite changes whether Luau shares
+    // it (`literal_sharing`).
+    let _sharing = crate::literal_sharing::enter(body);
     // Helpers every call of which returns exactly one value, read off the
     // declarations before any rewrite can replace one (`local f = factory()`
     // no longer shows `f`'s body). Only their calls may move into a place
@@ -2961,7 +2978,7 @@ fn unify_assignment(t: &Target, ctx: &MatchCtx, p: &Statement, ca: &Assign, pref
             // shared closure there is no object any code sees.
             if let ([LValue::Local(binder)], [RValue::Closure(pattern)], [RValue::Closure(site)]) =
                 (pa.left.as_slice(), pa.right.as_slice(), ca.right.as_slice())
-                && t.private_closures.contains(binder)
+                && t.private_closure(binder)
             {
                 return unify_closure(ctx, pattern, site, true, b);
             }
@@ -3623,7 +3640,16 @@ fn deinline_block(
     // agreed, the other ones still rivals as in the probe.
     let round = newly.evidence.clone();
     let lines = newly.lines.clone();
-    let copies_here = |i: usize| lines.as_ref().map_or(0, |lines| lines.copies(current_func, targets[i].proto));
+    // A fold variant only where its helper's copies here refer to number
+    // constants, which its equations need.
+    let copies_here = |i: usize| match &lines {
+        Some(lines) if targets[i].fold.is_none()
+            || targets[i].proto.zip(lines.caller(current_func)).is_some_and(|(proto, caller)| lines.copies.constants_in_copies(Some(caller), proto)) =>
+        {
+            lines.copies(current_func, targets[i].proto)
+        }
+        _ => 0,
+    };
     let admitted_here = |i: usize| match &round {
         EvidenceRound::Admit(admitted) => admitted.contains(&(current_func, targets[i].f_local.clone())),
         _ => false,
@@ -3762,6 +3788,25 @@ fn deinline_block(
             // The absorbed argument temps and copies right before `i` go too.
             let start = i - hit.absorbed;
             let removed = i + hit.consume - start;
+            // The call must leave every literal around it as Luau shares it.
+            if current_func.is_some() {
+                let (mut gone, mut new) = (Vec::new(), Vec::new());
+                for statement in &stmts[start..start + removed] {
+                    crate::literal_sharing::statement_locals(statement, &mut gone);
+                }
+                for statement in &replacement {
+                    crate::literal_sharing::statement_locals(statement, &mut new);
+                }
+                let mut declared = FxHashSet::default();
+                crate::literal_sharing::declared_locals(&replacement, &mut declared);
+                if !crate::literal_sharing::admit(current_func, &gone, &new, &declared) {
+                    if let Some(declared) = target_decl_index(&stmts[i], decl_map, targets) {
+                        active.extend(declared);
+                    }
+                    i += 1;
+                    continue;
+                }
+            }
             stmts.splice(start..start + removed, replacement);
             if !hit.mode.is_empty() {
                 crate::telemetry::count(hit.mode, 1);
@@ -9179,7 +9224,8 @@ fn analyze_helper(
         .filter(|twin| twin.hosted.is_some());
     // Copies whose constant arguments Luau folded match a variant of their
     // own, which line evidence admits.
-    let fold_twin = pure.filter(|_| inlined).and_then(|pure| fold_variant(&target, &common, &body, pure));
+    let folded = g.bytecode_proto_id.is_some_and(|proto| lines.is_some_and(|lines| lines.copies.constants_in_copies_anywhere(proto)));
+    let fold_twin = pure.filter(|_| folded).and_then(|pure| fold_variant(&target, &common, &body, pure));
     let mut found = vec![target];
     found.extend(discard_target);
     found.extend(variants);

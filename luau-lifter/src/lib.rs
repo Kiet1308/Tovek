@@ -249,6 +249,105 @@ fn import_names<'a>(aux: u32, string: &impl Fn(u32) -> Option<&'a [u8]>) -> Opti
     Some((names, count))
 }
 
+/// The function a register holds for a generic loop to be prepared over.
+#[derive(Clone, Copy)]
+enum Generator {
+    Unknown,
+    /// GETIMPORT: the import word.
+    Import(u32),
+    /// GETGLOBAL: the constant naming the global.
+    Global(u32),
+}
+
+/// The pcs a jump, a loop or a fast call's skip can land on: where facts
+/// gathered in straight-line code stop holding.
+fn jump_targets(instructions: &[instruction::Instruction]) -> Vec<bool> {
+    use crate::{instruction::Instruction, op_code::OpCode::*};
+    let mut targets = vec![false; instructions.len()];
+    let mut mark = |pc: usize, offset: i64| {
+        if let Ok(target) = usize::try_from(pc as i64 + 1 + offset)
+            && let Some(slot) = targets.get_mut(target)
+        {
+            *slot = true;
+        }
+    };
+    for (pc, instruction) in instructions.iter().enumerate() {
+        match *instruction {
+            Instruction::AD {
+                op_code:
+                    LOP_JUMP | LOP_JUMPBACK | LOP_JUMPIF | LOP_JUMPIFNOT | LOP_JUMPIFEQ | LOP_JUMPIFLE | LOP_JUMPIFLT
+                    | LOP_JUMPIFNOTEQ | LOP_JUMPIFNOTLE | LOP_JUMPIFNOTLT | LOP_FORNPREP | LOP_FORNLOOP | LOP_FORGLOOP
+                    | LOP_FORGPREP_INEXT | LOP_FORGPREP_NEXT | LOP_FORGPREP | LOP_JUMPXEQKNIL | LOP_JUMPXEQKB
+                    | LOP_JUMPXEQKN | LOP_JUMPXEQKS | LOP_CMPPROTO,
+                d,
+                ..
+            } => mark(pc, d.into()),
+            Instruction::E { op_code: LOP_JUMPX, e } => mark(pc, e.into()),
+            Instruction::BC {
+                op_code:
+                    LOP_LOADB | LOP_FASTCALL | LOP_FASTCALL1 | LOP_FASTCALL2 | LOP_FASTCALL2K | LOP_FASTCALL3 | LOP_FASTPCALL,
+                c,
+                ..
+            } if c != 0 => mark(pc, c.into()),
+            _ => {}
+        }
+    }
+    targets
+}
+
+/// Updates `generators` for the registers `instruction` writes. A loaded
+/// import or global survives the CALL in its own register, whose results are
+/// the loop's generator triple (`pairs(t)` calls `pairs`); every other write
+/// forgets what the register held. Writes this cannot bound forget all.
+fn track_generators(generators: &mut [Generator; 256], instruction: &instruction::Instruction) {
+    use crate::{instruction::Instruction, op_code::OpCode::*};
+    let mut forget = |from: usize, to: usize| {
+        for generator in generators.iter_mut().take(to).skip(from) {
+            *generator = Generator::Unknown;
+        }
+    };
+    match *instruction {
+        Instruction::AD { op_code: LOP_GETIMPORT, a, aux, .. } => generators[usize::from(a)] = Generator::Import(aux),
+        Instruction::BC { op_code: LOP_GETGLOBAL, a, aux, .. } => generators[usize::from(a)] = Generator::Global(aux),
+        // Results land in A..A+C-2, all registers from A for a multiple return.
+        Instruction::BC { op_code: LOP_CALL, a, c, .. } => {
+            let a = usize::from(a);
+            forget(a + 1, if c == 0 { 256 } else { a + usize::from(c) - 1 });
+        }
+        Instruction::BC { op_code: LOP_GETVARARGS, a, b, .. } => {
+            let a = usize::from(a);
+            forget(a, if b == 0 { 256 } else { a + usize::from(b) - 1 });
+        }
+        Instruction::BC { op_code: LOP_NAMECALL | LOP_NAMECALLUDATA, a, .. } => forget(usize::from(a), usize::from(a) + 2),
+        Instruction::AD { op_code: LOP_FORNPREP | LOP_FORNLOOP | LOP_FORGPREP | LOP_FORGPREP_INEXT | LOP_FORGPREP_NEXT, a, .. } => {
+            forget(usize::from(a), usize::from(a) + 3)
+        }
+        Instruction::AD { op_code: LOP_FORGLOOP, a, .. } => forget(usize::from(a) + 2, 256),
+        // Writes nothing: stores, jumps, returns, captures, fast-call guards
+        // (their results land through the CALL that follows) and markers.
+        Instruction::BC {
+            op_code:
+                LOP_NOP | LOP_BREAK | LOP_SETGLOBAL | LOP_SETUPVAL | LOP_CLOSEUPVALS | LOP_SETTABLE | LOP_SETTABLEKS
+                | LOP_SETTABLEN | LOP_SETUDATAKS | LOP_RETURN | LOP_SETLIST | LOP_CAPTURE | LOP_PREPVARARGS | LOP_FASTCALL
+                | LOP_FASTCALL1 | LOP_FASTCALL2 | LOP_FASTCALL2K | LOP_FASTCALL3 | LOP_FASTPCALL,
+            ..
+        }
+        | Instruction::AD {
+            op_code:
+                LOP_JUMP | LOP_JUMPBACK | LOP_JUMPIF | LOP_JUMPIFNOT | LOP_JUMPIFEQ | LOP_JUMPIFLE | LOP_JUMPIFLT
+                | LOP_JUMPIFNOTEQ | LOP_JUMPIFNOTLE | LOP_JUMPIFNOTLT | LOP_JUMPXEQKNIL | LOP_JUMPXEQKB | LOP_JUMPXEQKN
+                | LOP_JUMPXEQKS,
+            ..
+        }
+        | Instruction::E { .. } => {}
+        // Calls and members whose writes are not bounded here.
+        Instruction::BC { op_code: LOP_CALLFB | LOP_NATIVECALL | LOP_NEWCLASSMEMBER, .. }
+        | Instruction::AD { op_code: LOP_CMPPROTO, .. } => forget(0, 256),
+        // Every other instruction writes its A register only.
+        Instruction::BC { a, .. } | Instruction::AD { a, .. } => forget(usize::from(a), usize::from(a) + 1),
+    }
+}
+
 /// Whether import `names` spell the dotted `path`.
 fn names_path(names: &[&[u8]], path: &str) -> bool {
     path.split('.').map(str::as_bytes).eq(names.iter().copied())
@@ -262,20 +361,47 @@ fn dotted(names: &[&[u8]]) -> String {
 /// Libraries whose folded constants compile back unchanged from their library
 /// spelling: the chunk never writes the global and never names getfenv or
 /// setfenv, exactly the conditions under which the compiler folds them.
+/// Per prototype, the upvalue slots its code never reads, writes or passes
+/// on (GETUPVAL, SETUPVAL, CAPTURE UPVAL): captures of a constant whose
+/// every read Luau folded, which only `-O1` and above do
+/// ([`ast::folded_captures`]). Most chunks have none.
+fn folded_capture_slots(chunk: &deserializer::chunk::Chunk) -> ast::folded_captures::FoldedSlots {
+    use instruction::Instruction::BC;
+    use op_code::OpCode::{LOP_CAPTURE, LOP_GETUPVAL, LOP_SETUPVAL};
+    let mut folded = ast::folded_captures::FoldedSlots::default();
+    for (index, function) in chunk.functions.iter().enumerate() {
+        if function.num_upvalues == 0 {
+            continue;
+        }
+        let mut touched = [0u64; 4];
+        for instruction in &function.instructions {
+            if let BC { op_code: LOP_GETUPVAL | LOP_SETUPVAL, b: slot, .. } | BC { op_code: LOP_CAPTURE, a: 2, b: slot, .. } =
+                *instruction
+            {
+                touched[usize::from(slot) / 64] |= 1 << (slot % 64);
+            }
+        }
+        let slots = (0..function.num_upvalues).filter(|&slot| touched[usize::from(slot) / 64] & (1 << (slot % 64)) == 0).collect::<Vec<_>>();
+        if !slots.is_empty() {
+            folded.insert(index, slots);
+        }
+    }
+    folded
+}
+
 /// Whether some NEWCLOSURE literal of the chunk may print as one Luau
 /// shares, which `fresh_closures` keeps new; most chunks have none, and the
-/// walk is skipped. The chunk must share some closure (DUPCLOSURE: compiled
-/// at `-O1` or above), and some NEWCLOSURE must capture nothing by reference
-/// and only values that may print as a constant, a top-level local or a
-/// literal ([`capture_may_print_shared`]). A literal capturing a parameter or
-/// a computed value never prints shared.
-fn may_print_shared_fresh_closures(chunk: &deserializer::chunk::Chunk) -> bool {
+/// walk is skipped. The chunk must be compiled at `-O1` or above (some
+/// capture folded: `optimized`, or an instruction only `-O1` emits:
+/// [`emitted_from_o1`]), and some NEWCLOSURE must capture nothing by
+/// reference and only values that may print as a constant, a top-level
+/// local or a literal ([`capture_may_print_shared`]). A literal capturing a
+/// parameter or a computed value never prints shared.
+fn may_print_shared_fresh_closures(chunk: &deserializer::chunk::Chunk, optimized: bool) -> bool {
     use instruction::Instruction::AD;
     use op_code::OpCode::{LOP_DUPCLOSURE, LOP_NEWCLOSURE};
     let functions = &chunk.functions;
-    if !functions.iter().any(|function| {
-        function.instructions.iter().any(|instruction| matches!(instruction, AD { op_code: LOP_DUPCLOSURE, .. }))
-    }) {
+    if !optimized && !functions.iter().any(|function| function.instructions.iter().any(emitted_from_o1)) {
         return false;
     }
     // The closure instructions making each prototype: (function, pc).
@@ -301,6 +427,46 @@ fn may_print_shared_fresh_closures(chunk: &deserializer::chunk::Chunk) -> bool {
     fresh.iter().any(|&(function, pc, upvalues)| {
         (0..upvalues).all(|upvalue| capture_may_print_shared(chunk, &creators, function, pc, upvalue, 0))
     })
+}
+
+/// An instruction Luau emits only from `-O1` on (or under `@native` /
+/// `--!native`, which optimize too): a shared closure (DUPCLOSURE), an
+/// import (`canImport`), a builtin call (`analyzeBuiltins`), and the
+/// constant-operand arithmetic and comparisons that need constant analysis.
+/// At `-O0` every constant is loaded into a register first (`LOADK`; even
+/// `LOADN` appears there, as a `for` loop's implicit step). A chunk without
+/// DUPCLOSURE is still `-O1` code when its closures happen to capture
+/// values that are never shared.
+fn emitted_from_o1(instruction: &instruction::Instruction) -> bool {
+    use instruction::Instruction::{AD, BC, E};
+    use op_code::OpCode::*;
+    let (BC { op_code, .. } | AD { op_code, .. } | E { op_code, .. }) = *instruction;
+    matches!(
+        op_code,
+        LOP_DUPCLOSURE
+            | LOP_GETIMPORT
+            | LOP_FASTCALL
+            | LOP_FASTCALL1
+            | LOP_FASTCALL2
+            | LOP_FASTCALL2K
+            | LOP_FASTCALL3
+            | LOP_FASTPCALL
+            | LOP_ADDK
+            | LOP_SUBK
+            | LOP_MULK
+            | LOP_DIVK
+            | LOP_MODK
+            | LOP_POWK
+            | LOP_IDIVK
+            | LOP_SUBRK
+            | LOP_DIVRK
+            | LOP_ANDK
+            | LOP_ORK
+            | LOP_JUMPXEQKNIL
+            | LOP_JUMPXEQKB
+            | LOP_JUMPXEQKN
+            | LOP_JUMPXEQKS
+    )
 }
 
 /// Whether the `upvalue`th capture of the closure made at `pc` of `function`
@@ -388,6 +554,36 @@ fn pristine_libraries(globals: &ast::ChunkGlobals) -> ast::library_constants::Li
 pub fn install_quiet_panic_hook() {
     static QUIET_HOOK: Once = Once::new();
     QUIET_HOOK.call_once(|| std::panic::set_hook(Box::new(|_| {})));
+}
+
+/// The stack of every thread that decompiles (reserved address space; pages
+/// are committed only as they are used). Each `elseif` nests the next `if` in
+/// the previous `else`, and the passes recurse once per level: a 1 MiB main
+/// thread overflowed at about 250 arms and a 2 MiB worker at about 500, where
+/// Luau compiles chains of a thousand. A stack overflow aborts the process past
+/// any `catch_unwind`: a whole `decompile-folder` run, or the web-server.
+pub const DECOMPILE_STACK_BYTES: usize = 256 << 20;
+
+/// Build rayon's global pool (`threads == 0`: one thread per logical CPU)
+/// with [`DECOMPILE_STACK_BYTES`] stacks. Call it before the first parallel
+/// call; it fails when the pool already exists.
+pub fn configure_thread_pool(threads: usize) -> Result<(), rayon::ThreadPoolBuildError> {
+    let mut builder = rayon::ThreadPoolBuilder::new().stack_size(DECOMPILE_STACK_BYTES);
+    if threads != 0 {
+        builder = builder.num_threads(threads);
+    }
+    builder.build_global()
+}
+
+/// Run `work` on a thread with a [`DECOMPILE_STACK_BYTES`] stack and return
+/// its result (a panic in `work` resumes in the caller).
+pub fn with_decompile_stack<T: Send + 'static>(work: impl FnOnce() -> T + Send + 'static) -> T {
+    let thread = std::thread::Builder::new()
+        .name("decompile".into())
+        .stack_size(DECOMPILE_STACK_BYTES)
+        .spawn(work)
+        .expect("spawn the decompile thread");
+    thread.join().unwrap_or_else(|panic| std::panic::resume_unwind(panic))
 }
 
 pub fn decompile_bytecode(bytecode: &[u8], encode_key: u8) -> String {
@@ -886,10 +1082,17 @@ fn decompile_bytecode_internal(
                 let function = function.0.lock();
                 (orphans || !function.orphans.is_empty(), folds || function.named_store_fold)
             });
+            let folded_slots = folded_capture_slots(&chunk);
+            let fresh_copies;
             let mut linked_upvalue_bindings = BTreeMap::new();
             {
                 ptime!(S_LINK_UPVALUES);
                 link_upvalues(&mut body, &mut upvalues);
+                // Copies of one shared closure constant its cache makes anew
+                // on every run, then literals whose captured constant Luau
+                // folded, read it again.
+                fresh_copies = loaded_constants.mark_uncached_copies(&body);
+                ast::folded_captures::read_folded_captures(&mut body, &folded_slots, &upvalues);
                 if emit_upvalue_analysis {
                     collect_linked_upvalue_bindings(&mut body, &mut linked_upvalue_bindings);
                 }
@@ -1225,7 +1428,7 @@ fn decompile_bytecode_internal(
             }
             // A closure the bytecode makes anew stays new where the output
             // would share it (`fresh_closures`).
-            if may_print_shared_fresh_closures(&chunk) {
+            if fresh_copies > 0 || may_print_shared_fresh_closures(&chunk, !folded_slots.is_empty()) {
                 let _span = ast::telemetry::Span::new("S_FRESH_CLOSURES");
                 ast::fresh_closures::keep_fresh_closures(&mut body);
             }
@@ -1239,7 +1442,8 @@ fn decompile_bytecode_internal(
                 matches!(instruction, instruction::Instruction::BC { op_code: op_code::OpCode::LOP_SETLIST, .. })
             })) {
                 let _span = ast::telemetry::Span::new("S_RESERVE_LIST_SLOTS");
-                ast::rebuild_table_literals::reserve_unfolded_list_slots(&mut body);
+                ast::rebuild_table_literals::reserve_unfolded_list_slots(&mut body)
+                    .map_err(DecompileFailure::message)?;
             }
             drop(late_timer);
             // Temporaries left apart for the folding passes may, where some
@@ -1346,14 +1550,15 @@ fn validate_source_spellings(chunk: &deserializer::chunk::Chunk) -> Result<(), S
     use deserializer::constant::Constant;
     let spelled_nan = |value: f64| !value.is_nan() || value.to_bits() << 1 == 0x7ff8_0000_0000_0000 << 1;
     let spelled_component = |value: f32| !value.is_nan() || value.to_bits() << 1 == 0x7fc0_0000 << 1;
-    // The import each register last received (a generic loop's generator),
-    // stamped with its prototype: one array for the chunk, never cleared.
-    let mut imported = [(usize::MAX, 0u32); 256];
     for (prototype, function) in chunk.functions.iter().enumerate() {
         let string = |constant: u32| match function.constants.get(constant as usize) {
             Some(Constant::String(index)) => index.checked_sub(1).and_then(|index| chunk.string_table.get(index)).copied(),
             _ => None,
         };
+        // The function each register was last loaded with in straight-line
+        // code: the generator a generic loop is prepared over.
+        let mut generators = [Generator::Unknown; 256];
+        let targets = jump_targets(&function.instructions);
         let mut pc = 0;
         while let Some(instruction) = function.instructions.get(pc) {
             let (Instruction::BC { op_code, .. } | Instruction::AD { op_code, .. } | Instruction::E { op_code, .. }) =
@@ -1361,8 +1566,10 @@ fn validate_source_spellings(chunk: &deserializer::chunk::Chunk) -> Result<(), S
             let at = pc;
             pc += if op_code.has_aux() { 2 } else { 1 };
             let pc = at;
+            if targets[pc] {
+                generators = [Generator::Unknown; 256];
+            }
             match *instruction {
-                Instruction::AD { op_code: OpCode::LOP_GETIMPORT, a, aux, .. } => imported[usize::from(a)] = (prototype, aux),
                 // With the standard environment a loop prepared for `next` or
                 // `ipairs` iterates the table itself, whatever the generator;
                 // otherwise it calls the generator. Source names one function
@@ -1370,9 +1577,14 @@ fn validate_source_spellings(chunk: &deserializer::chunk::Chunk) -> Result<(), S
                 Instruction::AD { op_code: op_code @ (OpCode::LOP_FORGPREP_NEXT | OpCode::LOP_FORGPREP_INEXT), a, .. } => {
                     let paths: &[&str] =
                         if op_code == OpCode::LOP_FORGPREP_NEXT { &["next", "pairs"] } else { &["ipairs"] };
-                    let (owner, aux) = imported[usize::from(a)];
-                    if owner == prototype
-                        && let Some((names, count)) = import_names(aux, &string)
+                    let names = match generators[usize::from(a)] {
+                        Generator::Import(aux) => import_names(aux, &string),
+                        // Past constant 1023 an import cannot encode its name,
+                        // so the compiler loads the builtin as a global.
+                        Generator::Global(constant) => string(constant).map(|name| ([name, &[][..], &[][..]], 1)),
+                        Generator::Unknown => None,
+                    };
+                    if let Some((names, count)) = names
                         && !paths.iter().any(|path| names_path(&names[..count], path))
                     {
                         return Err(format!(
@@ -1438,6 +1650,7 @@ fn validate_source_spellings(chunk: &deserializer::chunk::Chunk) -> Result<(), S
                 }
                 _ => {}
             }
+            track_generators(&mut generators, instruction);
         }
         let spelled = function.constants.iter().all(|constant| match *constant {
             Constant::Number(value) => spelled_nan(value),
@@ -4086,18 +4299,40 @@ mod fresh_closure_gate_tests {
     #[test]
     fn a_constant_captured_by_value_may_print_shared() {
         let body = makes_closure(vec![ad(LOP_LOADK, 2, 0)], bc(LOP_CAPTURE, 0, 2));
-        assert!(may_print_shared_fresh_closures(&chunk(body.clone(), true)));
+        assert!(may_print_shared_fresh_closures(&chunk(body.clone(), true), false));
         // Without sharing anywhere (-O0), no literal is told apart.
-        assert!(!may_print_shared_fresh_closures(&chunk(body, false)));
+        assert!(!may_print_shared_fresh_closures(&chunk(body.clone(), false), false));
+        // A capture whose reads Luau folded is -O1 code all the same.
+        assert!(may_print_shared_fresh_closures(&chunk(body.clone(), false), true));
+        // So is a chunk with an import or a constant operand and no shared
+        // closure at all.
+        for o1 in [ad(LOP_GETIMPORT, 2, 0), bc(LOP_ADDK, 2, 2), ad(LOP_JUMPXEQKS, 2, 0)] {
+            let mut chunk = chunk(body.clone(), false);
+            chunk.functions[0].instructions.insert(0, o1);
+            assert!(may_print_shared_fresh_closures(&chunk, false));
+        }
+        // `LOADN` is no evidence: -O0 loads a `for` loop's implicit step so.
+        let mut chunk = chunk(body, false);
+        chunk.functions[0].instructions.insert(0, ad(LOP_LOADN, 2, 1));
+        assert!(!may_print_shared_fresh_closures(&chunk, false));
+    }
+
+    #[test]
+    fn an_upvalue_the_code_never_touches_is_folded() {
+        let body = makes_closure(vec![ad(LOP_LOADK, 2, 0)], bc(LOP_CAPTURE, 0, 2));
+        let mut chunk = chunk(body, false);
+        assert_eq!(folded_capture_slots(&chunk).into_iter().collect::<Vec<_>>(), vec![(2, vec![0])]);
+        chunk.functions[2].instructions.insert(0, bc(LOP_GETUPVAL, 0, 0));
+        assert!(folded_capture_slots(&chunk).is_empty());
     }
 
     #[test]
     fn a_parameter_a_computed_value_or_a_reference_never_prints_shared() {
         let parameter = makes_closure(Vec::new(), bc(LOP_CAPTURE, 0, 0));
-        assert!(!may_print_shared_fresh_closures(&chunk(parameter, true)));
+        assert!(!may_print_shared_fresh_closures(&chunk(parameter, true), false));
         let computed = makes_closure(vec![ad(LOP_LOADK, 2, 0), bc(LOP_CALL, 2, 1)], bc(LOP_CAPTURE, 0, 2));
-        assert!(!may_print_shared_fresh_closures(&chunk(computed, true)));
+        assert!(!may_print_shared_fresh_closures(&chunk(computed, true), false));
         let reference = makes_closure(vec![ad(LOP_LOADK, 2, 0)], bc(LOP_CAPTURE, 1, 2));
-        assert!(!may_print_shared_fresh_closures(&chunk(reference, true)));
+        assert!(!may_print_shared_fresh_closures(&chunk(reference, true), false));
     }
 }

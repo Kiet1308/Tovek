@@ -2,6 +2,15 @@
 //! The later AST matcher independently proves every accepted reconstruction.
 use crate::{deserializer::{constant::Constant, function::Function}, instruction::Instruction, op_code::OpCode};
 
+/// The last line the tables indexed by line read: past it, line info is
+/// pathological (no source has 4M lines; forged bytecode may name any line
+/// up to 2^31) and gives no evidence.
+const LINE_LIMIT: usize = 4 * 1024 * 1024;
+
+/// The most lines all the helpers' spans and code ranges may hold together,
+/// for the same reason.
+const SPAN_LIMIT: usize = 8 * 1024 * 1024;
+
 pub(crate) fn retain(function: &Function, name: Option<&str>) -> bool {
     name.is_some_and(|name| name.len() <= 256 && ast::valid_source_name(name))
         && !function.is_vararg
@@ -38,7 +47,7 @@ pub(crate) fn inlined_prototypes(functions: &[Function], lines: &[Vec<Option<u32
     let Some(last) = spans.iter().flatten().map(|&(_, end)| end).max() else { return inlined };
     // Pathological line numbers would make the owner table large; such
     // input keeps every binder as before.
-    if last as usize > 4 * 1024 * 1024 {
+    if last as usize > LINE_LIMIT {
         return inlined;
     }
     let opcode_of = |instruction: &Instruction| match instruction {
@@ -158,6 +167,11 @@ pub(crate) fn inlined_copies(functions: &[Function], lines: &[Vec<Option<u32>>],
         /// helper's `RETURN` on its `end` line).
         last: u32,
         single: Option<Vec<u8>>,
+        /// The operation kinds of the helper's own code on the lines a
+        /// caller's code may share with it: its first line (code after
+        /// `function f(...)` on that line) and the last line of its span
+        /// (code after its `end`, or a nested function starting there).
+        edge_kinds: [(u32, Vec<u8>); 2],
     }
     // An operation, by kind: the constant and register forms alike, a jump
     // or move none (an inlined copy adds and drops those).
@@ -184,6 +198,22 @@ pub(crate) fn inlined_copies(functions: &[Function], lines: &[Vec<Option<u32>>],
             other => 16 + (other as u8 & 127),
         })
     };
+    // Every table below is indexed by line, or holds one bit per line of a
+    // helper's code: pathological lines (forged line info) give no evidence
+    // rather than tables as large as the lines they name.
+    let mut code_lines = 0usize;
+    for (id, (function, pcs)) in functions.iter().zip(lines).enumerate() {
+        let Some((min, max)) = line_range(pcs) else { continue };
+        if max as usize > LINE_LIMIT || function.line_defined > LINE_LIMIT {
+            return None;
+        }
+        if id != main {
+            code_lines += (max - min) as usize + 1;
+            if code_lines > SPAN_LIMIT {
+                return None;
+            }
+        }
+    }
     let mut helpers: Vec<Option<Helper>> = Vec::with_capacity(functions.len());
     for (id, (function, pcs)) in functions.iter().zip(lines).enumerate() {
         if id == main {
@@ -198,8 +228,8 @@ pub(crate) fn inlined_copies(functions: &[Function], lines: &[Vec<Option<u32>>],
         // A function whose code is all copies of helpers defined before it
         // (`return function(k) return frames(k) end`) has no line of its
         // own at or after its first: its span is that line alone.
-        let end = own.max().max(start);
-        let first = (start..=end).find(|&line| own.contains(line)).unwrap_or(start);
+        let own_end = own.max().max(start);
+        let first = (start..=own_end).find(|&line| own.contains(line)).unwrap_or(start);
         let last = function
             .instructions
             .iter()
@@ -207,7 +237,12 @@ pub(crate) fn inlined_copies(functions: &[Function], lines: &[Vec<Option<u32>>],
             .rev()
             .filter(|(instruction, _)| opcode_of(instruction) != LOP_RETURN)
             .find_map(|(_, line)| line.filter(|&line| line >= first))
-            .unwrap_or(end);
+            .unwrap_or(own_end);
+        // The span ends where a copy can: on the line of the last operation
+        // but a return. A void helper's lone `RETURN` sits on its `end`
+        // line, which code after the `end` shares (`end print("start")`):
+        // that code is the caller's, never a copy.
+        let end = last.max(first);
         let single = (first == end).then(|| {
             let mut operations = Vec::new();
             let mut pc = 0;
@@ -220,7 +255,20 @@ pub(crate) fn inlined_copies(functions: &[Function], lines: &[Vec<Option<u32>>],
             }
             operations
         });
-        helpers.push(Some(Helper { span: (start, end), lines: own, first, last, single }));
+        let kinds_on = |line: u32| {
+            let mut kinds = Vec::new();
+            let mut pc = 0;
+            while let Some(instruction) = function.instructions.get(pc) {
+                let opcode = opcode_of(instruction);
+                if pcs.get(pc).copied().flatten() == Some(line) && let Some(kind) = kind(opcode) {
+                    kinds.push(kind);
+                }
+                pc += if opcode.has_aux() { 2 } else { 1 };
+            }
+            kinds
+        };
+        let edge_kinds = [(first, kinds_on(first)), (end, kinds_on(end))];
+        helpers.push(Some(Helper { span: (start, end), lines: own, first, last, single, edge_kinds }));
     }
     // The helpers whose fully folded copies are counted (plan E2): one line
     // of arithmetic on parameters returning one value, and no constant load
@@ -232,20 +280,16 @@ pub(crate) fn inlined_copies(functions: &[Function], lines: &[Vec<Option<u32>>],
         .map(|(function, helper)| helper.as_ref().is_some_and(|helper| helper.single.is_some()) && folding_helper(function))
         .collect();
     let last = helpers.iter().flatten().map(|helper| helper.span.1).max()?;
+    // Pathological spans would make the table large: no evidence then.
+    let spanned: usize = helpers.iter().flatten().map(|helper| (helper.span.1 - helper.span.0) as usize + 1).sum();
+    if spanned > SPAN_LIMIT {
+        return None;
+    }
     // Every line's helpers, innermost first (the narrowest span, then the
     // lowest prototype), as one flat table indexed by line.
     let mut starts = vec![0u32; last as usize + 2];
-    let mut spanned = 0usize;
     for helper in helpers.iter().flatten() {
         let (start, end) = helper.span;
-        if start > end {
-            continue;
-        }
-        spanned += (end - start + 1) as usize;
-        // Pathological spans would make the table large: no evidence then.
-        if spanned > 8 * 1024 * 1024 {
-            return None;
-        }
         for line in start..=end {
             starts[line as usize + 1] += 1;
         }
@@ -258,9 +302,6 @@ pub(crate) fn inlined_copies(functions: &[Function], lines: &[Vec<Option<u32>>],
     for (id, helper) in helpers.iter().enumerate() {
         let Some(helper) = helper else { continue };
         let (start, end) = helper.span;
-        if start > end {
-            continue;
-        }
         for line in start..=end {
             owners[filled[line as usize] as usize] = id as u32;
             filled[line as usize] += 1;
@@ -360,10 +401,42 @@ pub(crate) fn inlined_copies(functions: &[Function], lines: &[Vec<Option<u32>>],
             if owners.first() == Some(&caller_id) && own.is_some_and(|(own_start, own_end)| own_start < line && line < own_end) {
                 return None;
             }
+            // The prototype a closure instruction makes: never a copy of
+            // that helper, even inside a copy of the function defining it
+            // (`local function pair(x) local function f() ... end ... end`
+            // inlined: its NEWCLOSURE of `f` is no copy of `f`).
+            let made = match instructions.get(pc) {
+                Some(Instruction::AD { op_code: LOP_NEWCLOSURE, d, .. }) => {
+                    functions[caller].functions.get(*d as usize).copied()
+                }
+                Some(Instruction::AD { op_code: LOP_DUPCLOSURE, d, .. }) => match constants.get(*d as usize) {
+                    Some(Constant::Closure(child)) => Some(*child),
+                    _ => None,
+                },
+                _ => None,
+            };
             owners.iter().copied().find(|&id| {
                 let (start, end) = spans[id as usize];
                 let defines = own.is_none_or(|(own_start, _)| own_start <= start) && line == start;
+                // On a line the caller may share with the helper, only an
+                // operation the helper has on that line starts its copy (two
+                // helpers on one line, code after `end`, a call whose run
+                // a line splits), or a number load where the helper has
+                // arithmetic there that a constant argument may have folded
+                // (`local h = seed + 2166136261` copied as one constant). A
+                // helper with no operation there (`return b, a`) is copied
+                // as moves alone.
+                let edge = helpers[id as usize].as_ref().and_then(|helper| {
+                    helper.edge_kinds.iter().find(|(edge, _)| *edge == line).map(|(_, kinds)| kinds)
+                });
+                let shared_line_op = edge.is_none_or(|kinds| {
+                    kind(opcode).map_or(kinds.is_empty(), |kind| kinds.contains(&kind))
+                        || ((folds[id as usize] || kinds.iter().any(|kind| (1..=9).contains(kind)))
+                            && instructions.get(pc).and_then(|instruction| loaded_number(instruction, constants)).is_some())
+                });
                 id != caller_id
+                    && made != Some(id as usize)
+                    && shared_line_op
                     && !own.is_some_and(|(own_start, own_end)| start <= own_start && own_end <= end)
                     && !(defines && (definition(opcode) || creating_at(pc)))
             })
@@ -472,7 +545,10 @@ pub(crate) fn inlined_copies(functions: &[Function], lines: &[Vec<Option<u32>>],
                 Some((seen, found)) if seen == line => found,
                 _ => {
                     let found = innermost(line, opcode, pc);
-                    let reusable = helper_at(line).iter().all(|&id| spans[id as usize].0 != line);
+                    let reusable = helper_at(line).iter().all(|&id| {
+                        spans[id as usize].0 != line
+                            && helpers[id as usize].as_ref().is_none_or(|helper| helper.edge_kinds.iter().all(|(edge, _)| *edge != line))
+                    });
                     last_line = reusable.then_some((line, found));
                     found
                 }
@@ -602,6 +678,14 @@ fn instruction_numbers(instruction: &Instruction, constants: &[Constant], found:
     }
 }
 
+/// The least and the last line of a prototype's code, `None` without lines.
+fn line_range(lines: &[Option<u32>]) -> Option<(u32, u32)> {
+    lines.iter().flatten().fold(None, |range, &line| match range {
+        None => Some((line, line)),
+        Some((min, max)) => Some((min.min(line), max.max(line))),
+    })
+}
+
 /// The lines a prototype's code has, one bit per line from the least.
 struct LineSet {
     min: u32,
@@ -611,10 +695,7 @@ struct LineSet {
 impl LineSet {
     /// `None` without lines.
     fn new(lines: &[Option<u32>]) -> Option<LineSet> {
-        let (min, max) = lines.iter().flatten().fold(None, |range: Option<(u32, u32)>, &line| match range {
-            None => Some((line, line)),
-            Some((min, max)) => Some((min.min(line), max.max(line))),
-        })?;
+        let (min, max) = line_range(lines)?;
         let mut bits = vec![0u64; ((max - min) as usize >> 6) + 1];
         for &line in lines.iter().flatten() {
             let at = (line - min) as usize;
@@ -755,6 +836,83 @@ mod tests {
         assert!(copies.present(Some(1), 0) && !copies.present(None, 0));
         // No line info, no evidence.
         assert!(inlined_copies(&[prototype(1, &[LOP_RETURN]), prototype(1, &[LOP_RETURN])], &[vec![], vec![]], 1).is_none());
+    }
+
+    /// Caller code may share a line with a helper: after a void helper's
+    /// `end` (`end print("start")`, the `RETURN` on that line), on a
+    /// one-line helper's line (`function inc(x) return x + 1 end print(`), or
+    /// on a line two helpers share. Only an operation the helper itself has
+    /// there starts a copy, and the span ends at the last operation but the
+    /// return (m3-review F2, fr-deinline 2b).
+    #[test]
+    fn code_sharing_a_helper_line_is_no_copy() {
+        use OpCode::*;
+        // p0, lines 1-3: `local function reset(t) t.count = 0 end print(...)`:
+        // the store on line 2, the `RETURN` on line 3, the `end` line.
+        let reset = prototype(1, &[LOP_LOADN, LOP_SETTABLEKS, LOP_RETURN]);
+        // The chunk: defines p0 on line 1, then `print("start")` after the
+        // `end` on line 3 (GETIMPORT, LOADK, CALL), then its own code.
+        let chunk = prototype(1, &[LOP_NEWCLOSURE, LOP_GETIMPORT, LOP_LOADK, LOP_CALL, LOP_GETIMPORT, LOP_RETURN]);
+        let lines = vec![vec![Some(2), Some(2), Some(3)], vec![Some(1), Some(3), Some(3), Some(3), Some(4), Some(5)]];
+        let copies = inlined_copies(&[reset, chunk], &lines, 1).unwrap();
+        assert_eq!(copies.copies(None, 0), 0);
+        assert!(!copies.present(None, 0));
+
+        // p0 `inc` (ADDK) and p1 `dbl` (MULK) on line 1; p2 runs one copy of
+        // dbl there (MULK) and a hand-written `v + 1` on line 4.
+        let inc = prototype(1, &[LOP_ADDK, LOP_RETURN]);
+        let dbl = prototype(1, &[LOP_MULK, LOP_RETURN]);
+        let run = prototype(2, &[LOP_MULK, LOP_ADDK, LOP_RETURN]);
+        let chunk = prototype(1, &[LOP_NEWCLOSURE, LOP_NEWCLOSURE, LOP_NEWCLOSURE, LOP_RETURN]);
+        let lines = vec![vec![Some(1), Some(1)], vec![Some(1), Some(1)], vec![Some(1), Some(4), Some(5)], vec![Some(1), Some(1), Some(2), Some(7)]];
+        let copies = inlined_copies(&[inc, dbl, run, chunk], &lines, 3).unwrap();
+        assert_eq!((copies.copies(Some(2), 0), copies.copies(Some(2), 1)), (0, 1));
+    }
+
+    /// An inlined copy of a function defining a closure makes that closure
+    /// (`local function pair(x) local function f() ... end return x, f end`):
+    /// the NEWCLOSURE of `f` on `f`'s first line is no copy of `f`
+    /// (fr-deinline 2a).
+    #[test]
+    fn making_a_helper_is_no_copy_of_it() {
+        use OpCode::*;
+        // p0 `f`, line 2 (MULK); p1 `pair`, lines 1-4, defines p0 on line 2.
+        let f = prototype(2, &[LOP_MULK, LOP_RETURN]);
+        let mut pair = prototype(1, &[LOP_NEWCLOSURE, LOP_RETURN]);
+        pair.functions = vec![0];
+        // p2 `run`, lines 5-9, runs a copy of p1: the NEWCLOSURE of p0 on
+        // line 2, then its own code.
+        let mut run = prototype(5, &[LOP_NEWCLOSURE, LOP_MULK, LOP_CALL, LOP_RETURN]);
+        run.functions = vec![0];
+        let chunk = prototype(1, &[LOP_NEWCLOSURE, LOP_NEWCLOSURE, LOP_RETURN]);
+        let lines = vec![vec![Some(2), Some(2)], vec![Some(2), Some(4)], vec![Some(2), Some(7), Some(8), Some(9)], vec![Some(1), Some(5), Some(10)]];
+        let copies = inlined_copies(&[f, pair, run, chunk], &lines, 3).unwrap();
+        assert_eq!(copies.copies(Some(2), 0), 0);
+    }
+
+    #[test]
+    fn forged_lines_give_no_evidence_instead_of_tables_as_large_as_the_lines_they_name() {
+        use OpCode::*;
+        let helper = || prototype(1, &[LOP_JUMPIFNOT, LOP_CALL, LOP_RETURN]);
+        let caller = || prototype(5, &[LOP_GETUPVAL, LOP_JUMPIFNOT, LOP_CALL, LOP_RETURN]);
+        let chunk = || prototype(1, &[LOP_NEWCLOSURE, LOP_NEWCLOSURE, LOP_RETURN]);
+        let honest = vec![vec![Some(2), Some(2), Some(3)], vec![Some(6), Some(2), Some(2), Some(7)], vec![Some(1), Some(5), Some(9)]];
+        assert_eq!(inlined_copies(&[helper(), caller(), chunk()], &honest, 2).unwrap().copies(Some(1), 0), 1);
+        // A helper's last line, a caller's line, a definition line: each
+        // forged to 2 billion, which the line tables would have to reach
+        // (8 GB) or the helper's line bits span (250 MB).
+        let mut last = honest.clone();
+        last[0][2] = Some(2_000_000_000);
+        assert!(inlined_copies(&[helper(), caller(), chunk()], &last, 2).is_none());
+        let mut caller_line = honest.clone();
+        caller_line[1][3] = Some(2_000_000_000);
+        assert!(inlined_copies(&[helper(), caller(), chunk()], &caller_line, 2).is_none());
+        assert!(inlined_copies(&[prototype(2_000_000_000, &[LOP_JUMPIFNOT, LOP_CALL, LOP_RETURN]), caller(), chunk()], &honest, 2).is_none());
+        // Lines within the limit whose ranges together exceed it.
+        let wide: Vec<Function> = (0..4).map(|_| helper()).chain([chunk()]).collect();
+        let ranges: Vec<Vec<Option<u32>>> = (0..4).map(|_| vec![Some(1), Some(3_000_000), Some(3_000_001)]).chain([vec![Some(1), Some(1), Some(1)]]).collect();
+        assert!(inlined_copies(&wide, &ranges, 4).is_none());
+        assert!(inlined_prototypes(&[helper(), caller(), chunk()], &last).iter().all(|inlined| !inlined));
     }
 
     #[test]

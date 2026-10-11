@@ -432,7 +432,7 @@
     "text": "\tlocal tapConn = self.tapConn\n\n\tif tapConn then\n\t\ttapConn:Disconnect()\n\tend"
   },
   "v26_call": {
-    "line": 952,
+    "line": 944,
     "text": "DisconnectEvent(self.tapConn) -- inferred equivalent call"
   },
   "count_oracle": {

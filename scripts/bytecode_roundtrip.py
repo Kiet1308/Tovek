@@ -1343,9 +1343,9 @@ def process_file(args, rel: str, orig_raw: bytes, key: int, decompiled: pathlib.
     output_bytes = decompiled.read_bytes()
     res["output_sha256"] = hashlib.sha256(output_bytes).hexdigest()
     text = output_bytes.decode("utf-8", errors="replace")
-    for marker in ("controlFlowState", "GenericForInit", "GenericForNext", "NumForInit", "goto "):
-        if marker in text:
-            res["status"] = "marker:" + marker.strip()
+    for marker, pattern in STRUCTURE_MARKERS:
+        if pattern.search(text):
+            res["status"] = "marker:" + marker
             return res
     new_raw, err = compile_source(args.compiler, decompiled, short_dir=args._short_dir)
     if new_raw is None:
@@ -1638,6 +1638,19 @@ def main() -> int:
     if not args.work:
         shutil.rmtree(work, ignore_errors=True)
     return rc
+
+
+# Residual control flow in an output, as the lifter prints it: a statement or
+# declaration on a line of its own, never a substring (Infinite Yield's string
+# "goto [player]" once failed the whole file as `marker:goto`).
+STRUCTURE_MARKERS = (
+    ("controlFlowState", re.compile(r"(?m)^\s*local\s+controlFlowState\b")),
+    ("GenericForInit", re.compile(r"(?m)^\s*--\s*GenericForInit\b")),
+    ("GenericForNext", re.compile(r"(?m)^\s*--\s*GenericForNext\b")),
+    ("NumForInit", re.compile(r"(?m)^\s*--\s*NumForInit\b")),
+    ("goto", re.compile(r"(?m)^\s*goto\s+[A-Za-z_]\w*\s*;?\s*$")),
+    ("label", re.compile(r"(?m)^\s*::[A-Za-z_]\w*::\s*$")),
+)
 
 
 def _file_tags(r, text_has_marker: bool | None = None):

@@ -24,9 +24,9 @@
     "rebuilt_calls": 14
   },
   "v26": {
-    "lines": 1301,
-    "nonblank_lines": 1066,
-    "rebuilt_calls": 36
+    "lines": 1306,
+    "nonblank_lines": 1071,
+    "rebuilt_calls": 35
   },
   "helper": {
     "name": "DisconnectEvent",
@@ -56,7 +56,7 @@
   "copies": [
     {
       "argument": "self.tapConn",
-      "v26_line": 952,
+      "v26_line": 944,
       "v251_first": 996,
       "v251_last": 1000,
       "v251_lines": 5,
@@ -67,7 +67,7 @@
     },
     {
       "argument": "self.inputBeganConn",
-      "v26_line": 953,
+      "v26_line": 945,
       "v251_first": 1002,
       "v251_last": 1006,
       "v251_lines": 5,
@@ -78,7 +78,7 @@
     },
     {
       "argument": "self.inputChangedConn",
-      "v26_line": 954,
+      "v26_line": 946,
       "v251_first": 1008,
       "v251_last": 1012,
       "v251_lines": 5,
@@ -89,7 +89,7 @@
     },
     {
       "argument": "self.inputEndedConn",
-      "v26_line": 955,
+      "v26_line": 947,
       "v251_first": 1014,
       "v251_last": 1018,
       "v251_lines": 5,
@@ -100,7 +100,7 @@
     },
     {
       "argument": "self.humanoidDiedConn",
-      "v26_line": 956,
+      "v26_line": 948,
       "v251_first": 1020,
       "v251_last": 1024,
       "v251_lines": 5,
@@ -111,7 +111,7 @@
     },
     {
       "argument": "self.characterChildAddedConn",
-      "v26_line": 957,
+      "v26_line": 949,
       "v251_first": 1026,
       "v251_last": 1030,
       "v251_lines": 5,
@@ -122,7 +122,7 @@
     },
     {
       "argument": "self.onCharacterAddedConn",
-      "v26_line": 958,
+      "v26_line": 950,
       "v251_first": 1032,
       "v251_last": 1036,
       "v251_lines": 5,
@@ -133,7 +133,7 @@
     },
     {
       "argument": "self.renderSteppedConn",
-      "v26_line": 959,
+      "v26_line": 951,
       "v251_first": 1038,
       "v251_last": 1042,
       "v251_lines": 5,
@@ -144,7 +144,7 @@
     },
     {
       "argument": "self.characterChildRemovedConn",
-      "v26_line": 960,
+      "v26_line": 952,
       "v251_first": 1044,
       "v251_last": 1048,
       "v251_lines": 5,
@@ -155,7 +155,7 @@
     },
     {
       "argument": "self.menuOpenedConnection",
-      "v26_line": 961,
+      "v26_line": 953,
       "v251_first": 1050,
       "v251_last": 1054,
       "v251_lines": 5,
@@ -166,7 +166,7 @@
     },
     {
       "argument": "self.preferredInputChangedConnection",
-      "v26_line": 962,
+      "v26_line": 954,
       "v251_first": 1056,
       "v251_last": 1060,
       "v251_lines": 5,
@@ -177,7 +177,7 @@
     },
     {
       "argument": "self.humanoidDiedConn",
-      "v26_line": 1066,
+      "v26_line": 1071,
       "v251_first": 1155,
       "v251_last": 1159,
       "v251_lines": 5,
@@ -201,8 +201,8 @@
       "text": "function object:DisconnectEvents()\n\tlocal tapConn = self.tapConn\n\n\tif tapConn then\n\t\ttapConn:Disconnect()\n\tend\n\n\tlocal inputBeganConn = self.inputBeganConn\n\n\tif inputBeganConn then\n\t\tinputBeganConn:Disconnect()\n\tend\n\n\tlocal inputChangedConn = self.inputChangedConn\n\n\tif inputChangedConn then\n\t\tinputChangedConn:Disconnect()\n\tend\n\n\tlocal inputEndedConn = self.inputEndedConn\n\n\tif inputEndedConn then\n\t\tinputEndedConn:Disconnect()\n\tend\n\n\tlocal humanoidDiedConn = self.humanoidDiedConn\n\n\tif humanoidDiedConn then\n\t\thumanoidDiedConn:Disconnect()\n\tend\n\n\tlocal characterChildAddedConn = self.characterChildAddedConn\n\n\tif characterChildAddedConn then\n\t\tcharacterChildAddedConn:Disconnect()\n\tend\n\n\tlocal onCharacterAddedConn = self.onCharacterAddedConn\n\n\tif onCharacterAddedConn then\n\t\tonCharacterAddedConn:Disconnect()\n\tend\n\n\tlocal renderSteppedConn = self.renderSteppedConn\n\n\tif renderSteppedConn then\n\t\trenderSteppedConn:Disconnect()\n\tend\n\n\tlocal characterChildRemovedConn = self.characterChildRemovedConn\n\n\tif characterChildRemovedConn then\n\t\tcharacterChildRemovedConn:Disconnect()\n\tend\n\n\tlocal menuOpenedConnection = self.menuOpenedConnection\n\n\tif menuOpenedConnection then\n\t\tmenuOpenedConnection:Disconnect()\n\tend\n\n\tlocal preferredInputChangedConnection = self.preferredInputChangedConnection\n\n\tif preferredInputChangedConnection then\n\t\tpreferredInputChangedConnection:Disconnect()\n\tend\nend"
     },
     "v26": {
-      "first_line": 951,
-      "last_line": 963,
+      "first_line": 943,
+      "last_line": 955,
       "text": "function object:DisconnectEvents()\n\tDisconnectEvent(self.tapConn) -- inferred equivalent call\n\tDisconnectEvent(self.inputBeganConn) -- inferred equivalent call\n\tDisconnectEvent(self.inputChangedConn) -- inferred equivalent call\n\tDisconnectEvent(self.inputEndedConn) -- inferred equivalent call\n\tDisconnectEvent(self.humanoidDiedConn) -- inferred equivalent call\n\tDisconnectEvent(self.characterChildAddedConn) -- inferred equivalent call\n\tDisconnectEvent(self.onCharacterAddedConn) -- inferred equivalent call\n\tDisconnectEvent(self.renderSteppedConn) -- inferred equivalent call\n\tDisconnectEvent(self.characterChildRemovedConn) -- inferred equivalent call\n\tDisconnectEvent(self.menuOpenedConnection) -- inferred equivalent call\n\tDisconnectEvent(self.preferredInputChangedConnection) -- inferred equivalent call\nend"
     }
   },
@@ -11117,26 +11117,11 @@
       ],
       [
         2,
-        25,
+        21,
         0
       ],
       [
         3,
-        6,
-        0
-      ],
-      [
-        2,
-        3,
-        0
-      ],
-      [
-        0,
-        0,
-        1
-      ],
-      [
-        2,
         77,
         0
       ],
@@ -11146,22 +11131,22 @@
         1
       ],
       [
-        2,
+        3,
         16,
         0
       ],
       [
-        3,
+        4,
         20,
         0
       ],
       [
-        3,
+        4,
         15,
         0
       ],
       [
-        3,
+        4,
         34,
         2
       ],
@@ -11171,17 +11156,17 @@
         1
       ],
       [
-        3,
+        4,
         22,
         0
       ],
       [
-        4,
+        5,
         15,
         0
       ],
       [
-        3,
+        4,
         3,
         0
       ],
@@ -11191,28 +11176,28 @@
         1
       ],
       [
-        3,
-        13,
+        4,
+        19,
         0
       ],
       [
-        4,
-        18,
-        0
+        0,
+        0,
+        1
       ],
       [
         4,
-        53,
-        0
-      ],
-      [
-        4,
-        40,
+        6,
         0
       ],
       [
         5,
-        24,
+        18,
+        0
+      ],
+      [
+        5,
+        53,
         0
       ],
       [
@@ -11221,12 +11206,22 @@
         0
       ],
       [
-        5,
+        6,
+        24,
+        0
+      ],
+      [
+        6,
+        34,
+        0
+      ],
+      [
+        6,
         13,
         0
       ],
       [
-        4,
+        5,
         1,
         0
       ],
@@ -11236,12 +11231,12 @@
         1
       ],
       [
-        4,
+        5,
         21,
         0
       ],
       [
-        5,
+        6,
         39,
         0
       ],
@@ -11251,12 +11246,12 @@
         1
       ],
       [
-        5,
+        6,
         31,
         0
       ],
       [
-        6,
+        7,
         12,
         0
       ],
@@ -11266,17 +11261,17 @@
         1
       ],
       [
-        6,
+        7,
         13,
         0
       ],
       [
-        7,
+        8,
         53,
         0
       ],
       [
-        7,
+        8,
         24,
         0
       ],
@@ -11286,68 +11281,73 @@
         1
       ],
       [
+        8,
+        30,
+        0
+      ],
+      [
+        9,
+        5,
+        0
+      ],
+      [
+        8,
+        3,
+        0
+      ],
+      [
+        0,
+        0,
+        1
+      ],
+      [
+        8,
+        17,
+        0
+      ],
+      [
+        7,
+        3,
+        0
+      ],
+      [
+        0,
+        0,
+        1
+      ],
+      [
         7,
         30,
         0
       ],
       [
         8,
-        5,
-        0
-      ],
-      [
-        7,
-        3,
-        0
-      ],
-      [
-        0,
-        0,
-        1
-      ],
-      [
-        7,
-        17,
-        0
-      ],
-      [
-        6,
-        3,
-        0
-      ],
-      [
-        0,
-        0,
-        1
-      ],
-      [
-        6,
-        30,
-        0
-      ],
-      [
-        7,
         14,
         0
       ],
       [
-        6,
+        7,
         4,
         0
       ],
       [
-        7,
+        8,
         32,
         0
       ],
       [
-        7,
+        8,
         13,
         0
       ],
       [
-        7,
+        8,
         9,
+        0
+      ],
+      [
+        7,
+        3,
         0
       ],
       [
@@ -11362,27 +11362,7 @@
       ],
       [
         4,
-        3,
-        0
-      ],
-      [
-        0,
-        0,
-        1
-      ],
-      [
-        4,
-        17,
-        0
-      ],
-      [
-        5,
-        8,
-        0
-      ],
-      [
-        4,
-        3,
+        11,
         0
       ],
       [
@@ -11424,11 +11404,6 @@
         5,
         13,
         2
-      ],
-      [
-        5,
-        6,
-        0
       ],
       [
         4,
@@ -11541,37 +11516,27 @@
         2
       ],
       [
-        5,
-        6,
-        0
-      ],
-      [
         4,
         3,
         0
       ],
       [
         3,
-        3,
-        0
-      ],
-      [
-        2,
         4,
         0
       ],
       [
-        3,
+        4,
         79,
         0
       ],
       [
-        3,
+        4,
         60,
         2
       ],
       [
-        3,
+        4,
         60,
         0
       ],
@@ -11581,62 +11546,62 @@
         1
       ],
       [
-        3,
+        4,
         2,
         0
       ],
       [
-        4,
+        5,
         4,
         0
       ],
       [
-        4,
+        5,
         7,
         0
       ],
       [
-        4,
+        5,
         50,
         0
       ],
       [
-        4,
+        5,
         46,
         0
       ],
       [
-        3,
+        4,
         4,
         0
       ],
       [
-        4,
+        5,
         13,
         2
       ],
       [
-        3,
+        4,
         4,
         0
       ],
       [
-        4,
+        5,
         9,
         0
       ],
       [
-        5,
+        6,
         7,
         0
       ],
       [
-        5,
+        6,
         23,
         0
       ],
       [
-        4,
+        5,
         3,
         0
       ],
@@ -11644,34 +11609,19 @@
         0,
         0,
         1
-      ],
-      [
-        4,
-        31,
-        0
       ],
       [
         5,
+        25,
+        0
+      ],
+      [
         6,
-        0
-      ],
-      [
-        4,
-        3,
-        0
-      ],
-      [
-        0,
-        0,
-        1
-      ],
-      [
-        4,
         13,
         2
       ],
       [
-        4,
+        6,
         31,
         0
       ],
@@ -11681,22 +11631,22 @@
         1
       ],
       [
-        4,
+        6,
         28,
         0
       ],
       [
-        5,
+        7,
         55,
         0
       ],
       [
-        5,
+        7,
         6,
         0
       ],
       [
-        4,
+        6,
         3,
         0
       ],
@@ -11706,14 +11656,24 @@
         1
       ],
       [
-        4,
+        6,
         16,
         0
       ],
       [
-        4,
+        6,
         27,
         2
+      ],
+      [
+        5,
+        3,
+        0
+      ],
+      [
+        4,
+        3,
+        0
       ],
       [
         3,
@@ -12472,8 +12432,73 @@
       ],
       [
         2,
-        13,
-        2
+        11,
+        0
+      ],
+      [
+        3,
+        12,
+        0
+      ],
+      [
+        3,
+        9,
+        0
+      ],
+      [
+        2,
+        3,
+        0
+      ],
+      [
+        0,
+        0,
+        1
+      ],
+      [
+        2,
+        23,
+        0
+      ],
+      [
+        3,
+        28,
+        0
+      ],
+      [
+        3,
+        21,
+        0
+      ],
+      [
+        2,
+        3,
+        0
+      ],
+      [
+        0,
+        0,
+        1
+      ],
+      [
+        2,
+        24,
+        0
+      ],
+      [
+        3,
+        29,
+        0
+      ],
+      [
+        3,
+        22,
+        0
+      ],
+      [
+        2,
+        3,
+        0
       ],
       [
         1,
@@ -13699,6 +13724,6 @@
   },
   "binaries": {
     "v251_sha256": "8df15ad38731a1b146e0f3e761035b234689ee2a04c83d70eaed8584bf1198c5",
-    "v26_sha256": "0d59f6e3592e6c4019578c09ee5b4352a1222b8b69437eccef508c6962dbf89f"
+    "v26_sha256": "16d618191c03b9c3a4b84a4eea7d24449b88e03d23e3176932e13ec6a7eaf1c8"
   }
 }

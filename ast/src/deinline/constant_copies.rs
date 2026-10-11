@@ -41,6 +41,8 @@ pub(super) struct Rebuilt {
 /// arguments of its call once solved.
 struct Planned {
     binder: RcLocal,
+    /// The helper's prototype.
+    helper: usize,
     copies: evidence::ConstantCopies,
     arguments: Option<Option<Vec<RValue>>>,
 }
@@ -84,7 +86,7 @@ pub(super) fn rebuild(body: &mut Block, copies: &evidence::Copies, write_counts:
         if references != counted.outermost + counted.nested || !f64::from_bits(bits).is_finite() {
             continue;
         }
-        let planned = Planned { binder: binder.clone(), copies: counted, arguments: None };
+        let planned = Planned { binder: binder.clone(), helper: helper as usize, copies: counted, arguments: None };
         // Two helpers for one value cannot both have every reference.
         plan.entry((caller as usize, bits)).and_modify(|other| *other = None).or_insert(Some(planned));
     }
@@ -224,12 +226,15 @@ impl Walk<'_> {
                     Some(decided) => {
                         if let Some(arguments) = decided.get(&(pointer, bits))
                             && in_scope
+                            && (pointer.is_none()
+                                || crate::literal_sharing::admit(pointer, &[], std::slice::from_ref(&planned.binder), &FxHashSet::default()))
                         {
                             let mut call = Call::new(RValue::Local(planned.binder.clone()), arguments.clone())
                                 .reconstructed(crate::call_origins::Kind::StatementDeinline);
                             call.one_result = true;
                             self.rebuilt.binders.insert(planned.binder.clone());
                             self.rebuilt.bodies.insert(pointer);
+                            evidence::record_ledger_rebuild(proto, planned.helper, bits);
                             *value = RValue::Call(call);
                         }
                     }

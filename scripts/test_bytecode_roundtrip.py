@@ -473,5 +473,21 @@ class GateTests(unittest.TestCase):
                 self.assertEqual(json.loads(written.read_text())['files'][0].get('capture_excess'), excess)
 
 
+
+class StructureMarkerTest(unittest.TestCase):
+    def test_markers_are_statements_not_substrings(self):
+        from bytecode_roundtrip import STRUCTURE_MARKERS
+
+        def found(text):
+            return [name for name, pattern in STRUCTURE_MARKERS if pattern.search(text)]
+
+        # Infinite Yield prints help strings like this; it failed as `marker:goto`.
+        self.assertEqual(found('notify("goto [player] [request stream]")\nlocal x = "controlFlowState"\n'), [])
+        self.assertEqual(found("\tgoto continue_3\n"), ["goto"])
+        self.assertEqual(found("::continue_3::\n"), ["label"])
+        self.assertEqual(found("local controlFlowState = 1\n"), ["controlFlowState"])
+        self.assertEqual(found("\t-- GenericForInit\n"), ["GenericForInit"])
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -6,6 +6,38 @@ use crate::{
     op_code::OpCode::*,
 };
 
+/// The constant a DUPTABLE copies must be a table template whose keys are
+/// earlier scalar constants (the loader builds constants in order) and whose
+/// values are scalar constants, `nil` or no value. Luau bakes nothing else into
+/// one: a nested table or a closure would be shared by every copy, which no
+/// constructor spells, so such a chunk is refused here rather than by a panic
+/// in the lifter.
+fn template(id: usize, pc: usize, constants: &[Constant], index: usize) -> Result<(), String> {
+    let scalar = |at: usize| matches!(constants.get(at), Some(Constant::Boolean(_)
+        | Constant::Number(_) | Constant::Integer(_) | Constant::String(_)
+        | Constant::Vector(..) | Constant::VectorD(..)));
+    let error = |what: &str| format!("prototype {id}, pc {pc}: DUPTABLE {what}");
+    let keys: Vec<(usize, Option<i32>)> = match constants.get(index) {
+        Some(Constant::Table(keys)) => keys.iter().map(|&key| (key, None)).collect(),
+        Some(Constant::TableWithConstants(pairs)) => pairs.iter().map(|&(key, value)| (key, Some(value))).collect(),
+        Some(_) => return Err(error("constant is not a table template")),
+        None => return Err(error("constant index")),
+    };
+    for (key, value) in keys {
+        if key >= index || !scalar(key) {
+            return Err(error("template key is not an earlier scalar constant"));
+        }
+        if let Some(Ok(value)) = value.map(usize::try_from)
+            && value < index
+            && !matches!(constants.get(value), Some(Constant::Nil))
+            && !scalar(value)
+        {
+            return Err(error("template value is not a scalar constant"));
+        }
+    }
+    Ok(())
+}
+
 pub(crate) fn validate(chunk: &Chunk) -> Result<(), String> {
     for (id, function) in chunk.functions.iter().enumerate() {
         let code = &function.instructions;
@@ -69,9 +101,13 @@ pub(crate) fn validate(chunk: &Chunk) -> Result<(), String> {
                     match op_code {
                         LOP_JUMP | LOP_JUMPBACK => target(d as isize)?,
                         LOP_LOADN => reg(a)?,
-                        LOP_LOADK | LOP_DUPTABLE | LOP_DUPCLOSURE => {
+                        LOP_LOADK | LOP_DUPCLOSURE => {
                             reg(a)?;
                             constant(d as usize)?;
+                        }
+                        LOP_DUPTABLE => {
+                            reg(a)?;
+                            template(id, pc, &function.constants, d as usize)?;
                         }
                         LOP_LOADKX => {
                             reg(a)?;

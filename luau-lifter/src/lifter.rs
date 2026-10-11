@@ -673,12 +673,13 @@ impl<'a> Lifter<'a> {
                         }
                     }
                     OpCode::LOP_NEWTABLE => {
+                        // B is the hash part's size as a power of two plus one
+                        // (0: none), which decides the order `pairs` visits
+                        // keys in (`ast::TableShape`).
+                        let mut table = ast::Table::default();
+                        table.2 = ast::TableShape::NewTable { hash: if b == 0 { 0 } else { 1u32 << (u32::from(b) - 1).min(30) } };
                         statements.push(
-                            ast::Assign::new(
-                                vec![self.register(a as _).into()],
-                                vec![ast::Table::default().into()],
-                            )
-                            .into(),
+                            ast::Assign::new(vec![self.register(a as _).into()], vec![table.into()]).into(),
                         );
                     }
                     OpCode::LOP_GETGLOBAL => {
@@ -1942,7 +1943,7 @@ impl<'a> Lifter<'a> {
             assert!(at < index && scalar(at), "DUPTABLE template key {at} is not an earlier scalar constant");
             self.constant(at).into()
         };
-        let entries = match constants.get(index) {
+        let entries: Vec<(Option<ast::RValue>, ast::RValue)> = match constants.get(index) {
             Some(BytecodeConstant::TableWithConstants(pairs)) => pairs
                 .iter()
                 .map(|&(at, value)| {
@@ -1964,7 +1965,10 @@ impl<'a> Lifter<'a> {
             }
             _ => panic!("DUPTABLE constant {index} is not a table template"),
         };
-        ast::Table::new(entries).into()
+        let keys = u32::try_from(entries.len()).unwrap_or(u32::MAX);
+        let mut table = ast::Table::new(entries);
+        table.2 = ast::TableShape::Template { keys };
+        table.into()
     }
 
     fn block_to_node(&self, insn_index: usize) -> NodeIndex {

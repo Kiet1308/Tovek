@@ -67,6 +67,10 @@ fn share_definition_point(a: &CongruenceClass, b: &CongruenceClass) -> bool {
 struct CongruenceClass {
     members: BTreeMap<(usize, ParamOrStatIndex), RcLocal>,
     bindings: OnceCell<BindingSummary>,
+    /// Holds the versions of a captured cell (`coalesce_upvalues`), joined
+    /// without an interference walk: [`Destructor::check_interfere`] then
+    /// compares every pair.
+    holds_cell: bool,
 }
 
 impl CongruenceClass {
@@ -90,6 +94,7 @@ impl CongruenceClass {
     }
 
     fn extend(&mut self, other: Self) {
+        self.holds_cell |= other.holds_cell;
         let was_empty = self.members.is_empty();
         let incoming = other.bindings.into_inner();
         let mut overlap = false;
@@ -781,6 +786,7 @@ impl<'a> Destructor<'a> {
         {
             let con_class = self.get_congruence_class(group.clone()).clone();
             let (upval_dom_index, _, upval_stat_index) = self.local_defs[&upvalue];
+            con_class.borrow_mut().holds_cell = true;
             con_class
                 .borrow_mut()
                 .insert((upval_dom_index, upval_stat_index), upvalue.clone());
@@ -1375,6 +1381,12 @@ impl<'a> Destructor<'a> {
             // alive together from that point; the dominance-order test never
             // compares them, and one class could not even hold both.
             false
+        } else if self.holds_entry_value(&left_con_class.borrow()) && self.holds_entry_value(&right_con_class.borrow()) {
+            // Parameters and incoming upvalues are all defined at once, at
+            // entry, each in a slot of its own: two of them never share a
+            // local (`function(p, p)` would name the last one twice), however
+            // the walk orders their positions.
+            false
         } else if left_con_class.borrow().len() == 1 && right_con_class.borrow().len() == 1 {
             if self.check_interfere_single(&left_con_class, &right_con_class) {
                 false
@@ -1425,6 +1437,16 @@ impl<'a> Destructor<'a> {
         }
 
         false
+    }
+
+    /// Whether `class` holds a parameter or an incoming upvalue. Entry
+    /// definitions hold the smallest positions (dominator order 0, before
+    /// any statement), so only the front of the ordered members is read.
+    fn holds_entry_value(&self, class: &CongruenceClass) -> bool {
+        class
+            .members
+            .range(..=(0, ParamOrStatIndex::Param(usize::MAX)))
+            .any(|(_, local)| self.upvalues_in.contains(local) || self.function.parameters.contains(local))
     }
 
     fn check_interfere_single(
@@ -1504,6 +1526,32 @@ impl<'a> Destructor<'a> {
 
         let red = red.borrow();
         let blue = blue.borrow();
+        // The walk below compares each member with the nearest member that
+        // dominates it only, which is sound for classes whose members do
+        // not interfere and sit at their real definition points. A cell's
+        // class is joined without an interference walk (every version of a
+        // captured variable is one storage), with its root and captured
+        // parameters at artificial entry positions: a live member can hide
+        // behind a nearer one there (a captured parameter live across the
+        // candidate behind the cell's dead root). Every dominating pair is
+        // compared instead.
+        if red.holds_cell || blue.holds_cell {
+            ast::telemetry::count("destruct_pairwise_cell_checks", 1);
+            for x in red.values() {
+                for y in blue.values() {
+                    let (early, late) = if self.check_pre_dom_order(x, y) { (x, y) } else { (y, x) };
+                    if !self.dominates(early, late) {
+                        continue;
+                    }
+                    if self.intersect(late, early)
+                        && self.get_value_class(late.clone()).clone() != self.get_value_class(early.clone()).clone()
+                    {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
         let mut red_iter = red.iter().peekable();
         let mut blue_iter = blue.iter().peekable();
         let mut red_count = 0;
