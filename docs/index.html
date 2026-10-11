@@ -4,16 +4,16 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <title>Tovek: Roblox bytecode, read back into source</title>
-  <meta name="description" content="Tovek is a free, open-source Luau decompiler. It reads Roblox bytecode back into source you can read: names from evidence, loops instead of jumps, and the helper calls the compiler pasted away. Read one real script with its notes, or decompile your own file in the browser.">
+  <meta name="description" content="Tovek is a free, open-source Luau decompiler. It reads Roblox bytecode back into source you can read: names from evidence, loops instead of jumps, and the helper calls the compiler pasted away. Read a real script with its notes, or decompile your own file in the browser.">
   <meta name="theme-color" content="#f2f0eb">
   <meta property="og:title" content="Tovek: Roblox bytecode, read back into source">
-  <meta property="og:description" content="A free Luau decompiler. Read a real script as Tovek V2.6 printed it, with a note on how each part came back.">
+  <meta property="og:description" content="A free Luau decompiler. Read a real script as Tovek V2.6 printed it, with notes on how each part came back.">
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://kiet1308.github.io/Tovek/">
   <meta property="og:image" content="https://kiet1308.github.io/Tovek/assets/v26/landing/og.png">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
-  <meta property="og:image:alt" content="A decompiled Luau script with margin notes: task.wait(frames(1)), proven to the bit.">
+  <meta property="og:image:alt" content="A decompiled Luau script with a margin note: task.wait(frames(1)), proven to the bit.">
   <meta name="twitter:card" content="summary_large_image">
   <link rel="canonical" href="https://kiet1308.github.io/Tovek/">
   <link rel="icon" href="assets/v26/landing/icon.svg" type="image/svg+xml">
@@ -26,16 +26,18 @@
     (function () {
       var d = document.documentElement, ok = function () { d.classList.add('fonts-ok'); };
       d.classList.add('js');
+      // the hero's method first shows as bytecode and reads itself back into source (landing.js); a calm page skips it
+      if (window.matchMedia && !matchMedia('(prefers-reduced-motion: reduce)').matches) d.classList.add('glide');
+      setTimeout(function () { if (!window.__landing) d.classList.remove('glide'); }, 5000);
       if (!document.fonts || !document.fonts.load) return ok();
       Promise.all(['630 98px "Bricolage Grotesque"', '400 16px Geist', '400 13px "Geist Mono"'].map(function (f) { return document.fonts.load(f); })).then(ok, ok);
       setTimeout(ok, 1600);
     })();
   </script>
-  <link rel="prefetch" href="data/landing.json" as="fetch" crossorigin>
   <script type="module" src="assets/v26/landing/landing.js"></script>
 </head>
 <body>
-<a class="skip" href="#script">Skip to the script</a>
+<a class="skip" href="#main">Skip to content</a>
 
 <header class="top" id="top">
   <a class="brand" href="index.html" aria-label="Tovek overview">
@@ -49,468 +51,398 @@
   </nav>
   <div class="top-end">
     <a class="top-link" href="https://github.com/Kiet1308/Tovek">GitHub</a>
-    <a class="top-cta" href="https://github.com/Kiet1308/Tovek/releases/latest">Download<span class="hide-s"> V2.6</span></a>
+    <a class="top-cta" href="#get">Download<span class="hide-s"> V2.6</span></a>
   </div>
 </header>
 
 <main id="main">
 
   <section class="hero" aria-labelledby="hero-title">
-    <div class="hero-text">
-      <p class="kicker"><span>Tovek V2.6</span><i aria-hidden="true"></i><span>Luau decompiler for Roblox</span></p>
-      <h1 id="hero-title"><span class="h1-line">Roblox bytecode,</span> <span class="h1-line">read back into source.</span></h1>
+    <p class="kicker"><span>Tovek V2.6</span><i aria-hidden="true"></i><span>Luau decompiler for Roblox</span></p>
+    <h1 id="hero-title"><span class="h1-line">Roblox bytecode,</span> <span class="h1-line">read back into source.</span></h1>
+    <div class="hero-side">
       <p class="lead">Tovek turns compiled Luau scripts back into code you can read: names from evidence, loops instead of jumps, and the helper calls the compiler pasted away. It runs on your machine, free and open source.</p>
       <p class="actions">
-        <a class="btn btn-ink" href="https://github.com/Kiet1308/Tovek/releases/latest"><span>Download V2.6</span><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2.5v8m-3.5-3.5L8 10.5 11.5 7M3 13.5h10"/></svg></a>
-        <a class="btn" href="watch/?film=story"><svg class="i i-play" viewBox="0 0 16 16" aria-hidden="true"><path d="M5 3.2v9.6L12.6 8z"/></svg><span>Watch the film</span></a>
-<!-- gen:launch -->
-<a class="btn btn-launch" href="watch/?film=v26"><svg class="i i-play" viewBox="0 0 16 16" aria-hidden="true"><path d="M5 3.2v9.6L12.6 8z"/></svg><span>Watch V2.6</span></a>
-<!-- /gen:launch -->
+        <a class="btn btn-ink" href="#get"><span>Download V2.6</span><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2.5v8m-3.5-3.5L8 10.5 11.5 7M3 13.5h10"/></svg></a>
+<!-- gen:watch -->
+<a class="btn btn-watch" href="watch/?film=v26"><svg class="i i-play" viewBox="0 0 16 16" aria-hidden="true"><path d="M5 3.2v9.6L12.6 8z"/></svg><span>Watch V2.6</span><span class="dur">1:52</span></a>
+<!-- /gen:watch -->
         <a class="btn btn-text" href="changelog/v2.6/"><span>What&rsquo;s new in V2.6</span><span class="arr" aria-hidden="true">&rarr;</span></a>
       </p>
+      <p class="hero-meta">
+<!-- gen:hero-meta -->
+<span>Free, MIT licence</span><span>Windows, Linux and macOS</span><a href="watch/?film=story"><svg class="i i-play" viewBox="0 0 16 16" aria-hidden="true"><path d="M5 3.2v9.6L12.6 8z"/></svg>The story of Tovek, 2:40</a>
+<!-- /gen:hero-meta -->
+      </p>
     </div>
-    <aside class="hero-facts" aria-label="About the script below">
-      <p class="facts-head">Below: one script, with its notes</p>
-      <dl class="facts">
-<!-- gen:title-facts -->
-<div><dt>Script</dt><dd><code>Beacon.luau</code>, a module written for this page</dd></div>
-<div><dt>Compiled</dt><dd>Luau <code>-O2 -g1</code>, bytecode version 9, 3,500 bytes</dd></div>
-<div><dt>Decompiled</dt><dd>Tovek V2.6, 147 lines, unedited</dd></div>
-<div><dt>Notes</dt><dd>13, each from evidence in the bytecode or an earlier release</dd></div>
-<!-- /gen:title-facts -->
-      </dl>
-    </aside>
+    <figure class="glimpse" id="glimpse" aria-labelledby="gl-cap">
+      <div class="gl-bar">
+        <p class="gl-crumb"><span class="gl-file">Beacon.luau</span><i aria-hidden="true">/</i><span class="gl-psg" id="gl-psg">Beacon:capture</span></p>
+        <div class="lens" id="lens" role="radiogroup" aria-label="Read this method as">
+          <button type="button" role="radio" aria-checked="false" tabindex="-1" data-view="bytecode">Bytecode</button>
+          <button type="button" role="radio" aria-checked="true" tabindex="0" data-view="tovek">Tovek</button>
+          <button type="button" role="radio" aria-checked="false" tabindex="-1" data-view="source">Source</button>
+        </div>
+      </div>
+      <div class="gl-body" id="gl-body">
+<!-- gen:glimpse -->
+<div class="pane" data-view="tovek"><p class="pane-tag"><b>Tovek V2.6</b><span>lines 54–64 of 147</span><span>unedited</span></p><div class="ln" data-n="54" style="--i:0"><span class="t"><span class="k">function</span> <span class="f">Beacon</span><span class="o">:</span><wbr><span class="f">capture</span><span class="o">(</span><wbr>owner<span class="o">,</span> items<span class="o">)</span></span></div><div class="ln" data-n="55" style="--i:1"><span class="t">self<span class="o">.</span><wbr>owner <span class="o">=</span> owner</span></div><div class="ln" data-n="56" style="--i:1"><span class="t">self<span class="o">.</span><wbr>progress <span class="o">=</span> <span class="n">0</span></span></div><div class="ln" data-n="57" style="--i:1"><span class="t">TweenService<span class="o">:</span><wbr>Create<span class="o">(</span><wbr>self<span class="o">.</span><wbr>lamp<span class="o">,</span> TweenInfo<span class="o">.</span><wbr>new<span class="o">(</span><wbr>frames<span class="o">(</span><wbr><span class="n">45</span><span class="o">)</span><span class="o">)</span><span class="o">,</span> <span class="o">{</span> Color <span class="o">=</span> owner<span class="o">.</span><wbr>TeamColor<span class="o">.</span><wbr>Color <span class="o">}</span><span class="o">)</span><span class="o">:</span><wbr>Play<span class="o">(</span><wbr><span class="o">)</span> <span class="r">-- inferred equivalent call</span></span></div><div class="ln blank" data-n="58" style="--i:0"><span class="t"></span></div><div class="ln" data-n="59" style="--i:1"><span class="t"><span class="k">for</span> _<span class="o">,</span> item <span class="k">in</span> items <span class="k">do</span></span></div><div class="ln" data-n="60" style="--i:2"><span class="t">award<span class="o">(</span><wbr>item<span class="o">,</span> <span class="n">25</span><span class="o">)</span> <span class="r">-- inferred equivalent call</span></span></div><div class="ln" data-n="61" style="--i:1"><span class="t"><span class="k">end</span></span></div><div class="ln blank" data-n="62" style="--i:0"><span class="t"></span></div><div class="ln" data-n="63" style="--i:1"><span class="t">announce<span class="o">:</span><wbr>FireAllClients<span class="o">(</span><wbr><span class="s">`{</span>owner<span class="o">.</span><wbr>Name<span class="s">} lit {</span>self<span class="o">.</span><wbr>model<span class="o">.</span><wbr>Name<span class="s">}`</span><span class="o">)</span></span></div><div class="ln" data-n="64" style="--i:0"><span class="t"><span class="k">end</span></span></div></div>
+<div class="pane" data-view="bytecode" hidden><p class="pane-tag"><b>Bytecode</b><span>48 instructions</span><span>each numbered with the source line it carries</span></p><div class="ln fnhead" data-n=""><span class="t">function capture, defined on line 60</span></div><div class="ln bc" data-n="61"><span class="t"><span class="lbl"></span><span class="op">SETTABLEKS</span> <span class="a">R1</span> <span class="a">R0</span> <span class="a">K0</span> <span class="s">['owner']</span></span></div><div class="ln bc" data-n="62"><span class="t"><span class="lbl"></span><span class="op">LOADN</span> <span class="a">R3</span> <span class="a">0</span></span></div><div class="ln bc cont" data-n="62"><span class="t"><span class="lbl"></span><span class="op">SETTABLEKS</span> <span class="a">R3</span> <span class="a">R0</span> <span class="a">K1</span> <span class="s">['progress']</span></span></div><div class="ln bc" data-n="64"><span class="t"><span class="lbl"></span><span class="op">GETUPVAL</span> <span class="a">R3</span> <span class="a">0</span></span></div><div class="ln bc cont" data-n="64"><span class="t"><span class="lbl"></span><span class="op">GETTABLEKS</span> <span class="a">R5</span> <span class="a">R0</span> <span class="a">K2</span> <span class="s">['lamp']</span></span></div><div class="ln bc cont" data-n="64"><span class="t"><span class="lbl"></span><span class="op">GETIMPORT</span> <span class="a">R6</span> <span class="a">5</span> <span class="s">[TweenInfo.new]</span></span></div><div class="ln bc from" data-n="16"><span class="t"><span class="lbl"></span><span class="op">LOADK</span> <span class="a">R7</span> <span class="a">K6</span> <span class="s">[0.75]</span><span class="bc-from">pasted from frames</span></span></div><div class="ln bc" data-n="64"><span class="t"><span class="lbl"></span><span class="op">CALL</span> <span class="a">R6</span> <span class="a">1</span> <span class="a">1</span></span></div><div class="ln bc cont" data-n="64"><span class="t"><span class="lbl"></span><span class="op">DUPTABLE</span> <span class="a">R7</span> <span class="a">8</span></span></div><div class="ln bc cont" data-n="64"><span class="t"><span class="lbl"></span><span class="op">GETTABLEKS</span> <span class="a">R8</span> <span class="a">R1</span> <span class="a">K9</span> <span class="s">['TeamColor']</span></span></div><div class="ln bc cont" data-n="64"><span class="t"><span class="lbl"></span><span class="op">GETTABLEKS</span> <span class="a">R8</span> <span class="a">R8</span> <span class="a">K7</span> <span class="s">['Color']</span></span></div><div class="ln bc cont" data-n="64"><span class="t"><span class="lbl"></span><span class="op">SETTABLEKS</span> <span class="a">R8</span> <span class="a">R7</span> <span class="a">K7</span> <span class="s">['Color']</span></span></div><div class="ln bc cont" data-n="64"><span class="t"><span class="lbl"></span><span class="op">NAMECALL</span> <span class="a">R3</span> <span class="a">R3</span> <span class="a">K10</span> <span class="s">['Create']</span></span></div><div class="ln bc cont" data-n="64"><span class="t"><span class="lbl"></span><span class="op">CALL</span> <span class="a">R3</span> <span class="a">4</span> <span class="a">1</span></span></div><div class="ln bc" data-n="65"><span class="t"><span class="lbl"></span><span class="op">NAMECALL</span> <span class="a">R4</span> <span class="a">R3</span> <span class="a">K11</span> <span class="s">['Play']</span></span></div><div class="ln bc cont" data-n="65"><span class="t"><span class="lbl"></span><span class="op">CALL</span> <span class="a">R4</span> <span class="a">1</span> <span class="a">0</span></span></div><div class="ln bc" data-n="67"><span class="t"><span class="lbl"></span><span class="op">MOVE</span> <span class="a">R4</span> <span class="a">R2</span></span></div><div class="ln bc cont" data-n="67"><span class="t"><span class="lbl"></span><span class="op">LOADNIL</span> <span class="a">R5</span></span></div><div class="ln bc cont" data-n="67"><span class="t"><span class="lbl"></span><span class="op">LOADNIL</span> <span class="a">R6</span></span></div><div class="ln bc cont" data-n="67"><span class="t"><span class="lbl"></span><span class="op">FORGPREP</span> <span class="a">R4</span> <span class="a">L2</span></span></div><div class="ln bc from" data-n="24"><span class="t"><span class="lbl">L0:</span><span class="op">LOADK</span> <span class="a">R11</span> <span class="a">K12</span> <span class="s">['leaderstats']</span><span class="bc-from">pasted from award</span></span></div><div class="ln bc cont from" data-n="24"><span class="t"><span class="lbl"></span><span class="op">NAMECALL</span> <span class="a">R9</span> <span class="a">R8</span> <span class="a">K13</span> <span class="s">['FindFirstChild']</span></span></div><div class="ln bc cont from" data-n="24"><span class="t"><span class="lbl"></span><span class="op">CALL</span> <span class="a">R9</span> <span class="a">2</span> <span class="a">1</span></span></div><div class="ln bc from" data-n="25"><span class="t"><span class="lbl"></span><span class="op">MOVE</span> <span class="a">R10</span> <span class="a">R9</span></span></div><div class="ln bc cont from" data-n="25"><span class="t"><span class="lbl"></span><span class="op">JUMPIFNOT</span> <span class="a">R10</span> <span class="a">L1</span></span></div><div class="ln bc cont from" data-n="25"><span class="t"><span class="lbl"></span><span class="op">LOADK</span> <span class="a">R12</span> <span class="a">K14</span> <span class="s">['Points']</span></span></div><div class="ln bc cont from" data-n="25"><span class="t"><span class="lbl"></span><span class="op">NAMECALL</span> <span class="a">R10</span> <span class="a">R9</span> <span class="a">K13</span> <span class="s">['FindFirstChild']</span></span></div><div class="ln bc cont from" data-n="25"><span class="t"><span class="lbl"></span><span class="op">CALL</span> <span class="a">R10</span> <span class="a">2</span> <span class="a">1</span></span></div><div class="ln bc from" data-n="26"><span class="t"><span class="lbl">L1:</span><span class="op">JUMPIFNOT</span> <span class="a">R10</span> <span class="a">L2</span></span></div><div class="ln bc from" data-n="27"><span class="t"><span class="lbl"></span><span class="op">GETTABLEKS</span> <span class="a">R11</span> <span class="a">R10</span> <span class="a">K15</span> <span class="s">['Value']</span></span></div><div class="ln bc cont from" data-n="27"><span class="t"><span class="lbl"></span><span class="op">ADDK</span> <span class="a">R11</span> <span class="a">R11</span> <span class="a">K16</span> <span class="s">[25]</span></span></div><div class="ln bc cont from" data-n="27"><span class="t"><span class="lbl"></span><span class="op">SETTABLEKS</span> <span class="a">R11</span> <span class="a">R10</span> <span class="a">K15</span> <span class="s">['Value']</span></span></div><div class="ln bc" data-n="67"><span class="t"><span class="lbl">L2:</span><span class="op">FORGLOOP</span> <span class="a">R4</span> <span class="a">L0</span> <span class="a">2</span></span></div><div class="ln bc" data-n="70"><span class="t"><span class="lbl"></span><span class="op">GETUPVAL</span> <span class="a">R4</span> <span class="a">1</span></span></div><div class="ln bc cont" data-n="70"><span class="t"><span class="lbl"></span><span class="op">LOADK</span> <span class="a">R7</span> <span class="a">K17</span> <span class="s">['%* lit %*']</span></span></div><div class="ln bc cont" data-n="70"><span class="t"><span class="lbl"></span><span class="op">GETTABLEKS</span> <span class="a">R9</span> <span class="a">R1</span> <span class="a">K18</span> <span class="s">['Name']</span></span></div><div class="ln bc cont" data-n="70"><span class="t"><span class="lbl"></span><span class="op">GETTABLEKS</span> <span class="a">R10</span> <span class="a">R0</span> <span class="a">K19</span> <span class="s">['model']</span></span></div><div class="ln bc cont" data-n="70"><span class="t"><span class="lbl"></span><span class="op">GETTABLEKS</span> <span class="a">R10</span> <span class="a">R10</span> <span class="a">K18</span> <span class="s">['Name']</span></span></div><div class="ln bc cont" data-n="70"><span class="t"><span class="lbl"></span><span class="op">NAMECALL</span> <span class="a">R7</span> <span class="a">R7</span> <span class="a">K20</span> <span class="s">['format']</span></span></div><div class="ln bc cont" data-n="70"><span class="t"><span class="lbl"></span><span class="op">CALL</span> <span class="a">R7</span> <span class="a">3</span> <span class="a">1</span></span></div><div class="ln bc cont" data-n="70"><span class="t"><span class="lbl"></span><span class="op">MOVE</span> <span class="a">R6</span> <span class="a">R7</span></span></div><div class="ln bc cont" data-n="70"><span class="t"><span class="lbl"></span><span class="op">NAMECALL</span> <span class="a">R4</span> <span class="a">R4</span> <span class="a">K21</span> <span class="s">['FireAllClients']</span></span></div><div class="ln bc cont" data-n="70"><span class="t"><span class="lbl"></span><span class="op">CALL</span> <span class="a">R4</span> <span class="a">2</span> <span class="a">0</span></span></div><div class="ln bc" data-n="71"><span class="t"><span class="lbl"></span><span class="op">RETURN</span> <span class="a">R0</span> <span class="a">0</span></span></div><div class="ln fnhead" data-n=""><span class="t">main chunk: the function is made and stored</span></div><div class="ln bc" data-n="60"><span class="t"><span class="lbl"></span><span class="op">DUPCLOSURE</span> <span class="a">R9</span> <span class="a">K18</span> <span class="s">['capture']</span></span></div><div class="ln bc cont" data-n="60"><span class="t"><span class="lbl"></span><span class="op">CAPTURE</span> <span class="a">VAL</span> <span class="a">R3</span></span></div><div class="ln bc cont" data-n="60"><span class="t"><span class="lbl"></span><span class="op">CAPTURE</span> <span class="a">VAL</span> <span class="a">R4</span></span></div><div class="ln bc cont" data-n="60"><span class="t"><span class="lbl"></span><span class="op">SETTABLEKS</span> <span class="a">R9</span> <span class="a">R8</span> <span class="a">K19</span> <span class="s">['capture']</span></span></div></div>
+<div class="pane" data-view="source" hidden><p class="pane-tag"><b>Source</b><span>lines 60–71 of Beacon.luau</span><span>as written</span></p><div class="ln src" data-n="60" style="--i:0"><span class="t"><span class="k">function</span> <span class="f">Beacon</span><span class="o">:</span><wbr><span class="f">capture</span><span class="o">(</span><wbr>team<span class="o">,</span> near<span class="o">)</span></span></div><div class="ln src" data-n="61" style="--i:1"><span class="t">self<span class="o">.</span><wbr>owner <span class="o">=</span> team</span></div><div class="ln src" data-n="62" style="--i:1"><span class="t">self<span class="o">.</span><wbr>progress <span class="o">=</span> <span class="n">0</span></span></div><div class="ln blank src" data-n="63" style="--i:0"><span class="t"></span></div><div class="ln src" data-n="64" style="--i:1"><span class="t"><span class="k">local</span> tween <span class="o">=</span> TweenService<span class="o">:</span><wbr>Create<span class="o">(</span><wbr>self<span class="o">.</span><wbr>lamp<span class="o">,</span> TweenInfo<span class="o">.</span><wbr>new<span class="o">(</span><wbr>frames<span class="o">(</span><wbr><span class="n">45</span><span class="o">)</span><span class="o">)</span><span class="o">,</span> <span class="o">{</span> Color <span class="o">=</span> team<span class="o">.</span><wbr>TeamColor<span class="o">.</span><wbr>Color <span class="o">}</span><span class="o">)</span></span></div><div class="ln src" data-n="65" style="--i:1"><span class="t">tween<span class="o">:</span><wbr>Play<span class="o">(</span><wbr><span class="o">)</span></span></div><div class="ln blank src" data-n="66" style="--i:0"><span class="t"></span></div><div class="ln src" data-n="67" style="--i:1"><span class="t"><span class="k">for</span> _<span class="o">,</span> player <span class="k">in</span> near <span class="k">do</span></span></div><div class="ln src" data-n="68" style="--i:2"><span class="t">award<span class="o">(</span><wbr>player<span class="o">,</span> POINTS<span class="o">)</span></span></div><div class="ln src" data-n="69" style="--i:1"><span class="t"><span class="k">end</span></span></div><div class="ln src" data-n="70" style="--i:1"><span class="t">Announce<span class="o">:</span><wbr>FireAllClients<span class="o">(</span><wbr><span class="s">`{</span>team<span class="o">.</span><wbr>Name<span class="s">} lit {</span>self<span class="o">.</span><wbr>model<span class="o">.</span><wbr>Name<span class="s">}`</span><span class="o">)</span></span></div><div class="ln src" data-n="71" style="--i:0"><span class="t"><span class="k">end</span></span></div></div>
+<!-- /gen:glimpse -->
+      </div>
+      <figcaption class="gl-cap" id="gl-cap">
+<!-- gen:glimpse-cap -->
+<span>One method of <code>Beacon.luau</code>, a script we wrote, as Tovek V2.6 printed it from 48 instructions of Luau <code>-O2</code> bytecode.</span><a href="#tour">Read the whole script with its notes<span aria-hidden="true"> &darr;</span></a>
+<!-- /gen:glimpse-cap -->
+      </figcaption>
+    </figure>
   </section>
 
-  <section class="ms-wrap" id="script" aria-label="The annotated script">
-    <div class="runhead" id="runhead">
-      <div class="rh-in">
-        <div class="rh-main">
-        <p class="crumb"><span class="crumb-file" id="crumb-file">Beacon.luau</span><span class="crumb-sep" aria-hidden="true">/</span><span class="crumb-psg" id="crumb-psg">services</span></p>
-        <div class="lens" id="lens" role="radiogroup" aria-label="Read this passage as">
-          <span class="lens-label" aria-hidden="true">Read as</span>
-          <button type="button" role="radio" aria-checked="false" data-view="bytecode">Bytecode</button>
-          <button type="button" role="radio" aria-checked="true" data-view="tovek">Tovek</button>
-          <button type="button" role="radio" aria-checked="false" data-view="source">Source</button>
-        </div>
-        </div>
-        <button class="own" id="own-open" type="button" aria-expanded="false" aria-controls="reader"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 11V3M4.5 6.5 8 3l3.5 3.5M3 13.5h10"/></svg><span>Read your own file</span></button>
-      </div>
-      <div class="strip" id="strip" aria-hidden="true"><canvas></canvas><span class="strip-view"></span></div>
-    </div>
-
-    <div class="reader" id="reader" hidden>
-      <div class="reader-in">
-        <div class="drop" id="drop" tabindex="-1">
-          <p class="drop-title">Drop a compiled Luau file here</p>
-          <p class="drop-text">Raw bytecode from <code>luau-compile --binary</code>, Roblox client bytecode, or a saved script in base64. Tovek decompiles it here, in your browser. The file is not uploaded.</p>
-          <p class="drop-actions"><label class="btn btn-ink file-btn"><input type="file" id="file" class="sr-only"><span>Choose a file</span></label><span class="drop-or">or a sample:</span></p>
-          <ul class="samples" id="samples" aria-label="Samples"></ul>
-          <p class="reader-status" id="reader-status" role="status" aria-live="polite"></p>
+  <section class="sec tour" id="tour" aria-labelledby="tour-h">
+    <header class="sec-head">
+      <h2 id="tour-h">What comes back</h2>
+      <p class="sec-lead">
+<!-- gen:tour-lead -->
+<code>Beacon.luau</code>, a module we wrote, compiled the way Roblox ships scripts and read back by Tovek V2.6: 147 lines, unedited. 7 notes on how it came back, each checked against the bytecode.
+<!-- /gen:tour-lead -->
+      </p>
+    </header>
+    <div class="frame" id="frame">
+      <div class="fr-bar">
+        <p class="fr-crumb"><span class="fr-file" id="fr-file">Beacon.luau</span><i aria-hidden="true">/</i><span class="fr-psg" id="fr-psg">services</span></p>
+        <div class="fr-ctl">
+          <p class="fr-count" aria-hidden="true"><b id="fr-at">01</b><span id="fr-of">/ 08</span></p>
+          <button class="ic" type="button" id="fr-prev" aria-label="Previous note"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M10 3.5 5.5 8l4.5 4.5"/></svg></button>
+          <button class="ic ic-play" type="button" id="fr-play" aria-label="Play the notes" aria-pressed="false"><svg class="ip" viewBox="0 0 16 16" aria-hidden="true"><path d="M5 3.2v9.6L12.6 8z"/></svg><svg class="ipause" viewBox="0 0 16 16" aria-hidden="true"><path d="M5 3.5v9M11 3.5v9"/></svg></button>
+          <button class="ic" type="button" id="fr-next" aria-label="Next note"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3.5 10.5 8 6 12.5"/></svg></button>
         </div>
       </div>
-    </div>
-
-    <div class="ms" id="ms">
-      <nav class="rail" id="rail" aria-label="Minimap of the script">
-        <div class="rail-in">
-          <canvas class="rail-map" aria-hidden="true"></canvas>
-          <div class="rail-view" aria-hidden="true"></div>
-          <div class="rail-marks" id="rail-marks"></div>
+      <div class="fr-body" id="fr-body">
+        <div class="fr-codecol">
+          <div class="fr-rail" id="fr-rail" aria-hidden="true"><canvas></canvas><span class="fr-win"></span><span class="fr-marks"></span></div>
+          <div class="fr-port" id="fr-port" tabindex="0" role="region" aria-label="Beacon.luau as Tovek V2.6 printed it. Use the arrow keys to scroll.">
+            <div class="code" id="code">
+<!-- gen:tour-code -->
+<div id="L1" class="ln" data-n="1" style="--i:0"><span class="t"><span class="k">local</span> <mark class="ns" data-note="n1">Players</mark> <span class="o">=</span> game<span class="o">:</span><wbr>GetService<span class="o">(</span><wbr><span class="s">"Players"</span><span class="o">)</span></span><b class="mk" data-step="s1" aria-hidden="true">01</b></div>
+<div id="L2" class="ln" data-n="2" style="--i:0"><span class="t"><span class="k">local</span> <mark class="ns" data-note="n1">ReplicatedStorage</mark> <span class="o">=</span> game<span class="o">:</span><wbr>GetService<span class="o">(</span><wbr><span class="s">"ReplicatedStorage"</span><span class="o">)</span></span></div>
+<div id="L3" class="ln" data-n="3" style="--i:0"><span class="t"><span class="k">local</span> <mark class="ns" data-note="n1">RunService</mark> <span class="o">=</span> game<span class="o">:</span><wbr>GetService<span class="o">(</span><wbr><span class="s">"RunService"</span><span class="o">)</span></span></div>
+<div id="L4" class="ln" data-n="4" style="--i:0"><span class="t"><span class="k">local</span> <mark class="ns" data-note="n1">TweenService</mark> <span class="o">=</span> game<span class="o">:</span><wbr>GetService<span class="o">(</span><wbr><span class="s">"TweenService"</span><span class="o">)</span></span></div>
+<div id="L5" class="ln" data-n="5" style="--i:0"><span class="t"><span class="k">local</span> announce <span class="o">=</span> ReplicatedStorage<span class="o">:</span><wbr>WaitForChild<span class="o">(</span><wbr><span class="s">"Remotes"</span><span class="o">)</span><span class="o">:</span><wbr>WaitForChild<span class="o">(</span><wbr><span class="s">"Announce"</span><span class="o">)</span></span></div>
+<div id="L6" class="ln blank" data-n="6" style="--i:0"><span class="t"></span></div>
+<div id="L7" class="ln" data-n="7" style="--i:0"><span class="t"><span class="k">local</span> <span class="k">function</span> <span class="f">frames</span><span class="o">(</span><wbr>p<span class="o">)</span> <mark class="ns" data-note="n2"><span class="r">-- 2 equivalent calls inferred from this helper</span></mark></span><b class="mk" data-step="s2" aria-hidden="true">02</b></div>
+<div id="L8" class="ln" data-n="8" style="--i:1"><span class="t"><span class="k">return</span> p <span class="o">/</span> <span class="n">60</span></span></div>
+<div id="L9" class="ln" data-n="9" style="--i:0"><span class="t"><span class="k">end</span></span></div>
+<div id="L10" class="ln blank" data-n="10" style="--i:0"><span class="t"></span></div>
+<div id="L11" class="ln" data-n="11" style="--i:0"><span class="t"><span class="k">local</span> <span class="k">function</span> <span class="f">isAlive</span><span class="o">(</span><wbr>humanoid<span class="o">)</span> <span class="r">-- 2 equivalent calls inferred from this helper</span></span></div>
+<div id="L12" class="ln" data-n="12" style="--i:1"><span class="t"><span class="k">return</span> humanoid <span class="o">~=</span> <span class="k">nil</span> <span class="k">and</span> humanoid<span class="o">.</span><wbr>Health <span class="o">&gt;</span> <span class="n">0</span></span></div>
+<div id="L13" class="ln" data-n="13" style="--i:0"><span class="t"><span class="k">end</span></span></div>
+<div id="L14" class="ln blank" data-n="14" style="--i:0"><span class="t"></span></div>
+<div id="L15" class="ln" data-n="15" style="--i:0"><span class="t"><span class="k">local</span> <span class="k">function</span> <span class="f">award</span><span class="o">(</span><wbr>instance<span class="o">,</span> p<span class="o">)</span> <span class="r">-- 2 equivalent calls inferred from this helper</span></span></div>
+<div id="L16" class="ln" data-n="16" style="--i:1"><span class="t"><span class="k">local</span> leaderstats <span class="o">=</span> instance<span class="o">:</span><wbr>FindFirstChild<span class="o">(</span><wbr><span class="s">"leaderstats"</span><span class="o">)</span></span></div>
+<div id="L17" class="ln" data-n="17" style="--i:1"><span class="t"><span class="k">local</span> points <span class="o">=</span> leaderstats <span class="k">and</span> leaderstats<span class="o">:</span><wbr>FindFirstChild<span class="o">(</span><wbr><span class="s">"Points"</span><span class="o">)</span></span></div>
+<div id="L18" class="ln blank" data-n="18" style="--i:0"><span class="t"></span></div>
+<div id="L19" class="ln" data-n="19" style="--i:1"><span class="t"><span class="k">if</span> points <span class="k">then</span></span></div>
+<div id="L20" class="ln" data-n="20" style="--i:2"><span class="t">points<span class="o">.</span><wbr>Value <span class="o">+=</span> p</span></div>
+<div id="L21" class="ln" data-n="21" style="--i:1"><span class="t"><span class="k">end</span></span></div>
+<div id="L22" class="ln" data-n="22" style="--i:0"><span class="t"><span class="k">end</span></span></div>
+<div id="L23" class="ln blank" data-n="23" style="--i:0"><span class="t"></span></div>
+<div id="L24" class="ln" data-n="24" style="--i:0"><span class="t"><span class="k">local</span> Beacon <span class="o">=</span> <span class="o">{</span><span class="o">}</span></span></div>
+<div id="L25" class="ln" data-n="25" style="--i:0"><span class="t">Beacon<span class="o">.</span><wbr>__index <span class="o">=</span> Beacon</span></div>
+<div id="L26" class="ln blank" data-n="26" style="--i:0"><span class="t"></span></div>
+<div id="L27" class="ln" data-n="27" style="--i:0"><span class="t"><span class="k">function</span> <span class="f">Beacon</span><span class="o">.</span><wbr><span class="f">new</span><span class="o">(</span><wbr>model<span class="o">)</span></span></div>
+<div id="L28" class="ln" data-n="28" style="--i:1"><span class="t"><span class="k">local</span> object <span class="o">=</span> setmetatable<span class="o">(</span><wbr><span class="o">{</span><span class="o">}</span><span class="o">,</span> Beacon<span class="o">)</span></span></div>
+<div id="L29" class="ln" data-n="29" style="--i:1"><span class="t">object<span class="o">.</span><wbr>model <span class="o">=</span> model</span></div>
+<div id="L30" class="ln" data-n="30" style="--i:1"><span class="t">object<span class="o">.</span><wbr>lamp <span class="o">=</span> model<span class="o">:</span><wbr>WaitForChild<span class="o">(</span><wbr><span class="s">"Lamp"</span><span class="o">)</span></span></div>
+<div id="L31" class="ln" data-n="31" style="--i:1"><span class="t">object<span class="o">.</span><wbr>progress <span class="o">=</span> <span class="n">0</span></span></div>
+<div id="L32" class="ln" data-n="32" style="--i:1"><span class="t">object<span class="o">.</span><wbr>owner <span class="o">=</span> <span class="k">nil</span></span></div>
+<div id="L33" class="ln" data-n="33" style="--i:1"><span class="t"><span class="k">return</span> object</span></div>
+<div id="L34" class="ln" data-n="34" style="--i:0"><span class="t"><span class="k">end</span></span></div>
+<div id="L35" class="ln blank" data-n="35" style="--i:0"><span class="t"></span></div>
+<div id="L36" class="ln" data-n="36" style="--i:0"><span class="t"><span class="k">function</span> <mark class="ns" data-note="n4"><span class="f">Beacon</span><span class="o">:</span><wbr><span class="f">playersNear</span><span class="o">(</span><wbr><span class="o">)</span></mark></span><b class="mk" data-step="s3" aria-hidden="true">03</b></div>
+<div id="L37" class="ln" data-n="37" style="--i:1"><span class="t"><span class="k">local</span> position <span class="o">=</span> self<span class="o">.</span><wbr>model<span class="o">:</span><wbr>GetPivot<span class="o">(</span><wbr><span class="o">)</span><span class="o">.</span><wbr>Position</span></div>
+<div id="L38" class="ln" data-n="38" style="--i:1"><span class="t"><span class="k">local</span> result <span class="o">=</span> <span class="o">{</span><span class="o">}</span></span></div>
+<div id="L39" class="ln blank" data-n="39" style="--i:0"><span class="t"></span></div>
+<div id="L40" class="ln" data-n="40" style="--i:1"><span class="t"><span class="k">for</span> _<span class="o">,</span> v <span class="k">in</span> Players<span class="o">:</span><wbr>GetPlayers<span class="o">(</span><wbr><span class="o">)</span> <span class="k">do</span></span></div>
+<div id="L41" class="ln" data-n="41" style="--i:2"><span class="t"><span class="k">local</span> character <span class="o">=</span> v<span class="o">.</span><wbr>Character</span></div>
+<div id="L42" class="ln" data-n="42" style="--i:2"><span class="t"><span class="k">local</span> humanoid <span class="o">=</span> character <span class="k">and</span> character<span class="o">:</span><wbr>FindFirstChildOfClass<span class="o">(</span><wbr><span class="s">"Humanoid"</span><span class="o">)</span></span></div>
+<div id="L43" class="ln blank" data-n="43" style="--i:0"><span class="t"></span></div>
+<div id="L44" class="ln" data-n="44" style="--i:2"><span class="t"><span class="k">if</span> <span class="k">not</span> <span class="o">(</span><wbr><mark class="ns" data-note="n6">isAlive<span class="o">(</span><wbr>humanoid<span class="o">)</span></mark> <span class="k">and</span> <span class="o">(</span><wbr>character<span class="o">:</span><wbr>GetPivot<span class="o">(</span><wbr><span class="o">)</span><span class="o">.</span><wbr>Position <span class="o">-</span> position<span class="o">)</span><span class="o">.</span><wbr>Magnitude <span class="o">&lt;=</span> <span class="n">12</span><span class="o">)</span> <span class="k">then</span> <span class="r">-- inferred equivalent call</span></span><b class="mk" data-step="s4" aria-hidden="true">04</b></div>
+<div id="L45" class="ln" data-n="45" style="--i:3"><span class="t"><span class="k">continue</span></span></div>
+<div id="L46" class="ln" data-n="46" style="--i:2"><span class="t"><span class="k">end</span></span></div>
+<div id="L47" class="ln blank" data-n="47" style="--i:0"><span class="t"></span></div>
+<div id="L48" class="ln" data-n="48" style="--i:2"><span class="t">table<span class="o">.</span><wbr>insert<span class="o">(</span><wbr>result<span class="o">,</span> v<span class="o">)</span></span></div>
+<div id="L49" class="ln" data-n="49" style="--i:1"><span class="t"><span class="k">end</span></span></div>
+<div id="L50" class="ln blank" data-n="50" style="--i:0"><span class="t"></span></div>
+<div id="L51" class="ln" data-n="51" style="--i:1"><span class="t"><span class="k">return</span> result</span></div>
+<div id="L52" class="ln" data-n="52" style="--i:0"><span class="t"><span class="k">end</span></span></div>
+<div id="L53" class="ln blank" data-n="53" style="--i:0"><span class="t"></span></div>
+<div id="L54" class="ln" data-n="54" style="--i:0"><span class="t"><span class="k">function</span> <span class="f">Beacon</span><span class="o">:</span><wbr><span class="f">capture</span><span class="o">(</span><wbr>owner<span class="o">,</span> items<span class="o">)</span></span></div>
+<div id="L55" class="ln" data-n="55" style="--i:1"><span class="t">self<span class="o">.</span><wbr>owner <span class="o">=</span> owner</span></div>
+<div id="L56" class="ln" data-n="56" style="--i:1"><span class="t">self<span class="o">.</span><wbr>progress <span class="o">=</span> <span class="n">0</span></span></div>
+<div id="L57" class="ln" data-n="57" style="--i:1"><span class="t">TweenService<span class="o">:</span><wbr>Create<span class="o">(</span><wbr>self<span class="o">.</span><wbr>lamp<span class="o">,</span> TweenInfo<span class="o">.</span><wbr>new<span class="o">(</span><wbr><mark class="ns" data-note="n7">frames<span class="o">(</span><wbr><span class="n">45</span><span class="o">)</span></mark><span class="o">)</span><span class="o">,</span> <span class="o">{</span> Color <span class="o">=</span> owner<span class="o">.</span><wbr>TeamColor<span class="o">.</span><wbr>Color <span class="o">}</span><span class="o">)</span><span class="o">:</span><wbr>Play<span class="o">(</span><wbr><span class="o">)</span> <span class="r">-- inferred equivalent call</span></span><b class="mk" data-step="s5" aria-hidden="true">05</b></div>
+<div id="L58" class="ln blank" data-n="58" style="--i:0"><span class="t"></span></div>
+<div id="L59" class="ln" data-n="59" style="--i:1"><span class="t"><span class="k">for</span> _<span class="o">,</span> item <span class="k">in</span> items <span class="k">do</span></span></div>
+<div id="L60" class="ln" data-n="60" style="--i:2"><span class="t">award<span class="o">(</span><wbr>item<span class="o">,</span> <span class="n">25</span><span class="o">)</span> <span class="r">-- inferred equivalent call</span></span></div>
+<div id="L61" class="ln" data-n="61" style="--i:1"><span class="t"><span class="k">end</span></span></div>
+<div id="L62" class="ln blank" data-n="62" style="--i:0"><span class="t"></span></div>
+<div id="L63" class="ln" data-n="63" style="--i:1"><span class="t">announce<span class="o">:</span><wbr>FireAllClients<span class="o">(</span><wbr><span class="s">`{</span>owner<span class="o">.</span><wbr>Name<span class="s">} lit {</span>self<span class="o">.</span><wbr>model<span class="o">.</span><wbr>Name<span class="s">}`</span><span class="o">)</span></span></div>
+<div id="L64" class="ln" data-n="64" style="--i:0"><span class="t"><span class="k">end</span></span></div>
+<div id="L65" class="ln blank" data-n="65" style="--i:0"><span class="t"></span></div>
+<div id="L66" class="ln" data-n="66" style="--i:0"><span class="t"><span class="k">function</span> <span class="f">Beacon</span><span class="o">:</span><wbr><span class="f">step</span><span class="o">(</span><wbr>p<span class="o">)</span></span></div>
+<div id="L67" class="ln" data-n="67" style="--i:1"><span class="t"><span class="k">local</span> playersNear <span class="o">=</span> self<span class="o">:</span><wbr>playersNear<span class="o">(</span><wbr><span class="o">)</span></span></div>
+<div id="L68" class="ln blank" data-n="68" style="--i:0"><span class="t"></span></div>
+<div id="L69" class="ln" data-n="69" style="--i:1"><span class="t"><span class="k">if</span> <span class="o">#</span>playersNear <span class="o">==</span> <span class="n">0</span> <span class="k">then</span></span></div>
+<div id="L70" class="ln" data-n="70" style="--i:2"><span class="t">self<span class="o">.</span><wbr>progress <span class="o">=</span> math<span class="o">.</span><wbr>max<span class="o">(</span><wbr>self<span class="o">.</span><wbr>progress <span class="o">-</span> p <span class="o">/</span> <span class="n">5</span><span class="o">,</span> <span class="n">0</span><span class="o">)</span></span></div>
+<div id="L71" class="ln" data-n="71" style="--i:2"><span class="t"><span class="k">return</span></span></div>
+<div id="L72" class="ln" data-n="72" style="--i:1"><span class="t"><span class="k">end</span></span></div>
+<div id="L73" class="ln blank" data-n="73" style="--i:0"><span class="t"></span></div>
+<div id="L74" class="ln" data-n="74" style="--i:1"><span class="t"><span class="k">local</span> team <span class="o">=</span> playersNear<span class="o">[</span><span class="n">1</span><span class="o">]</span><span class="o">.</span><wbr>Team</span></div>
+<div id="L75" class="ln blank" data-n="75" style="--i:0"><span class="t"></span></div>
+<div id="L76" class="ln" data-n="76" style="--i:1"><span class="t"><span class="k">if</span> team <span class="o">==</span> self<span class="o">.</span><wbr>owner <span class="k">then</span></span></div>
+<div id="L77" class="ln" data-n="77" style="--i:2"><span class="t"><span class="k">return</span></span></div>
+<div id="L78" class="ln" data-n="78" style="--i:1"><span class="t"><span class="k">end</span></span></div>
+<div id="L79" class="ln blank" data-n="79" style="--i:0"><span class="t"></span></div>
+<div id="L80" class="ln" data-n="80" style="--i:1"><span class="t"><span class="k">for</span> _<span class="o">,</span> v <span class="k">in</span> playersNear <span class="k">do</span></span></div>
+<div id="L81" class="ln" data-n="81" style="--i:2"><span class="t"><span class="k">if</span> v<span class="o">.</span><wbr>Team <span class="o">~=</span> team <span class="k">then</span></span></div>
+<div id="L82" class="ln" data-n="82" style="--i:3"><span class="t"><span class="k">return</span></span></div>
+<div id="L83" class="ln" data-n="83" style="--i:2"><span class="t"><span class="k">end</span></span></div>
+<div id="L84" class="ln" data-n="84" style="--i:1"><span class="t"><span class="k">end</span></span></div>
+<div id="L85" class="ln blank" data-n="85" style="--i:0"><span class="t"></span></div>
+<div id="L86" class="ln" data-n="86" style="--i:1"><span class="t">self<span class="o">.</span><wbr>progress <span class="o">+=</span> p <span class="o">/</span> <span class="n">5</span></span></div>
+<div id="L87" class="ln" data-n="87" style="--i:1"><span class="t">self<span class="o">.</span><wbr>lamp<span class="o">.</span><wbr>Transparency <span class="o">=</span> <span class="n">1</span> <span class="o">-</span> self<span class="o">.</span><wbr>progress <span class="o">*</span> <span class="o">(</span><wbr><mark class="ns" data-note="n10"><span class="n">2</span> <span class="o">/</span> <span class="n">3</span></mark><span class="o">)</span></span><b class="mk" data-step="s6" aria-hidden="true">06</b></div>
+<div id="L88" class="ln blank" data-n="88" style="--i:0"><span class="t"></span></div>
+<div id="L89" class="ln" data-n="89" style="--i:1"><span class="t"><span class="k">if</span> self<span class="o">.</span><wbr>progress <span class="o">&gt;=</span> <span class="n">1</span> <span class="k">then</span></span></div>
+<div id="L90" class="ln" data-n="90" style="--i:2"><span class="t">self<span class="o">:</span><wbr>capture<span class="o">(</span><wbr>team<span class="o">,</span> playersNear<span class="o">)</span></span></div>
+<div id="L91" class="ln" data-n="91" style="--i:1"><span class="t"><span class="k">end</span></span></div>
+<div id="L92" class="ln" data-n="92" style="--i:0"><span class="t"><span class="k">end</span></span></div>
+<div id="L93" class="ln blank" data-n="93" style="--i:0"><span class="t"></span></div>
+<div id="L94" class="ln" data-n="94" style="--i:0"><span class="t"><span class="k">function</span> <span class="f">Beacon</span><span class="o">.</span><wbr><span class="f">start</span><span class="o">(</span><wbr>instance<span class="o">)</span></span></div>
+<div id="L95" class="ln" data-n="95" style="--i:1"><span class="t"><span class="k">local</span> result <span class="o">=</span> <span class="o">{</span><span class="o">}</span></span></div>
+<div id="L96" class="ln blank" data-n="96" style="--i:0"><span class="t"></span></div>
+<div id="L97" class="ln" data-n="97" style="--i:1"><span class="t"><span class="k">for</span> _<span class="o">,</span> model <span class="k">in</span> instance<span class="o">:</span><wbr>GetChildren<span class="o">(</span><wbr><span class="o">)</span> <span class="k">do</span></span></div>
+<div id="L98" class="ln" data-n="98" style="--i:2"><span class="t"><span class="k">if</span> <span class="k">not</span> model<span class="o">:</span><wbr>IsA<span class="o">(</span><wbr><span class="s">"Model"</span><span class="o">)</span> <span class="k">then</span></span></div>
+<div id="L99" class="ln" data-n="99" style="--i:3"><span class="t"><span class="k">continue</span></span></div>
+<div id="L100" class="ln" data-n="100" style="--i:2"><span class="t"><span class="k">end</span></span></div>
+<div id="L101" class="ln blank" data-n="101" style="--i:0"><span class="t"></span></div>
+<div id="L102" class="ln" data-n="102" style="--i:2"><span class="t">table<span class="o">.</span><wbr>insert<span class="o">(</span><wbr>result<span class="o">,</span> Beacon<span class="o">.</span><wbr>new<span class="o">(</span><wbr>model<span class="o">)</span><span class="o">)</span></span></div>
+<div id="L103" class="ln blank" data-n="103" style="--i:0"><span class="t"></span></div>
+<div id="L104" class="ln" data-n="104" style="--i:2"><span class="t"><span class="k">if</span> <span class="o">#</span>result <span class="o">&gt;=</span> <span class="n">8</span> <span class="k">then</span></span></div>
+<div id="L105" class="ln" data-n="105" style="--i:3"><span class="t"><span class="k">break</span></span></div>
+<div id="L106" class="ln" data-n="106" style="--i:2"><span class="t"><span class="k">end</span></span></div>
+<div id="L107" class="ln" data-n="107" style="--i:1"><span class="t"><span class="k">end</span></span></div>
+<div id="L108" class="ln blank" data-n="108" style="--i:0"><span class="t"></span></div>
+<div id="L109" class="ln" data-n="109" style="--i:1"><span class="t"><span class="k">local</span> heartbeatConnection <span class="o">=</span> <span class="k">nil</span></span></div>
+<div id="L110" class="ln" data-n="110" style="--i:1"><span class="t">heartbeatConnection <span class="o">=</span> RunService<span class="o">.</span><wbr>Heartbeat<span class="o">:</span><wbr>Connect<span class="o">(</span><wbr><span class="k">function</span><span class="o">(</span><wbr>dt<span class="o">)</span></span></div>
+<div id="L111" class="ln" data-n="111" style="--i:2"><span class="t"><span class="k">if</span> instance<span class="o">.</span><wbr>Parent <span class="o">==</span> <span class="k">nil</span> <span class="k">then</span></span></div>
+<div id="L112" class="ln" data-n="112" style="--i:3"><span class="t">heartbeatConnection<span class="o">:</span><wbr>Disconnect<span class="o">(</span><wbr><span class="o">)</span></span></div>
+<div id="L113" class="ln" data-n="113" style="--i:3"><span class="t"><span class="k">return</span></span></div>
+<div id="L114" class="ln" data-n="114" style="--i:2"><span class="t"><span class="k">end</span></span></div>
+<div id="L115" class="ln blank" data-n="115" style="--i:0"><span class="t"></span></div>
+<div id="L116" class="ln" data-n="116" style="--i:2"><span class="t"><span class="k">for</span> _<span class="o">,</span> v <span class="k">in</span> result <span class="k">do</span></span></div>
+<div id="L117" class="ln" data-n="117" style="--i:3"><span class="t">v<span class="o">:</span><wbr>step<span class="o">(</span><wbr>dt<span class="o">)</span></span></div>
+<div id="L118" class="ln" data-n="118" style="--i:2"><span class="t"><span class="k">end</span></span></div>
+<div id="L119" class="ln" data-n="119" style="--i:1"><span class="t"><span class="k">end</span><span class="o">)</span></span></div>
+<div id="L120" class="ln" data-n="120" style="--i:1"><span class="t">Players<span class="o">.</span><wbr>PlayerAdded<span class="o">:</span><wbr>Connect<span class="o">(</span><wbr><span class="k">function</span><span class="o">(</span><wbr>player<span class="o">)</span></span></div>
+<div id="L121" class="ln" data-n="121" style="--i:2"><span class="t">player<span class="o">.</span><wbr>CharacterAdded<span class="o">:</span><wbr>Connect<span class="o">(</span><wbr><span class="k">function</span><span class="o">(</span><wbr>character<span class="o">)</span></span></div>
+<div id="L122" class="ln" data-n="122" style="--i:3"><span class="t"><span class="k">local</span> humanoid <span class="o">=</span> character<span class="o">:</span><wbr>WaitForChild<span class="o">(</span><wbr><span class="s">"Humanoid"</span><span class="o">)</span></span></div>
+<div id="L123" class="ln" data-n="123" style="--i:3"><span class="t"><span class="k">local</span> highlight <span class="o">=</span> Instance<span class="o">.</span><wbr>new<span class="o">(</span><wbr><span class="s">"Highlight"</span><span class="o">)</span></span></div>
+<div id="L124" class="ln" data-n="124" style="--i:3"><span class="t">highlight<span class="o">.</span><wbr>Adornee <span class="o">=</span> character</span></div>
+<div id="L125" class="ln" data-n="125" style="--i:3"><span class="t">highlight<span class="o">.</span><wbr>FillColor <span class="o">=</span> player<span class="o">.</span><wbr>TeamColor<span class="o">.</span><wbr>Color</span></div>
+<div id="L126" class="ln" data-n="126" style="--i:3"><span class="t">highlight<span class="o">.</span><wbr>Parent <span class="o">=</span> character</span></div>
+<div id="L127" class="ln" data-n="127" style="--i:3"><span class="t"><span class="k">local</span> lastTime <span class="o">=</span> os<span class="o">.</span><wbr>clock<span class="o">(</span><wbr><span class="o">)</span></span></div>
+<div id="L128" class="ln blank" data-n="128" style="--i:0"><span class="t"></span></div>
+<div id="L129" class="ln" data-n="129" style="--i:3"><span class="t"><span class="k">while</span> os<span class="o">.</span><wbr>clock<span class="o">(</span><wbr><span class="o">)</span> <span class="o">-</span> lastTime <span class="o">&lt;</span> <span class="n">2</span> <span class="k">do</span></span></div>
+<div id="L130" class="ln" data-n="130" style="--i:4"><span class="t"><span class="k">if</span> <span class="k">not</span> isAlive<span class="o">(</span><wbr>humanoid<span class="o">)</span> <span class="k">then</span> <span class="r">-- inferred equivalent call</span></span></div>
+<div id="L131" class="ln" data-n="131" style="--i:5"><span class="t"><span class="k">break</span></span></div>
+<div id="L132" class="ln" data-n="132" style="--i:4"><span class="t"><span class="k">end</span></span></div>
+<div id="L133" class="ln blank" data-n="133" style="--i:0"><span class="t"></span></div>
+<div id="L134" class="ln" data-n="134" style="--i:4"><span class="t">highlight<span class="o">.</span><wbr>FillTransparency <span class="o">=</span> <span class="o">(</span><wbr>os<span class="o">.</span><wbr>clock<span class="o">(</span><wbr><span class="o">)</span> <span class="o">-</span> lastTime<span class="o">)</span> <span class="o">/</span> <span class="n">2</span></span></div>
+<div id="L135" class="ln" data-n="135" style="--i:4"><span class="t">task<span class="o">.</span><wbr>wait<span class="o">(</span><wbr><mark class="ns" data-note="n13">frames<span class="o">(</span><wbr><span class="n">1</span><span class="o">)</span></mark><span class="o">)</span> <span class="r">-- inferred equivalent call</span></span><b class="mk" data-step="s7" aria-hidden="true">07</b></div>
+<div id="L136" class="ln" data-n="136" style="--i:3"><span class="t"><span class="k">end</span></span></div>
+<div id="L137" class="ln blank" data-n="137" style="--i:0"><span class="t"></span></div>
+<div id="L138" class="ln" data-n="138" style="--i:3"><span class="t">highlight<span class="o">:</span><wbr>Destroy<span class="o">(</span><wbr><span class="o">)</span></span></div>
+<div id="L139" class="ln" data-n="139" style="--i:3"><span class="t">humanoid<span class="o">.</span><wbr>Died<span class="o">:</span><wbr>Connect<span class="o">(</span><wbr><span class="k">function</span><span class="o">(</span><wbr><span class="o">)</span></span></div>
+<div id="L140" class="ln" data-n="140" style="--i:4"><span class="t">award<span class="o">(</span><wbr>player<span class="o">,</span> <span class="o">-</span><span class="n">25</span><span class="o">)</span> <span class="r">-- inferred equivalent call</span></span></div>
+<div id="L141" class="ln" data-n="141" style="--i:3"><span class="t"><span class="k">end</span><span class="o">)</span></span></div>
+<div id="L142" class="ln" data-n="142" style="--i:2"><span class="t"><span class="k">end</span><span class="o">)</span></span></div>
+<div id="L143" class="ln" data-n="143" style="--i:1"><span class="t"><span class="k">end</span><span class="o">)</span></span></div>
+<div id="L144" class="ln" data-n="144" style="--i:1"><span class="t"><span class="k">return</span> result</span></div>
+<div id="L145" class="ln" data-n="145" style="--i:0"><span class="t"><span class="k">end</span></span></div>
+<div id="L146" class="ln blank" data-n="146" style="--i:0"><span class="t"></span></div>
+<div id="L147" class="ln" data-n="147" style="--i:0"><span class="t"><span class="k">return</span> Beacon</span></div>
+<!-- /gen:tour-code -->
+            </div>
+            <div class="code hcode" id="hcode" hidden></div>
+          </div>
         </div>
-      </nav>
-      <div class="code" id="code">
-<!-- gen:script -->
-<section class="psg" id="p1" data-title="services" data-out="1-5" data-src="1-13" aria-label="services">
-<div class="psg-body" data-view="tovek">
-<div class="ln" id="L1" data-n="1" style="--i:0"><span class="t"><span class="k">local</span> <mark class="ns" data-note="n1">Players</mark> <span class="o">=</span> game<span class="o">:</span>GetService<span class="o">(</span><span class="s">"Players"</span><span class="o">)</span></span><button class="nm" type="button" aria-expanded="false" aria-controls="n1" data-note="n1"><span class="sr-only">Note </span>1</button></div>
-<aside class="note" id="n1" data-line="1" data-passage="p1" aria-label="Note 1: Names"><div class="note-in"><p class="nk"><span class="nn">01</span><span class="nkind">Names</span></p><p class="nt">Each service is named after the string it asks for. medal, the decompiler Tovek grew from, printed <code>v_u_1</code>, <code>v2</code>, <code>v_u_3</code> and <code>v_u_4</code>.</p><div class="ne"><p class="nel">medal printed</p><pre><span class="k">local</span> v_u_1 <span class="o">=</span> game<span class="o">:</span>GetService<span class="o">(</span><span class="s">"Players"</span><span class="o">)</span>
-<span class="k">local</span> v2 <span class="o">=</span> game<span class="o">:</span>GetService<span class="o">(</span><span class="s">"ReplicatedStorage"</span><span class="o">)</span>
-<span class="k">local</span> v_u_3 <span class="o">=</span> game<span class="o">:</span>GetService<span class="o">(</span><span class="s">"RunService"</span><span class="o">)</span>
-<span class="k">local</span> v_u_4 <span class="o">=</span> game<span class="o">:</span>GetService<span class="o">(</span><span class="s">"TweenService"</span><span class="o">)</span></pre></div></div></aside>
-<div class="ln" id="L2" data-n="2" style="--i:0"><span class="t"><span class="k">local</span> <mark class="ns" data-note="n1">ReplicatedStorage</mark> <span class="o">=</span> game<span class="o">:</span>GetService<span class="o">(</span><span class="s">"ReplicatedStorage"</span><span class="o">)</span></span></div>
-<div class="ln" id="L3" data-n="3" style="--i:0"><span class="t"><span class="k">local</span> <mark class="ns" data-note="n1">RunService</mark> <span class="o">=</span> game<span class="o">:</span>GetService<span class="o">(</span><span class="s">"RunService"</span><span class="o">)</span></span></div>
-<div class="ln" id="L4" data-n="4" style="--i:0"><span class="t"><span class="k">local</span> <mark class="ns" data-note="n1">TweenService</mark> <span class="o">=</span> game<span class="o">:</span>GetService<span class="o">(</span><span class="s">"TweenService"</span><span class="o">)</span></span></div>
-<div class="ln" id="L5" data-n="5" style="--i:0"><span class="t"><span class="k">local</span> announce <span class="o">=</span> ReplicatedStorage<span class="o">:</span>WaitForChild<span class="o">(</span><span class="s">"Remotes"</span><span class="o">)</span><span class="o">:</span>WaitForChild<span class="o">(</span><span class="s">"Announce"</span><span class="o">)</span></span></div>
-<div class="ln blank" id="L6" data-n="6" style="--i:0"><span class="t"></span></div>
-</div></section>
-<section class="psg" id="p2" data-title="frames" data-out="7-9" data-src="15-17" aria-label="frames">
-<div class="psg-body" data-view="tovek">
-<div class="ln" id="L7" data-n="7" style="--i:0"><span class="t"><span class="k">local</span> <span class="k">function</span> <span class="f">frames</span><span class="o">(</span>p<span class="o">)</span> <mark class="ns" data-note="n2"><span class="r">-- 2 equivalent calls inferred from this helper</span></mark></span><button class="nm" type="button" aria-expanded="false" aria-controls="n2" data-note="n2"><span class="sr-only">Note </span>2</button></div>
-<aside class="note" id="n2" data-line="7" data-passage="p2" aria-label="Note 2: Helper calls"><div class="note-in"><p class="nk"><span class="nn">02</span><span class="nkind">Helper calls</span></p><p class="nt">Luau -O2 pasted every call to its small helpers into the code that made it. Its own log counts 6 pasted copies in this script; Tovek writes all 6 back as calls. Releases before V2.6 wrote back at most 2.</p><div class="ne"><p class="nel">pasted (Luau’s log) · rebuilt (--stats-json)</p><pre>frames   2 pasted   2 rebuilt
+        <div class="fr-notes" id="fr-notes">
+<!-- gen:tour-steps -->
+<article class="step" id="s1" role="tabpanel" aria-labelledby="t1" data-note="n1" data-line="1" data-psg="services"><div class="st-in"><p class="st-k"><span class="st-n">01</span><span class="st-kind">Names</span><span class="st-of">of 08</span></p><h3 class="st-title">Names from evidence</h3><p class="st-text">Each service is named after the string it asks for. medal, the decompiler Tovek grew from, printed <code>v_u_1</code>, <code>v2</code>, <code>v_u_3</code> and <code>v_u_4</code>.</p><div class="ne"><p class="nel">medal printed</p><pre><span class="k">local</span> v_u_1 <span class="o">=</span> game<span class="o">:</span><wbr>GetService<span class="o">(</span><wbr><span class="s">"Players"</span><span class="o">)</span>
+<span class="k">local</span> v2 <span class="o">=</span> game<span class="o">:</span><wbr>GetService<span class="o">(</span><wbr><span class="s">"ReplicatedStorage"</span><span class="o">)</span>
+<span class="k">local</span> v_u_3 <span class="o">=</span> game<span class="o">:</span><wbr>GetService<span class="o">(</span><wbr><span class="s">"RunService"</span><span class="o">)</span>
+<span class="k">local</span> v_u_4 <span class="o">=</span> game<span class="o">:</span><wbr>GetService<span class="o">(</span><wbr><span class="s">"TweenService"</span><span class="o">)</span></pre></div></div></article>
+<article class="step" id="s2" role="tabpanel" aria-labelledby="t2" data-note="n2" data-line="7" data-psg="frames"><div class="st-in"><p class="st-k"><span class="st-n">02</span><span class="st-kind">Helper calls</span><span class="st-of">of 08</span></p><h3 class="st-title">6 pasted copies, 6 calls back</h3><p class="st-text">Luau -O2 pasted every call to its small helpers into the code that made it. Its own log counts 6 pasted copies in this script; Tovek writes all 6 back as calls. Releases before V2.6 wrote back at most 2.</p><div class="ne"><p class="nel">pasted (Luau’s log) · rebuilt (--stats-json)</p><pre>frames   2 pasted   2 rebuilt
 isAlive  2 pasted   2 rebuilt
-award    2 pasted   2 rebuilt</pre></div></div></aside>
-<div class="ln" id="L8" data-n="8" style="--i:1"><span class="t"><span class="k">return</span> p <span class="o">/</span> <span class="n">60</span></span></div>
-<div class="ln" id="L9" data-n="9" style="--i:0"><span class="t"><span class="k">end</span></span></div>
-<div class="ln blank" id="L10" data-n="10" style="--i:0"><span class="t"></span></div>
-</div></section>
-<section class="psg" id="p3" data-title="isAlive" data-out="11-13" data-src="19-21" aria-label="isAlive">
-<div class="psg-body" data-view="tovek">
-<div class="ln" id="L11" data-n="11" style="--i:0"><span class="t"><span class="k">local</span> <span class="k">function</span> <span class="f">isAlive</span><span class="o">(</span>humanoid<span class="o">)</span> <span class="r">-- 2 equivalent calls inferred from this helper</span></span></div>
-<div class="ln" id="L12" data-n="12" style="--i:1"><span class="t"><span class="k">return</span> humanoid <span class="o">~=</span> <span class="k">nil</span> <span class="k">and</span> humanoid<span class="o">.</span>Health <span class="o">&gt;</span> <span class="n">0</span></span></div>
-<div class="ln" id="L13" data-n="13" style="--i:0"><span class="t"><span class="k">end</span></span></div>
-<div class="ln blank" id="L14" data-n="14" style="--i:0"><span class="t"></span></div>
-</div></section>
-<section class="psg" id="p4" data-title="award" data-out="15-22" data-src="23-29" aria-label="award">
-<div class="psg-body" data-view="tovek">
-<div class="ln" id="L15" data-n="15" style="--i:0"><span class="t"><span class="k">local</span> <span class="k">function</span> <span class="f">award</span><span class="o">(</span>instance<span class="o">,</span> p<span class="o">)</span> <span class="r">-- 2 equivalent calls inferred from this helper</span></span></div>
-<div class="ln" id="L16" data-n="16" style="--i:1"><span class="t"><span class="k">local</span> leaderstats <span class="o">=</span> instance<span class="o">:</span>FindFirstChild<span class="o">(</span><span class="s">"leaderstats"</span><span class="o">)</span></span></div>
-<div class="ln" id="L17" data-n="17" style="--i:1"><span class="t"><span class="k">local</span> points <span class="o">=</span> leaderstats <span class="k">and</span> leaderstats<span class="o">:</span>FindFirstChild<span class="o">(</span><span class="s">"Points"</span><span class="o">)</span></span></div>
-<div class="ln blank" id="L18" data-n="18" style="--i:0"><span class="t"></span></div>
-<div class="ln" id="L19" data-n="19" style="--i:1"><span class="t"><span class="k">if</span> points <span class="k">then</span></span></div>
-<div class="ln" id="L20" data-n="20" style="--i:2"><span class="t">points<span class="o">.</span>Value <span class="o">+=</span> p</span></div>
-<div class="ln" id="L21" data-n="21" style="--i:1"><span class="t"><span class="k">end</span></span></div>
-<div class="ln" id="L22" data-n="22" style="--i:0"><span class="t"><span class="k">end</span></span></div>
-<div class="ln blank" id="L23" data-n="23" style="--i:0"><span class="t"></span></div>
-</div></section>
-<section class="psg" id="p5" data-title="Beacon" data-out="24-25" data-src="31-32" aria-label="Beacon">
-<div class="psg-body" data-view="tovek">
-<div class="ln" id="L24" data-n="24" style="--i:0"><span class="t"><span class="k">local</span> <mark class="ns" data-note="n3">Beacon</mark> <span class="o">=</span> <span class="o">{</span><span class="o">}</span></span><button class="nm" type="button" aria-expanded="false" aria-controls="n3" data-note="n3"><span class="sr-only">Note </span>3</button></div>
-<aside class="note" id="n3" data-line="24" data-passage="p5" aria-label="Note 3: Module name"><div class="note-in"><p class="nk"><span class="nn">03</span><span class="nkind">Module name</span></p><p class="nt">Named <code>Beacon</code> because the script returns this table and the script itself is called Beacon. medal printed <code>v_u_6</code>.</p><div class="ne"><p class="nel">medal printed</p><pre><span class="k">local</span> v_u_6 <span class="o">=</span> <span class="o">{</span><span class="o">}</span></pre></div></div></aside>
-<div class="ln" id="L25" data-n="25" style="--i:0"><span class="t">Beacon<span class="o">.</span>__index <span class="o">=</span> Beacon</span></div>
-<div class="ln blank" id="L26" data-n="26" style="--i:0"><span class="t"></span></div>
-</div></section>
-<section class="psg" id="p6" data-title="Beacon.new" data-out="27-34" data-src="34-41" aria-label="Beacon.new">
-<div class="psg-body" data-view="tovek">
-<div class="ln" id="L27" data-n="27" style="--i:0"><span class="t"><span class="k">function</span> <span class="f">Beacon</span><span class="o">.</span><span class="f">new</span><span class="o">(</span>model<span class="o">)</span></span></div>
-<div class="ln" id="L28" data-n="28" style="--i:1"><span class="t"><span class="k">local</span> object <span class="o">=</span> setmetatable<span class="o">(</span><span class="o">{</span><span class="o">}</span><span class="o">,</span> Beacon<span class="o">)</span></span></div>
-<div class="ln" id="L29" data-n="29" style="--i:1"><span class="t">object<span class="o">.</span>model <span class="o">=</span> model</span></div>
-<div class="ln" id="L30" data-n="30" style="--i:1"><span class="t">object<span class="o">.</span>lamp <span class="o">=</span> model<span class="o">:</span>WaitForChild<span class="o">(</span><span class="s">"Lamp"</span><span class="o">)</span></span></div>
-<div class="ln" id="L31" data-n="31" style="--i:1"><span class="t">object<span class="o">.</span>progress <span class="o">=</span> <span class="n">0</span></span></div>
-<div class="ln" id="L32" data-n="32" style="--i:1"><span class="t">object<span class="o">.</span>owner <span class="o">=</span> <span class="k">nil</span></span></div>
-<div class="ln" id="L33" data-n="33" style="--i:1"><span class="t"><span class="k">return</span> object</span></div>
-<div class="ln" id="L34" data-n="34" style="--i:0"><span class="t"><span class="k">end</span></span></div>
-<div class="ln blank" id="L35" data-n="35" style="--i:0"><span class="t"></span></div>
-</div></section>
-<section class="psg" id="p7" data-title="Beacon:playersNear" data-out="36-52" data-src="43-58" aria-label="Beacon:playersNear">
-<div class="psg-body" data-view="tovek">
-<div class="ln" id="L36" data-n="36" style="--i:0"><span class="t"><span class="k">function</span> <mark class="ns" data-note="n4"><span class="f">Beacon</span><span class="o">:</span><span class="f">playersNear</span><span class="o">(</span><span class="o">)</span></mark></span><button class="nm" type="button" aria-expanded="false" aria-controls="n4" data-note="n4"><span class="sr-only">Note </span>4</button></div>
-<aside class="note" id="n4" data-line="36" data-passage="p7" aria-label="Note 4: Method"><div class="note-in"><p class="nk"><span class="nn">04</span><span class="nkind">Method</span></p><p class="nt">In the bytecode this is a plain function whose first argument is the object. Tovek writes it with a colon and <code>self</code> because the script calls it as a method: <code>self:playersNear()</code> on line 67.</p><div class="ne"><p class="nel">medal printed</p><pre><span class="k">function</span> <span class="f">v_u_6</span><span class="o">.</span><span class="f">playersNear</span><span class="o">(</span>p10<span class="o">)</span></pre></div></div></aside>
-<div class="ln" id="L37" data-n="37" style="--i:1"><span class="t"><span class="k">local</span> position <span class="o">=</span> self<span class="o">.</span>model<span class="o">:</span>GetPivot<span class="o">(</span><span class="o">)</span><span class="o">.</span>Position</span></div>
-<div class="ln" id="L38" data-n="38" style="--i:1"><span class="t"><span class="k">local</span> result <span class="o">=</span> <span class="o">{</span><span class="o">}</span></span></div>
-<div class="ln blank" id="L39" data-n="39" style="--i:0"><span class="t"></span></div>
-<div class="ln" id="L40" data-n="40" style="--i:1"><span class="t"><span class="k">for</span> _<span class="o">,</span> <mark class="ns" data-note="n5">v</mark> <span class="k">in</span> Players<span class="o">:</span>GetPlayers<span class="o">(</span><span class="o">)</span> <span class="k">do</span></span><button class="nm" type="button" aria-expanded="false" aria-controls="n5" data-note="n5"><span class="sr-only">Note </span>5</button></div>
-<aside class="note" id="n5" data-line="40" data-passage="p7" aria-label="Note 5: No evidence"><div class="note-in"><p class="nk"><span class="nn">05</span><span class="nkind">No evidence</span></p><p class="nt"><code>v</code>: no rule gives this value a name, so Tovek keeps a plain one rather than guess. The whole script has 2 plain names left (<code>p</code>, <code>v</code>); medal’s output had 41.</p></div></aside>
-<div class="ln" id="L41" data-n="41" style="--i:2"><span class="t"><span class="k">local</span> character <span class="o">=</span> v<span class="o">.</span>Character</span></div>
-<div class="ln" id="L42" data-n="42" style="--i:2"><span class="t"><span class="k">local</span> humanoid <span class="o">=</span> character <span class="k">and</span> character<span class="o">:</span>FindFirstChildOfClass<span class="o">(</span><span class="s">"Humanoid"</span><span class="o">)</span></span></div>
-<div class="ln blank" id="L43" data-n="43" style="--i:0"><span class="t"></span></div>
-<div class="ln" id="L44" data-n="44" style="--i:2"><span class="t"><span class="k">if</span> <span class="k">not</span> <span class="o">(</span><mark class="ns" data-note="n6">isAlive<span class="o">(</span>humanoid<span class="o">)</span></mark> <span class="k">and</span> <span class="o">(</span>character<span class="o">:</span>GetPivot<span class="o">(</span><span class="o">)</span><span class="o">.</span>Position <span class="o">-</span> position<span class="o">)</span><span class="o">.</span>Magnitude <span class="o">&lt;=</span> <span class="n">12</span><span class="o">)</span> <span class="k">then</span> <span class="r">-- inferred equivalent call</span></span><button class="nm" type="button" aria-expanded="false" aria-controls="n6" data-note="n6"><span class="sr-only">Note </span>6</button></div>
-<aside class="note" id="n6" data-line="44" data-passage="p7" aria-label="Note 6: Line evidence"><div class="note-in"><p class="nk"><span class="nn">06</span><span class="nkind">Line evidence</span></p><p class="nt">Here the copy of <code>isAlive</code> was 8 instructions in the middle of a condition. Each one still carries line 20, the <code>return</code> inside <code>isAlive</code>, in the bytecode’s line table. Tovek checks that before it writes the call back.</p><div class="ne"><p class="nel">bytecode, every row on line 20</p><pre><span class="op">LOADB</span>       R10 0
+award    2 pasted   2 rebuilt</pre></div></div></article>
+<article class="step" id="s3" role="tabpanel" aria-labelledby="t3" data-note="n4" data-line="36" data-psg="Beacon:playersNear"><div class="st-in"><p class="st-k"><span class="st-n">03</span><span class="st-kind">Method</span><span class="st-of">of 08</span></p><h3 class="st-title">A method again, with self</h3><p class="st-text">In the bytecode this is a plain function whose first argument is the object. Tovek writes it with a colon and <code>self</code> because the script calls it as a method: <code>self:playersNear()</code> on line 67.</p><div class="ne"><p class="nel">medal printed</p><pre><span class="k">function</span> <span class="f">v_u_6</span><span class="o">.</span><wbr><span class="f">playersNear</span><span class="o">(</span><wbr>p10<span class="o">)</span></pre></div></div></article>
+<article class="step" id="s4" role="tabpanel" aria-labelledby="t4" data-note="n6" data-line="44" data-psg="Beacon:playersNear"><div class="st-in"><p class="st-k"><span class="st-n">04</span><span class="st-kind">Line evidence</span><span class="st-of">of 08</span></p><h3 class="st-title">The bytecode remembers its lines</h3><p class="st-text">Here the copy of <code>isAlive</code> was 8 instructions in the middle of a condition. Each one still carries line 20, the <code>return</code> inside <code>isAlive</code>, in the bytecode’s line table. Tovek checks that before it writes the call back.</p><div class="ne"><p class="nel">bytecode, every row on line 20</p><pre><span class="op">LOADB</span>       R10 0
 <span class="op">JUMPXEQKNIL</span> R9 L3
 <span class="op">GETTABLEKS</span>  R11 R9 K7 <span class="s">['Health']</span>
 <span class="op">LOADN</span>       R12 0
 <span class="op">JUMPIFLT</span>    R12 R11 L2
 <span class="op">LOADB</span>       R10 0 +1
 <span class="op">LOADB</span>       R10 1
-<span class="op">JUMPIFNOT</span>   R10 L4</pre></div></div></aside>
-<div class="ln" id="L45" data-n="45" style="--i:3"><span class="t"><span class="k">continue</span></span></div>
-<div class="ln" id="L46" data-n="46" style="--i:2"><span class="t"><span class="k">end</span></span></div>
-<div class="ln blank" id="L47" data-n="47" style="--i:0"><span class="t"></span></div>
-<div class="ln" id="L48" data-n="48" style="--i:2"><span class="t">table<span class="o">.</span>insert<span class="o">(</span>result<span class="o">,</span> v<span class="o">)</span></span></div>
-<div class="ln" id="L49" data-n="49" style="--i:1"><span class="t"><span class="k">end</span></span></div>
-<div class="ln blank" id="L50" data-n="50" style="--i:0"><span class="t"></span></div>
-<div class="ln" id="L51" data-n="51" style="--i:1"><span class="t"><span class="k">return</span> result</span></div>
-<div class="ln" id="L52" data-n="52" style="--i:0"><span class="t"><span class="k">end</span></span></div>
-<div class="ln blank" id="L53" data-n="53" style="--i:0"><span class="t"></span></div>
-</div></section>
-<section class="psg" id="p8" data-title="Beacon:capture" data-out="54-64" data-src="60-71" aria-label="Beacon:capture">
-<div class="psg-body" data-view="tovek">
-<div class="ln" id="L54" data-n="54" style="--i:0"><span class="t"><span class="k">function</span> <span class="f">Beacon</span><span class="o">:</span><span class="f">capture</span><span class="o">(</span>owner<span class="o">,</span> items<span class="o">)</span></span></div>
-<div class="ln" id="L55" data-n="55" style="--i:1"><span class="t">self<span class="o">.</span>owner <span class="o">=</span> owner</span></div>
-<div class="ln" id="L56" data-n="56" style="--i:1"><span class="t">self<span class="o">.</span>progress <span class="o">=</span> <span class="n">0</span></span></div>
-<div class="ln" id="L57" data-n="57" style="--i:1"><span class="t">TweenService<span class="o">:</span>Create<span class="o">(</span>self<span class="o">.</span>lamp<span class="o">,</span> TweenInfo<span class="o">.</span>new<span class="o">(</span><mark class="ns" data-note="n7">frames<span class="o">(</span><span class="n">45</span><span class="o">)</span></mark><span class="o">)</span><span class="o">,</span> <span class="o">{</span> Color <span class="o">=</span> owner<span class="o">.</span>TeamColor<span class="o">.</span>Color <span class="o">}</span><span class="o">)</span><span class="o">:</span>Play<span class="o">(</span><span class="o">)</span> <span class="r">-- inferred equivalent call</span></span><button class="nm" type="button" aria-expanded="false" aria-controls="n7" data-note="n7"><span class="sr-only">Note </span>7</button></div>
-<aside class="note" id="n7" data-line="57" data-passage="p8" aria-label="Note 7: Folded constant"><div class="note-in"><p class="nk"><span class="nn">07</span><span class="nkind">Folded constant</span></p><p class="nt">Luau folded <code>frames(45)</code> into the number 0.75. That 0.75 still carries line 16, the <code>return</code> inside <code>frames</code>, so Tovek writes the call back after checking that 45 / 60 is exactly 0.75. medal and every release before V2.6 printed <code>TweenInfo.new(0.75)</code>.</p><div class="ne"><p class="nel">bytecode, line 16</p><pre><span class="op">LOADK</span>       R7 K6 <span class="s">[0.75]</span></pre></div></div></aside>
-<div class="ln blank" id="L58" data-n="58" style="--i:0"><span class="t"></span></div>
-<div class="ln" id="L59" data-n="59" style="--i:1"><span class="t"><span class="k">for</span> _<span class="o">,</span> item <span class="k">in</span> items <span class="k">do</span></span></div>
-<div class="ln" id="L60" data-n="60" style="--i:2"><span class="t">award<span class="o">(</span>item<span class="o">,</span> <span class="n">25</span><span class="o">)</span> <span class="r">-- inferred equivalent call</span></span></div>
-<div class="ln" id="L61" data-n="61" style="--i:1"><span class="t"><span class="k">end</span></span></div>
-<div class="ln blank" id="L62" data-n="62" style="--i:0"><span class="t"></span></div>
-<div class="ln" id="L63" data-n="63" style="--i:1"><span class="t">announce<span class="o">:</span>FireAllClients<span class="o">(</span><mark class="ns" data-note="n8"><span class="s">`{</span>owner<span class="o">.</span>Name<span class="s">} lit {</span>self<span class="o">.</span>model<span class="o">.</span>Name<span class="s">}`</span></mark><span class="o">)</span></span><button class="nm" type="button" aria-expanded="false" aria-controls="n8" data-note="n8"><span class="sr-only">Note </span>8</button></div>
-<aside class="note" id="n8" data-line="63" data-passage="p8" aria-label="Note 8: String"><div class="note-in"><p class="nk"><span class="nn">08</span><span class="nkind">String</span></p><p class="nt">Luau compiles a backtick string into a call to <code>format</code> with the pattern "%* lit %*". Tovek writes the backticks back.</p><div class="ne"><p class="nel">bytecode</p><pre><span class="op">LOADK</span>       R7 K17 <span class="s">['%* lit %*']</span>
-<span class="op">NAMECALL</span>    R7 R7 K20 <span class="s">['format']</span></pre></div></div></aside>
-<div class="ln" id="L64" data-n="64" style="--i:0"><span class="t"><span class="k">end</span></span></div>
-<div class="ln blank" id="L65" data-n="65" style="--i:0"><span class="t"></span></div>
-</div></section>
-<section class="psg" id="p9" data-title="Beacon:step" data-out="66-92" data-src="73-95" aria-label="Beacon:step">
-<div class="psg-body" data-view="tovek">
-<div class="ln" id="L66" data-n="66" style="--i:0"><span class="t"><span class="k">function</span> <span class="f">Beacon</span><span class="o">:</span><span class="f">step</span><span class="o">(</span>p<span class="o">)</span></span></div>
-<div class="ln" id="L67" data-n="67" style="--i:1"><span class="t"><span class="k">local</span> playersNear <span class="o">=</span> self<span class="o">:</span>playersNear<span class="o">(</span><span class="o">)</span></span></div>
-<div class="ln blank" id="L68" data-n="68" style="--i:0"><span class="t"></span></div>
-<div class="ln" id="L69" data-n="69" style="--i:1"><span class="t"><span class="k">if</span> <span class="o">#</span>playersNear <span class="o">==</span> <span class="n">0</span> <span class="k">then</span></span></div>
-<div class="ln" id="L70" data-n="70" style="--i:2"><span class="t">self<span class="o">.</span>progress <span class="o">=</span> math<span class="o">.</span>max<span class="o">(</span>self<span class="o">.</span>progress <span class="o">-</span> p <span class="o">/</span> <mark class="ns" data-note="n9"><span class="n">5</span></mark><span class="o">,</span> <span class="n">0</span><span class="o">)</span></span><button class="nm" type="button" aria-expanded="false" aria-controls="n9" data-note="n9"><span class="sr-only">Note </span>9</button></div>
-<aside class="note" id="n9" data-line="70" data-passage="p9" aria-label="Note 9: Not in the bytecode"><div class="note-in"><p class="nk"><span class="nn">09</span><span class="nkind">Not in the bytecode</span></p><p class="nt">This <code>5</code> was <code>CAPTURE_SECONDS</code> in the source. Luau put the number into each use, so the name never reached the bytecode, and Tovek prints the number instead of inventing a name. So are <code>12</code>, <code>25</code>, <code>8</code> and <code>2</code>, the source’s other named numbers.</p><div class="ne"><p class="nel">bytecode, line 76</p><pre><span class="op">DIVK</span>        R6 R1 K3 <span class="s">[5]</span></pre></div></div></aside>
-<div class="ln" id="L71" data-n="71" style="--i:2"><span class="t"><span class="k">return</span></span></div>
-<div class="ln" id="L72" data-n="72" style="--i:1"><span class="t"><span class="k">end</span></span></div>
-<div class="ln blank" id="L73" data-n="73" style="--i:0"><span class="t"></span></div>
-<div class="ln" id="L74" data-n="74" style="--i:1"><span class="t"><span class="k">local</span> team <span class="o">=</span> playersNear<span class="o">[</span><span class="n">1</span><span class="o">]</span><span class="o">.</span>Team</span></div>
-<div class="ln blank" id="L75" data-n="75" style="--i:0"><span class="t"></span></div>
-<div class="ln" id="L76" data-n="76" style="--i:1"><span class="t"><span class="k">if</span> team <span class="o">==</span> self<span class="o">.</span>owner <span class="k">then</span></span></div>
-<div class="ln" id="L77" data-n="77" style="--i:2"><span class="t"><span class="k">return</span></span></div>
-<div class="ln" id="L78" data-n="78" style="--i:1"><span class="t"><span class="k">end</span></span></div>
-<div class="ln blank" id="L79" data-n="79" style="--i:0"><span class="t"></span></div>
-<div class="ln" id="L80" data-n="80" style="--i:1"><span class="t"><span class="k">for</span> _<span class="o">,</span> v <span class="k">in</span> playersNear <span class="k">do</span></span></div>
-<div class="ln" id="L81" data-n="81" style="--i:2"><span class="t"><span class="k">if</span> v<span class="o">.</span>Team <span class="o">~=</span> team <span class="k">then</span></span></div>
-<div class="ln" id="L82" data-n="82" style="--i:3"><span class="t"><span class="k">return</span></span></div>
-<div class="ln" id="L83" data-n="83" style="--i:2"><span class="t"><span class="k">end</span></span></div>
-<div class="ln" id="L84" data-n="84" style="--i:1"><span class="t"><span class="k">end</span></span></div>
-<div class="ln blank" id="L85" data-n="85" style="--i:0"><span class="t"></span></div>
-<div class="ln" id="L86" data-n="86" style="--i:1"><span class="t">self<span class="o">.</span>progress <span class="o">+=</span> p <span class="o">/</span> <span class="n">5</span></span></div>
-<div class="ln" id="L87" data-n="87" style="--i:1"><span class="t">self<span class="o">.</span>lamp<span class="o">.</span>Transparency <span class="o">=</span> <span class="n">1</span> <span class="o">-</span> self<span class="o">.</span>progress <span class="o">*</span> <span class="o">(</span><mark class="ns" data-note="n10"><span class="n">2</span> <span class="o">/</span> <span class="n">3</span></mark><span class="o">)</span></span><button class="nm" type="button" aria-expanded="false" aria-controls="n10" data-note="n10"><span class="sr-only">Note </span>10</button></div>
-<aside class="note" id="n10" data-line="87" data-passage="p9" aria-label="Note 10: Exact fraction"><div class="note-in"><p class="nk"><span class="nn">10</span><span class="nkind">Exact fraction</span></p><p class="nt">The bytecode holds 0.6666666666666666, the double nearest to two thirds. <code>2 / 3</code> compiles back to exactly that double, bit for bit (0x3FE5555555555555), so Tovek prints the fraction.</p><div class="ne"><p class="nel">medal printed</p><pre>p22<span class="o">.</span>lamp<span class="o">.</span>Transparency <span class="o">=</span> <span class="n">1</span> <span class="o">-</span> p22<span class="o">.</span>progress <span class="o">*</span> <span class="n">0.6666666666666666</span></pre></div></div></aside>
-<div class="ln blank" id="L88" data-n="88" style="--i:0"><span class="t"></span></div>
-<div class="ln" id="L89" data-n="89" style="--i:1"><span class="t"><span class="k">if</span> self<span class="o">.</span>progress <span class="o">&gt;=</span> <span class="n">1</span> <span class="k">then</span></span></div>
-<div class="ln" id="L90" data-n="90" style="--i:2"><span class="t">self<span class="o">:</span>capture<span class="o">(</span>team<span class="o">,</span> playersNear<span class="o">)</span></span></div>
-<div class="ln" id="L91" data-n="91" style="--i:1"><span class="t"><span class="k">end</span></span></div>
-<div class="ln" id="L92" data-n="92" style="--i:0"><span class="t"><span class="k">end</span></span></div>
-<div class="ln blank" id="L93" data-n="93" style="--i:0"><span class="t"></span></div>
-</div></section>
-<section class="psg" id="p10" data-title="Beacon.start" data-out="94-145" data-src="97-144" aria-label="Beacon.start">
-<div class="psg-body" data-view="tovek">
-<div class="ln" id="L94" data-n="94" style="--i:0"><span class="t"><span class="k">function</span> <span class="f">Beacon</span><span class="o">.</span><span class="f">start</span><span class="o">(</span>instance<span class="o">)</span></span></div>
-<div class="ln" id="L95" data-n="95" style="--i:1"><span class="t"><span class="k">local</span> result <span class="o">=</span> <span class="o">{</span><span class="o">}</span></span></div>
-<div class="ln blank" id="L96" data-n="96" style="--i:0"><span class="t"></span></div>
-<div class="ln" id="L97" data-n="97" style="--i:1"><span class="t"><span class="k">for</span> _<span class="o">,</span> model <span class="k">in</span> instance<span class="o">:</span>GetChildren<span class="o">(</span><span class="o">)</span> <span class="k">do</span></span></div>
-<div class="ln" id="L98" data-n="98" style="--i:2"><span class="t"><span class="k">if</span> <span class="k">not</span> model<span class="o">:</span>IsA<span class="o">(</span><span class="s">"Model"</span><span class="o">)</span> <span class="k">then</span></span></div>
-<div class="ln" id="L99" data-n="99" style="--i:3"><span class="t"><span class="k">continue</span></span></div>
-<div class="ln" id="L100" data-n="100" style="--i:2"><span class="t"><span class="k">end</span></span></div>
-<div class="ln blank" id="L101" data-n="101" style="--i:0"><span class="t"></span></div>
-<div class="ln" id="L102" data-n="102" style="--i:2"><span class="t">table<span class="o">.</span>insert<span class="o">(</span>result<span class="o">,</span> Beacon<span class="o">.</span>new<span class="o">(</span>model<span class="o">)</span><span class="o">)</span></span></div>
-<div class="ln blank" id="L103" data-n="103" style="--i:0"><span class="t"></span></div>
-<div class="ln" id="L104" data-n="104" style="--i:2"><span class="t"><span class="k">if</span> <span class="o">#</span>result <span class="o">&gt;=</span> <span class="n">8</span> <span class="k">then</span></span></div>
-<div class="ln" id="L105" data-n="105" style="--i:3"><span class="t"><span class="k">break</span></span></div>
-<div class="ln" id="L106" data-n="106" style="--i:2"><span class="t"><span class="k">end</span></span></div>
-<div class="ln" id="L107" data-n="107" style="--i:1"><span class="t"><span class="k">end</span></span></div>
-<div class="ln blank" id="L108" data-n="108" style="--i:0"><span class="t"></span></div>
-<div class="ln" id="L109" data-n="109" style="--i:1"><span class="t"><span class="k">local</span> <mark class="ns" data-note="n11">heartbeatConnection</mark> <span class="o">=</span> <span class="k">nil</span></span><button class="nm" type="button" aria-expanded="false" aria-controls="n11" data-note="n11"><span class="sr-only">Note </span>11</button></div>
-<aside class="note" id="n11" data-line="109" data-passage="p10" aria-label="Note 11: Name"><div class="note-in"><p class="nk"><span class="nn">11</span><span class="nkind">Name</span></p><p class="nt"><code>heartbeatConnection</code>: named after what it holds, <code>RunService.Heartbeat:Connect(…)</code>. The callback disconnects itself, so the variable is declared first, as in the source.</p><div class="ne"><p class="nel">medal printed</p><pre><span class="k">local</span> v_u_32 <span class="o">=</span> <span class="k">nil</span>
-v_u_32 <span class="o">=</span> v_u_3<span class="o">.</span>Heartbeat<span class="o">:</span>Connect<span class="o">(</span><span class="k">function</span><span class="o">(</span>p33<span class="o">)</span></pre></div></div></aside>
-<div class="ln" id="L110" data-n="110" style="--i:1"><span class="t"><mark class="ns" data-note="n11">heartbeatConnection</mark> <span class="o">=</span> RunService<span class="o">.</span>Heartbeat<span class="o">:</span>Connect<span class="o">(</span><span class="k">function</span><span class="o">(</span>dt<span class="o">)</span></span></div>
-<div class="ln" id="L111" data-n="111" style="--i:2"><span class="t"><span class="k">if</span> instance<span class="o">.</span>Parent <span class="o">==</span> <span class="k">nil</span> <span class="k">then</span></span></div>
-<div class="ln" id="L112" data-n="112" style="--i:3"><span class="t">heartbeatConnection<span class="o">:</span>Disconnect<span class="o">(</span><span class="o">)</span></span></div>
-<div class="ln" id="L113" data-n="113" style="--i:3"><span class="t"><span class="k">return</span></span></div>
-<div class="ln" id="L114" data-n="114" style="--i:2"><span class="t"><span class="k">end</span></span></div>
-<div class="ln blank" id="L115" data-n="115" style="--i:0"><span class="t"></span></div>
-<div class="ln" id="L116" data-n="116" style="--i:2"><span class="t"><span class="k">for</span> _<span class="o">,</span> v <span class="k">in</span> result <span class="k">do</span></span></div>
-<div class="ln" id="L117" data-n="117" style="--i:3"><span class="t">v<span class="o">:</span>step<span class="o">(</span>dt<span class="o">)</span></span></div>
-<div class="ln" id="L118" data-n="118" style="--i:2"><span class="t"><span class="k">end</span></span></div>
-<div class="ln" id="L119" data-n="119" style="--i:1"><span class="t"><span class="k">end</span><span class="o">)</span></span></div>
-<div class="ln" id="L120" data-n="120" style="--i:1"><span class="t">Players<span class="o">.</span>PlayerAdded<span class="o">:</span>Connect<span class="o">(</span><span class="k">function</span><span class="o">(</span>player<span class="o">)</span></span></div>
-<div class="ln" id="L121" data-n="121" style="--i:2"><span class="t">player<span class="o">.</span>CharacterAdded<span class="o">:</span>Connect<span class="o">(</span><span class="k">function</span><span class="o">(</span><mark class="ns" data-note="n12">character</mark><span class="o">)</span></span><button class="nm" type="button" aria-expanded="false" aria-controls="n12" data-note="n12"><span class="sr-only">Note </span>12</button></div>
-<aside class="note" id="n12" data-line="121" data-passage="p10" aria-label="Note 12: Name"><div class="note-in"><p class="nk"><span class="nn">12</span><span class="nkind">Name</span></p><p class="nt"><code>character</code>: the argument <code>CharacterAdded</code> passes. Names come from evidence in the code: events, services, what a value is created from and how it is used.</p><div class="ne"><p class="nel">medal printed</p><pre>p_u_35<span class="o">.</span>CharacterAdded<span class="o">:</span>Connect<span class="o">(</span><span class="k">function</span><span class="o">(</span>p36<span class="o">)</span></pre></div></div></aside>
-<div class="ln" id="L122" data-n="122" style="--i:3"><span class="t"><span class="k">local</span> humanoid <span class="o">=</span> character<span class="o">:</span>WaitForChild<span class="o">(</span><span class="s">"Humanoid"</span><span class="o">)</span></span></div>
-<div class="ln" id="L123" data-n="123" style="--i:3"><span class="t"><span class="k">local</span> highlight <span class="o">=</span> Instance<span class="o">.</span>new<span class="o">(</span><span class="s">"Highlight"</span><span class="o">)</span></span></div>
-<div class="ln" id="L124" data-n="124" style="--i:3"><span class="t">highlight<span class="o">.</span>Adornee <span class="o">=</span> character</span></div>
-<div class="ln" id="L125" data-n="125" style="--i:3"><span class="t">highlight<span class="o">.</span>FillColor <span class="o">=</span> player<span class="o">.</span>TeamColor<span class="o">.</span>Color</span></div>
-<div class="ln" id="L126" data-n="126" style="--i:3"><span class="t">highlight<span class="o">.</span>Parent <span class="o">=</span> character</span></div>
-<div class="ln" id="L127" data-n="127" style="--i:3"><span class="t"><span class="k">local</span> lastTime <span class="o">=</span> os<span class="o">.</span>clock<span class="o">(</span><span class="o">)</span></span></div>
-<div class="ln blank" id="L128" data-n="128" style="--i:0"><span class="t"></span></div>
-<div class="ln" id="L129" data-n="129" style="--i:3"><span class="t"><span class="k">while</span> os<span class="o">.</span>clock<span class="o">(</span><span class="o">)</span> <span class="o">-</span> lastTime <span class="o">&lt;</span> <span class="n">2</span> <span class="k">do</span></span></div>
-<div class="ln" id="L130" data-n="130" style="--i:4"><span class="t"><span class="k">if</span> <span class="k">not</span> isAlive<span class="o">(</span>humanoid<span class="o">)</span> <span class="k">then</span> <span class="r">-- inferred equivalent call</span></span></div>
-<div class="ln" id="L131" data-n="131" style="--i:5"><span class="t"><span class="k">break</span></span></div>
-<div class="ln" id="L132" data-n="132" style="--i:4"><span class="t"><span class="k">end</span></span></div>
-<div class="ln blank" id="L133" data-n="133" style="--i:0"><span class="t"></span></div>
-<div class="ln" id="L134" data-n="134" style="--i:4"><span class="t">highlight<span class="o">.</span>FillTransparency <span class="o">=</span> <span class="o">(</span>os<span class="o">.</span>clock<span class="o">(</span><span class="o">)</span> <span class="o">-</span> lastTime<span class="o">)</span> <span class="o">/</span> <span class="n">2</span></span></div>
-<div class="ln" id="L135" data-n="135" style="--i:4"><span class="t">task<span class="o">.</span>wait<span class="o">(</span><mark class="ns" data-note="n13">frames<span class="o">(</span><span class="n">1</span><span class="o">)</span></mark><span class="o">)</span> <span class="r">-- inferred equivalent call</span></span><button class="nm" type="button" aria-expanded="false" aria-controls="n13" data-note="n13"><span class="sr-only">Note </span>13</button></div>
-<aside class="note" id="n13" data-line="135" data-passage="p10" aria-label="Note 13: 64 bits"><div class="note-in"><p class="nk"><span class="nn">13</span><span class="nkind">64 bits</span></p><p class="nt">The bytecode holds 0.016666666666666666, on line 16. Tovek divides 1 by 60 the way Luau folds it and gets the same 64 bits, so <code>frames(1)</code> is a proven call, not a guess.</p><div class="ne"><p class="nel">bytecode, line 16</p><pre><span class="op">LOADK</span>       R5 K20 <span class="s">[0.016666666666666666]</span></pre></div><div class="ne"><p class="nel">1 / 60 as a double</p><dl class="bits" aria-label="0x3F91111111111111"><div><dt>sign</dt><dd>0</dd></div><div><dt>exponent</dt><dd>01111111001 <span>2<sup>-6</sup></span></dd></div><div><dt>mantissa</dt><dd>00010001000100010001000100<br>01000100010001000100010001</dd></div><div><dt>hex</dt><dd class="hex">0x3F91111111111111</dd></div></dl></div></div></aside>
-<div class="ln" id="L136" data-n="136" style="--i:3"><span class="t"><span class="k">end</span></span></div>
-<div class="ln blank" id="L137" data-n="137" style="--i:0"><span class="t"></span></div>
-<div class="ln" id="L138" data-n="138" style="--i:3"><span class="t">highlight<span class="o">:</span>Destroy<span class="o">(</span><span class="o">)</span></span></div>
-<div class="ln" id="L139" data-n="139" style="--i:3"><span class="t">humanoid<span class="o">.</span>Died<span class="o">:</span>Connect<span class="o">(</span><span class="k">function</span><span class="o">(</span><span class="o">)</span></span></div>
-<div class="ln" id="L140" data-n="140" style="--i:4"><span class="t">award<span class="o">(</span>player<span class="o">,</span> <span class="o">-</span><span class="n">25</span><span class="o">)</span> <span class="r">-- inferred equivalent call</span></span></div>
-<div class="ln" id="L141" data-n="141" style="--i:3"><span class="t"><span class="k">end</span><span class="o">)</span></span></div>
-<div class="ln" id="L142" data-n="142" style="--i:2"><span class="t"><span class="k">end</span><span class="o">)</span></span></div>
-<div class="ln" id="L143" data-n="143" style="--i:1"><span class="t"><span class="k">end</span><span class="o">)</span></span></div>
-<div class="ln" id="L144" data-n="144" style="--i:1"><span class="t"><span class="k">return</span> result</span></div>
-<div class="ln" id="L145" data-n="145" style="--i:0"><span class="t"><span class="k">end</span></span></div>
-<div class="ln blank" id="L146" data-n="146" style="--i:0"><span class="t"></span></div>
-</div></section>
-<section class="psg" id="p11" data-title="return Beacon" data-out="147-147" data-src="146-146" aria-label="return Beacon">
-<div class="psg-body" data-view="tovek">
-<div class="ln" id="L147" data-n="147" style="--i:0"><span class="t"><span class="k">return</span> Beacon</span></div>
-</div></section>
-<!-- /gen:script -->
+<span class="op">JUMPIFNOT</span>   R10 L4</pre></div></div></article>
+<article class="step" id="s5" role="tabpanel" aria-labelledby="t5" data-note="n7" data-line="57" data-psg="Beacon:capture"><div class="st-in"><p class="st-k"><span class="st-n">05</span><span class="st-kind">Folded constant</span><span class="st-of">of 08</span></p><h3 class="st-title">0.75 solved back to <code>frames(45)</code></h3><p class="st-text">Luau folded <code>frames(45)</code> into the number 0.75. That 0.75 still carries line 16, the <code>return</code> inside <code>frames</code>, so Tovek writes the call back after checking that 45 / 60 is exactly 0.75. medal and every release before V2.6 printed <code>TweenInfo.new(0.75)</code>.</p><div class="ne"><p class="nel">bytecode, line 16</p><pre><span class="op">LOADK</span>       R7 K6 <span class="s">[0.75]</span></pre></div></div></article>
+<article class="step" id="s6" role="tabpanel" aria-labelledby="t6" data-note="n10" data-line="87" data-psg="Beacon:step"><div class="st-in"><p class="st-k"><span class="st-n">06</span><span class="st-kind">Exact fraction</span><span class="st-of">of 08</span></p><h3 class="st-title"><code>2 / 3</code>, exactly</h3><p class="st-text">The bytecode holds 0.6666666666666666, the double nearest to two thirds. <code>2 / 3</code> compiles back to exactly that double, bit for bit (0x3FE5555555555555), so Tovek prints the fraction.</p><div class="ne"><p class="nel">medal printed</p><pre>p22<span class="o">.</span><wbr>lamp<span class="o">.</span><wbr>Transparency <span class="o">=</span> <span class="n">1</span> <span class="o">-</span> p22<span class="o">.</span><wbr>progress <span class="o">*</span> <span class="n">0.6666666666666666</span></pre></div></div></article>
+<article class="step" id="s7" role="tabpanel" aria-labelledby="t7" data-note="n13" data-line="135" data-psg="Beacon.start"><div class="st-in"><p class="st-k"><span class="st-n">07</span><span class="st-kind">64 bits</span><span class="st-of">of 08</span></p><h3 class="st-title"><code>frames(1)</code>, proven to the bit</h3><p class="st-text">The bytecode holds 0.016666666666666666, on line 16. Tovek divides 1 by 60 the way Luau folds it and gets the same 64 bits, so <code>frames(1)</code> is a proven call, not a guess.</p><div class="ne"><p class="nel">bytecode, line 16</p><pre><span class="op">LOADK</span>       R5 K20 <span class="s">[0.016666666666666666]</span></pre></div><div class="ne"><p class="nel">1 / 60 as a double</p><dl class="bits" aria-label="0x3F91111111111111"><div><dt>sign</dt><dd>0</dd></div><div><dt>exponent</dt><dd>01111111001 <span>2<sup>-6</sup></span></dd></div><div><dt>mantissa</dt><dd>00010001000100010001000100<br>01000100010001000100010001</dd></div><div><dt>hex</dt><dd class="hex">0x3F91111111111111</dd></div></dl></div></div></article>
+<article class="step step-history" id="s8" role="tabpanel" aria-labelledby="t8" data-psg="every release"><div class="st-in"><p class="st-k"><span class="st-n">08</span><span class="st-kind">Every release</span><span class="st-of">of 08</span></p><h3 class="st-title">Every release, one passage</h3><p class="st-text"><code>Beacon.luau</code> as medal and all 17 Tovek releases printed it. Drag through them and watch this passage change.</p><div class="hist"><p class="h-now"><b id="h-name">V2.6</b><span id="h-date">10 Oct 2026</span><button class="mini h-play" type="button" id="h-play"><svg class="i i-play" viewBox="0 0 16 16" aria-hidden="true"><path d="M5 3.2v9.6L12.6 8z"/></svg><span>Play every release</span></button></p><div class="h-scrub"><div class="h-ticks" aria-hidden="true"><i class="" style="--x:0.0000"></i><i class="" style="--x:0.0588"></i><i class="same" style="--x:0.1176"></i><i class="" style="--x:0.1765"></i><i class="same" style="--x:0.2353"></i><i class="same" style="--x:0.2941"></i><i class="same" style="--x:0.3529"></i><i class="same" style="--x:0.4118"></i><i class="same" style="--x:0.4706"></i><i class="" style="--x:0.5294"></i><i class="same" style="--x:0.5882"></i><i class="same" style="--x:0.6471"></i><i class="" style="--x:0.7059"></i><i class="" style="--x:0.7647"></i><i class="same" style="--x:0.8235"></i><i class="" style="--x:0.8824"></i><i class="same" style="--x:0.9412"></i><i class="" style="--x:1.0000"></i></div><input type="range" id="h-range" min="0" max="17" step="1" value="17" aria-label="Printed by" aria-valuetext="V2.6"><div class="h-eras" aria-hidden="true"><span class="h-era" style="--a:0.0000;--b:0.0000">medal</span><span class="h-era" style="--a:0.0588;--b:0.6471">betas</span><span class="h-era" style="--a:0.7059;--b:0.8235">V2</span><span class="h-era tight" style="--a:0.8824;--b:0.9412">V2.5</span><span class="h-era" style="--a:1.0000;--b:1.0000">V2.6</span></div></div><dl class="h-facts"><div><dt>Lines</dt><dd id="h-lines">147</dd></div><div><dt>Plain names</dt><dd id="h-plain">2</dd></div><div><dt>Helper calls</dt><dd><span id="h-calls">6</span><small> of 6</small></dd></div><div><dt>Long decimals</dt><dd id="h-dec">0</dd></div></dl></div><p class="st-fine">medal reads bytecode up to version 5, so it got the same source compiled by Luau 0.607. Every Tovek release read the same version 9 bytes.</p></div></article>
+<!-- /gen:tour-steps -->
+        </div>
+        <svg class="fr-leader" id="fr-leader" aria-hidden="true"></svg>
       </div>
-      <aside class="readcard" id="readcard" hidden aria-live="polite"></aside>
-      <svg class="leaders" id="leaders" aria-hidden="true"></svg>
-    </div>
-
-    <div class="ms-end">
-      <p class="end-mark" aria-hidden="true">&#8258;</p>
-      <p class="end-text">End of <code>Beacon.luau</code>: <span data-v="lines">147</span> lines, exactly as Tovek V2.6 printed them.</p>
-      <p class="end-actions">
-        <button class="btn" type="button" id="check-page"><span>Decompile this script in your browser</span></button>
-        <button class="btn btn-text" type="button" id="own-open-2" aria-controls="reader"><span>Read your own file</span><span class="arr" aria-hidden="true">&rarr;</span></button>
-      </p>
-      <p class="end-status" id="check-status" role="status" aria-live="polite"></p>
+      <div class="fr-tabs" id="fr-tabs" role="tablist" aria-label="Notes on the script">
+<!-- gen:tour-tabs -->
+<button type="button" role="tab" id="t1" aria-controls="s1" aria-selected="true" tabindex="0"><b>01</b><span>Names</span><i class="prog" aria-hidden="true"></i></button>
+<button type="button" role="tab" id="t2" aria-controls="s2" aria-selected="false" tabindex="-1"><b>02</b><span>Helper calls</span><i class="prog" aria-hidden="true"></i></button>
+<button type="button" role="tab" id="t3" aria-controls="s3" aria-selected="false" tabindex="-1"><b>03</b><span>Method</span><i class="prog" aria-hidden="true"></i></button>
+<button type="button" role="tab" id="t4" aria-controls="s4" aria-selected="false" tabindex="-1"><b>04</b><span>Line evidence</span><i class="prog" aria-hidden="true"></i></button>
+<button type="button" role="tab" id="t5" aria-controls="s5" aria-selected="false" tabindex="-1"><b>05</b><span>Folded constant</span><i class="prog" aria-hidden="true"></i></button>
+<button type="button" role="tab" id="t6" aria-controls="s6" aria-selected="false" tabindex="-1"><b>06</b><span>Exact fraction</span><i class="prog" aria-hidden="true"></i></button>
+<button type="button" role="tab" id="t7" aria-controls="s7" aria-selected="false" tabindex="-1"><b>07</b><span>64 bits</span><i class="prog" aria-hidden="true"></i></button>
+<button type="button" role="tab" id="t8" aria-controls="s8" aria-selected="false" tabindex="-1"><b>08</b><span>Every release</span><i class="prog" aria-hidden="true"></i></button>
+<!-- /gen:tour-tabs -->
+      </div>
     </div>
   </section>
 
-  <section class="plates" id="colophon" aria-label="About Tovek">
-
-    <article class="plate" id="what" aria-labelledby="what-h">
-      <header class="plate-head"><p class="plate-no">I</p><h2 id="what-h">What Tovek is</h2></header>
-      <div class="plate-body two">
-        <div>
-          <p class="col-head">It is</p>
-          <ul class="plain">
-            <li>A decompiler for Luau, the language of Roblox. It reads the bytecode Roblox ships and the bytecode <code>luau-compile</code> writes.</li>
-            <li>Deterministic. The same bytes give the same output, every time, on every machine.</li>
-            <li>Local. A command-line tool and a small HTTP server that run on your own computer.</li>
-            <li>Free and open source, under the MIT licence.</li>
-          </ul>
+  <section class="sec own" id="read" aria-labelledby="read-h">
+    <header class="sec-head">
+      <h2 id="read-h">Read your own file</h2>
+      <p class="sec-lead">Tovek also runs in this page. Drop a compiled Luau file or pick a sample, and read the output here.</p>
+    </header>
+    <div class="own-grid">
+      <div class="own-in">
+        <div class="drop" id="drop">
+          <svg class="drop-i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V4M7.5 8.5 12 4l4.5 4.5M4 15v3.5A1.5 1.5 0 0 0 5.5 20h13a1.5 1.5 0 0 0 1.5-1.5V15"/></svg>
+          <p class="drop-title">Drop a compiled Luau file here</p>
+          <p class="drop-text">Raw bytecode from <code>luau-compile --binary</code>, Roblox client bytecode, or a saved script in base64.</p>
+          <label class="btn btn-ink file-btn"><input type="file" id="file" class="sr-only"><span>Choose a file</span></label>
         </div>
-        <div>
-          <p class="col-head">It is not</p>
-          <ul class="plain">
-            <li>A guesser. Where the bytecode gives no evidence for a name, Tovek keeps a plain one.</li>
-            <li>A way to get back what compiling removes: comments, formatting, and the original names of locals and constants.</li>
-            <li>A cloud service. Nothing you decompile leaves your machine, on this page or anywhere else.</li>
-          </ul>
-        </div>
+        <p class="samples-h" id="samples-h">Or read a sample</p>
+        <ul class="samples" id="samples" aria-labelledby="samples-h">
+<!-- gen:samples -->
+<li><button type="button" class="chip" data-sample="Beacon" data-url="assets/v26/landing/Beacon.luaubc" data-name="Beacon.lua" data-sha="7117bc099574bcda965744f0900132971a796d0cbe9a592ee8b7c63980116b98" aria-pressed="false" title="The script above, decompiled again here and compared byte for byte"><span>Beacon</span><small>this page</small></button></li>
+<li><button type="button" class="chip" data-sample="SpawnShield" aria-pressed="false" title="Our own sample: a spawn shield with a helper Luau inlines twice and frames(1) folded to a number."><span>SpawnShield</span><small>75 lines</small></button></li>
+<li><button type="button" class="chip" data-sample="Store" aria-pressed="false" title="The Store class of Rodux, Roblox&#x27;s state container."><span>Rodux Store</span><small>180 lines</small></button></li>
+<li><button type="button" class="chip" data-sample="Signal" aria-pressed="false" title="Signal from Sleitnick&#x27;s RbxUtil: connections, Wait, Once and deferred firing."><span>Signal</span><small>212 lines</small></button></li>
+<li><button type="button" class="chip" data-sample="Trove" aria-pressed="false" title="Trove from Sleitnick&#x27;s RbxUtil: tracks objects and cleans them up together."><span>Trove</span><small>268 lines</small></button></li>
+<li><button type="button" class="chip" data-sample="ClickToMoveController" aria-pressed="false" title="Roblox&#x27;s default click-to-move controller, part of the PlayerModule every game ships with."><span>ClickToMoveController</span><small>1,301 lines</small></button></li>
+<li><button type="button" class="chip" data-sample="Promise" aria-pressed="false" title="evaera&#x27;s Promise library, one of the most used modules on Roblox."><span>Promise</span><small>1,044 lines</small></button></li>
+<!-- /gen:samples -->
+        </ul>
+        <p class="safe"><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="M4.5 7V5.5a3.5 3.5 0 0 1 7 0V7M3.5 7h9v6.5h-9z"/></svg><span><b>Nothing is uploaded.</b> The file stays in your browser; Tovek decompiles it here.</span></p>
       </div>
-    </article>
+      <div class="out" id="out">
+        <div class="out-bar">
+          <p class="out-title"><span id="out-name">Output</span><span class="out-facts" id="out-facts"></span></p>
+          <div class="out-act">
+            <button class="mini" type="button" data-act="copy" disabled>Copy</button>
+            <button class="mini" type="button" data-act="save" disabled>Save .luau</button>
+          </div>
+        </div>
+        <div class="out-body" id="out-body" tabindex="-1" role="region" aria-label="Decompiled output">
+          <div class="out-empty" id="out-empty">
+            <div class="out-empty-in">
+              <p>The output appears here, decompiled in your browser.</p>
+              <button class="btn" type="button" id="out-try">Try it on the script above</button>
+            </div>
+          </div>
+        </div>
+        <p class="out-status" id="out-status" role="status" aria-live="polite"></p>
+      </div>
+    </div>
+  </section>
 
-    <article class="plate" id="proof" aria-labelledby="proof-h">
-      <header class="plate-head"><p class="plate-no">II</p><h2 id="proof-h">How we know it is right</h2></header>
-      <div class="plate-body">
-        <div class="proof">
+  <section class="sec proof" id="proof" aria-labelledby="proof-h">
+    <header class="sec-head">
+      <h2 id="proof-h">How we know it is right</h2>
+      <p class="sec-lead">Bytecode does not pin down one source, so Tovek writes code that behaves the same. These checks are how V2.6 shows it. <a href="changelog/v2.6/#parts">How it was measured</a></p>
+    </header>
+    <div class="pf-row">
 <!-- gen:proof -->
-<div class="pf"><p class="pf-n">0</p><p class="pf-l">wrong outputs in 3,000 fresh programs</p><p class="pf-t">A fuzzer writes typed random programs, compiles each at -O0, -O1 and -O2, and runs Tovek’s output beside the bytecode on the same VM. 2,582 matched; 286 patched inputs were refused rather than guessed; none came out wrong.</p></div>
-<div class="pf"><p class="pf-n">648<small>/648</small></p><p class="pf-l">edge-case runs pass</p><p class="pf-t">Every reported or fuzzed bug stays as a test: 216 small programs, compiled at three optimization levels, decompiled, compiled again and run beside the original.</p></div>
-<div class="pf"><p class="pf-n">8,822<small>/8,822</small></p><p class="pf-l">scripts in 4 real games decompile</p><p class="pf-t">8,842 inlined helper calls written back (V2.5.1: 4,260), and 11.6% fewer lines for the same behaviour. The games stay unnamed.</p></div>
+<div class="pf pf-zero"><p class="pf-n">0</p><p class="pf-l">wrong outputs</p><p class="pf-t">in 3,000 fresh fuzz programs, each run beside its bytecode</p></div>
+<div class="pf"><p class="pf-n">648<small>/648</small></p><p class="pf-l">edge-case runs pass</p><p class="pf-t">every reported or fuzzed bug, kept as a test</p></div>
+<div class="pf"><p class="pf-n">8,822<small>/8,822</small></p><p class="pf-l">scripts decompile</p><p class="pf-t">in 4 real Roblox games, which stay unnamed</p></div>
+<div class="pf"><p class="pf-n">8,842</p><p class="pf-l">helper calls written back</p><p class="pf-t">in those games, where V2.5.1 wrote 4,260</p></div>
 <!-- /gen:proof -->
-        </div>
-        <p class="fine">These checks cover the programs tested. Bytecode does not pin down one source, so Tovek writes code that behaves the same, not code that is guaranteed to be identical. <a href="changelog/v2.6/#parts">How V2.6 was measured</a></p>
-      </div>
-    </article>
+    </div>
+  </section>
 
-    <article class="plate" id="get" aria-labelledby="get-h">
-      <header class="plate-head"><p class="plate-no">III</p><h2 id="get-h">Get Tovek V2.6</h2></header>
-      <div class="plate-body">
-        <div class="dls">
-<!-- gen:downloads -->
-<a class="dl" href="https://github.com/Kiet1308/Tovek/releases/download/v2.6/Tovek-V2.6-windows-x86_64.zip"><b>Windows</b><span>x86_64 · ZIP</span><i aria-hidden="true">↓</i></a>
-<a class="dl" href="https://github.com/Kiet1308/Tovek/releases/download/v2.6/Tovek-V2.6-linux-x86_64.tar.gz"><b>Linux</b><span>x86_64 · glibc 2.35+</span><i aria-hidden="true">↓</i></a>
-<a class="dl" href="https://github.com/Kiet1308/Tovek/releases/download/v2.6/Tovek-V2.6-linux-aarch64.tar.gz"><b>Linux ARM64</b><span>aarch64 · glibc 2.35+</span><i aria-hidden="true">↓</i></a>
-<a class="dl" href="https://github.com/Kiet1308/Tovek/releases/download/v2.6/Tovek-V2.6-macos-aarch64.tar.gz"><b>macOS</b><span>Apple silicon</span><i aria-hidden="true">↓</i></a>
-<!-- /gen:downloads -->
-        </div>
-        <p class="fine">Each download holds two programs, <code>luau-lifter</code> and <code>web-server</code>, and the licence. <a href="https://github.com/Kiet1308/Tovek/releases/latest">All files and checksums</a></p>
-        <div class="usage two">
-          <div>
-            <p class="col-head">On the command line</p>
-            <ul class="cmds">
-<!-- gen:usage-cli -->
-<li><code>luau-lifter script.luac</code><span>one file of raw Luau bytecode</span></li>
-<li><code>luau-lifter script.lua -e --script-name Workspace.Script</code><span>Roblox client bytecode</span></li>
-<li><code>luau-lifter decompile-folder ./dump ./out</code><span>a whole saved game, every core at once</span></li>
-<li><code>luau-lifter validate-folder ./dump ./out</code><span>the same, then every output through Luau’s own parser</span></li>
-<!-- /gen:usage-cli -->
-            </ul>
-          </div>
-          <div>
-            <p class="col-head">As a local server</p>
-            <ul class="cmds">
-<!-- gen:usage-server -->
-<li><code>web-server</code><span>listens on http://127.0.0.1:3000</span></li>
-<li><code>POST /decompile</code><span>one script, base64 bytecode in the body</span></li>
-<li><code>POST /decompile/raw</code><span>one script, raw bytecode</span></li>
-<li><code>POST /decompile/batch</code><span>many scripts in one request</span></li>
-<!-- /gen:usage-server -->
-            </ul>
-          </div>
-        </div>
-        <p class="fine">The full guide, flags and the executor scripts are in the <a href="https://github.com/Kiet1308/Tovek#usage">README</a>.</p>
-      </div>
-    </article>
-
-    <article class="plate" id="history" aria-labelledby="history-h">
-      <header class="plate-head"><p class="plate-no">IV</p><h2 id="history-h">Printing history</h2></header>
-      <div class="plate-body">
-        <p class="plate-lead">The same <code>Beacon</code> bytecode, as medal and every Tovek release printed it. Read any of them in the column above, then step from one release to the next and watch the script change.</p>
-        <div class="table-scroll">
-          <table class="hist">
-            <thead><tr><th scope="col">Printed by</th><th scope="col"><span class="sr-only">Shape</span></th><th scope="col" class="num">Lines</th><th scope="col" class="num">Plain names</th><th scope="col" class="num">Helper calls</th><th scope="col" class="num">Long decimals</th><th scope="col"><span class="sr-only">Read</span></th></tr></thead>
-            <tbody>
-<!-- gen:history -->
-<tr class="" data-stage="medal"><th scope="row"><span class="hn">medal</span><span class="hd">1 Apr 2022</span></th><td class="hs"><svg viewBox="0 0 60 142" preserveAspectRatio="none" aria-hidden="true"><path d="M0 0h20 M0 1h23.5 M0 2h21.5 M0 3h22.5 M0 4h32.5 M0 5h8 M0 6h10.5 M0 7h11 M3 8h12.5 M3 9h8 M3 10h15.5 M3 11h6.5 M3 12h16.5 M3 13h7.5 M3 14h7 M3 15h4.5 M0 16h1.5 M0 17h15.5 M3 18h12.5 M3 19h20.5 M3 20h7 M3 21h17.5 M6 22h12.5 M6 23h4.5 M6 24h5.5 M9 25h21.5 M6 26h2 M9 27h4.5 M6 28h1.5 M6 29h4.5 M6 30h9 M9 31h5.5 M6 32h2 M9 33h10 M6 34h1.5 M6 35h31.5 M9 36h11 M6 37h1.5 M3 38h1.5 M3 39h5 M0 40h1.5 M0 41h18.5 M3 42h19.5 M3 43h7.5 M3 44h8 M3 45h22.5 M6 46h15.5 M3 47h4.5 M3 48h10 M6 49h22.5 M6 50h5.5 M9 51h17 M6 52h1.5 M6 53h5.5 M9 54h13 M6 55h1.5 M3 56h1.5 M3 57h35 M0 58h1.5 M0 59h14.5 M3 60h14.5 M3 61h8.5 M6 62h17 M6 63h15.5 M6 64h3 M3 65h2 M6 66h11.5 M6 67h12 M9 68h10 M12 69h11.5 M15 70h3 M12 71h1.5 M9 72h1.5 M9 73h18.5 M9 74h30.5 M9 75h12.5 M12 76h10.5 M9 77h1.5 M6 78h1.5 M3 79h1.5 M0 80h1.5 M0 81h14 M3 82h26.5 M3 83h8.5 M3 84h18.5 M6 85h12 M9 86h10.5 M9 87h15 M9 88h10 M12 89h2.5 M9 90h1.5 M6 91h1.5 M3 92h1.5 M3 93h9 M3 94h23 M6 95h27.5 M6 96h14 M9 97h9.5 M6 98h2 M9 99h11.5 M12 100h6.5 M9 101h1.5 M6 102h1.5 M3 103h2 M3 104h21 M6 105h21.5 M9 106h13 M9 107h20 M9 108h18.5 M9 109h8.5 M9 110h19 M9 111h8 M9 112h11 M9 113h14.5 M12 114h4.5 M12 115h9 M15 116h5.5 M12 117h2 M15 118h10 M12 119h1.5 M12 120h7.5 M15 121h2.5 M12 122h1.5 M12 123h22.5 M12 124h15.5 M9 125h1.5 M9 126h6.5 M9 127h13.5 M12 128h12.5 M12 129h24 M12 130h5.5 M15 131h17 M12 132h1.5 M12 133h5.5 M15 134h13.5 M12 135h1.5 M9 136h2 M6 137h2 M3 138h2 M3 139h6.5 M0 140h1.5 M0 141h6"/></svg></td><td class="num">142</td><td class="num">41</td><td class="num">0<small>/6</small></td><td class="num">2</td><td class="hr"><button class="read" type="button" data-stage="medal" aria-label="Read the script as medal printed it">Read</button></td></tr>
-<tr class="" data-stage="v0.1.0-beta"><th scope="row"><span class="hn">beta 0.1</span><span class="hd">19 Jun 2026</span></th><td class="hs"><svg viewBox="0 0 60 167" preserveAspectRatio="none" aria-hidden="true"><path d="M0 0h21 M0 1h31 M0 2h24 M0 3h26 M0 4h41.5 M0 6h12 M3 7h6.5 M0 8h1.5 M0 10h12.5 M3 11h23.5 M0 12h1.5 M0 13h27.5 M0 14h16.5 M3 15h29 M3 16h33.5 M3 18h7 M6 19h8.5 M3 20h1.5 M0 21h1.5 M0 23h8.5 M0 24h11.5 M0 26h14.5 M3 27h17 M3 28h9 M3 29h19 M3 30h7 M3 31h6.5 M3 32h4 M0 33h1.5 M0 35h14.5 M3 36h23.5 M3 37h8.5 M3 39h17.5 M6 40h14.5 M6 41h37 M6 42h4 M6 44h11.5 M9 45h5 M6 46h2 M9 47h12 M6 48h1.5 M6 50h36.5 M9 51h11.5 M6 52h1.5 M3 53h1.5 M3 55h6.5 M0 56h1.5 M0 58h15.5 M3 59h7.5 M3 60h8.5 M3 61h26.5 M6 62h13 M3 63h4.5 M3 65h8.5 M6 66h24 M3 67h1.5 M3 69h30 M0 70h1.5 M0 72h12 M3 73h14 M3 75h7.5 M6 76h25.5 M6 77h3 M3 78h1.5 M3 80h11 M3 82h13 M6 83h3 M3 84h1.5 M3 86h8.5 M6 87h11.5 M9 88h3 M6 89h1.5 M3 90h1.5 M3 92h11.5 M3 93h31.5 M3 95h13 M6 96h10.5 M3 97h1.5 M0 98h1.5 M0 100h15.5 M3 101h8.5 M3 103h20.5 M6 104h15 M9 105h4 M6 106h1.5 M6 108h19.5 M6 110h10 M9 111h2.5 M6 112h1.5 M3 113h1.5 M3 115h11 M3 116h27 M6 117h15 M9 118h11.5 M9 119h3 M6 120h1.5 M6 122h10.5 M9 123h5 M6 124h1.5 M3 125h2 M3 126h22 M6 127h24.5 M9 128h25.5 M9 129h21.5 M9 130h14.5 M9 131h22 M9 132h14 M9 133h14 M9 135h17.5 M12 136h3.5 M12 138h11.5 M15 139h4.5 M12 140h2 M15 141h11.5 M12 142h1.5 M12 144h6.5 M15 145h2.5 M12 146h1.5 M12 148h28.5 M12 149h15.5 M9 150h1.5 M9 152h9.5 M9 153h16 M12 154h28 M12 155h33.5 M12 157h7 M15 158h9.5 M12 159h1.5 M9 160h2 M6 161h2 M3 162h2 M3 163h6.5 M0 164h1.5 M0 166h6.5"/></svg></td><td class="num">167</td><td class="num">5</td><td class="num">1<small>/6</small></td><td class="num">2</td><td class="hr"><button class="read" type="button" data-stage="v0.1.0-beta" aria-label="Read the script as beta 0.1 printed it">Read</button></td></tr>
-<tr class=" same" data-stage="v0.2.0-beta"><th scope="row"><span class="hn">beta 0.2</span><span class="hd">19 Jun 2026</span></th><td class="hs"><svg viewBox="0 0 60 167" preserveAspectRatio="none" aria-hidden="true"><path d="M0 0h21 M0 1h31 M0 2h24 M0 3h26 M0 4h41.5 M0 6h12 M3 7h6.5 M0 8h1.5 M0 10h12.5 M3 11h23.5 M0 12h1.5 M0 13h27.5 M0 14h16.5 M3 15h29 M3 16h33.5 M3 18h7 M6 19h8.5 M3 20h1.5 M0 21h1.5 M0 23h8.5 M0 24h11.5 M0 26h14.5 M3 27h17 M3 28h9 M3 29h19 M3 30h7 M3 31h6.5 M3 32h4 M0 33h1.5 M0 35h14.5 M3 36h23.5 M3 37h8.5 M3 39h17.5 M6 40h14.5 M6 41h37 M6 42h4 M6 44h11.5 M9 45h5 M6 46h2 M9 47h12 M6 48h1.5 M6 50h36.5 M9 51h11.5 M6 52h1.5 M3 53h1.5 M3 55h6.5 M0 56h1.5 M0 58h15.5 M3 59h7.5 M3 60h8.5 M3 61h26.5 M6 62h13 M3 63h4.5 M3 65h8.5 M6 66h24 M3 67h1.5 M3 69h30 M0 70h1.5 M0 72h12 M3 73h14 M3 75h7.5 M6 76h25.5 M6 77h3 M3 78h1.5 M3 80h11 M3 82h13 M6 83h3 M3 84h1.5 M3 86h8.5 M6 87h11.5 M9 88h3 M6 89h1.5 M3 90h1.5 M3 92h11.5 M3 93h31.5 M3 95h13 M6 96h10.5 M3 97h1.5 M0 98h1.5 M0 100h15.5 M3 101h8.5 M3 103h20.5 M6 104h15 M9 105h4 M6 106h1.5 M6 108h19.5 M6 110h10 M9 111h2.5 M6 112h1.5 M3 113h1.5 M3 115h11 M3 116h27 M6 117h15 M9 118h11.5 M9 119h3 M6 120h1.5 M6 122h10.5 M9 123h5 M6 124h1.5 M3 125h2 M3 126h22 M6 127h24.5 M9 128h25.5 M9 129h21.5 M9 130h14.5 M9 131h22 M9 132h14 M9 133h14 M9 135h17.5 M12 136h3.5 M12 138h11.5 M15 139h4.5 M12 140h2 M15 141h11.5 M12 142h1.5 M12 144h6.5 M15 145h2.5 M12 146h1.5 M12 148h28.5 M12 149h15.5 M9 150h1.5 M9 152h9.5 M9 153h16 M12 154h28 M12 155h33.5 M12 157h7 M15 158h9.5 M12 159h1.5 M9 160h2 M6 161h2 M3 162h2 M3 163h6.5 M0 164h1.5 M0 166h6.5"/></svg></td><td class="num">167</td><td class="num">5</td><td class="num">1<small>/6</small></td><td class="num">2</td><td class="hr"><button class="read" type="button" data-stage="v0.2.0-beta" aria-label="Read the script as beta 0.2 printed it">Read</button></td></tr>
-<tr class="" data-stage="v0.3.0-beta"><th scope="row"><span class="hn">beta 0.3</span><span class="hd">20 Jun 2026</span></th><td class="hs"><svg viewBox="0 0 60 167" preserveAspectRatio="none" aria-hidden="true"><path d="M0 0h21 M0 1h31 M0 2h24 M0 3h26 M0 4h41.5 M0 6h12 M3 7h6.5 M0 8h1.5 M0 10h12.5 M3 11h23.5 M0 12h1.5 M0 13h27.5 M0 14h16.5 M3 15h29 M3 16h33.5 M3 18h7 M6 19h8.5 M3 20h1.5 M0 21h1.5 M0 23h8.5 M0 24h11.5 M0 26h13 M3 27h17 M3 28h7.5 M3 29h17.5 M3 30h7 M3 31h6.5 M3 32h4 M0 33h1.5 M0 35h14.5 M3 36h23.5 M3 37h8.5 M3 39h17.5 M6 40h14.5 M6 41h37 M6 42h4 M6 44h11.5 M9 45h5 M6 46h2 M9 47h12 M6 48h1.5 M6 50h36.5 M9 51h11.5 M6 52h1.5 M3 53h1.5 M3 55h6.5 M0 56h1.5 M0 58h17 M3 59h9 M3 60h8.5 M3 61h26.5 M6 62h14.5 M3 63h4.5 M3 65h8.5 M6 66h24 M3 67h1.5 M3 69h31.5 M0 70h1.5 M0 72h12 M3 73h14 M3 75h7.5 M6 76h25.5 M6 77h3 M3 78h1.5 M3 80h11 M3 82h13 M6 83h3 M3 84h1.5 M3 86h8.5 M6 87h11.5 M9 88h3 M6 89h1.5 M3 90h1.5 M3 92h11.5 M3 93h31.5 M3 95h13 M6 96h10.5 M3 97h1.5 M0 98h1.5 M0 100h15.5 M3 101h8.5 M3 103h20.5 M6 104h15 M9 105h4 M6 106h1.5 M6 108h19.5 M6 110h10 M9 111h2.5 M6 112h1.5 M3 113h1.5 M3 115h11 M3 116h27 M6 117h15 M9 118h11.5 M9 119h3 M6 120h1.5 M6 122h10.5 M9 123h5 M6 124h1.5 M3 125h2 M3 126h22 M6 127h24.5 M9 128h25.5 M9 129h21.5 M9 130h14.5 M9 131h22 M9 132h14 M9 133h14 M9 135h17.5 M12 136h3.5 M12 138h11.5 M15 139h4.5 M12 140h2 M15 141h11.5 M12 142h1.5 M12 144h6.5 M15 145h2.5 M12 146h1.5 M12 148h28.5 M12 149h15.5 M9 150h1.5 M9 152h9.5 M9 153h16 M12 154h28 M12 155h33.5 M12 157h7 M15 158h9.5 M12 159h1.5 M9 160h2 M6 161h2 M3 162h2 M3 163h6.5 M0 164h1.5 M0 166h6.5"/></svg></td><td class="num">167</td><td class="num">4</td><td class="num">1<small>/6</small></td><td class="num">2</td><td class="hr"><button class="read" type="button" data-stage="v0.3.0-beta" aria-label="Read the script as beta 0.3 printed it">Read</button></td></tr>
-<tr class=" same" data-stage="v0.4.0-beta"><th scope="row"><span class="hn">beta 0.4</span><span class="hd">20 Jun 2026</span></th><td class="hs"><svg viewBox="0 0 60 167" preserveAspectRatio="none" aria-hidden="true"><path d="M0 0h21 M0 1h31 M0 2h24 M0 3h26 M0 4h41.5 M0 6h12 M3 7h6.5 M0 8h1.5 M0 10h12.5 M3 11h23.5 M0 12h1.5 M0 13h27.5 M0 14h16.5 M3 15h29 M3 16h33.5 M3 18h7 M6 19h8.5 M3 20h1.5 M0 21h1.5 M0 23h8.5 M0 24h11.5 M0 26h13 M3 27h17 M3 28h7.5 M3 29h17.5 M3 30h7 M3 31h6.5 M3 32h4 M0 33h1.5 M0 35h14.5 M3 36h23.5 M3 37h8.5 M3 39h17.5 M6 40h14.5 M6 41h37 M6 42h4 M6 44h11.5 M9 45h5 M6 46h2 M9 47h12 M6 48h1.5 M6 50h36.5 M9 51h11.5 M6 52h1.5 M3 53h1.5 M3 55h6.5 M0 56h1.5 M0 58h17 M3 59h9 M3 60h8.5 M3 61h26.5 M6 62h14.5 M3 63h4.5 M3 65h8.5 M6 66h24 M3 67h1.5 M3 69h31.5 M0 70h1.5 M0 72h12 M3 73h14 M3 75h7.5 M6 76h25.5 M6 77h3 M3 78h1.5 M3 80h11 M3 82h13 M6 83h3 M3 84h1.5 M3 86h8.5 M6 87h11.5 M9 88h3 M6 89h1.5 M3 90h1.5 M3 92h11.5 M3 93h31.5 M3 95h13 M6 96h10.5 M3 97h1.5 M0 98h1.5 M0 100h15.5 M3 101h8.5 M3 103h20.5 M6 104h15 M9 105h4 M6 106h1.5 M6 108h19.5 M6 110h10 M9 111h2.5 M6 112h1.5 M3 113h1.5 M3 115h11 M3 116h27 M6 117h15 M9 118h11.5 M9 119h3 M6 120h1.5 M6 122h10.5 M9 123h5 M6 124h1.5 M3 125h2 M3 126h22 M6 127h24.5 M9 128h25.5 M9 129h21.5 M9 130h14.5 M9 131h22 M9 132h14 M9 133h14 M9 135h17.5 M12 136h3.5 M12 138h11.5 M15 139h4.5 M12 140h2 M15 141h11.5 M12 142h1.5 M12 144h6.5 M15 145h2.5 M12 146h1.5 M12 148h28.5 M12 149h15.5 M9 150h1.5 M9 152h9.5 M9 153h16 M12 154h28 M12 155h33.5 M12 157h7 M15 158h9.5 M12 159h1.5 M9 160h2 M6 161h2 M3 162h2 M3 163h6.5 M0 164h1.5 M0 166h6.5"/></svg></td><td class="num">167</td><td class="num">4</td><td class="num">1<small>/6</small></td><td class="num">2</td><td class="hr"><button class="read" type="button" data-stage="v0.4.0-beta" aria-label="Read the script as beta 0.4 printed it">Read</button></td></tr>
-<tr class=" same" data-stage="v0.5.0-beta"><th scope="row"><span class="hn">beta 0.5</span><span class="hd">21 Jun 2026</span></th><td class="hs"><svg viewBox="0 0 60 167" preserveAspectRatio="none" aria-hidden="true"><path d="M0 0h21 M0 1h31 M0 2h24 M0 3h26 M0 4h41.5 M0 6h12 M3 7h6.5 M0 8h1.5 M0 10h12.5 M3 11h23.5 M0 12h1.5 M0 13h27.5 M0 14h16.5 M3 15h29 M3 16h33.5 M3 18h7 M6 19h8.5 M3 20h1.5 M0 21h1.5 M0 23h8.5 M0 24h11.5 M0 26h13 M3 27h17 M3 28h7.5 M3 29h17.5 M3 30h7 M3 31h6.5 M3 32h4 M0 33h1.5 M0 35h14.5 M3 36h23.5 M3 37h8.5 M3 39h17.5 M6 40h14.5 M6 41h37 M6 42h4 M6 44h11.5 M9 45h5 M6 46h2 M9 47h12 M6 48h1.5 M6 50h36.5 M9 51h11.5 M6 52h1.5 M3 53h1.5 M3 55h6.5 M0 56h1.5 M0 58h17 M3 59h9 M3 60h8.5 M3 61h26.5 M6 62h14.5 M3 63h4.5 M3 65h8.5 M6 66h24 M3 67h1.5 M3 69h31.5 M0 70h1.5 M0 72h12 M3 73h14 M3 75h7.5 M6 76h25.5 M6 77h3 M3 78h1.5 M3 80h11 M3 82h13 M6 83h3 M3 84h1.5 M3 86h8.5 M6 87h11.5 M9 88h3 M6 89h1.5 M3 90h1.5 M3 92h11.5 M3 93h31.5 M3 95h13 M6 96h10.5 M3 97h1.5 M0 98h1.5 M0 100h15.5 M3 101h8.5 M3 103h20.5 M6 104h15 M9 105h4 M6 106h1.5 M6 108h19.5 M6 110h10 M9 111h2.5 M6 112h1.5 M3 113h1.5 M3 115h11 M3 116h27 M6 117h15 M9 118h11.5 M9 119h3 M6 120h1.5 M6 122h10.5 M9 123h5 M6 124h1.5 M3 125h2 M3 126h22 M6 127h24.5 M9 128h25.5 M9 129h21.5 M9 130h14.5 M9 131h22 M9 132h14 M9 133h14 M9 135h17.5 M12 136h3.5 M12 138h11.5 M15 139h4.5 M12 140h2 M15 141h11.5 M12 142h1.5 M12 144h6.5 M15 145h2.5 M12 146h1.5 M12 148h28.5 M12 149h15.5 M9 150h1.5 M9 152h9.5 M9 153h16 M12 154h28 M12 155h33.5 M12 157h7 M15 158h9.5 M12 159h1.5 M9 160h2 M6 161h2 M3 162h2 M3 163h6.5 M0 164h1.5 M0 166h6.5"/></svg></td><td class="num">167</td><td class="num">4</td><td class="num">1<small>/6</small></td><td class="num">2</td><td class="hr"><button class="read" type="button" data-stage="v0.5.0-beta" aria-label="Read the script as beta 0.5 printed it">Read</button></td></tr>
-<tr class=" same" data-stage="v0.5.1-beta"><th scope="row"><span class="hn">beta 0.5.1</span><span class="hd">21 Jun 2026</span></th><td class="hs"><svg viewBox="0 0 60 167" preserveAspectRatio="none" aria-hidden="true"><path d="M0 0h21 M0 1h31 M0 2h24 M0 3h26 M0 4h41.5 M0 6h12 M3 7h6.5 M0 8h1.5 M0 10h12.5 M3 11h23.5 M0 12h1.5 M0 13h27.5 M0 14h16.5 M3 15h29 M3 16h33.5 M3 18h7 M6 19h8.5 M3 20h1.5 M0 21h1.5 M0 23h8.5 M0 24h11.5 M0 26h13 M3 27h17 M3 28h7.5 M3 29h17.5 M3 30h7 M3 31h6.5 M3 32h4 M0 33h1.5 M0 35h14.5 M3 36h23.5 M3 37h8.5 M3 39h17.5 M6 40h14.5 M6 41h37 M6 42h4 M6 44h11.5 M9 45h5 M6 46h2 M9 47h12 M6 48h1.5 M6 50h36.5 M9 51h11.5 M6 52h1.5 M3 53h1.5 M3 55h6.5 M0 56h1.5 M0 58h17 M3 59h9 M3 60h8.5 M3 61h26.5 M6 62h14.5 M3 63h4.5 M3 65h8.5 M6 66h24 M3 67h1.5 M3 69h31.5 M0 70h1.5 M0 72h12 M3 73h14 M3 75h7.5 M6 76h25.5 M6 77h3 M3 78h1.5 M3 80h11 M3 82h13 M6 83h3 M3 84h1.5 M3 86h8.5 M6 87h11.5 M9 88h3 M6 89h1.5 M3 90h1.5 M3 92h11.5 M3 93h31.5 M3 95h13 M6 96h10.5 M3 97h1.5 M0 98h1.5 M0 100h15.5 M3 101h8.5 M3 103h20.5 M6 104h15 M9 105h4 M6 106h1.5 M6 108h19.5 M6 110h10 M9 111h2.5 M6 112h1.5 M3 113h1.5 M3 115h11 M3 116h27 M6 117h15 M9 118h11.5 M9 119h3 M6 120h1.5 M6 122h10.5 M9 123h5 M6 124h1.5 M3 125h2 M3 126h22 M6 127h24.5 M9 128h25.5 M9 129h21.5 M9 130h14.5 M9 131h22 M9 132h14 M9 133h14 M9 135h17.5 M12 136h3.5 M12 138h11.5 M15 139h4.5 M12 140h2 M15 141h11.5 M12 142h1.5 M12 144h6.5 M15 145h2.5 M12 146h1.5 M12 148h28.5 M12 149h15.5 M9 150h1.5 M9 152h9.5 M9 153h16 M12 154h28 M12 155h33.5 M12 157h7 M15 158h9.5 M12 159h1.5 M9 160h2 M6 161h2 M3 162h2 M3 163h6.5 M0 164h1.5 M0 166h6.5"/></svg></td><td class="num">167</td><td class="num">4</td><td class="num">1<small>/6</small></td><td class="num">2</td><td class="hr"><button class="read" type="button" data-stage="v0.5.1-beta" aria-label="Read the script as beta 0.5.1 printed it">Read</button></td></tr>
-<tr class=" same" data-stage="v0.5.2-beta"><th scope="row"><span class="hn">beta 0.5.2</span><span class="hd">21 Jun 2026</span></th><td class="hs"><svg viewBox="0 0 60 167" preserveAspectRatio="none" aria-hidden="true"><path d="M0 0h21 M0 1h31 M0 2h24 M0 3h26 M0 4h41.5 M0 6h12 M3 7h6.5 M0 8h1.5 M0 10h12.5 M3 11h23.5 M0 12h1.5 M0 13h27.5 M0 14h16.5 M3 15h29 M3 16h33.5 M3 18h7 M6 19h8.5 M3 20h1.5 M0 21h1.5 M0 23h8.5 M0 24h11.5 M0 26h13 M3 27h17 M3 28h7.5 M3 29h17.5 M3 30h7 M3 31h6.5 M3 32h4 M0 33h1.5 M0 35h14.5 M3 36h23.5 M3 37h8.5 M3 39h17.5 M6 40h14.5 M6 41h37 M6 42h4 M6 44h11.5 M9 45h5 M6 46h2 M9 47h12 M6 48h1.5 M6 50h36.5 M9 51h11.5 M6 52h1.5 M3 53h1.5 M3 55h6.5 M0 56h1.5 M0 58h17 M3 59h9 M3 60h8.5 M3 61h26.5 M6 62h14.5 M3 63h4.5 M3 65h8.5 M6 66h24 M3 67h1.5 M3 69h31.5 M0 70h1.5 M0 72h12 M3 73h14 M3 75h7.5 M6 76h25.5 M6 77h3 M3 78h1.5 M3 80h11 M3 82h13 M6 83h3 M3 84h1.5 M3 86h8.5 M6 87h11.5 M9 88h3 M6 89h1.5 M3 90h1.5 M3 92h11.5 M3 93h31.5 M3 95h13 M6 96h10.5 M3 97h1.5 M0 98h1.5 M0 100h15.5 M3 101h8.5 M3 103h20.5 M6 104h15 M9 105h4 M6 106h1.5 M6 108h19.5 M6 110h10 M9 111h2.5 M6 112h1.5 M3 113h1.5 M3 115h11 M3 116h27 M6 117h15 M9 118h11.5 M9 119h3 M6 120h1.5 M6 122h10.5 M9 123h5 M6 124h1.5 M3 125h2 M3 126h22 M6 127h24.5 M9 128h25.5 M9 129h21.5 M9 130h14.5 M9 131h22 M9 132h14 M9 133h14 M9 135h17.5 M12 136h3.5 M12 138h11.5 M15 139h4.5 M12 140h2 M15 141h11.5 M12 142h1.5 M12 144h6.5 M15 145h2.5 M12 146h1.5 M12 148h28.5 M12 149h15.5 M9 150h1.5 M9 152h9.5 M9 153h16 M12 154h28 M12 155h33.5 M12 157h7 M15 158h9.5 M12 159h1.5 M9 160h2 M6 161h2 M3 162h2 M3 163h6.5 M0 164h1.5 M0 166h6.5"/></svg></td><td class="num">167</td><td class="num">4</td><td class="num">1<small>/6</small></td><td class="num">2</td><td class="hr"><button class="read" type="button" data-stage="v0.5.2-beta" aria-label="Read the script as beta 0.5.2 printed it">Read</button></td></tr>
-<tr class=" same" data-stage="v0.6.0-beta"><th scope="row"><span class="hn">beta 0.6</span><span class="hd">23 Jun 2026</span></th><td class="hs"><svg viewBox="0 0 60 167" preserveAspectRatio="none" aria-hidden="true"><path d="M0 0h21 M0 1h31 M0 2h24 M0 3h26 M0 4h41.5 M0 6h12 M3 7h6.5 M0 8h1.5 M0 10h12.5 M3 11h23.5 M0 12h1.5 M0 13h27.5 M0 14h16.5 M3 15h29 M3 16h33.5 M3 18h7 M6 19h8.5 M3 20h1.5 M0 21h1.5 M0 23h8.5 M0 24h11.5 M0 26h13 M3 27h17 M3 28h7.5 M3 29h17.5 M3 30h7 M3 31h6.5 M3 32h4 M0 33h1.5 M0 35h14.5 M3 36h23.5 M3 37h8.5 M3 39h17.5 M6 40h14.5 M6 41h37 M6 42h4 M6 44h11.5 M9 45h5 M6 46h2 M9 47h12 M6 48h1.5 M6 50h36.5 M9 51h11.5 M6 52h1.5 M3 53h1.5 M3 55h6.5 M0 56h1.5 M0 58h17 M3 59h9 M3 60h8.5 M3 61h26.5 M6 62h14.5 M3 63h4.5 M3 65h8.5 M6 66h24 M3 67h1.5 M3 69h31.5 M0 70h1.5 M0 72h12 M3 73h14 M3 75h7.5 M6 76h25.5 M6 77h3 M3 78h1.5 M3 80h11 M3 82h13 M6 83h3 M3 84h1.5 M3 86h8.5 M6 87h11.5 M9 88h3 M6 89h1.5 M3 90h1.5 M3 92h11.5 M3 93h31.5 M3 95h13 M6 96h10.5 M3 97h1.5 M0 98h1.5 M0 100h15.5 M3 101h8.5 M3 103h20.5 M6 104h15 M9 105h4 M6 106h1.5 M6 108h19.5 M6 110h10 M9 111h2.5 M6 112h1.5 M3 113h1.5 M3 115h11 M3 116h27 M6 117h15 M9 118h11.5 M9 119h3 M6 120h1.5 M6 122h10.5 M9 123h5 M6 124h1.5 M3 125h2 M3 126h22 M6 127h24.5 M9 128h25.5 M9 129h21.5 M9 130h14.5 M9 131h22 M9 132h14 M9 133h14 M9 135h17.5 M12 136h3.5 M12 138h11.5 M15 139h4.5 M12 140h2 M15 141h11.5 M12 142h1.5 M12 144h6.5 M15 145h2.5 M12 146h1.5 M12 148h28.5 M12 149h15.5 M9 150h1.5 M9 152h9.5 M9 153h16 M12 154h28 M12 155h33.5 M12 157h7 M15 158h9.5 M12 159h1.5 M9 160h2 M6 161h2 M3 162h2 M3 163h6.5 M0 164h1.5 M0 166h6.5"/></svg></td><td class="num">167</td><td class="num">4</td><td class="num">1<small>/6</small></td><td class="num">2</td><td class="hr"><button class="read" type="button" data-stage="v0.6.0-beta" aria-label="Read the script as beta 0.6 printed it">Read</button></td></tr>
-<tr class="" data-stage="v0.7.0"><th scope="row"><span class="hn">0.7</span><span class="hd">10 Jul 2026</span></th><td class="hs"><svg viewBox="0 0 60 167" preserveAspectRatio="none" aria-hidden="true"><path d="M0 0h21 M0 1h31 M0 2h24 M0 3h26 M0 4h41.5 M0 6h12 M3 7h6.5 M0 8h1.5 M0 10h12.5 M3 11h23.5 M0 12h1.5 M0 13h27.5 M0 14h16.5 M3 15h29 M3 16h33.5 M3 18h7 M6 19h8.5 M3 20h1.5 M0 21h1.5 M0 23h8.5 M0 24h11.5 M0 26h13 M3 27h17 M3 28h7.5 M3 29h17.5 M3 30h7 M3 31h6.5 M3 32h4 M0 33h1.5 M0 35h14.5 M3 36h23.5 M3 37h8.5 M3 39h17.5 M6 40h14.5 M6 41h37 M6 42h4 M6 44h11.5 M9 45h5 M6 46h2 M9 47h12 M6 48h1.5 M6 50h36.5 M9 51h11.5 M6 52h1.5 M3 53h1.5 M3 55h6.5 M0 56h1.5 M0 58h17 M3 59h9 M3 60h8.5 M3 61h26.5 M6 62h14.5 M3 63h4.5 M3 65h8.5 M6 66h24 M3 67h1.5 M3 69h31.5 M0 70h1.5 M0 72h12 M3 73h14 M3 75h7.5 M6 76h25.5 M6 77h3 M3 78h1.5 M3 80h11 M3 82h13 M6 83h3 M3 84h1.5 M3 86h8.5 M6 87h11.5 M9 88h3 M6 89h1.5 M3 90h1.5 M3 92h11.5 M3 93h31.5 M3 95h13 M6 96h10.5 M3 97h1.5 M0 98h1.5 M0 100h15.5 M3 101h8.5 M3 103h20.5 M6 104h15 M9 105h4 M6 106h1.5 M6 108h19.5 M6 110h10 M9 111h2.5 M6 112h1.5 M3 113h1.5 M3 115h11 M3 116h27 M6 117h15 M9 118h11.5 M9 119h3 M6 120h1.5 M6 122h10.5 M9 123h5 M6 124h1.5 M3 125h2 M3 126h22 M6 127h24.5 M9 128h25.5 M9 129h21.5 M9 130h14.5 M9 131h22 M9 132h14 M9 133h13.5 M9 135h17 M12 136h3.5 M12 138h11.5 M15 139h4.5 M12 140h2 M15 141h11.5 M12 142h1.5 M12 144h6.5 M15 145h2.5 M12 146h1.5 M12 148h28 M12 149h15.5 M9 150h1.5 M9 152h9.5 M9 153h16 M12 154h28 M12 155h33.5 M12 157h7 M15 158h9.5 M12 159h1.5 M9 160h2 M6 161h2 M3 162h2 M3 163h6.5 M0 164h1.5 M0 166h6.5"/></svg></td><td class="num">167</td><td class="num">4</td><td class="num">1<small>/6</small></td><td class="num">2</td><td class="hr"><button class="read" type="button" data-stage="v0.7.0" aria-label="Read the script as 0.7 printed it">Read</button></td></tr>
-<tr class=" same" data-stage="v0.8"><th scope="row"><span class="hn">0.8</span><span class="hd">10 Jul 2026</span></th><td class="hs"><svg viewBox="0 0 60 167" preserveAspectRatio="none" aria-hidden="true"><path d="M0 0h21 M0 1h31 M0 2h24 M0 3h26 M0 4h41.5 M0 6h12 M3 7h6.5 M0 8h1.5 M0 10h12.5 M3 11h23.5 M0 12h1.5 M0 13h27.5 M0 14h16.5 M3 15h29 M3 16h33.5 M3 18h7 M6 19h8.5 M3 20h1.5 M0 21h1.5 M0 23h8.5 M0 24h11.5 M0 26h13 M3 27h17 M3 28h7.5 M3 29h17.5 M3 30h7 M3 31h6.5 M3 32h4 M0 33h1.5 M0 35h14.5 M3 36h23.5 M3 37h8.5 M3 39h17.5 M6 40h14.5 M6 41h37 M6 42h4 M6 44h11.5 M9 45h5 M6 46h2 M9 47h12 M6 48h1.5 M6 50h36.5 M9 51h11.5 M6 52h1.5 M3 53h1.5 M3 55h6.5 M0 56h1.5 M0 58h17 M3 59h9 M3 60h8.5 M3 61h26.5 M6 62h14.5 M3 63h4.5 M3 65h8.5 M6 66h24 M3 67h1.5 M3 69h31.5 M0 70h1.5 M0 72h12 M3 73h14 M3 75h7.5 M6 76h25.5 M6 77h3 M3 78h1.5 M3 80h11 M3 82h13 M6 83h3 M3 84h1.5 M3 86h8.5 M6 87h11.5 M9 88h3 M6 89h1.5 M3 90h1.5 M3 92h11.5 M3 93h31.5 M3 95h13 M6 96h10.5 M3 97h1.5 M0 98h1.5 M0 100h15.5 M3 101h8.5 M3 103h20.5 M6 104h15 M9 105h4 M6 106h1.5 M6 108h19.5 M6 110h10 M9 111h2.5 M6 112h1.5 M3 113h1.5 M3 115h11 M3 116h27 M6 117h15 M9 118h11.5 M9 119h3 M6 120h1.5 M6 122h10.5 M9 123h5 M6 124h1.5 M3 125h2 M3 126h22 M6 127h24.5 M9 128h25.5 M9 129h21.5 M9 130h14.5 M9 131h22 M9 132h14 M9 133h13.5 M9 135h17 M12 136h3.5 M12 138h11.5 M15 139h4.5 M12 140h2 M15 141h11.5 M12 142h1.5 M12 144h6.5 M15 145h2.5 M12 146h1.5 M12 148h28 M12 149h15.5 M9 150h1.5 M9 152h9.5 M9 153h16 M12 154h28 M12 155h33.5 M12 157h7 M15 158h9.5 M12 159h1.5 M9 160h2 M6 161h2 M3 162h2 M3 163h6.5 M0 164h1.5 M0 166h6.5"/></svg></td><td class="num">167</td><td class="num">4</td><td class="num">1<small>/6</small></td><td class="num">2</td><td class="hr"><button class="read" type="button" data-stage="v0.8" aria-label="Read the script as 0.8 printed it">Read</button></td></tr>
-<tr class=" same" data-stage="v0.9.0-beta"><th scope="row"><span class="hn">0.9 beta</span><span class="hd">29 Jul 2026</span></th><td class="hs"><svg viewBox="0 0 60 167" preserveAspectRatio="none" aria-hidden="true"><path d="M0 0h21 M0 1h31 M0 2h24 M0 3h26 M0 4h41.5 M0 6h12 M3 7h6.5 M0 8h1.5 M0 10h12.5 M3 11h23.5 M0 12h1.5 M0 13h27.5 M0 14h16.5 M3 15h29 M3 16h33.5 M3 18h7 M6 19h8.5 M3 20h1.5 M0 21h1.5 M0 23h8.5 M0 24h11.5 M0 26h13 M3 27h17 M3 28h7.5 M3 29h17.5 M3 30h7 M3 31h6.5 M3 32h4 M0 33h1.5 M0 35h14.5 M3 36h23.5 M3 37h8.5 M3 39h17.5 M6 40h14.5 M6 41h37 M6 42h4 M6 44h11.5 M9 45h5 M6 46h2 M9 47h12 M6 48h1.5 M6 50h36.5 M9 51h11.5 M6 52h1.5 M3 53h1.5 M3 55h6.5 M0 56h1.5 M0 58h17 M3 59h9 M3 60h8.5 M3 61h26.5 M6 62h14.5 M3 63h4.5 M3 65h8.5 M6 66h24 M3 67h1.5 M3 69h31.5 M0 70h1.5 M0 72h12 M3 73h14 M3 75h7.5 M6 76h25.5 M6 77h3 M3 78h1.5 M3 80h11 M3 82h13 M6 83h3 M3 84h1.5 M3 86h8.5 M6 87h11.5 M9 88h3 M6 89h1.5 M3 90h1.5 M3 92h11.5 M3 93h31.5 M3 95h13 M6 96h10.5 M3 97h1.5 M0 98h1.5 M0 100h15.5 M3 101h8.5 M3 103h20.5 M6 104h15 M9 105h4 M6 106h1.5 M6 108h19.5 M6 110h10 M9 111h2.5 M6 112h1.5 M3 113h1.5 M3 115h11 M3 116h27 M6 117h15 M9 118h11.5 M9 119h3 M6 120h1.5 M6 122h10.5 M9 123h5 M6 124h1.5 M3 125h2 M3 126h22 M6 127h24.5 M9 128h25.5 M9 129h21.5 M9 130h14.5 M9 131h22 M9 132h14 M9 133h13.5 M9 135h17 M12 136h3.5 M12 138h11.5 M15 139h4.5 M12 140h2 M15 141h11.5 M12 142h1.5 M12 144h6.5 M15 145h2.5 M12 146h1.5 M12 148h28 M12 149h15.5 M9 150h1.5 M9 152h9.5 M9 153h16 M12 154h28 M12 155h33.5 M12 157h7 M15 158h9.5 M12 159h1.5 M9 160h2 M6 161h2 M3 162h2 M3 163h6.5 M0 164h1.5 M0 166h6.5"/></svg></td><td class="num">167</td><td class="num">4</td><td class="num">1<small>/6</small></td><td class="num">2</td><td class="hr"><button class="read" type="button" data-stage="v0.9.0-beta" aria-label="Read the script as 0.9 beta printed it">Read</button></td></tr>
-<tr class="" data-stage="v2-v0.1"><th scope="row"><span class="hn">V2</span><span class="hd">19 Sep 2026</span></th><td class="hs"><svg viewBox="0 0 60 171" preserveAspectRatio="none" aria-hidden="true"><path d="M0 0h21 M0 1h31 M0 2h24 M0 3h26 M0 4h41.5 M0 6h12 M3 7h6.5 M0 8h1.5 M0 10h12.5 M3 11h16 M0 12h1.5 M0 13h37.5 M0 14h14.5 M3 15h27 M3 16h33.5 M3 18h7 M6 19h8.5 M3 20h1.5 M0 21h1.5 M0 23h8.5 M0 24h11.5 M0 26h13 M3 27h19.5 M3 28h10 M3 29h20 M3 30h9.5 M3 31h9 M3 32h6.5 M0 33h1.5 M0 35h14.5 M3 36h23.5 M3 37h8.5 M3 39h17.5 M6 40h14.5 M6 41h37 M6 42h4 M6 44h11.5 M9 45h5 M6 46h2 M9 47h12 M6 48h1.5 M6 50h36.5 M9 51h11.5 M6 52h1.5 M3 53h1.5 M3 55h6.5 M0 56h1.5 M0 58h18.5 M3 59h9 M3 60h8.5 M3 61h26.5 M6 62h14.5 M3 63h4.5 M3 65h11.5 M6 66h35.5 M3 67h1.5 M3 69h31.5 M0 70h1.5 M0 72h11.5 M3 73h19 M3 75h12.5 M6 76h15.5 M6 77h15 M6 78h3 M3 79h2 M6 80h16 M6 82h13 M9 83h3 M6 84h1.5 M6 86h13 M9 87h11 M12 88h3 M9 89h1.5 M6 90h1.5 M6 92h11 M6 93h31.5 M6 95h13 M9 96h15.5 M6 97h1.5 M6 99h3 M3 100h1.5 M0 101h1.5 M0 103h15.5 M3 104h8.5 M3 106h20.5 M6 107h15 M9 108h4 M6 109h1.5 M6 111h11 M6 112h16 M6 114h10 M9 115h2.5 M6 116h1.5 M3 117h1.5 M3 119h11 M3 120h27 M6 121h15 M9 122h11.5 M9 123h3 M6 124h1.5 M6 126h11 M9 127h5.5 M6 128h1.5 M3 129h2 M3 130h22 M6 131h24.5 M9 132h25.5 M9 133h21.5 M9 134h14.5 M9 135h22 M9 136h14 M9 137h13.5 M9 139h17 M12 140h4 M12 142h11.5 M15 143h5 M12 144h2 M15 145h12 M12 146h1.5 M12 148h7 M15 149h2.5 M12 150h1.5 M12 152h28 M12 153h15.5 M9 154h1.5 M9 156h9.5 M9 157h16 M12 158h28 M12 159h33.5 M12 161h7 M15 162h9.5 M12 163h1.5 M9 164h2 M6 165h2 M3 166h2 M3 167h6.5 M0 168h1.5 M0 170h6.5"/></svg></td><td class="num">171</td><td class="num">3</td><td class="num">1<small>/6</small></td><td class="num">2</td><td class="hr"><button class="read" type="button" data-stage="v2-v0.1" aria-label="Read the script as V2 printed it">Read</button></td></tr>
-<tr class="" data-stage="v2.1"><th scope="row"><span class="hn">V2.1</span><span class="hd">28 Sep 2026</span></th><td class="hs"><svg viewBox="0 0 60 171" preserveAspectRatio="none" aria-hidden="true"><path d="M0 0h21 M0 1h31 M0 2h24 M0 3h26 M0 4h41.5 M0 6h12 M3 7h6.5 M0 8h1.5 M0 10h12.5 M3 11h16 M0 12h1.5 M0 13h37.5 M0 14h14.5 M3 15h27 M3 16h33.5 M3 18h7 M6 19h8.5 M3 20h1.5 M0 21h1.5 M0 23h8.5 M0 24h11.5 M0 26h13 M3 27h19.5 M3 28h10 M3 29h20 M3 30h9.5 M3 31h9 M3 32h6.5 M0 33h1.5 M0 35h14.5 M3 36h23.5 M3 37h8.5 M3 39h17.5 M6 40h14.5 M6 41h37 M6 42h4 M6 44h11.5 M9 45h5 M6 46h2 M9 47h12 M6 48h1.5 M6 50h36.5 M9 51h11.5 M6 52h1.5 M3 53h1.5 M3 55h6.5 M0 56h1.5 M0 58h18.5 M3 59h9 M3 60h8.5 M3 61h26.5 M6 62h14.5 M3 63h4.5 M3 65h11.5 M6 66h35.5 M3 67h1.5 M3 69h31.5 M0 70h1.5 M0 72h11.5 M3 73h19 M3 75h12.5 M6 76h15.5 M6 77h15 M6 78h3 M3 79h2 M6 80h16 M6 82h13 M9 83h3 M6 84h1.5 M6 86h13 M9 87h11 M12 88h3 M9 89h1.5 M6 90h1.5 M6 92h11 M6 93h31.5 M6 95h13 M9 96h15.5 M6 97h1.5 M6 99h3 M3 100h1.5 M0 101h1.5 M0 103h15.5 M3 104h8.5 M3 106h20.5 M6 107h15 M9 108h4 M6 109h1.5 M6 111h11 M6 112h16 M6 114h10 M9 115h2.5 M6 116h1.5 M3 117h1.5 M3 119h11 M3 120h27 M6 121h15 M9 122h11.5 M9 123h3 M6 124h1.5 M6 126h10.5 M9 127h5 M6 128h1.5 M3 129h2 M3 130h22 M6 131h24.5 M9 132h25.5 M9 133h21.5 M9 134h14.5 M9 135h22 M9 136h14 M9 137h13.5 M9 139h17 M12 140h3.5 M12 142h11.5 M15 143h4.5 M12 144h2 M15 145h11.5 M12 146h1.5 M12 148h6.5 M15 149h2.5 M12 150h1.5 M12 152h28 M12 153h15.5 M9 154h1.5 M9 156h9.5 M9 157h16 M12 158h28 M12 159h33.5 M12 161h7 M15 162h9.5 M12 163h1.5 M9 164h2 M6 165h2 M3 166h2 M3 167h6.5 M0 168h1.5 M0 170h6.5"/></svg></td><td class="num">171</td><td class="num">3</td><td class="num">1<small>/6</small></td><td class="num">2</td><td class="hr"><button class="read" type="button" data-stage="v2.1" aria-label="Read the script as V2.1 printed it">Read</button></td></tr>
-<tr class=" same" data-stage="v2.1.1"><th scope="row"><span class="hn">V2.1.1</span><span class="hd">28 Sep 2026</span></th><td class="hs"><svg viewBox="0 0 60 171" preserveAspectRatio="none" aria-hidden="true"><path d="M0 0h21 M0 1h31 M0 2h24 M0 3h26 M0 4h41.5 M0 6h12 M3 7h6.5 M0 8h1.5 M0 10h12.5 M3 11h16 M0 12h1.5 M0 13h37.5 M0 14h14.5 M3 15h27 M3 16h33.5 M3 18h7 M6 19h8.5 M3 20h1.5 M0 21h1.5 M0 23h8.5 M0 24h11.5 M0 26h13 M3 27h19.5 M3 28h10 M3 29h20 M3 30h9.5 M3 31h9 M3 32h6.5 M0 33h1.5 M0 35h14.5 M3 36h23.5 M3 37h8.5 M3 39h17.5 M6 40h14.5 M6 41h37 M6 42h4 M6 44h11.5 M9 45h5 M6 46h2 M9 47h12 M6 48h1.5 M6 50h36.5 M9 51h11.5 M6 52h1.5 M3 53h1.5 M3 55h6.5 M0 56h1.5 M0 58h18.5 M3 59h9 M3 60h8.5 M3 61h26.5 M6 62h14.5 M3 63h4.5 M3 65h11.5 M6 66h35.5 M3 67h1.5 M3 69h31.5 M0 70h1.5 M0 72h11.5 M3 73h19 M3 75h12.5 M6 76h15.5 M6 77h15 M6 78h3 M3 79h2 M6 80h16 M6 82h13 M9 83h3 M6 84h1.5 M6 86h13 M9 87h11 M12 88h3 M9 89h1.5 M6 90h1.5 M6 92h11 M6 93h31.5 M6 95h13 M9 96h15.5 M6 97h1.5 M6 99h3 M3 100h1.5 M0 101h1.5 M0 103h15.5 M3 104h8.5 M3 106h20.5 M6 107h15 M9 108h4 M6 109h1.5 M6 111h11 M6 112h16 M6 114h10 M9 115h2.5 M6 116h1.5 M3 117h1.5 M3 119h11 M3 120h27 M6 121h15 M9 122h11.5 M9 123h3 M6 124h1.5 M6 126h10.5 M9 127h5 M6 128h1.5 M3 129h2 M3 130h22 M6 131h24.5 M9 132h25.5 M9 133h21.5 M9 134h14.5 M9 135h22 M9 136h14 M9 137h13.5 M9 139h17 M12 140h3.5 M12 142h11.5 M15 143h4.5 M12 144h2 M15 145h11.5 M12 146h1.5 M12 148h6.5 M15 149h2.5 M12 150h1.5 M12 152h28 M12 153h15.5 M9 154h1.5 M9 156h9.5 M9 157h16 M12 158h28 M12 159h33.5 M12 161h7 M15 162h9.5 M12 163h1.5 M9 164h2 M6 165h2 M3 166h2 M3 167h6.5 M0 168h1.5 M0 170h6.5"/></svg></td><td class="num">171</td><td class="num">3</td><td class="num">1<small>/6</small></td><td class="num">2</td><td class="hr"><button class="read" type="button" data-stage="v2.1.1" aria-label="Read the script as V2.1.1 printed it">Read</button></td></tr>
-<tr class="" data-stage="v2.5"><th scope="row"><span class="hn">V2.5</span><span class="hd">2 Oct 2026</span></th><td class="hs"><svg viewBox="0 0 60 163" preserveAspectRatio="none" aria-hidden="true"><path d="M0 0h21 M0 1h31 M0 2h24 M0 3h26 M0 4h41.5 M0 6h12 M3 7h6.5 M0 8h1.5 M0 10h12.5 M3 11h16 M0 12h1.5 M0 14h37 M0 15h16.5 M3 16h29 M3 17h33.5 M3 19h7 M6 20h8.5 M3 21h1.5 M0 22h1.5 M0 24h8.5 M0 25h11.5 M0 27h13 M3 28h19.5 M3 29h10 M3 30h20 M3 31h9.5 M3 32h9 M3 33h6.5 M0 34h1.5 M0 36h14.5 M3 37h23.5 M3 38h8.5 M3 40h17.5 M6 41h14.5 M6 42h37 M6 43h4 M6 45h11.5 M9 46h5 M6 47h2 M9 48h12 M6 49h1.5 M6 51h36.5 M9 52h11.5 M6 53h1.5 M3 54h1.5 M3 56h6.5 M0 57h1.5 M0 59h18.5 M3 60h9 M3 61h8.5 M3 62h26.5 M6 63h14.5 M3 64h4.5 M3 66h11.5 M6 67h35.5 M3 68h1.5 M3 70h31.5 M0 71h1.5 M0 73h11.5 M3 74h19 M3 76h12.5 M6 77h25 M6 78h3 M3 79h1.5 M3 81h16 M3 83h13 M6 84h3 M3 85h1.5 M3 87h13 M6 88h11 M9 89h3 M6 90h1.5 M3 91h1.5 M3 93h11 M3 94h31.5 M3 96h13 M6 97h15.5 M3 98h1.5 M0 99h1.5 M0 101h15.5 M3 102h8.5 M3 104h20.5 M6 105h15 M9 106h4 M6 107h1.5 M6 109h19.5 M6 111h10 M9 112h2.5 M6 113h1.5 M3 114h1.5 M3 116h15.5 M3 117h31.5 M6 118h15 M9 119h16 M9 120h3 M6 121h1.5 M6 123h10.5 M9 124h5 M6 125h1.5 M3 126h2 M3 127h22 M6 128h24.5 M9 129h25.5 M9 130h21.5 M9 131h14.5 M9 132h22 M9 133h14 M9 134h13.5 M9 136h17 M12 137h3.5 M12 139h11.5 M15 140h4.5 M12 141h2 M15 142h11.5 M12 143h1.5 M12 145h6.5 M15 146h2.5 M12 147h1.5 M12 149h28 M12 150h15.5 M9 151h1.5 M9 153h9.5 M9 154h16 M12 155h37 M9 156h2 M6 157h2 M3 158h2 M3 159h6.5 M0 160h1.5 M0 162h6.5"/></svg></td><td class="num">163</td><td class="num">3</td><td class="num">2<small>/6</small></td><td class="num">2</td><td class="hr"><button class="read" type="button" data-stage="v2.5" aria-label="Read the script as V2.5 printed it">Read</button></td></tr>
-<tr class=" same" data-stage="v2.5.1"><th scope="row"><span class="hn">V2.5.1</span><span class="hd">2 Oct 2026</span></th><td class="hs"><svg viewBox="0 0 60 163" preserveAspectRatio="none" aria-hidden="true"><path d="M0 0h21 M0 1h31 M0 2h24 M0 3h26 M0 4h41.5 M0 6h12 M3 7h6.5 M0 8h1.5 M0 10h12.5 M3 11h16 M0 12h1.5 M0 14h37 M0 15h16.5 M3 16h29 M3 17h33.5 M3 19h7 M6 20h8.5 M3 21h1.5 M0 22h1.5 M0 24h8.5 M0 25h11.5 M0 27h13 M3 28h19.5 M3 29h10 M3 30h20 M3 31h9.5 M3 32h9 M3 33h6.5 M0 34h1.5 M0 36h14.5 M3 37h23.5 M3 38h8.5 M3 40h17.5 M6 41h14.5 M6 42h37 M6 43h4 M6 45h11.5 M9 46h5 M6 47h2 M9 48h12 M6 49h1.5 M6 51h36.5 M9 52h11.5 M6 53h1.5 M3 54h1.5 M3 56h6.5 M0 57h1.5 M0 59h18.5 M3 60h9 M3 61h8.5 M3 62h26.5 M6 63h14.5 M3 64h4.5 M3 66h11.5 M6 67h35.5 M3 68h1.5 M3 70h31.5 M0 71h1.5 M0 73h11.5 M3 74h19 M3 76h12.5 M6 77h25 M6 78h3 M3 79h1.5 M3 81h16 M3 83h13 M6 84h3 M3 85h1.5 M3 87h13 M6 88h11 M9 89h3 M6 90h1.5 M3 91h1.5 M3 93h11 M3 94h31.5 M3 96h13 M6 97h15.5 M3 98h1.5 M0 99h1.5 M0 101h15.5 M3 102h8.5 M3 104h20.5 M6 105h15 M9 106h4 M6 107h1.5 M6 109h19.5 M6 111h10 M9 112h2.5 M6 113h1.5 M3 114h1.5 M3 116h15.5 M3 117h31.5 M6 118h15 M9 119h16 M9 120h3 M6 121h1.5 M6 123h10.5 M9 124h5 M6 125h1.5 M3 126h2 M3 127h22 M6 128h24.5 M9 129h25.5 M9 130h21.5 M9 131h14.5 M9 132h22 M9 133h14 M9 134h13.5 M9 136h17 M12 137h3.5 M12 139h11.5 M15 140h4.5 M12 141h2 M15 142h11.5 M12 143h1.5 M12 145h6.5 M15 146h2.5 M12 147h1.5 M12 149h28 M12 150h15.5 M9 151h1.5 M9 153h9.5 M9 154h16 M12 155h37 M9 156h2 M6 157h2 M3 158h2 M3 159h6.5 M0 160h1.5 M0 162h6.5"/></svg></td><td class="num">163</td><td class="num">3</td><td class="num">2<small>/6</small></td><td class="num">2</td><td class="hr"><button class="read" type="button" data-stage="v2.5.1" aria-label="Read the script as V2.5.1 printed it">Read</button></td></tr>
-<tr class="cur" data-stage="v2.6"><th scope="row"><span class="hn">V2.6</span><span class="hd">10 Oct 2026</span></th><td class="hs"><svg viewBox="0 0 60 147" preserveAspectRatio="none" aria-hidden="true"><path d="M0 0h21 M0 1h31 M0 2h24 M0 3h26 M0 4h41.5 M0 6h36 M3 7h6.5 M0 8h1.5 M0 10h40 M3 11h23 M0 12h1.5 M0 14h40.5 M3 15h29 M3 16h33.5 M3 18h7 M6 19h8.5 M3 20h1.5 M0 21h1.5 M0 23h8.5 M0 24h11.5 M0 26h13 M3 27h19.5 M3 28h10 M3 29h20 M3 30h9.5 M3 31h9 M3 32h6.5 M0 33h1.5 M0 35h14.5 M3 36h23.5 M3 37h8.5 M3 39h17.5 M6 40h14.5 M6 41h37 M6 43h48 M9 44h4 M6 45h1.5 M6 47h11.5 M3 48h1.5 M3 50h6.5 M0 51h1.5 M0 53h18.5 M3 54h9 M3 55h8.5 M3 56h48 M3 58h11.5 M6 59h21.5 M3 60h1.5 M3 62h30.5 M0 63h1.5 M0 65h11.5 M3 66h19 M3 68h12.5 M6 69h25 M6 70h3 M3 71h1.5 M3 73h16 M3 75h13 M6 76h3 M3 77h1.5 M3 79h13 M6 80h11 M9 81h3 M6 82h1.5 M3 83h1.5 M3 85h11 M3 86h26 M3 88h13 M6 89h15.5 M3 90h1.5 M0 91h1.5 M0 93h15.5 M3 94h8.5 M3 96h20.5 M6 97h15 M9 98h4 M6 99h1.5 M6 101h19.5 M6 103h10 M9 104h2.5 M6 105h1.5 M3 106h1.5 M3 108h15.5 M3 109h31.5 M6 110h15 M9 111h16 M9 112h3 M6 113h1.5 M6 115h10.5 M9 116h5 M6 117h1.5 M3 118h2 M3 119h22 M6 120h24.5 M9 121h25.5 M9 122h21.5 M9 123h14.5 M9 124h22 M9 125h14 M9 126h13.5 M9 128h17 M12 129h28.5 M15 130h2.5 M12 131h1.5 M12 133h28 M12 134h24 M9 135h1.5 M9 137h9.5 M9 138h16 M12 139h23 M9 140h2 M6 141h2 M3 142h2 M3 143h6.5 M0 144h1.5 M0 146h6.5"/></svg></td><td class="num">147</td><td class="num">2</td><td class="num">6<small>/6</small></td><td class="num">0</td><td class="hr"><button class="read" type="button" data-stage="v2.6" aria-label="Read the script as V2.6 printed it">Read</button></td></tr>
-<!-- /gen:history -->
-            </tbody>
-          </table>
-        </div>
-        <p class="fine">medal reads bytecode up to version 5, so it was given the same source compiled by Luau 0.607. Every Tovek release read the exact bytes above.</p>
-      </div>
-    </article>
-
-    <article class="plate" id="films" aria-labelledby="films-h">
-      <header class="plate-head"><p class="plate-no">V</p><h2 id="films-h">Films</h2></header>
-      <div class="plate-body">
-        <div class="films" id="films-list">
+  <section class="sec more" id="films" aria-labelledby="films-h">
+    <header class="sec-head">
+      <h2 id="films-h">Films and changes</h2>
+      <p class="sec-lead">Both films play in your browser, drawn live from their source. <a href="watch/">Open the cinema</a></p>
+    </header>
+    <div class="more-row">
 <!-- gen:films -->
 <a class="film" href="watch/?film=story" data-film="story"><span class="film-frame"><img src="assets/v26/landing/poster-story.jpg" alt="" width="960" height="540" loading="lazy" decoding="async"><span class="film-play" aria-hidden="true"><svg viewBox="0 0 16 16"><path d="M5 3.2v9.6L12.6 8z"/></svg></span><span class="film-time">2:40</span></span><span class="film-kicker">A film about Tovek</span><span class="film-title">One function, seventeen releases</span><span class="film-text">The same function, decompiled by every Tovek release since medal.</span></a>
 <a class="film" href="watch/?film=v26" data-film="v26"><span class="film-frame"><img src="assets/v26/landing/poster-v26.jpg" alt="" width="960" height="540" loading="lazy" decoding="async"><span class="film-play" aria-hidden="true"><svg viewBox="0 0 16 16"><path d="M5 3.2v9.6L12.6 8z"/></svg></span><span class="film-time">1:52</span></span><span class="film-kicker">Launch film</span><span class="film-title">Tovek V2.6</span><span class="film-text">What Tovek is, and what V2.6 brings.</span></a>
 <!-- /gen:films -->
-        </div>
-        <p class="fine">Both play in your browser, drawn live from their source, frame by frame. <a href="watch/">Open the cinema</a></p>
-      </div>
-    </article>
-
-    <article class="plate" id="changes" aria-labelledby="changes-h">
-      <header class="plate-head"><p class="plate-no">VI</p><h2 id="changes-h">Changelog</h2></header>
-      <div class="plate-body">
-        <ol class="releases">
-          <li><a href="changelog/v2.6/"><b>V2.6</b><span>Helpers come back, with proof.</span><time data-stage-date="v2.6" datetime="2026-10">Oct 2026</time></a></li>
-          <li><a href="changelog/v2.5/"><b>V2.5</b><span>Our next era of faithful decompilation.</span><time data-stage-date="v2.5" datetime="2026-10">Oct 2026</time></a></li>
-          <li><a href="changelog/v2.1/"><b>V2.1</b><span>Faster, and reads newer bytecode.</span><time data-stage-date="v2.1" datetime="2026-09">Sep 2026</time></a></li>
-          <li><a href="changelog/v2/"><b>V2</b><span>A new generation of decompilation.</span><time data-stage-date="v2-v0.1" datetime="2026-09">Sep 2026</time></a></li>
+      <div class="clog">
+        <p class="clog-k">Changelog</p>
+        <ol class="clog-list">
+<!-- gen:changes -->
+<li><a href="changelog/v2.6/"><b>V2.6</b><span>Helpers come back, with proof.</span><time datetime="2026-10-10">10 Oct</time></a></li>
+<li><a href="changelog/v2.5/"><b>V2.5</b><span>Our next era of faithful decompilation.</span><time datetime="2026-10-02">2 Oct</time></a></li>
+<li><a href="changelog/v2.1/"><b>V2.1</b><span>Faster, and reads newer bytecode.</span><time datetime="2026-09-28">28 Sep</time></a></li>
+<li><a href="changelog/v2/"><b>V2</b><span>A new generation of decompilation.</span><time datetime="2026-09-19">19 Sep</time></a></li>
+<!-- /gen:changes -->
         </ol>
-        <p class="fine"><a href="changelog.html">Every release</a> &middot; <a href="https://github.com/Kiet1308/Tovek/releases">Earlier betas on GitHub</a></p>
+        <p class="clog-all"><a href="changelog.html">Every release</a><a href="https://github.com/Kiet1308/Tovek/releases">Earlier betas on GitHub</a></p>
       </div>
-    </article>
+    </div>
+  </section>
 
-    <article class="plate" id="credits" aria-labelledby="credits-h">
-      <header class="plate-head"><p class="plate-no">VII</p><h2 id="credits-h">Credits</h2></header>
-      <div class="plate-body">
-        <p class="credit">Tovek began as a fork of <a href="https://github.com/Stefanuk12/medal-decompiler">medal</a>, the Luau decompiler originally written by Jujhar Singh and Mathias Pedersen. Their work is where every line of Tovek starts.</p>
-        <ul class="links">
-          <li><a href="https://github.com/Kiet1308/Tovek"><b>GitHub</b><span>Source, issues and releases</span></a></li>
-          <li><a href="https://discord.gg/phY6VUDSF7"><b>Discord</b><span>Questions and bug reports</span></a></li>
-          <li><a href="https://github.com/Kiet1308/Tovek/blob/main/LICENSE.txt"><b>MIT licence</b><span>Use it, change it, ship it</span></a></li>
-        </ul>
-      </div>
-    </article>
+  <section class="sec get" id="get" aria-labelledby="get-h">
+    <header class="sec-head">
+      <h2 id="get-h">Get Tovek V2.6</h2>
+      <p class="sec-lead">Each download holds two programs, <code>luau-lifter</code> and <code>web-server</code>, and the licence. <a href="https://github.com/Kiet1308/Tovek/releases/latest">All files and checksums</a></p>
+    </header>
+    <div class="dls">
+<!-- gen:downloads -->
+<a class="dl" href="https://github.com/Kiet1308/Tovek/releases/download/v2.6/Tovek-V2.6-windows-x86_64.zip" data-platform="Windows"><b>Windows</b><span>x86_64 · ZIP</span><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2.5v8m-3.5-3.5L8 10.5 11.5 7M3 13.5h10"/></svg></a>
+<a class="dl" href="https://github.com/Kiet1308/Tovek/releases/download/v2.6/Tovek-V2.6-linux-x86_64.tar.gz" data-platform="Linux"><b>Linux</b><span>x86_64 · glibc 2.35+</span><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2.5v8m-3.5-3.5L8 10.5 11.5 7M3 13.5h10"/></svg></a>
+<a class="dl" href="https://github.com/Kiet1308/Tovek/releases/download/v2.6/Tovek-V2.6-linux-aarch64.tar.gz" data-platform="Linux ARM64"><b>Linux ARM64</b><span>aarch64 · glibc 2.35+</span><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2.5v8m-3.5-3.5L8 10.5 11.5 7M3 13.5h10"/></svg></a>
+<a class="dl" href="https://github.com/Kiet1308/Tovek/releases/download/v2.6/Tovek-V2.6-macos-aarch64.tar.gz" data-platform="macOS"><b>macOS</b><span>Apple silicon</span><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2.5v8m-3.5-3.5L8 10.5 11.5 7M3 13.5h10"/></svg></a>
+<!-- /gen:downloads -->
+    </div>
+    <div class="use">
+<!-- gen:usage -->
+<p class="use-row"><span class="use-k">Command line</span><code><i aria-hidden="true">$</i> luau-lifter script.luac</code><span class="use-t">one file of raw Luau bytecode</span></p><p class="use-row"><span class="use-k">Local server</span><code><i aria-hidden="true">$</i> web-server</code><span class="use-t">then <code>POST /decompile</code> on <code>http://127.0.0.1:3000</code></span></p><p class="use-more">Folders, Roblox client bytecode, batches and every flag: <a href="https://github.com/Kiet1308/Tovek#usage">the README</a></p>
+<!-- /gen:usage -->
+    </div>
   </section>
 </main>
 
 <footer class="foot">
-  <a class="brand" href="index.html" aria-label="Tovek overview"><svg class="brand-mark" viewBox="64 72 384 360" aria-hidden="true"><path d="M100 88H412a20 20 0 0 1 20 20V160a20 20 0 0 1-20 20H320V320H192V180H100a20 20 0 0 1-20-20V108a20 20 0 0 1 20-20Z"/><rect x="196" y="328" width="24" height="24" rx="5"/><rect x="228" y="328" width="24" height="24" rx="5"/><rect x="260" y="328" width="24" height="24" rx="5"/><rect x="292" y="328" width="24" height="24" rx="5"/><rect x="196" y="360" width="24" height="24" rx="5"/><rect x="260" y="360" width="24" height="24" rx="5"/><rect x="292" y="360" width="24" height="24" rx="5"/><rect x="228" y="392" width="24" height="24" rx="5"/></svg><span class="brand-name">tovek</span></a>
-  <nav aria-label="Footer">
-    <a href="index.html" aria-current="page">Overview</a>
-    <a href="changelog.html">Changelog</a>
-    <a href="watch/">Films</a>
-    <a href="https://github.com/Kiet1308/Tovek">GitHub</a>
-    <a href="https://discord.gg/phY6VUDSF7">Discord</a>
-  </nav>
-  <p>MIT licensed. Built on medal.</p>
+  <div class="foot-in">
+    <a class="brand" href="index.html" aria-label="Tovek overview"><svg class="brand-mark" viewBox="64 72 384 360" aria-hidden="true"><path d="M100 88H412a20 20 0 0 1 20 20V160a20 20 0 0 1-20 20H320V320H192V180H100a20 20 0 0 1-20-20V108a20 20 0 0 1 20-20Z"/><rect x="196" y="328" width="24" height="24" rx="5"/><rect x="228" y="328" width="24" height="24" rx="5"/><rect x="260" y="328" width="24" height="24" rx="5"/><rect x="292" y="328" width="24" height="24" rx="5"/><rect x="196" y="360" width="24" height="24" rx="5"/><rect x="260" y="360" width="24" height="24" rx="5"/><rect x="292" y="360" width="24" height="24" rx="5"/><rect x="228" y="392" width="24" height="24" rx="5"/></svg><span class="brand-name">tovek</span></a>
+    <p class="credit">Tovek began as a fork of <a href="https://github.com/Stefanuk12/medal-decompiler">medal</a>, the Luau decompiler originally written by Jujhar Singh and Mathias Pedersen.</p>
+    <nav class="foot-nav" aria-label="Footer">
+      <a href="https://github.com/Kiet1308/Tovek">GitHub</a>
+      <a href="https://discord.gg/phY6VUDSF7">Discord</a>
+      <a href="https://github.com/Kiet1308/Tovek/blob/main/LICENSE.txt">MIT licence</a>
+      <a href="changelog.html">Changelog</a>
+      <a href="watch/">Films</a>
+    </nav>
+  </div>
 </footer>
 
-<noscript><style>.note{opacity:1!important;position:static!important;transform:none!important;width:auto!important;margin:6px 24px 14px 52px;padding:12px 14px;border-radius:8px;background:#f2f0eb;box-shadow:inset 0 0 0 1px rgba(18,18,16,.14)}.leaders,.rail,.runhead .lens,.own,.ms-end .end-actions,.strip{display:none!important}</style></noscript>
+<!-- gen:history-data -->
+<script type="application/json" id="history-data">{"helpers":6,"stages":[{"tag":"medal","name":"medal","date":"1 Apr 2022","lines":142,"plain":41,"calls":0,"decimals":2,"anchor":106,"changed":true},{"tag":"v0.1.0-beta","name":"beta 0.1","date":"19 Jun 2026","lines":167,"plain":5,"calls":1,"decimals":2,"anchor":128,"changed":true},{"tag":"v0.2.0-beta","name":"beta 0.2","date":"19 Jun 2026","lines":167,"plain":5,"calls":1,"decimals":2,"anchor":128,"changed":false},{"tag":"v0.3.0-beta","name":"beta 0.3","date":"20 Jun 2026","lines":167,"plain":4,"calls":1,"decimals":2,"anchor":128,"changed":true},{"tag":"v0.4.0-beta","name":"beta 0.4","date":"20 Jun 2026","lines":167,"plain":4,"calls":1,"decimals":2,"anchor":128,"changed":false},{"tag":"v0.5.0-beta","name":"beta 0.5","date":"21 Jun 2026","lines":167,"plain":4,"calls":1,"decimals":2,"anchor":128,"changed":false},{"tag":"v0.5.1-beta","name":"beta 0.5.1","date":"21 Jun 2026","lines":167,"plain":4,"calls":1,"decimals":2,"anchor":128,"changed":false},{"tag":"v0.5.2-beta","name":"beta 0.5.2","date":"21 Jun 2026","lines":167,"plain":4,"calls":1,"decimals":2,"anchor":128,"changed":false},{"tag":"v0.6.0-beta","name":"beta 0.6","date":"23 Jun 2026","lines":167,"plain":4,"calls":1,"decimals":2,"anchor":128,"changed":false},{"tag":"v0.7.0","name":"0.7","date":"10 Jul 2026","lines":167,"plain":4,"calls":1,"decimals":2,"anchor":128,"changed":true},{"tag":"v0.8","name":"0.8","date":"10 Jul 2026","lines":167,"plain":4,"calls":1,"decimals":2,"anchor":128,"changed":false},{"tag":"v0.9.0-beta","name":"0.9 beta","date":"29 Jul 2026","lines":167,"plain":4,"calls":1,"decimals":2,"anchor":128,"changed":false},{"tag":"v2-v0.1","name":"V2","date":"19 Sep 2026","lines":171,"plain":3,"calls":1,"decimals":2,"anchor":132,"changed":true},{"tag":"v2.1","name":"V2.1","date":"28 Sep 2026","lines":171,"plain":3,"calls":1,"decimals":2,"anchor":132,"changed":true},{"tag":"v2.1.1","name":"V2.1.1","date":"28 Sep 2026","lines":171,"plain":3,"calls":1,"decimals":2,"anchor":132,"changed":false},{"tag":"v2.5","name":"V2.5","date":"2 Oct 2026","lines":163,"plain":3,"calls":2,"decimals":2,"anchor":129,"changed":true},{"tag":"v2.5.1","name":"V2.5.1","date":"2 Oct 2026","lines":163,"plain":3,"calls":2,"decimals":2,"anchor":129,"changed":false},{"tag":"v2.6","name":"V2.6","date":"10 Oct 2026","lines":147,"plain":2,"calls":6,"decimals":0,"anchor":121,"changed":true}]}</script>
+<!-- /gen:history-data -->
+<noscript><style>.lens,.fr-ctl,.fr-tabs,.fr-rail,.fr-leader,.own-in .drop,.samples,.out-act{display:none!important}.fr-port{overflow:auto!important}.fr-notes{overflow:auto!important}.step{position:static!important;opacity:1!important;visibility:visible!important;transform:none!important;padding-bottom:24px!important}.glimpse .pane[data-view="tovek"]{display:block!important}</style></noscript>
 </body>
 </html>

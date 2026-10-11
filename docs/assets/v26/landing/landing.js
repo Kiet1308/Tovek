@@ -1,40 +1,19 @@
-// Tovek landing: "The annotated script".
-// The script, its notes and every number are already in the HTML (filled from data/landing.json by the data step).
-// This module lays the notes out in the margin and draws their leaders, keeps the minimap and the running head in
-// step with reading, turns any passage into its bytecode or its original source (the lens), and reads the
-// visitor's own file with the in-browser build of Tovek.
+// Tovek landing.
+// Everything the page shows is already in the HTML (filled from data/landing.json by the data step). This module
+// makes it move: the hero's method reads itself back from bytecode and turns between bytecode, Tovek and source
+// (the lens); the guided reader scrolls its code to each note and draws the note's leader; its last step scrubs
+// through every release; and the visitor's own file is read with the in-browser build of Tovek.
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => Array.from(root.querySelectorAll(sel));
 const reduced = matchMedia('(prefers-reduced-motion: reduce)');
-const narrow = matchMedia('(max-width: 899px)');
-const EASE = 'cubic-bezier(0.16, 1, 0.3, 1)';
+const phone = matchMedia('(max-width: 759px)');
 const here = (p) => new URL(p, import.meta.url).href;
-
-const ms = $('#ms');
-const code = $('#code');
-const leaders = $('#leaders');
-const runhead = $('#runhead');
-const lens = $('#lens');
-const crumbPsg = $('#crumb-psg');
-const crumbFile = $('#crumb-file');
-const passages = $$('.psg', code);
-const notes = $$('.note', code);
-const noteById = new Map(notes.map((n) => [n.id, n]));
-
-let data = null;            // landing.json, fetched when first needed
-let history = null;         // landing-history.json
-let laidOut = false;
-let reading = null;         // { title, ... } while the column shows another file
-let current = null;         // the passage at the reading line
-let onNote = null;          // note lit by hover or focus
-let nearNote = null;        // note nearest the reading line
-const views = new Map(passages.map((p) => [p.id, 'tovek']));
-
-function loadData() {
-  if (!data) data = fetch(here('../../../data/landing.json')).then((r) => r.json()).then((d) => (data = d));
-  return Promise.resolve(data);
-}
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
+const easeInOut = (x) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
+const easeOut = (x) => 1 - Math.pow(1 - x, 4);
+window.__landing = true;
 
 // ------------------------------------------------------------------ tokens (same rules as the data step)
 
@@ -96,492 +75,24 @@ function tokenize(line) {
 
 const escapeHtml = (s) => s.replace(/[&<>]/g, (c) => (c === '&' ? '&amp;' : c === '<' ? '&lt;' : '&gt;'));
 
+const BREAK_AFTER = new Set([':', '.', '(']);
 function tokensHtml(tokens) {
   let h = '';
   for (const [kind, text] of tokens) {
-    if (kind === 'i' || kind === 'x') h += escapeHtml(text);
-    else h += `<span class="${kind}">${escapeHtml(text)}</span>`;
+    h += kind === 'i' || kind === 'x' ? escapeHtml(text) : `<span class="${kind}">${escapeHtml(text)}</span>`;
+    if (kind === 'o' && BREAK_AFTER.has(text)) h += '<wbr>';
   }
   return h;
 }
 
-function lineHtml(text, n, extraClass = '', highlight = true) {
+function lineHtml(text, n, highlight = true) {
   const ind = text.length - text.replace(/^\t+/, '').length;
   const body = text.slice(ind);
   const t = body ? (highlight ? tokensHtml(tokenize(body)) : escapeHtml(body)) : '';
-  return `<div class="ln${body ? '' : ' blank'}${extraClass ? ' ' + extraClass : ''}" data-n="${n}" style="--i:${ind}"><span class="t">${t}</span></div>`;
+  return `<div class="ln${body ? '' : ' blank'}" data-n="${n}" style="--i:${ind}"><span class="t">${t}</span></div>`;
 }
 
-// ------------------------------------------------------------------ header and running head
-
-const top = $('#top');
-let stuck = false;
-let solid = false;
-function onScrollChrome() {
-  const so = scrollY > 8;
-  if (so !== solid) { solid = so; top.classList.toggle('is-solid', so); }
-  const st = scrollY + geo.topH >= geo.runheadTop - 0.5 && scrollY + geo.topH < geo.msEnd;
-  if (st !== stuck) { stuck = st; runhead.classList.toggle('is-stuck', st); }
-}
-
-// ------------------------------------------------------------------ geometry cache (refreshed on layout)
-
-let geo = { lines: [], notes: [], passages: [], codeTop: 0, codeHeight: 1, lineCount: 0, topH: 64, rhH: 52,
-  runheadTop: 1e9, msEnd: 1e9, railH: 1, stripW: 1 };
-
-function docTop(el) { return el.getBoundingClientRect().top + scrollY; }
-
-function measure() {
-  geo.codeTop = docTop(code);
-  geo.codeHeight = code.offsetHeight;
-  geo.topH = top.offsetHeight;
-  geo.rhH = runhead.offsetHeight;
-  const wasStuck = runhead.classList.contains('is-stuck');
-  geo.runheadTop = docTop(runhead.parentElement) ;
-  geo.msEnd = docTop(runhead.parentElement) + runhead.parentElement.offsetHeight;
-  geo.railH = railMap.clientHeight || 1;
-  geo.stripW = stripCanvas.clientWidth || 1;
-  void wasStuck;
-  geo.passages = passages.filter((p) => !p.hidden).map((p) => ({ el: p, top: docTop(p), bottom: docTop(p) + p.offsetHeight }));
-  geo.notes = notes.filter((n) => n.offsetParent && !n.classList.contains('is-hidden')).map((n) => {
-    const line = $(`#L${n.dataset.line}`);
-    return { el: n, id: n.id, line: +n.dataset.line, top: line ? docTop(line) : 0 };
-  });
-}
-
-// ------------------------------------------------------------------ margin notes and leaders (wide screens)
-
-const NS = 'http://www.w3.org/2000/svg';
-
-function lineEnd(lineEl, msRect) {
-  const t = $('.t', lineEl);
-  const range = document.createRange();
-  range.selectNodeContents(t);
-  const rects = Array.from(range.getClientRects()).filter((r) => r.width > 0);
-  const last = rects[rects.length - 1] || t.getBoundingClientRect();
-  const lr = lineEl.getBoundingClientRect();
-  return { x: last.right - msRect.left, y: (rects.length ? last.top + last.height / 2 : lr.top + lr.height / 2) - msRect.top };
-}
-
-function layoutNotes() {
-  if (narrow.matches || reading) {
-    for (const n of notes) n.style.top = '';
-    leaders.replaceChildren();
-    return;
-  }
-  const msRect = ms.getBoundingClientRect();
-  const codeRect = code.getBoundingClientRect();
-  const visible = notes.filter((n) => n.offsetParent && !n.classList.contains('is-hidden'));
-  const GAP = 26;
-  const items = visible.map((n) => {
-    const line = $(`#L${n.dataset.line}`);
-    const lr = line.getBoundingClientRect();
-    return { n, line, ideal: lr.top - msRect.top - 3, h: n.offsetHeight };
-  });
-  // each note as close to its line as order and spacing allow: least squares under "in order, never overlapping",
-  // solved exactly by pooling adjacent violators on the offsets
-  let acc = 0;
-  for (const it of items) { it.S = acc; it.t = it.ideal - acc; acc += it.h + GAP; }
-  const pools = [];
-  for (const it of items) {
-    pools.push({ sum: it.t, n: 1 });
-    while (pools.length > 1) {
-      const b = pools[pools.length - 1];
-      const a = pools[pools.length - 2];
-      if (a.sum / a.n <= b.sum / b.n) break;
-      a.sum += b.sum;
-      a.n += b.n;
-      pools.pop();
-    }
-  }
-  let k = 0;
-  for (const pool of pools) for (let c = 0; c < pool.n; c++, k++) items[k].y = pool.sum / pool.n + items[k].S;
-  let y = codeRect.top - msRect.top + 18;
-  for (const it of items) { it.y = Math.max(it.y, y); y = it.y + it.h + GAP; }
-  const limit = codeRect.bottom - msRect.top + 40;
-  for (let i = items.length - 1; i >= 0; i--) {
-    const cap = i === items.length - 1 ? limit - items[i].h : items[i + 1].y - GAP - items[i].h;
-    if (items[i].y > cap) items[i].y = Math.max(items[i].ideal - 600, cap);
-  }
-  const psgTops = items.map((it) => it.n.offsetParent.getBoundingClientRect().top - msRect.top);
-  const endsEarly = items.map((it) => lineEnd(it.line, msRect));
-  items.forEach((it, i) => { it.n.style.top = `${Math.round(it.y - psgTops[i])}px`; });
-  // leaders: from the end of the anchor line, out past the code column, then over to the note's kicker
-  const frag = document.createDocumentFragment();
-  const bendX = codeRect.right - msRect.left + 12;
-  const ends = endsEarly;
-  const noteLeft = items.length ? items[0].n.getBoundingClientRect().left - msRect.left - 10 : 0;
-  items.forEach((it, i) => {
-    const a = ends[i];
-    const ax = Math.min(a.x + 10, codeRect.right - msRect.left - 6);
-    const nx = noteLeft;
-    const ny = it.y + 9;
-    const g = document.createElementNS(NS, 'g');
-    g.dataset.note = it.n.id;
-    const p = document.createElementNS(NS, 'path');
-    const mid = (bendX + nx) / 2;
-    const dy = ny - a.y;
-    const d = Math.abs(dy) < 1
-      ? `M${ax} ${a.y}H${nx}`
-      : `M${ax} ${a.y}H${bendX}C${mid} ${a.y} ${mid} ${ny} ${nx} ${ny}`;
-    p.setAttribute('d', d);
-    p.setAttribute('pathLength', '1');
-    if (it.n.classList.contains('seen')) g.classList.add('seen');
-    const c = document.createElementNS(NS, 'circle');
-    c.setAttribute('cx', ax);
-    c.setAttribute('cy', a.y);
-    c.setAttribute('r', 2.5);
-    g.append(p, c);
-    frag.append(g);
-  });
-  leaders.replaceChildren(frag);
-  leaders.setAttribute('width', msRect.width);
-  leaders.setAttribute('height', msRect.height);
-  paintNoteStates();
-}
-
-let layoutQueued = false;
-function relayout() {
-  if (layoutQueued) return;
-  layoutQueued = true;
-  requestAnimationFrame(() => {
-    layoutQueued = false;
-    layoutNotes();
-    measure();
-    drawMaps();
-    lastView = '';
-    onScroll();
-    if (!laidOut) { laidOut = true; ms.classList.add('is-laid'); }
-  });
-}
-
-// ------------------------------------------------------------------ note states: lit (hover/focus) and near (reading)
-
-function paintNoteStates() {
-  for (const n of notes) {
-    n.classList.toggle('is-on', n.id === onNote);
-    n.classList.toggle('is-near', n.id === nearNote && n.id !== onNote);
-  }
-  for (const m of $$('mark.ns', code)) {
-    m.classList.toggle('is-on', m.dataset.note === onNote);
-    m.classList.toggle('is-near', m.dataset.note === nearNote && m.dataset.note !== onNote);
-  }
-  for (const g of leaders.children) {
-    g.classList.toggle('is-on', g.dataset.note === onNote);
-    g.classList.toggle('is-near', g.dataset.note === nearNote && g.dataset.note !== onNote);
-  }
-  for (const m of $$('.rail-mark')) m.classList.toggle('is-on', m.dataset.note === (onNote || nearNote));
-}
-
-function setOn(id) {
-  if (onNote === id) return;
-  onNote = id;
-  paintNoteStates();
-  // bring the lit note's lines to the front of the rail
-  for (const l of $$('.ln.is-hot', code)) l.classList.remove('is-hot');
-  if (id) {
-    const n = noteById.get(id);
-    const line = n && $(`#L${n.dataset.line}`);
-    if (line) line.classList.add('is-hot');
-  }
-}
-
-function noteOf(el) {
-  if (!el || !el.closest) return null;
-  const hit = el.closest('mark.ns, .note');
-  if (hit) return hit.dataset.note || hit.id;
-  const line = el.closest('.ln');
-  const m = line && $('.nm', line);
-  return m ? m.dataset.note : null;
-}
-code.addEventListener('pointerover', (e) => {
-  if (e.pointerType === 'touch' || reading) return;
-  const id = noteOf(e.target);
-  if (id) setOn(id);
-});
-code.addEventListener('pointerout', (e) => {
-  if (e.pointerType === 'touch') return;
-  const from = noteOf(e.target);
-  if (from && noteOf(e.relatedTarget) !== from) setOn(null);
-});
-code.addEventListener('focusin', (e) => {
-  const n = e.target.closest('.note');
-  if (n) setOn(n.id);
-});
-code.addEventListener('focusout', (e) => {
-  if (e.target.closest('.note')) setOn(null);
-});
-
-// phones: a marker opens its note under the line
-code.addEventListener('click', (e) => {
-  const m = e.target.closest('.nm');
-  if (!m) return;
-  const n = noteById.get(m.dataset.note);
-  const open = !n.classList.contains('is-open');
-  n.classList.toggle('is-open', open);
-  m.setAttribute('aria-expanded', String(open));
-  setOn(open ? n.id : null);
-  if (open) setTimeout(() => measure(), 420);
-});
-
-// ------------------------------------------------------------------ reading position: current passage, near note, maps
-
-function readingY() { return scrollY + Math.min(innerHeight * 0.4, 360); }
-
-function onScroll() {
-  onScrollChrome();
-  const y = readingY();
-  if (!reading) {
-    let cur = null;
-    for (const p of geo.passages) if (p.top <= y) cur = p.el;
-    if (!cur && geo.passages.length) cur = geo.passages[0].el;
-    if (cur !== current) setCurrent(cur);
-    let near = null;
-    for (const n of geo.notes) if (n.top <= y + 40) near = n.id;
-    if (scrollY + innerHeight < geo.codeTop + 80) near = null;
-    if (near !== nearNote) { nearNote = near; paintNoteStates(); }
-  }
-  moveMapViews();
-}
-
-function markLens(view) {
-  // a radio group: the checked button is the one tab stop, arrows move between them
-  for (const b of $$('button', lens)) {
-    const on = b.dataset.view === view;
-    b.setAttribute('aria-checked', String(on));
-    b.tabIndex = on ? 0 : -1;
-  }
-}
-
-function setCurrent(p) {
-  if (current) current.classList.remove('is-current');
-  current = p;
-  if (!p) return;
-  p.classList.add('is-current');
-  crumbPsg.textContent = p.dataset.title;
-  markLens(views.get(p.id));
-}
-
-// ------------------------------------------------------------------ the minimap rail (wide) and strip (phones)
-
-const rail = $('#rail');
-const railMap = $('.rail-map', rail);
-const railView = $('.rail-view', rail);
-const railMarks = $('#rail-marks');
-const strip = $('#strip');
-const stripCanvas = $('canvas', strip);
-const stripView = $('.strip-view', strip);
-let mapLines = [];   // [{ top, indent, len, kind }] in code-column coordinates
-
-let readingLines = null;
-function collectMapLines() {
-  if (reading && readingLines) {
-    const lh = parseFloat(getComputedStyle(code).lineHeight) || 24;
-    const pad = parseFloat(getComputedStyle(code).paddingTop) || 0;
-    return readingLines.map((text, i) => {
-      const ind = text.length - text.replace(/^	+/, '').length;
-      return { top: pad + i * lh, h: lh, indent: ind, len: text.length - ind, rc: RECOVERED.test(text), bc: false, from: false };
-    });
-  }
-  const codeTop = code.getBoundingClientRect().top;
-  const rows = $$('.ln', code).filter((l) => l.offsetParent);
-  return rows.map((l) => {
-    const t = $('.t', l);
-    const text = t ? t.textContent : '';
-    const r = l.getBoundingClientRect();
-    return { top: r.top - codeTop, h: r.height, indent: +(l.style.getPropertyValue('--i') || 0), len: text.length,
-      rc: !!$('.r', l), bc: l.classList.contains('bc'), from: l.classList.contains('from') };
-  });
-}
-
-function sizeCanvas(c) {
-  const dpr = Math.min(devicePixelRatio || 1, 3);
-  const w = c.clientWidth;
-  const h = c.clientHeight;
-  if (!w || !h) return null;
-  if (c.width !== Math.round(w * dpr) || c.height !== Math.round(h * dpr)) { c.width = Math.round(w * dpr); c.height = Math.round(h * dpr); }
-  const ctx = c.getContext('2d');
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  ctx.clearRect(0, 0, w, h);
-  return { ctx, w, h };
-}
-
-function drawMaps() {
-  mapLines = collectMapLines();
-  const total = Math.max(1, code.offsetHeight);
-  // rail: lines run down
-  if (!narrow.matches) {
-    const s = sizeCanvas(railMap);
-    if (s) {
-      const { ctx, w, h } = s;
-      const k = h / total;
-      for (const l of mapLines) {
-        if (!l.len) continue;
-        const y = l.top * k;
-        const bh = Math.max(1, Math.min(l.h * k * 0.62, 3));
-        const x = Math.min(l.indent * 2.2, w * 0.4);
-        const bw = Math.max(1.5, Math.min(l.len * 0.24, w - x));
-        ctx.fillStyle = l.rc || l.from ? 'rgba(214, 58, 12, 0.5)' : 'rgba(18, 18, 16, 0.24)';
-        ctx.fillRect(x, y, bw, bh);
-      }
-    }
-    const marks = [];
-    if (!reading) {
-      const railH = railMap.clientHeight;
-      const codeTop = code.getBoundingClientRect().top;
-      const tops = notes.map((n) => {
-        if (!n.offsetParent || n.classList.contains('is-hidden')) return null;
-        const line = $(`#L${n.dataset.line}`);
-        return line ? line.getBoundingClientRect().top - codeTop : null;
-      });
-      notes.forEach((n, i) => {
-        const top = tops[i];
-        if (top === null) return;
-        const b = document.createElement('button');
-        b.type = 'button';
-        b.className = 'rail-mark';
-        b.dataset.note = n.id;
-        b.tabIndex = -1;
-        b.style.top = `${(top / total) * railH}px`;
-        b.setAttribute('aria-label', `Note ${$('.nn', n).textContent}: ${$('.nkind', n).textContent}, line ${n.dataset.line}`);
-        marks.push(b);
-      });
-    }
-    railMarks.replaceChildren(...marks);
-  }
-  // strip: lines run across
-  if (narrow.matches) {
-    const s = sizeCanvas(stripCanvas);
-    if (s) {
-      const { ctx, w, h } = s;
-      const k = w / total;
-      for (const l of mapLines) {
-        if (!l.len) continue;
-        const x = l.top * k;
-        const bw = Math.max(0.8, l.h * k * 0.7);
-        const bh = Math.min(l.len * 0.14, h - 10);
-        ctx.fillStyle = l.rc || l.from ? 'rgba(214, 58, 12, 0.9)' : 'rgba(18, 18, 16, 0.28)';
-        ctx.fillRect(x, h - 5 - bh, bw, bh);
-      }
-      if (!reading) {
-        for (const n of notes) {
-          const line = $(`#L${n.dataset.line}`);
-          if (!line || !line.offsetParent) continue;
-          const top = line.getBoundingClientRect().top - code.getBoundingClientRect().top;
-          ctx.fillStyle = '#d63a0c';
-          ctx.beginPath();
-          ctx.arc((top / total) * w, 4, 2.2, 0, Math.PI * 2);
-          ctx.fill();
-        }
-      }
-    }
-  }
-  moveMapViews();
-}
-
-let lastView = '';
-function moveMapViews() {
-  const total = Math.max(1, geo.codeHeight);
-  const visTop = scrollY + geo.topH + geo.rhH - geo.codeTop;
-  const visH = innerHeight - geo.topH - geo.rhH;
-  const a = Math.max(0, Math.min(total, visTop));
-  const b = Math.max(0, Math.min(total, visTop + visH));
-  const key = `${narrow.matches}|${Math.round(a)}|${Math.round(b)}|${geo.railH}|${geo.stripW}`;
-  if (key === lastView) return;
-  lastView = key;
-  if (!narrow.matches) {
-    railView.style.transform = `translateY(${(a / total) * geo.railH}px)`;
-    railView.style.height = `${Math.max(10, ((b - a) / total) * geo.railH)}px`;
-  } else {
-    stripView.style.transform = `translateX(${(a / total) * geo.stripW}px)`;
-    stripView.style.width = `${Math.max(8, ((b - a) / total) * geo.stripW)}px`;
-  }
-}
-
-function scrollToCodeY(y, smooth = true) {
-  const target = geo.codeTop + y - (top.offsetHeight + runhead.offsetHeight) - 24;
-  scrollTo({ top: Math.max(0, target), behavior: smooth && !reduced.matches ? 'smooth' : 'auto' });
-}
-
-function mapPointer(e, el, horizontal) {
-  const r = el.getBoundingClientRect();
-  const f = horizontal ? (e.clientX - r.left) / r.width : (e.clientY - r.top) / r.height;
-  const total = code.offsetHeight;
-  const visH = innerHeight - top.offsetHeight - runhead.offsetHeight;
-  return Math.max(0, f * total - visH / 2 + 24);
-}
-
-let railDrag = false;
-railMap.addEventListener('pointerdown', (e) => {
-  railDrag = true;
-  railMap.setPointerCapture(e.pointerId);
-  scrollToCodeY(mapPointer(e, railMap, false), false);
-});
-railMap.addEventListener('pointermove', (e) => { if (railDrag) scrollToCodeY(mapPointer(e, railMap, false), false); });
-railMap.addEventListener('pointerup', () => { railDrag = false; });
-railMarks.addEventListener('click', (e) => {
-  const b = e.target.closest('.rail-mark');
-  if (!b) return;
-  goToNote(b.dataset.note);
-});
-// rail as one keyboard stop: arrows walk the notes
-rail.tabIndex = 0;
-rail.setAttribute('aria-label', 'Minimap of the script. Use the arrow keys to move between notes.');
-rail.addEventListener('keydown', (e) => {
-  if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(e.key)) return;
-  e.preventDefault();
-  const list = geo.notes;
-  if (!list.length) return;
-  const idx = list.findIndex((n) => n.id === (onNote || nearNote));
-  let next = idx;
-  if (e.key === 'ArrowDown') next = Math.min(list.length - 1, idx + 1);
-  if (e.key === 'ArrowUp') next = Math.max(0, idx - 1);
-  if (e.key === 'Home') next = 0;
-  if (e.key === 'End') next = list.length - 1;
-  goToNote(list[next].id);
-});
-const railTip = document.createElement('span');
-railTip.className = 'rail-tip';
-rail.querySelector('.rail-in').append(railTip);
-railMarks.addEventListener('pointerover', (e) => {
-  const b = e.target.closest('.rail-mark');
-  if (!b) return;
-  railTip.textContent = b.getAttribute('aria-label');
-  railTip.style.top = b.style.top;
-  railTip.classList.add('is-on');
-});
-railMarks.addEventListener('pointerout', () => railTip.classList.remove('is-on'));
-
-let stripDrag = false;
-strip.addEventListener('pointerdown', (e) => {
-  stripDrag = true;
-  strip.setPointerCapture(e.pointerId);
-  scrollToCodeY(mapPointer(e, stripCanvas, true), false);
-});
-strip.addEventListener('pointermove', (e) => { if (stripDrag) scrollToCodeY(mapPointer(e, stripCanvas, true), false); });
-strip.addEventListener('pointerup', () => { stripDrag = false; });
-
-function goToNote(id) {
-  const n = noteById.get(id);
-  if (!n) return;
-  const line = $(`#L${n.dataset.line}`);
-  if (!line) return;
-  scrollToCodeY(line.getBoundingClientRect().top - code.getBoundingClientRect().top - innerHeight * 0.18);
-  setOn(id);
-  if (narrow.matches && !n.classList.contains('is-open')) {
-    const m = $(`.nm[data-note="${id}"]`);
-    if (m) m.click();
-  }
-}
-
-// ------------------------------------------------------------------ the lens: a passage as bytecode, as Tovek, as written
-
-// Tokens are read straight from the layout (element boxes and word ranges), so nothing in the DOM changes to measure.
-function linesInView(container, margin = 120) {
-  const top0 = geo.topH + geo.rhH - margin;
-  const vh = innerHeight + margin;
-  return $$('.ln, .psg-tag', container).filter((l) => { const r = l.getBoundingClientRect(); return r.bottom > top0 && r.top < vh; });
-}
+// ------------------------------------------------------------------ the morph: shared tokens glide, the rest fade
 
 function tokenKey(text, cls) {
   let t = text.trim();
@@ -593,24 +104,26 @@ function tokenKey(text, cls) {
 }
 
 const styleCache = new Map();
-function styleOf(el, cls) {
-  // colour and font per token class, read once from a real element of that class
-  const line = el.closest('.ln');
-  const key = `${cls}|${line ? line.className : ''}`;
+function styleOf(el, cls, lineCls) {
+  const key = `${cls}|${lineCls}`;
   let st = styleCache.get(key);
   if (!st) {
     const cs = getComputedStyle(el);
-    st = { color: cs.color, font: `${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}` };
+    st = { color: cs.color, font: `${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`,
+      upper: cs.textTransform === 'uppercase', ls: cs.letterSpacing === 'normal' ? '0px' : cs.letterSpacing };
     styleCache.set(key, st);
   }
   return st;
 }
 
-function tokensOf(lines) {
+// the words of the given lines that are inside `clip` (a viewport rect), read straight from the layout
+function tokensIn(lines, clip) {
   const out = [];
   const range = document.createRange();
   for (const line of lines) {
-    const t = line.classList.contains('psg-tag') ? line : $('.t', line);
+    const lr = line.getBoundingClientRect();
+    if (lr.bottom < clip.top || lr.top > clip.bottom) continue;
+    const t = line.classList.contains('pane-tag') ? line : line.querySelector('.t');
     if (!t) continue;
     const walker = document.createTreeWalker(t, NodeFilter.SHOW_TEXT);
     while (walker.nextNode()) {
@@ -626,8 +139,10 @@ function tokensOf(lines) {
         const rects = range.getClientRects();
         if (rects.length !== 1) continue;
         const r = rects[0];
-        const st = styleOf(parent, cls);
-        out.push({ text: m[0], key: tokenKey(m[0], cls), x: r.left, y: r.top, h: r.height, color: st.color, font: st.font });
+        if (r.bottom < clip.top || r.top > clip.bottom) continue;
+        const st = styleOf(parent, cls, line.className);
+        out.push({ text: st.upper ? m[0].toUpperCase() : m[0], key: tokenKey(m[0], cls), x: r.left, y: r.top, h: r.height,
+          color: st.color, font: st.font, ls: st.ls });
       }
     }
   }
@@ -656,129 +171,72 @@ function lcsPairs(a, b) {
   return pairs;
 }
 
-const SPACER = '<div class="ln blank" data-n="" style="--i:0"><span class="t"></span></div>';
+const clipOf = (host) => {
+  const r = host.getBoundingClientRect();
+  return { left: r.left + host.clientLeft, top: r.top + host.clientTop, right: r.left + host.clientLeft + host.clientWidth, bottom: r.top + host.clientTop + host.clientHeight };
+};
 
-function bytecodeHtml(p) {
-  const rows = [];
-  const multi = p.bytecode.filter((g) => !g.main).length > 1 || (p.kind === 'fn' && p.bytecode.some((g) => g.main));
-  let count = 0;
-  for (const g of p.bytecode) {
-    if (multi) {
-      const label = g.main ? 'main chunk: the function is made and stored'
-        : `function ${g.name || '(anonymous)'}, defined on line ${g.line_defined}`;
-      rows.push(`<div class="ln fnhead" data-n="" style="--i:0"><span class="t">${escapeHtml(label)}</span></div>`);
-    }
-    let prevLine = null;
-    let prevFrom = null;
-    for (const r of g.rows) {
-      count++;
-      const cont = r.line === prevLine;
-      const from = r.from;
-      const label = `<span class="lbl">${r.label ? r.label + ':' : ''}</span>`;
-      const args = (r.args.match(/\[[^\]]*\]|\S+/g) || [])
-        .map((a) => `<span class="${a.startsWith('[') ? 's' : 'a'}">${escapeHtml(a)}</span>`).join(' ');
-      const tag = from && from !== prevFrom ? `<span class="bc-from">pasted from ${escapeHtml(from)}</span>` : '';
-      rows.push(`<div class="ln bc${cont ? ' cont' : ''}${from ? ' from' : ''}" data-n="${r.line ?? ''}" style="--i:0"><span class="t">${label}<span class="op">${r.op}</span> ${args}${tag}</span></div>`);
-      prevLine = r.line;
-      prevFrom = from;
-    }
-  }
-  const tag = `<p class="psg-tag"><b>Bytecode</b><span>${count} instructions</span><span>numbers are the source lines each one carries</span></p>`;
-  return tag + rows.join('') + SPACER;
-}
-
-function sourceHtml(p, d) {
-  const lines = d.script.source.split('\n');
-  const [a, b] = p.src;
-  const rows = [];
-  for (let i = a; i <= b; i++) rows.push(lineHtml(lines[i - 1], i, 'src'));
-  const tag = `<p class="psg-tag"><b>Source</b><span>lines ${a}–${b} of ${escapeHtml(d.script.file)}, as written</span></p>`;
-  return tag + rows.join('') + SPACER;
-}
-
-// One canvas over the visible part of the column draws the morph: tokens both views share glide from their old
-// place to their new one, the old view's other tokens fade out, the new view's fade in. The DOM swaps at once
-// underneath and shows again when the canvas leaves.
-function playMorph(before, now, pairs, newLines) {
-  const codeRect = code.getBoundingClientRect();
-  const top0 = Math.max(codeRect.top, geo.topH + geo.rhH);
-  const bottom0 = Math.min(codeRect.bottom, innerHeight);
-  if (bottom0 - top0 < 20) return Promise.resolve();
-  const W = codeRect.width;
-  const H = bottom0 - top0;
+// One canvas over the visible part of `host` draws the change; the new text underneath shows when it leaves.
+function playMorph(host, before, now, hide, dur = 760) {
+  const clip = clipOf(host);
+  const W = clip.right - clip.left;
+  const H = clip.bottom - clip.top;
+  if (W < 20 || H < 20) return Promise.resolve();
+  const pairs = lcsPairs(before, now);
   const dpr = Math.min(devicePixelRatio || 1, 2);
   const cv = document.createElement('canvas');
   cv.className = 'morph-canvas';
   cv.width = Math.round(W * dpr);
   cv.height = Math.round(H * dpr);
-  cv.style.cssText = `top:${top0 - codeRect.top}px;width:${W}px;height:${H}px`;
+  cv.style.cssText = `left:${host.scrollLeft}px;top:${host.scrollTop}px;width:${W}px;height:${H}px`;
   const ctx = cv.getContext('2d');
   ctx.scale(dpr, dpr);
   ctx.textBaseline = 'alphabetic';
-  const ox = codeRect.left;
-  const oy = top0;
-  // the descent of each face, so a glyph lands on the same baseline the DOM draws it on
   const descents = new Map();
   const descentOf = (font) => {
-    let dsc = descents.get(font);
-    if (dsc === undefined) { ctx.font = font; dsc = ctx.measureText('Hg').fontBoundingBoxDescent || 3; descents.set(font, dsc); }
-    return dsc;
+    let d = descents.get(font);
+    if (d === undefined) { ctx.font = font; d = ctx.measureText('Hg').fontBoundingBoxDescent || 3; descents.set(font, d); }
+    return d;
   };
+  const ox = clip.left;
+  const oy = clip.top;
   const matchedOld = new Set(pairs.map(([i]) => i));
   const matchedNew = new Set(pairs.map(([, j]) => j));
-  const moves = pairs.map(([i, j]) => ({ a: before[i], b: now[j], delay: Math.min(0.12, Math.abs(now[j].y - before[i].y) / 4000) }));
+  const moves = pairs.map(([i, j]) => ({ a: before[i], b: now[j], delay: Math.min(0.14, Math.abs(now[j].y - before[i].y) / 3600) }));
   const leaving = before.filter((_, i) => !matchedOld.has(i));
-  const arriving = now.filter((_, j) => !matchedNew.has(j)).map((t) => ({ t, delay: 0.2 + Math.min(0.25, Math.max(0, t.y - oy) / 3000) }));
-  // hide the new text (not the line numbers) while the canvas draws it
-  const hidden = newLines.map((l) => (l.classList.contains('psg-tag') ? l : $('.t', l) || l));
-  for (const el of hidden) el.style.visibility = 'hidden';
-  code.append(cv);
-  const ease = (x) => 1 - Math.pow(1 - x, 4);
-  const DUR = 760;
+  const arriving = now.filter((_, j) => !matchedNew.has(j)).map((t) => ({ t, delay: 0.24 + Math.min(0.24, Math.max(0, t.y - oy) / 2600) }));
+  for (const el of hide) el.style.visibility = 'hidden';
+  host.append(cv);
+  const spacing = 'letterSpacing' in ctx;
+  const glyph = (tok, x, y, alpha) => {
+    ctx.globalAlpha = alpha;
+    ctx.font = tok.font;
+    if (spacing) ctx.letterSpacing = tok.ls;
+    ctx.fillStyle = tok.color;
+    ctx.fillText(tok.text, x - ox, y + tok.h - descentOf(tok.font) - oy);
+  };
   return new Promise((resolve) => {
     const t0 = performance.now();
     const frame = (clock) => {
-      const t = Math.min(1, (clock - t0) / DUR);
+      const t = Math.min(1, (clock - t0) / dur);
       ctx.clearRect(0, 0, W, H);
-      const fade = Math.max(0, 1 - t / 0.32);
-      if (fade > 0) {
-        ctx.globalAlpha = fade;
-        for (const k of leaving) { ctx.font = k.font; ctx.fillStyle = k.color; ctx.fillText(k.text, k.x - ox, k.y + k.h - descentOf(k.font) - oy); }
-      }
-      ctx.globalAlpha = 1;
+      const fade = Math.max(0, 1 - t / 0.3);
+      if (fade > 0) for (const k of leaving) glyph(k, k.x, k.y, fade);
       for (const m of moves) {
-        const e = ease(Math.max(0, Math.min(1, (t - m.delay) / (1 - m.delay))));
+        const e = easeOut(clamp((t - m.delay) / (1 - m.delay), 0, 1));
         const x = m.a.x + (m.b.x - m.a.x) * e;
         const y = m.a.y + (m.b.y - m.a.y) * e;
-        if (m.a.text === m.b.text && m.a.font === m.b.font) {
-          ctx.font = m.b.font;
-          ctx.fillStyle = e < 0.5 ? m.a.color : m.b.color;
-          ctx.fillText(m.b.text, x - ox, y + m.b.h - descentOf(m.b.font) - oy);
-        } else {
-          // the same name, spelled two ways (`"Humanoid"` and `['Humanoid']`): one fades into the other as it travels
-          ctx.globalAlpha = 1 - e;
-          ctx.font = m.a.font;
-          ctx.fillStyle = m.a.color;
-          ctx.fillText(m.a.text, x - ox, y + m.a.h - descentOf(m.a.font) - oy);
-          ctx.globalAlpha = e;
-          ctx.font = m.b.font;
-          ctx.fillStyle = m.b.color;
-          ctx.fillText(m.b.text, x - ox, y + m.b.h - descentOf(m.b.font) - oy);
-          ctx.globalAlpha = 1;
-        }
+        if (m.a.text === m.b.text && m.a.font === m.b.font && m.a.ls === m.b.ls) glyph(e < 0.5 ? m.a : m.b, x, y, 1);
+        else { glyph(m.a, x, y, 1 - e); glyph(m.b, x, y, e); }
       }
       for (const n of arriving) {
-        const e = ease(Math.max(0, Math.min(1, (t - n.delay) / (1 - n.delay))));
-        if (e <= 0) continue;
-        ctx.globalAlpha = e;
-        ctx.font = n.t.font;
-        ctx.fillStyle = n.t.color;
-        ctx.fillText(n.t.text, n.t.x - ox, n.t.y + n.t.h - descentOf(n.t.font) - oy + (1 - e) * 4);
+        const e = easeOut(clamp((t - n.delay) / (1 - n.delay), 0, 1));
+        if (e > 0) glyph(n.t, n.t.x, n.t.y + (1 - e) * 4, e);
       }
       ctx.globalAlpha = 1;
       if (t < 1) requestAnimationFrame(frame);
       else {
-        for (const el of hidden) el.style.visibility = '';
+        for (const el of hide) el.style.visibility = '';
         cv.remove();
         resolve();
       }
@@ -787,102 +245,620 @@ function playMorph(before, now, pairs, newLines) {
   });
 }
 
-let morphing = false;
+const textEls = (lines) => lines.map((l) => (l.classList.contains('pane-tag') ? l : l.querySelector('.t') || l));
 
-async function setView(p, view) {
-  if (!p || morphing || reading) return;
-  const prev = views.get(p.id);
-  if (prev === view) return;
-  const d = await loadData();
-  morphing = true;
-  const body = $('.psg-body', p);
-  let alt = $(`.psg-alt[data-view="${view}"]`, p);
-  if (view !== 'tovek' && !alt) {
-    alt = document.createElement('div');
-    alt.className = 'psg-alt';
-    alt.dataset.view = view;
-    alt.hidden = true;
-    const info = d.passages.find((q) => q.id === p.id);
-    alt.innerHTML = view === 'bytecode' ? bytecodeHtml(info) : sourceHtml(info, d);
-    p.append(alt);
+// ------------------------------------------------------------------ header
+
+const top = $('#top');
+let solid = false;
+function onScrollChrome() {
+  const s = scrollY > 8;
+  if (s !== solid) { solid = s; top.classList.toggle('is-solid', s); }
+}
+
+// ------------------------------------------------------------------ the hero's method and its lens
+
+const glBody = $('#gl-body');
+const lens = $('#lens');
+let glView = 'tovek';
+let glBusy = false;
+const pane = (view) => $(`.pane[data-view="${view}"]`, glBody);
+
+function markLens(view) {
+  for (const b of $$('button', lens)) {
+    const on = b.dataset.view === view;
+    b.setAttribute('aria-checked', String(on));
+    b.tabIndex = on ? 0 : -1;
   }
-  const oldEl = prev === 'tovek' ? body : $(`.psg-alt[data-view="${prev}"]`, p);
-  const newEl = view === 'tovek' ? body : alt;
+}
 
+async function setGlimpse(view, dur = 760) {
+  if (glBusy || view === glView) return;
+  glBusy = true;
+  const oldEl = pane(glView);
+  const newEl = pane(view);
   const animate = !reduced.matches;
-  const before = animate ? tokensOf(linesInView(oldEl)) : [];
-  const after = passages.slice(passages.indexOf(p) + 1);
-  const afterTop0 = after.length ? after[0].getBoundingClientRect().top : 0;
-  const pTop0 = p.getBoundingClientRect().top;
-
-  leaders.classList.add('is-quiet');
+  const before = animate ? tokensIn($$('.ln, .pane-tag', oldEl), clipOf(glBody)) : [];
   oldEl.hidden = true;
   newEl.hidden = false;
-  views.set(p.id, view);
-  p.dataset.view = view;
-  for (const n of notes) if (n.dataset.passage === p.id) n.classList.toggle('is-hidden', view !== 'tovek');
+  glBody.scrollTop = 0;
+  glView = view;
   markLens(view);
-  // keep the passage where the reader is looking
-  const shift = p.getBoundingClientRect().top - pTop0;
-  if (shift) scrollBy(0, shift);
-  layoutNotes();
-
+  oldEl.classList.remove('is-settled');
   if (animate) {
-    const newLines = linesInView(newEl);
-    const now = tokensOf(newLines);
-    const pairs = lcsPairs(before, now);
-    const jobs = [playMorph(before, now, pairs, newLines)];
-    // what follows the passage slides to its new place, if it is on screen
-    if (after.length) {
-      const dy = afterTop0 - after[0].getBoundingClientRect().top + shift;
-      if (Math.abs(dy) > 0.5) {
-        for (const q of after) {
-          const r = q.getBoundingClientRect();
-          if (r.top > innerHeight || r.top + dy > innerHeight) break;
-          jobs.push(q.animate([{ transform: `translateY(${dy}px)` }, { transform: 'none' }], { duration: 640, easing: EASE }).finished.catch(() => {}));
-        }
-      }
-    }
-    await Promise.all(jobs);
+    const lines = $$('.ln, .pane-tag', newEl);
+    const now = tokensIn(lines, clipOf(glBody));
+    await playMorph(glBody, before, now, textEls(lines), dur);
   }
-  morphing = false;
-  leaders.classList.remove('is-quiet');
-  relayout();
+  newEl.classList.add('is-settled');
+  glBusy = false;
 }
 
 lens.addEventListener('click', (e) => {
   const b = e.target.closest('button[data-view]');
-  if (b && current) setView(current, b.dataset.view);
+  if (b) { glideCancelled = true; setGlimpse(b.dataset.view); }
 });
 lens.addEventListener('keydown', (e) => {
-  if (!['ArrowLeft', 'ArrowRight'].includes(e.key)) return;
+  if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) return;
   const bs = $$('button', lens);
   const i = bs.indexOf(document.activeElement);
-  const j = (i + (e.key === 'ArrowRight' ? 1 : bs.length - 1)) % bs.length;
+  let j = e.key === 'Home' ? 0 : e.key === 'End' ? bs.length - 1 : (i + (e.key === 'ArrowRight' ? 1 : bs.length - 1)) % bs.length;
   bs[j].focus();
   bs[j].click();
   e.preventDefault();
 });
-for (const b of $$('button', lens)) b.addEventListener('pointerenter', () => loadData(), { once: true });
 
-// copying from the column keeps the indentation (it is drawn as padding, not tabs)
-document.addEventListener('copy', (e) => {
-  const sel = getSelection();
-  if (!sel.rangeCount || !code.contains(sel.anchorNode)) return;
-  const range = sel.getRangeAt(0);
-  const lines = $$('.ln', code).filter((l) => l.offsetParent && range.intersectsNode(l));
-  if (lines.length < 2) return;
-  const text = lines.map((l) => {
-    const t = $('.t', l);
-    const r = document.createRange();
-    r.selectNodeContents(t);
-    if (range.compareBoundaryPoints(Range.START_TO_START, r) > 0 && t.contains(range.startContainer)) r.setStart(range.startContainer, range.startOffset);
-    if (range.compareBoundaryPoints(Range.END_TO_END, r) < 0 && t.contains(range.endContainer)) r.setEnd(range.endContainer, range.endOffset);
-    const ind = +(l.style.getPropertyValue('--i') || 0);
-    return '\t'.repeat(ind) + r.toString();
-  }).join('\n');
-  e.clipboardData.setData('text/plain', text);
+// first sight: the method shows as its bytecode, then reads itself back into source
+let glideCancelled = false;
+function prepareGlide() {
+  const html = document.documentElement;
+  if (!html.classList.contains('glide')) { pane('tovek').classList.add('is-settled'); return false; }
+  pane('tovek').hidden = true;
+  pane('bytecode').hidden = false;
+  html.classList.remove('glide');
+  glView = 'bytecode';
+  markLens('bytecode');
+  return true;
+}
+async function playGlide() {
+  await sleep(1100);
+  if (glideCancelled || document.hidden) {
+    if (glView === 'bytecode' && !glideCancelled) setGlimpse('tovek', 0);
+    return;
+  }
+  const r = glBody.getBoundingClientRect();
+  const dur = r.bottom > 0 && r.top < innerHeight ? 1250 : 0;
+  setGlimpse('tovek', dur);
+}
+
+// ------------------------------------------------------------------ the guided reader
+
+const frame = $('#frame');
+const frBody = $('#fr-body');
+const port = $('#fr-port');
+const code = $('#code');
+const hcode = $('#hcode');
+const notesBox = $('#fr-notes');
+const leader = $('#fr-leader');
+const steps = $$('.step', notesBox);
+const tabs = $$('[role="tab"]', $('#fr-tabs'));
+const frPsg = $('#fr-psg');
+const frAt = $('#fr-at');
+const frOf = $('#fr-of');
+const playBtn = $('#fr-play');
+const rail = $('#fr-rail');
+const railCanvas = $('canvas', rail);
+const railWin = $('.fr-win', rail);
+const railMarks = $('.fr-marks', rail);
+const historyIndex = steps.findIndex((s) => s.classList.contains('step-history'));
+
+let at = -1;
+let inHistory = false;
+let scrollAnim = 0;
+frOf.textContent = `/ ${String(steps.length).padStart(2, '0')}`;
+
+const content = () => (inHistory ? hcode : code);
+const contentHeight = () => {
+  const c = content();
+  const last = c.lastElementChild;
+  return last ? last.offsetTop + last.offsetHeight + 18 : c.offsetHeight;
+};
+const maxScroll = () => Math.max(0, contentHeight() - port.clientHeight);
+
+function anchorLine(step) {
+  const id = step.dataset.note;
+  const m = id && $(`mark.ns[data-note="${id}"]`, code);
+  return m ? m.closest('.ln') : null;
+}
+
+// where the port scrolls for a note: its line a little above the middle, as far as the file allows
+function portTarget(line) {
+  return clamp(Math.round(line.offsetTop - port.clientHeight * (phone.matches ? 0.2 : 0.3)), 0, maxScroll());
+}
+
+// the note sits level with its line, so its leader runs straight across (unless the note is too tall to fit)
+function alignNote(step, line, scrollY) {
+  if (phone.matches) { step.style.removeProperty('--pt'); return; }
+  const inner = step.querySelector('.st-in');
+  const k = step.querySelector('.st-k');
+  const row = parseFloat(getComputedStyle(line).lineHeight) || 22;
+  const anchorY = line.offsetTop + line.offsetHeight - row / 2 - scrollY;
+  const kc = k.offsetTop - inner.offsetTop + k.offsetHeight / 2;
+  const room = notesBox.clientHeight - inner.offsetHeight - 30;
+  step.style.setProperty('--pt', `${Math.round(clamp(anchorY - kc, 26, Math.max(26, room)))}px`);
+}
+
+function scrollPortTo(y, instant = false) {
+  cancelAnimationFrame(scrollAnim);
+  const target = clamp(Math.round(y), 0, maxScroll());
+  const from = port.scrollTop;
+  const dist = target - from;
+  if (instant || reduced.matches || Math.abs(dist) < 2) {
+    port.scrollTop = target;
+    onPortScroll();
+    return Promise.resolve();
+  }
+  const dur = clamp(380 + Math.abs(dist) * 0.32, 420, 980);
+  return new Promise((resolve) => {
+    const t0 = performance.now();
+    const tick = (now) => {
+      const t = Math.min(1, (now - t0) / dur);
+      port.scrollTop = from + dist * easeInOut(t);
+      onPortScroll();
+      if (t < 1) scrollAnim = requestAnimationFrame(tick);
+      else resolve();
+    };
+    scrollAnim = requestAnimationFrame(tick);
+  });
+}
+
+// ---- the leader: from the end of the lit line, out of the code, over to the note's number
+
+const NS = 'http://www.w3.org/2000/svg';
+let leaderG = null;
+function buildLeader(draw) {
+  const step = steps[at];
+  const line = !inHistory && !phone.matches && step ? anchorLine(step) : null;
+  if (!line) { leader.replaceChildren(); leaderG = null; return; }
+  const geo = leaderGeometry(step, line);
+  if (!geo) { leader.replaceChildren(); leaderG = null; return; }
+  const g = document.createElementNS(NS, 'g');
+  const p = document.createElementNS(NS, 'path');
+  p.setAttribute('pathLength', '1');
+  const c = document.createElementNS(NS, 'circle');
+  c.setAttribute('r', '2.6');
+  g.append(p, c);
+  leader.replaceChildren(g);
+  leaderG = g;
+  placeLeader(geo);
+  if (draw && !reduced.matches) requestAnimationFrame(() => requestAnimationFrame(() => g.classList.add('is-drawn')));
+  else g.classList.add('is-drawn');
+}
+
+function leaderGeometry(step, line) {
+  const body = frBody.getBoundingClientRect();
+  const pr = port.getBoundingClientRect();
+  const t = line.querySelector('.t');
+  const range = document.createRange();
+  range.selectNodeContents(t);
+  const rects = Array.from(range.getClientRects()).filter((r) => r.width > 0);
+  const last = rects[rects.length - 1];
+  if (!last) return null;
+  const ay = last.top + last.height / 2 - body.top;
+  const visible = ay > pr.top - body.top + 6 && ay < pr.bottom - body.top - 6;
+  const ax = Math.min(last.right + 9, pr.right - 18) - body.left;
+  const k = step.querySelector('.st-k');
+  const nb = notesBox.getBoundingClientRect();
+  const nx = nb.left - body.left + k.offsetLeft - 12;
+  const ny = nb.top - body.top + k.offsetTop + k.offsetHeight / 2 - step.scrollTop;
+  return { ax, ay, nx, ny, edge: pr.right - body.left, visible };
+}
+
+function placeLeader(geo) {
+  if (!leaderG) return;
+  const { ax, ay, nx, ny, edge, visible } = geo;
+  const p = leaderG.firstChild;
+  const c = leaderG.lastChild;
+  const bend = edge + 6;
+  const mid = (bend + nx) / 2;
+  p.setAttribute('d', Math.abs(ny - ay) < 1 ? `M${ax} ${ay}H${nx}` : `M${ax} ${ay}H${bend}C${mid} ${ay} ${mid} ${ny} ${nx} ${ny}`);
+  c.setAttribute('cx', ax);
+  c.setAttribute('cy', ay);
+  leaderG.classList.toggle('is-gone', !visible);
+}
+
+function refreshLeader() {
+  if (!leaderG) return;
+  const step = steps[at];
+  const line = anchorLine(step);
+  const geo = line && leaderGeometry(step, line);
+  if (geo) placeLeader(geo);
+}
+
+// ---- the rail: the whole file in miniature, its notes, and the window being read
+
+let railLines = [];
+function drawRail() {
+  if (phone.matches || !rail.offsetParent) return;
+  const dpr = Math.min(devicePixelRatio || 1, 2);
+  const w = railCanvas.clientWidth;
+  const h = railCanvas.clientHeight;
+  if (!w || !h) return;
+  railCanvas.width = Math.round(w * dpr);
+  railCanvas.height = Math.round(h * dpr);
+  const ctx = railCanvas.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, w, h);
+  const total = Math.max(1, contentHeight());
+  const k = h / total;
+  railLines = $$('.ln', content()).map((l) => ({ top: l.offsetTop, h: l.offsetHeight, ind: +(l.style.getPropertyValue('--i') || 0), len: (l.textContent || '').length, rc: !!l.querySelector('.r') }));
+  for (const l of railLines) {
+    if (!l.len) continue;
+    const y = l.top * k;
+    const bh = Math.max(1, Math.min(l.h * k * 0.6, 2.4));
+    const x = Math.min(l.ind * 2, w * 0.45);
+    const bw = Math.max(1.5, Math.min(l.len * 0.2, w - x));
+    ctx.fillStyle = l.rc ? 'rgba(214, 58, 12, 0.55)' : 'rgba(18, 18, 16, 0.26)';
+    ctx.fillRect(x, y, bw, bh);
+  }
+  const marks = [];
+  if (!inHistory) {
+    steps.forEach((s, i) => {
+      const line = anchorLine(s);
+      if (!line) return;
+      const m = document.createElement('span');
+      m.className = 'fr-mark' + (i === at ? ' is-on' : '');
+      m.dataset.i = i;
+      m.style.top = `${(line.offsetTop + line.offsetHeight / 2) * k}px`;
+      marks.push(m);
+    });
+  }
+  railMarks.replaceChildren(...marks);
+  moveRailWindow();
+}
+
+function moveRailWindow() {
+  if (phone.matches) return;
+  const h = railCanvas.clientHeight;
+  const total = Math.max(1, contentHeight());
+  const k = h / total;
+  railWin.style.transform = `translateY(${port.scrollTop * k}px)`;
+  railWin.style.height = `${Math.max(14, Math.min(h, port.clientHeight * k))}px`;
+}
+
+function onPortScroll() {
+  moveRailWindow();
+  refreshLeader();
+}
+
+function railPointer(e) {
+  const r = railCanvas.getBoundingClientRect();
+  const f = clamp((e.clientY - r.top) / r.height, 0, 1);
+  return f * contentHeight() - port.clientHeight / 2;
+}
+let railDrag = false;
+rail.addEventListener('pointerdown', (e) => {
+  const mark = !inHistory && $$('.fr-mark', railMarks).find((m) => Math.abs(m.getBoundingClientRect().top + 3.5 - e.clientY) < 7);
+  if (mark) { goTo(+mark.dataset.i, { user: true }); return; }
+  railDrag = true;
+  rail.setPointerCapture(e.pointerId);
+  stopPlay();
+  scrollPortTo(railPointer(e), true);
+});
+rail.addEventListener('pointermove', (e) => { if (railDrag) scrollPortTo(railPointer(e), true); });
+rail.addEventListener('pointerup', () => { railDrag = false; });
+rail.addEventListener('pointercancel', () => { railDrag = false; });
+
+port.addEventListener('keydown', (e) => {
+  const lh = 22;
+  const map = { ArrowDown: lh * 3, ArrowUp: -lh * 3, PageDown: port.clientHeight * 0.8, PageUp: -port.clientHeight * 0.8 };
+  let y = null;
+  if (e.key in map) y = port.scrollTop + map[e.key];
+  if (e.key === 'Home') y = 0;
+  if (e.key === 'End') y = maxScroll();
+  if (y === null) return;
   e.preventDefault();
+  stopPlay();
+  scrollPortTo(y, e.repeat);
+});
+
+// a click on another note's words opens that note
+code.addEventListener('click', (e) => {
+  const m = e.target.closest('mark.ns, .mk');
+  if (!m) return;
+  const id = m.dataset.note || (steps.find((s) => s.id === m.dataset.step) || {}).dataset?.note;
+  const i = steps.findIndex((s) => s.dataset.note === id);
+  if (i >= 0 && i !== at) goTo(i, { user: true });
+});
+
+// ---- stepping
+
+function paintStep(i) {
+  tabs.forEach((t, k) => {
+    const on = k === i;
+    t.setAttribute('aria-selected', String(on));
+    t.tabIndex = on ? 0 : -1;
+    t.style.removeProperty('--p');
+  });
+  steps.forEach((s, k) => { s.classList.toggle('is-on', k === i); if (k === i) markMore(s); });
+  frAt.textContent = String(i + 1).padStart(2, '0');
+  const id = steps[i].dataset.note;
+  for (const m of $$('mark.ns', code)) m.classList.toggle('is-on', m.dataset.note === id);
+  for (const l of $$('.ln.is-anchor', code)) l.classList.remove('is-anchor');
+  const line = anchorLine(steps[i]);
+  if (line) line.classList.add('is-anchor');
+  for (const mk of $$('.mk', code)) mk.classList.toggle('is-on', mk.dataset.step === steps[i].id);
+  for (const m of $$('.fr-mark', railMarks)) m.classList.toggle('is-on', +m.dataset.i === i);
+}
+
+let stepToken = 0;
+async function goTo(i, { user = false, instant = false } = {}) {
+  i = clamp(i, 0, steps.length - 1);
+  if (user) stopPlay();
+  if (i === at && !instant) return;
+  const token = ++stepToken;
+  const prev = at;
+  at = i;
+  elapsed = 0;
+  paintStep(i);
+  leader.replaceChildren();
+  leaderG = null;
+  const step = steps[i];
+  if (i === historyIndex) {
+    frPsg.textContent = 'every release';
+    await enterHistory(prev, token);
+    return;
+  }
+  if (inHistory) leaveHistory();
+  frPsg.textContent = step.dataset.psg;
+  const line = anchorLine(step);
+  if (line) {
+    const y = portTarget(line);
+    alignNote(step, line, y);
+    await scrollPortTo(y, instant || prev < 0);
+  }
+  if (token !== stepToken) return;
+  buildLeader(!instant);
+}
+
+tabs.forEach((t, k) => t.addEventListener('click', () => goTo(k, { user: true })));
+$('#fr-tabs').addEventListener('keydown', (e) => {
+  const i = tabs.indexOf(document.activeElement);
+  if (i < 0) return;
+  let j = null;
+  if (e.key === 'ArrowRight') j = (i + 1) % tabs.length;
+  if (e.key === 'ArrowLeft') j = (i - 1 + tabs.length) % tabs.length;
+  if (e.key === 'Home') j = 0;
+  if (e.key === 'End') j = tabs.length - 1;
+  if (j === null) return;
+  e.preventDefault();
+  tabs[j].focus();
+  goTo(j, { user: true });
+});
+$('#fr-prev').addEventListener('click', () => goTo(at - 1, { user: true }));
+$('#fr-next').addEventListener('click', () => goTo(at + 1, { user: true }));
+// a note taller than its panel scrolls inside it; its foot fades until the end is reached
+const markMore = (s) => s.classList.toggle('is-more', s.scrollHeight - s.clientHeight - s.scrollTop > 6);
+for (const s of steps) s.addEventListener('scroll', () => { refreshLeader(); markMore(s); }, { passive: true });
+
+// swipe across the frame on a phone: next or previous note
+let swipe = null;
+for (const el of [$('.fr-codecol', frame), notesBox]) {
+  el.addEventListener('pointerdown', (e) => { if (e.pointerType !== 'mouse') swipe = { x: e.clientX, y: e.clientY, t: performance.now() }; });
+  el.addEventListener('pointerup', (e) => {
+    if (!swipe || e.target.closest('input')) { swipe = null; return; }
+    const dx = e.clientX - swipe.x;
+    const dy = e.clientY - swipe.y;
+    swipe = null;
+    if (Math.abs(dx) > 48 && Math.abs(dx) > Math.abs(dy) * 1.4) goTo(at + (dx < 0 ? 1 : -1), { user: true });
+  });
+  el.addEventListener('pointercancel', () => { swipe = null; });
+}
+
+// ---- autoplay: the reader turns its own pages while it is in view, until the visitor takes over
+
+let playing = false;
+let userStopped = false;
+let inView = false;
+let hovered = false;
+let elapsed = 0;
+let lastTick = 0;
+let playLoop = 0;
+
+function stepDuration(i) {
+  const s = steps[i];
+  if (i === historyIndex) return Infinity;
+  const words = (($('.st-text', s) || s).textContent.match(/\S+/g) || []).length;
+  return clamp(4200 + words * 240, 6500, 14000);
+}
+
+function setPlaying(on) {
+  playing = on;
+  frame.classList.toggle('is-playing', on);
+  playBtn.setAttribute('aria-pressed', String(on));
+  playBtn.setAttribute('aria-label', on ? 'Pause the notes' : 'Play the notes');
+  cancelAnimationFrame(playLoop);
+  if (on) { lastTick = performance.now(); playLoop = requestAnimationFrame(tickPlay); }
+}
+function stopPlay() {
+  if (playing) userStopped = true;
+  setPlaying(false);
+  stopHistoryPlay();
+}
+function tickPlay(now) {
+  if (!playing) return;
+  const dt = Math.min(100, now - lastTick);
+  lastTick = now;
+  if (inView && !hovered && !document.hidden && at !== historyIndex) {
+    elapsed += dt;
+    const d = stepDuration(at);
+    const tab = tabs[at];
+    tab.style.setProperty('--p', Math.min(1, elapsed / d).toFixed(4));
+    if (elapsed >= d) goTo(at + 1);
+  }
+  playLoop = requestAnimationFrame(tickPlay);
+}
+playBtn.addEventListener('click', () => {
+  if (playing) { stopPlay(); return; }
+  userStopped = false;
+  autoStarted = false;
+  hovered = false;
+  if (at === steps.length - 1) goTo(0);
+  setPlaying(true);
+  if (at === historyIndex) playHistory();
+});
+// a reader resting on the frame holds the page it is on (unless they pressed play themselves)
+let autoStarted = false;
+frame.addEventListener('pointerenter', (e) => { if (e.pointerType === 'mouse' && autoStarted) hovered = true; });
+frame.addEventListener('pointerleave', () => { hovered = false; });
+frame.addEventListener('focusin', (e) => { if (autoStarted && e.target.matches(':focus-visible') && e.target !== playBtn) hovered = true; });
+frame.addEventListener('focusout', (e) => { if (!frame.contains(e.relatedTarget)) hovered = false; });
+
+// ---- the last step: every release, one passage
+
+const historyData = JSON.parse($('#history-data').textContent);
+const stages = historyData.stages;
+const hRange = $('#h-range');
+const hName = $('#h-name');
+const hDate = $('#h-date');
+const hPlay = $('#h-play');
+const histBox = $('.hist');
+let texts = null;
+let hAt = stages.length - 1;
+let hBusy = false;
+let hWant = null;
+let hPlaying = false;
+let hToken = 0;
+
+function loadTexts() {
+  if (!texts) {
+    texts = fetch(here('../../../data/landing-history.json')).then((r) => r.json()).then((d) => {
+      const map = new Map(d.stages.map((s) => [s.tag, s.text.replace(/\n+$/, '').split('\n')]));
+      texts = map;
+      return map;
+    });
+    texts.catch(() => { texts = null; });
+  }
+  return Promise.resolve(texts);
+}
+
+function paintStageFacts(i) {
+  const s = stages[i];
+  hName.textContent = s.name;
+  hDate.textContent = s.date;
+  $('#h-lines').textContent = s.lines;
+  $('#h-plain').textContent = s.plain;
+  $('#h-calls').textContent = s.calls;
+  $('#h-dec').textContent = s.decimals;
+  hRange.value = String(i);
+  hRange.setAttribute('aria-valuetext', `${s.name}, ${s.date}`);
+  const last = i === stages.length - 1;
+  hRange.classList.toggle('is-last', last);
+  histBox.classList.toggle('is-last', last);
+  if (inHistory) frPsg.textContent = `as ${s.name} printed it`;
+}
+
+async function showStage(i, morph) {
+  const map = await loadTexts();
+  const s = stages[i];
+  const lines = map.get(s.tag);
+  const animate = morph && !reduced.matches && inHistory;
+  const clip = clipOf(port);
+  const before = animate ? tokensIn($$('.ln', hcode), clip) : null;
+  const oldAnchor = $(`.ln[data-n="${stages[hAt].anchor}"]`, hcode);
+  const offset = oldAnchor ? oldAnchor.offsetTop - port.scrollTop : port.clientHeight * (phone.matches ? 0.12 : 0.2);
+  hcode.innerHTML = lines.map((l, k) => lineHtml(l, k + 1)).join('');
+  hAt = i;
+  const anchor = $(`.ln[data-n="${s.anchor}"]`, hcode);
+  port.scrollTop = clamp(anchor.offsetTop - offset, 0, maxScroll());
+  paintStageFacts(i);
+  drawRail();
+  if (animate) {
+    const now = tokensIn($$('.ln', hcode), clip);
+    await playMorph(port, before, now, textEls($$('.ln', hcode).filter((l) => { const r = l.getBoundingClientRect(); return r.bottom > clip.top && r.top < clip.bottom; })), 640);
+  }
+}
+
+// one change at a time; a drag that outruns the morph jumps to where the thumb is now
+async function requestStage(i, morph = true) {
+  hWant = i;
+  if (hBusy) return;
+  hBusy = true;
+  while (hWant !== null && hWant !== hAt) {
+    const target = hWant;
+    hWant = null;
+    await showStage(target, morph);
+  }
+  hWant = null;
+  hBusy = false;
+}
+
+async function enterHistory(prev, token) {
+  frPsg.textContent = 'every release';
+  let map;
+  try { map = await loadTexts(); } catch { return; }
+  if (token !== stepToken) return;
+  // the V2.6 stage prints exactly the script above: swap to it where the reader already is, then settle on the passage
+  const y = port.scrollTop;
+  inHistory = true;
+  hAt = stages.length - 1;
+  hcode.innerHTML = map.get(stages[hAt].tag).map((l, k) => lineHtml(l, k + 1)).join('');
+  code.hidden = true;
+  hcode.hidden = false;
+  port.scrollTop = y;
+  paintStageFacts(hAt);
+  const anchor = $(`.ln[data-n="${stages[hAt].anchor}"]`, hcode);
+  await scrollPortTo(anchor.offsetTop - port.clientHeight * (phone.matches ? 0.12 : 0.2));
+  drawRail();
+  if (token !== stepToken) return;
+  if (playing || (prev >= 0 && prev !== historyIndex && !reduced.matches && !userStopped)) playHistory();
+}
+
+function leaveHistory() {
+  stopHistoryPlay();
+  inHistory = false;
+  hcode.hidden = true;
+  code.hidden = false;
+  drawRail();
+}
+
+function stopHistoryPlay() {
+  hPlaying = false;
+  hToken++;
+  hPlay.setAttribute('aria-pressed', 'false');
+  $('span', hPlay).textContent = 'Play every release';
+}
+
+// rewind to medal, then step forward through every release; the passage changes only where the release changed it
+async function playHistory() {
+  if (reduced.matches) { await requestStage(stages.length - 1, false); return; }
+  const token = ++hToken;
+  hPlaying = true;
+  hPlay.setAttribute('aria-pressed', 'true');
+  $('span', hPlay).textContent = 'Playing';
+  await sleep(500);
+  if (token !== hToken) return;
+  await requestStage(0);
+  await sleep(1100);
+  for (let i = 1; i < stages.length; i++) {
+    if (token !== hToken) return;
+    const changed = stages[i].changed;
+    await requestStage(i, changed);
+    await sleep(changed ? 820 : 170);
+  }
+  if (token !== hToken) return;
+  stopHistoryPlay();
+  if (playing) setPlaying(false);
+}
+
+hRange.addEventListener('input', () => {
+  stopHistoryPlay();
+  if (playing) stopPlay();
+  requestStage(+hRange.value);
+});
+hPlay.addEventListener('click', () => {
+  if (hPlaying) { stopHistoryPlay(); return; }
+  playHistory();
 });
 
 // ------------------------------------------------------------------ Tovek in the browser
@@ -892,7 +868,8 @@ function loadTovek() {
   if (!tovek) {
     tovek = import(here('../tovek/tovek.js')).then(async (m) => {
       const info = await m.load();
-      return { ...m, info };
+      const rows = await m.samples();
+      return { ...m, info, rows };
     });
     tovek.catch(() => { tovek = null; });
   }
@@ -900,88 +877,74 @@ function loadTovek() {
 }
 
 async function sha256Hex(text) {
-  const bytes = new TextEncoder().encode(text);
-  const h = await crypto.subtle.digest('SHA-256', bytes);
+  const h = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
   return Array.from(new Uint8Array(h), (b) => b.toString(16).padStart(2, '0')).join('');
 }
 
-const reader = $('#reader');
-const ownOpen = $('#own-open');
-const status = $('#reader-status');
-const samplesList = $('#samples');
-const readcard = $('#readcard');
-let samplesReady = false;
+const own = $('#read');
+const outBody = $('#out-body');
+const outName = $('#out-name');
+const outFacts = $('#out-facts');
+const outStatus = $('#out-status');
+const chips = $$('.chip', own);
+const fmtInt = (n) => n.toLocaleString('en-US');
+let outSource = null;
+let outFile = 'decompiled.luau';
+let renderJob = 0;
 
-function setStatus(text, busy = false) {
-  status.textContent = text;
-  status.classList.toggle('is-busy', busy);
+function setStatus(html, busy = false) {
+  outStatus.innerHTML = html;
+  outStatus.classList.toggle('is-busy', busy);
 }
 
-async function openReader(focus = true) {
-  const open = reader.hidden;
-  if (!open) { reader.hidden = true; ownOpen.setAttribute('aria-expanded', 'false'); relayout(); return; }
-  reader.hidden = false;
-  ownOpen.setAttribute('aria-expanded', 'true');
-  relayout();
-  const r = runhead.getBoundingClientRect();
-  if (r.top > innerHeight * 0.5 || r.bottom < 0) scrollTo({ top: docTop(runhead) - top.offsetHeight, behavior: reduced.matches ? 'auto' : 'smooth' });
-  if (focus) $('#file').focus({ preventScroll: true });
-  if (!samplesReady) {
-    samplesReady = true;
-    setStatus('Loading Tovek into this page…', true);
-    try {
-      const t = await loadTovek();
-      const rows = await t.samples();
-      for (const row of rows) {
-        if (row.id === 'SpawnShield.client') continue;
-        const li = document.createElement('li');
-        const b = document.createElement('button');
-        b.type = 'button';
-        b.textContent = row.title;
-        b.title = row.about;
-        b.setAttribute('aria-pressed', 'false');
-        b.addEventListener('click', () => readSample(row, b));
-        li.append(b);
-        samplesList.append(li);
-      }
-      setStatus(`Ready: Tovek ${t.info.version} runs in this page. Nothing leaves your browser.`);
-    } catch (err) {
-      setStatus('This browser cannot run Tovek here. Download it for your machine instead.');
-    }
-  }
-}
-
-ownOpen.addEventListener('click', (e) => openReader(e.detail === 0));
-$('#own-open-2').addEventListener('click', (e) => { if (reader.hidden) openReader(e.detail === 0); else $('#file').focus(); });
-for (const el of [ownOpen, $('#own-open-2'), $('#check-page')]) {
+for (const el of [own.querySelector('.own-in'), outBody]) {
   el.addEventListener('pointerenter', () => loadTovek(), { once: true });
-  el.addEventListener('focus', () => loadTovek(), { once: true });
+  el.addEventListener('focusin', () => loadTovek(), { once: true });
+  el.addEventListener('touchstart', () => loadTovek(), { once: true, passive: true });
 }
 
-async function readSample(row, button) {
-  for (const b of $$('button', samplesList)) b.setAttribute('aria-pressed', String(b === button));
-  setStatus(`Decompiling ${row.title}…`, true);
-  const t = await loadTovek();
-  const bytes = await t.sampleBytes(row);
-  const res = await t.decompile(bytes, { name: row.name });
-  let same = null;
-  if (!res.error) same = (await sha256Hex(res.source)) === row.native.sha256;
-  setStatus('');
-  showResult(res, { title: row.title, kicker: 'A sample, decompiled in your browser', bytes: bytes.length, origin: row.origin, same, version: t.info });
+function pressChip(chip) { for (const c of chips) c.setAttribute('aria-pressed', String(c === chip)); }
+
+async function readChip(chip) {
+  pressChip(chip);
+  const title = chip.querySelector('span').textContent;
+  setStatus(`Loading Tovek into this page…`, true);
+  let t;
+  try { t = await loadTovek(); } catch { setStatus('This browser cannot run Tovek here. Download it for your machine instead.'); return; }
+  setStatus(`Decompiling ${escapeHtml(title)}…`, true);
+  let bytes;
+  let name;
+  let sha;
+  let same;
+  if (chip.dataset.sample === 'Beacon') {
+    bytes = new Uint8Array(await (await fetch(here('../../../' + chip.dataset.url))).arrayBuffer());
+    name = chip.dataset.name;
+    sha = chip.dataset.sha;
+  } else {
+    const row = t.rows.find((r) => r.id === chip.dataset.sample);
+    bytes = await t.sampleBytes(row);
+    name = row.name;
+    sha = row.native.sha256;
+  }
+  const res = await t.decompile(bytes, { name });
+  if (!res.error) same = (await sha256Hex(res.source)) === sha;
+  show(res, { title: `${title}.luau`, bytes: bytes.length, version: t.info.version, same, beacon: chip.dataset.sample === 'Beacon' });
+}
+for (const c of chips) c.addEventListener('click', () => readChip(c));
+const tryBtn = $('#out-try');
+if (tryBtn) {
+  tryBtn.addEventListener('pointerenter', () => loadTovek(), { once: true });
+  tryBtn.addEventListener('click', () => readChip(chips[0]));
 }
 
 async function readFile(file) {
-  if (reader.hidden) await openReader(false);
-  for (const b of $$('button', samplesList)) b.setAttribute('aria-pressed', 'false');
-  setStatus(`Decompiling ${file.name}…`, true);
-  try {
-    const t = await loadTovek();
-    const res = await t.decompile(file, { name: file.name, timeout: 60000 });
-    setStatus('');
-    showResult(res, { title: file.name, kicker: 'Your file, decompiled in your browser', bytes: file.size, version: t.info });
-  } catch (err) {
-    setStatus('This browser cannot run Tovek here. Download it for your machine instead.');
-  }
+  pressChip(null);
+  setStatus(`Loading Tovek into this page…`, true);
+  let t;
+  try { t = await loadTovek(); } catch { setStatus('This browser cannot run Tovek here. Download it for your machine instead.'); return; }
+  setStatus(`Decompiling ${escapeHtml(file.name)}…`, true);
+  const res = await t.decompile(file, { name: file.name, timeout: 60000 });
+  show(res, { title: file.name.replace(/\.[^.]+$/, '') + '.luau', bytes: file.size, version: t.info.version, same: null });
 }
 
 $('#file').addEventListener('change', (e) => {
@@ -990,7 +953,7 @@ $('#file').addEventListener('change', (e) => {
   e.target.value = '';
 });
 
-// drop anywhere on the page
+const drop = $('#drop');
 const veil = document.createElement('div');
 veil.className = 'dropveil';
 veil.innerHTML = '<p>Drop to decompile in your browser</p>';
@@ -1000,6 +963,7 @@ addEventListener('dragenter', (e) => {
   if (!e.dataTransfer || !Array.from(e.dataTransfer.types).includes('Files')) return;
   dragDepth++;
   veil.classList.add('is-on');
+  loadTovek();
   e.preventDefault();
 });
 addEventListener('dragover', (e) => { if (veil.classList.contains('is-on')) e.preventDefault(); });
@@ -1010,281 +974,185 @@ addEventListener('drop', (e) => {
   const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
   if (!f) return;
   e.preventDefault();
+  const r = own.getBoundingClientRect();
+  if (r.top > innerHeight * 0.6 || r.bottom < 0) scrollTo({ top: own.offsetTop - top.offsetHeight, behavior: reduced.matches ? 'auto' : 'smooth' });
   readFile(f);
 });
 
-const fmtInt = (n) => n.toLocaleString('en-US');
-
-function showResult(res, meta) {
+function show(res, meta) {
+  const job = ++renderJob;
+  outBody.scrollTop = 0;
+  outBody.tabIndex = 0;
+  outName.textContent = meta.title;
+  for (const b of $$('.out-act button', own)) b.disabled = !!res.error;
   if (res.error) {
-    readcard.hidden = false;
-    readcard.innerHTML = `<p class="rc-kicker">${escapeHtml(meta.kicker)}</p><h3 class="rc-title">${escapeHtml(meta.title)}</h3>
-      <p class="rc-error">${escapeHtml(res.error)}</p>
-      <p class="rc-note">${res.stage === 'input' ? 'This does not look like Luau bytecode or a saved script.' : res.stage === 'decompile' ? 'Tovek could not decompile this file.' : res.stage === 'timeout' ? 'This took too long and was stopped.' : 'Something went wrong while decompiling.'}</p>
-      <p class="rc-actions"><button class="btn" type="button" data-act="back">Back to the annotated script</button></p>`;
-    enterReading(meta.title, null);
+    outSource = null;
+    outFacts.textContent = '';
+    const why = res.stage === 'input' ? 'This does not look like Luau bytecode or a saved script.'
+      : res.stage === 'decompile' ? 'Tovek could not decompile this file.'
+      : res.stage === 'timeout' ? 'This took too long and was stopped.' : 'Something went wrong while decompiling.';
+    outBody.innerHTML = `<p class="out-error">${escapeHtml(res.error)}</p>`;
+    setStatus(escapeHtml(why));
     return;
   }
+  outSource = res.source;
+  outFile = meta.title;
   const lines = res.source.split('\n');
-  const facts = [
-    ['Input', `${fmtInt(meta.bytes)} bytes${res.form === 'text' ? ', saved text' : ''}`],
-    ['Bytecode', res.key === 203 ? 'Roblox client' : 'plain Luau'],
-    ['Output', `${fmtInt(lines.length)} lines`],
-    ['Time', `${res.ms < 10 ? res.ms.toFixed(1) : Math.round(res.ms)} ms, in this page`],
-    ['Decompiler', `Tovek ${meta.version.version}`],
-  ];
-  readcard.hidden = false;
-  readcard.innerHTML = `<p class="rc-kicker">${escapeHtml(meta.kicker)}</p><h3 class="rc-title">${escapeHtml(meta.title)}</h3>
-    <dl class="rc-facts">${facts.map(([a, b]) => `<div><dt>${a}</dt><dd>${escapeHtml(b)}</dd></div>`).join('')}</dl>
-    ${meta.same === true ? '<p class="rc-same"><b>=</b><span>Byte for byte what the Tovek command line prints for this file.</span></p>' : ''}
-    <p class="rc-note">Nothing was uploaded: the file never left this page.</p>
-    <p class="rc-actions"><button class="btn btn-ink" type="button" data-act="copy">Copy</button><button class="btn" type="button" data-act="save">Save .luau</button><button class="btn" type="button" data-act="back">Back to the annotated script</button></p>`;
-  readcard.dataset.name = meta.title.replace(/\.[^.]+$/, '') + '.luau';
-  readcard._source = res.source;
-  enterReading(meta.title, lines);
-}
-
-let renderJob = 0;
-function enterReading(title, lines, keepScroll = false) {
-  reading = { title };
-  ms.classList.add('is-reading');
-  for (const p of passages) p.hidden = true;
-  let box = $('.reading', code);
-  if (!box) { box = document.createElement('div'); box.className = 'reading'; code.append(box); }
-  box.replaceChildren();
-  readingLines = lines;
-  const job = ++renderJob;
-  if (lines) {
-    const highlight = lines.length <= 4000;
-    const CHUNK = 200;
-    const lh = parseFloat(getComputedStyle(code).lineHeight) || 24;
-    const chunks = [];
-    for (let i = 0; i < lines.length; i += CHUNK) {
-      const chunk = document.createElement('div');
-      chunk.className = 'chunk';
-      chunk.style.containIntrinsicSize = `auto ${Math.min(CHUNK, lines.length - i) * lh}px`;
-      chunk.dataset.from = i;
-      chunks.push(chunk);
-    }
-    const fill = (chunk) => {
-      const i = +chunk.dataset.from;
-      chunk.innerHTML = lines.slice(i, i + CHUNK).map((l, k) => lineHtml(l, i + k + 1, '', highlight)).join('');
-    };
-    // the first screens at once, the rest a few chunks per frame so the page never stalls
-    chunks.slice(0, 2).forEach(fill);
-    box.append(...chunks);
-    let next = 2;
-    const step = () => {
-      if (job !== renderJob) return;
-      const until = performance.now() + 8;
-      while (next < chunks.length && performance.now() < until) fill(chunks[next++]);
-      if (next < chunks.length) requestAnimationFrame(step);
-      else relayout();
-    };
-    if (next < chunks.length) requestAnimationFrame(step);
+  const ms = res.ms < 10 ? res.ms.toFixed(1) : Math.round(res.ms);
+  outFacts.textContent = `${fmtInt(lines.length)} lines · ${ms} ms · Tovek ${meta.version}`;
+  const box = document.createElement('div');
+  box.className = 'out-code';
+  const highlight = lines.length <= 4000;
+  const CHUNK = 200;
+  const chunks = [];
+  for (let i = 0; i < lines.length; i += CHUNK) {
+    const c = document.createElement('div');
+    c.className = 'chunk';
+    c.style.containIntrinsicSize = `auto ${Math.min(CHUNK, lines.length - i) * 19}px`;
+    c.dataset.from = i;
+    chunks.push(c);
   }
-  crumbFile.textContent = title;
-  crumbPsg.textContent = lines ? `${fmtInt(lines.length)} lines` : 'not decompiled';
-  for (const b of $$('button', lens)) { b.disabled = true; b.setAttribute('aria-checked', String(b.dataset.view === 'tovek')); }
-  relayout();
-  if (!keepScroll) requestAnimationFrame(() => scrollTo({ top: docTop(ms) - top.offsetHeight - runhead.offsetHeight, behavior: 'auto' }));
+  const fill = (c) => { const i = +c.dataset.from; c.innerHTML = lines.slice(i, i + CHUNK).map((l, k) => lineHtml(l, i + k + 1, highlight)).join(''); };
+  chunks.slice(0, 1).forEach(fill);
+  box.append(...chunks);
+  outBody.replaceChildren(box);
+  let next = 1;
+  const step = () => {
+    if (job !== renderJob) return;
+    const until = performance.now() + 7;
+    while (next < chunks.length && performance.now() < until) fill(chunks[next++]);
+    if (next < chunks.length) requestAnimationFrame(step);
+  };
+  if (next < chunks.length) requestAnimationFrame(step);
+  const nothing = 'Nothing was uploaded.';
+  if (meta.beacon && meta.same) setStatus(`<b>Same ${fmtInt(lines.length)} lines as the script above, byte for byte.</b> ${nothing}`);
+  else if (meta.same) setStatus(`<b>=</b> Byte for byte what the Tovek command line prints for this file. ${nothing}`);
+  else if (meta.beacon) setStatus(`Tovek ${escapeHtml(meta.version)} in this page printed ${fmtInt(lines.length)} lines; the script above came from the V2.6 build. ${nothing}`);
+  else setStatus(`Decompiled in your browser from ${fmtInt(meta.bytes)} bytes. ${nothing}`);
 }
 
-function leaveReading() {
-  reading = null;
-  readingLines = null;
-  renderJob++;
-  ms.classList.remove('is-reading');
-  const box = $('.reading', code);
-  if (box) box.remove();
-  for (const p of passages) p.hidden = false;
-  readcard.hidden = true;
-  readcard.innerHTML = '';
-  crumbFile.textContent = 'Beacon.luau';
-  for (const b of $$('button', lens)) b.disabled = false;
-  for (const b of $$('button', samplesList)) b.setAttribute('aria-pressed', 'false');
-  current = null;
-  relayout();
-}
-
-readcard.addEventListener('click', async (e) => {
+own.addEventListener('click', async (e) => {
   const b = e.target.closest('[data-act]');
-  if (!b) return;
-  if (b.dataset.act === 'back') { leaveReading(); scrollTo({ top: docTop(ms) - top.offsetHeight - runhead.offsetHeight - 12 }); }
+  if (!b || !outSource) return;
   if (b.dataset.act === 'copy') {
-    try { await navigator.clipboard.writeText(readcard._source); b.textContent = 'Copied'; } catch { b.textContent = 'Copy failed'; }
+    try { await navigator.clipboard.writeText(outSource); b.textContent = 'Copied'; } catch { b.textContent = 'Copy failed'; }
     setTimeout(() => { b.textContent = 'Copy'; }, 1600);
   }
   if (b.dataset.act === 'save') {
-    const url = URL.createObjectURL(new Blob([readcard._source + '\n'], { type: 'text/plain' }));
+    const url = URL.createObjectURL(new Blob([outSource + '\n'], { type: 'text/plain' }));
     const a = document.createElement('a');
     a.href = url;
-    a.download = readcard.dataset.name || 'decompiled.luau';
+    a.download = outFile;
     a.click();
     setTimeout(() => URL.revokeObjectURL(url), 2000);
   }
-  if (b.dataset.act === 'stage') readStage(b.dataset.stage, true);
 });
 
-// the page checks itself: decompile Beacon's bytecode here and compare with the column, byte for byte
-$('#check-page').addEventListener('click', async (e) => {
-  const btn = e.currentTarget;
-  const out = $('#check-status');
-  btn.disabled = true;
-  out.textContent = 'Loading Tovek into this page…';
-  try {
-    const [t, d] = await Promise.all([loadTovek(), loadData()]);
-    out.textContent = 'Decompiling Beacon…';
-    const bytes = new Uint8Array(await (await fetch(here('../../../' + d.script.bytecode_url))).arrayBuffer());
-    const res = await t.decompile(bytes, { name: d.script.name });
-    if (res.error) { out.textContent = `Tovek stopped: ${res.error}`; return; }
-    const same = (await sha256Hex(res.source)) === d.script.output_sha256;
-    const n = res.source.split('\n').length;
-    out.innerHTML = same
-      ? `<b>Same ${fmtInt(n)} lines, byte for byte.</b> Decompiled in this page in ${Math.round(res.ms)} ms by Tovek ${escapeHtml(t.info.version)}. Nothing was uploaded.`
-      : `Tovek ${escapeHtml(t.info.version)} in this page printed ${fmtInt(n)} lines, and they differ from the column, which came from the V2.6 build.`;
-  } catch (err) {
-    out.textContent = 'This browser cannot run Tovek here. Download it for your machine instead.';
-  } finally {
-    btn.disabled = false;
-  }
+// copying from any code panel keeps the indentation (it is drawn as padding, not tabs)
+document.addEventListener('copy', (e) => {
+  const sel = getSelection();
+  if (!sel.rangeCount) return;
+  const host = sel.anchorNode && (sel.anchorNode.nodeType === 1 ? sel.anchorNode : sel.anchorNode.parentElement)?.closest('.code, .pane, .out-code');
+  if (!host) return;
+  const range = sel.getRangeAt(0);
+  const lines = $$('.ln', host).filter((l) => l.offsetParent && range.intersectsNode(l));
+  if (lines.length < 2) return;
+  const text = lines.map((l) => {
+    const t = l.querySelector('.t');
+    const r = document.createRange();
+    r.selectNodeContents(t);
+    if (range.compareBoundaryPoints(Range.START_TO_START, r) > 0 && t.contains(range.startContainer)) r.setStart(range.startContainer, range.startOffset);
+    if (range.compareBoundaryPoints(Range.END_TO_END, r) < 0 && t.contains(range.endContainer)) r.setEnd(range.endContainer, range.endOffset);
+    return '\t'.repeat(+(l.style.getPropertyValue('--i') || 0)) + r.toString();
+  }).join('\n');
+  e.clipboardData.setData('text/plain', text);
+  e.preventDefault();
 });
 
-// ------------------------------------------------------------------ printing history: read the script as any release printed it
+// ------------------------------------------------------------------ downloads: the visitor's own platform first
 
-async function readStage(tag, step = false) {
-  if (!history) history = await (await fetch(here('../../../data/landing-history.json'))).json();
-  // stepping from one release to the next morphs the column in place, as the history film does
-  const box = $('.reading', code);
-  const morph = step && reading && box && !reduced.matches && !morphing;
-  const before = morph ? tokensOf(linesInView(box)) : null;
-  const focusDir = step && document.activeElement && document.activeElement.dataset ? document.activeElement.dataset.dir : null;
-  const d = await loadData();
-  const stages = history.stages;
-  const i = stages.findIndex((s) => s.tag === tag);
-  const s = stages[i];
-  const h = d.history.find((x) => x.tag === tag);
-  const total = d.script.helpers.reduce((a, x) => a + x.inlined_copies, 0);
-  const lines = s.text.replace(/\n+$/, '').split('\n');
-  const prev = stages[i - 1];
-  const next = stages[i + 1];
-  readcard.hidden = false;
-  readcard.innerHTML = `<p class="rc-kicker">Printing history</p><h3 class="rc-title">Beacon, as ${escapeHtml(s.name)} printed it</h3>
-    <dl class="rc-facts">
-      <div><dt>Released</dt><dd>${new Date(s.date + 'T12:00:00Z').toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}</dd></div>
-      <div><dt>Lines</dt><dd>${h.lines}</dd></div>
-      <div><dt>Plain names</dt><dd>${h.plain_names}</dd></div>
-      <div><dt>Helper calls</dt><dd>${h.calls_written_back} of ${total}</dd></div>
-      <div><dt>Bytecode read</dt><dd>${escapeHtml(h.bytecode)}</dd></div>
-    </dl>
-    <p class="rc-actions">${prev ? `<button class="btn" type="button" data-act="stage" data-dir="prev" data-stage="${prev.tag}">← ${escapeHtml(prev.name)}</button>` : ''}${next ? `<button class="btn" type="button" data-act="stage" data-dir="next" data-stage="${next.tag}">${escapeHtml(next.name)} →</button>` : ''}<button class="btn" type="button" data-act="back">Back to the annotated script</button></p>`;
-  readcard._source = s.text;
-  enterReading('Beacon.luau', lines, step);
-  crumbPsg.textContent = `as ${s.name} printed it, ${fmtInt(lines.length)} lines`;
-  if (focusDir) { const b = $(`[data-dir="${focusDir}"]`, readcard) || $('[data-act="stage"]', readcard); if (b) b.focus({ preventScroll: true }); }
-  if (morph) {
-    morphing = true;
-    const newLines = linesInView($('.reading', code));
-    const now = tokensOf(newLines);
-    await playMorph(before, now, lcsPairs(before, now), newLines);
-    morphing = false;
-  }
+function yourPlatform() {
+  const ua = navigator.userAgent;
+  if (/Windows NT/.test(ua)) return 'Windows';
+  if (/Linux/.test(ua) && /x86_64|amd64/i.test(ua) && !/Android/.test(ua)) return 'Linux';
+  return null;
+}
+function markDownload() {
+  const plat = yourPlatform();
+  const dl = plat && $(`.dl[data-platform="${plat}"]`);
+  if (!dl) return;
+  dl.classList.add('is-yours');
+  const hero = $('.hero .btn-ink');
+  hero.href = dl.href;
+  hero.title = `Tovek V2.6 for ${plat} (${dl.querySelector('span').textContent})`;
 }
 
-$('#history').addEventListener('click', (e) => {
-  const b = e.target.closest('button.read');
-  if (b) readStage(b.dataset.stage);
-});
-
-// ------------------------------------------------------------------ films: the page is built with the registry's films; re-check it here
+// ------------------------------------------------------------------ films: built with the registry's films; re-check here
 
 async function films() {
   let registry;
   try { registry = await import(here('../../../watch/films/index.js')); } catch { return; }
-  const launch = registry.FILMS.find((f) => f.id === 'v26' && f.available && f.listed !== false);
-  const btn = $('.btn-launch');
-  if (btn) btn.hidden = !launch;
   for (const card of $$('.film')) {
     const f = registry.filmById(card.dataset.film);
     if (!f || !f.available) card.hidden = true;
   }
-}
-
-// ------------------------------------------------------------------ the title is annotated too: a leader from the promise to the script's facts
-
-const hero = $('.hero');
-const heroLeader = document.createElementNS(NS, 'svg');
-heroLeader.classList.add('hero-leader');
-heroLeader.setAttribute('aria-hidden', 'true');
-hero.append(heroLeader);
-
-function layoutHero() {
-  if (narrow.matches) { heroLeader.replaceChildren(); return; }
-  const hr = hero.getBoundingClientRect();
-  const lines = $$('.h1-line', hero);
-  const last = lines[lines.length - 1];
-  const range = document.createRange();
-  range.selectNodeContents(last);
-  const rects = Array.from(range.getClientRects()).filter((r) => r.width > 0);
-  const end = rects[rects.length - 1];
-  const head = $('.facts-head', hero).getBoundingClientRect();
-  if (!end) return;
-  const ax = end.right - hr.left + 14;
-  const ay = end.top + end.height * 0.56 - hr.top;
-  const nx = head.left - hr.left - 12;
-  const ny = head.top + head.height * 0.5 - hr.top - 6;
-  if (nx - ax < 40) { heroLeader.replaceChildren(); return; }
-  const mid = (ax + nx) / 2;
-  heroLeader.setAttribute('width', hr.width);
-  heroLeader.setAttribute('height', hr.height);
-  heroLeader.innerHTML = `<path pathLength="1" d="M${ax} ${ay}C${mid} ${ay} ${mid} ${ny} ${nx} ${ny}"/><circle cx="${ax}" cy="${ay}" r="3"/>`;
-}
-
-// leaders draw themselves from the code to the note the first time a note comes into view
-const seenIO = 'IntersectionObserver' in window && !reduced.matches ? new IntersectionObserver((entries) => {
-  for (const en of entries) {
-    if (!en.isIntersecting) continue;
-    en.target.classList.add('seen');
-    const g = $(`g[data-note="${en.target.id}"]`, leaders);
-    if (g) g.classList.add('seen');
-    seenIO.unobserve(en.target);
+  const launch = registry.filmById('v26');
+  if (!launch || !launch.available) {
+    const b = $('.btn-watch');
+    if (b && b.getAttribute('href').includes('v26')) { b.setAttribute('href', 'watch/?film=story'); b.querySelector('span').textContent = 'Watch the film'; }
   }
-}, { rootMargin: '0px 0px -12% 0px' }) : null;
+}
 
 // ------------------------------------------------------------------ start
 
+function relayout() {
+  drawRail();
+  for (const s of steps) markMore(s);
+  if (at >= 0 && !inHistory) {
+    const line = anchorLine(steps[at]);
+    if (line) {
+      const y = portTarget(line);
+      alignNote(steps[at], line, y);
+      port.scrollTop = y;
+    }
+    buildLeader(false);
+  }
+}
+
 function start() {
-  for (const n of notes) n.tabIndex = narrow.matches ? -1 : 0;
-  if (seenIO) for (const n of notes) seenIO.observe(n);
-  else for (const n of notes) n.classList.add('seen');
-  relayout();
-  layoutHero();
+  const glide = prepareGlide();
+  goTo(0, { instant: true });
+  drawRail();
+  if (glide) playGlide();
   let ticking = false;
   addEventListener('scroll', () => {
     if (ticking) return;
     ticking = true;
-    requestAnimationFrame(() => { ticking = false; onScroll(); });
+    requestAnimationFrame(() => { ticking = false; onScrollChrome(); });
   }, { passive: true });
-  new ResizeObserver(() => relayout()).observe(code);
-  addEventListener('resize', () => { relayout(); layoutHero(); });
-  narrow.addEventListener('change', () => {
-    for (const n of notes) n.tabIndex = narrow.matches ? -1 : 0;
-    relayout();
-    layoutHero();
-  });
+  onScrollChrome();
+  let rz = 0;
+  addEventListener('resize', () => { cancelAnimationFrame(rz); rz = requestAnimationFrame(relayout); });
+  phone.addEventListener('change', relayout);
+  // the frame comes into view: its leader draws itself, and it starts turning its pages
+  if ('IntersectionObserver' in window) {
+    let first = true;
+    new IntersectionObserver((entries) => {
+      for (const en of entries) {
+        inView = en.isIntersecting && en.intersectionRatio >= 0.5;
+        if (inView && first) {
+          first = false;
+          buildLeader(true);
+          if (!reduced.matches && !userStopped) { autoStarted = true; setPlaying(true); }
+        }
+      }
+    }, { threshold: [0, 0.5, 0.75] }).observe(frame);
+  }
+  // prefetch what the last step needs once the reader is close
+  const idle = window.requestIdleCallback || ((fn) => setTimeout(fn, 400));
+  idle(() => { if (frame.getBoundingClientRect().top < innerHeight * 2) loadTexts(); }, { timeout: 3000 });
+  markDownload();
   films();
-  if (location.hash === '#read') openReader(false);
-  // lay the plates out ahead of the reader, one per idle moment, so scrolling to them costs nothing
-  const plates = $$('.plate');
-  const idle = window.requestIdleCallback || ((fn) => setTimeout(() => fn({ timeRemaining: () => 8 }), 120));
-  const readyNext = () => {
-    const next = plates.find((pl) => !pl.classList.contains('is-ready'));
-    if (!next) return;
-    next.classList.add('is-ready');
-    idle(readyNext, { timeout: 2000 });
-  };
-  idle(readyNext, { timeout: 2000 });
 }
 
-// no layout is read while the module loads: everything waits for the fonts, then one frame
 document.fonts.ready.then(() => requestAnimationFrame(start));
