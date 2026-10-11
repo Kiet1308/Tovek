@@ -34,16 +34,16 @@
         {
           "label": "rebuilt helper calls, four real games",
           "from": "4,260",
-          "to": "8,842"
+          "to": "8,845"
         },
         {
           "label": "rebuilt helper calls, 51-script comparison set",
           "from": "229",
-          "to": "637"
+          "to": "645"
         },
         {
           "label": "inlined copies found from line info that came back as calls (51-script set)",
-          "value": "633 of 780"
+          "value": "641 of 780"
         }
       ]
     },
@@ -62,8 +62,12 @@
           "text": "A closure always sees the value it captured, also where a local is copied, swapped or written later. One such case made a popular Promise library recurse forever."
         },
         {
-          "title": "Error positions and call frames",
-          "text": "A helper that reports an error at its caller's position (`error(message, 2)`, `debug.info`) is not rebuilt, because the position would move. A method that only reads its own frame no longer turns rebuilding off for its whole script."
+          "title": "Shared functions stay shared",
+          "text": "A rebuilt call inside a function no longer changes whether Luau creates that function once or every time it runs. Locals declared before a loop and captured inside it keep one variable across the loop."
+        },
+        {
+          "title": "Error levels and call frames",
+          "text": "A helper that raises `error(message, level)` is rebuilt; only the position printed before the message can differ. A helper that reads call frames (`debug.info`, `debug.traceback`) is not rebuilt, because what it reads would change. A method that only reads its own frame no longer turns rebuilding off for its whole script."
         },
         {
           "title": "Evaluation order",
@@ -79,13 +83,21 @@
         },
         {
           "title": "Loops and tables",
-          "text": "Loops that only break after a swap, `for _ in t do break end`, a swap right before a generic `for`, and `[0]` beside `[-0]` table keys all decompile to code that behaves like the original."
+          "text": "Loops that only break after a swap, `repeat` loops holding `continue` and `break`, `for _ in t do break end`, a swap right before a generic `for`, and `[0]` beside `[-0]` table keys all decompile to code that behaves like the original. Table constructors keep the bytecode's layout, so `pairs` visits keys in the same order."
+        },
+        {
+          "title": "Scripts that failed now decompile",
+          "text": "Three large public scripts of 13,000 to 26,000 lines that V2.5.1 could not decompile now come out whole, every function checked against the original."
+        },
+        {
+          "title": "Damaged bytecode never stops the program",
+          "text": "Corrupted list stores and table templates are refused with a message, and a very long `elseif` chain no longer overflows the stack, so the folder run and the local server keep going."
         }
       ],
       "numbers": [
         {
           "label": "wrong outputs in 3,000 fresh fuzz programs",
-          "from": "615",
+          "from": "635",
           "to": "0"
         },
         {
@@ -117,17 +129,17 @@
         {
           "label": "non-blank output lines, four real games",
           "from": "1,168,956",
-          "to": "1,033,044"
+          "to": "1,033,069"
         },
         {
           "label": "output lines, 51-script set",
           "from": "28,813",
-          "to": "26,664"
+          "to": "26,632"
         },
         {
           "label": "source names recovered, 13 public modules",
           "from": "282",
-          "to": "317",
+          "to": "318",
           "of": "1,039"
         }
       ]
@@ -137,6 +149,10 @@
       "title": "Tools",
       "summary": "One new flag and faster formatting.",
       "items": [
+        {
+          "title": "Roblox bytecode without -e",
+          "text": "Single-file mode reads Roblox client bytecode (from `getscriptbytecode`) without the `-e` flag, and reports bad arguments instead of exiting silently."
+        },
         {
           "title": "--stats-json",
           "text": "`decompile-folder --stats-json <file>` writes, per script, the calls V2.6 rebuilt (by kind), the helpers, and why a helper or a site was refused."
@@ -159,11 +175,11 @@
     "compare.rows.tovek_v251.calls": 229,
     "compare.rows.tovek_v251.lines": 28813,
     "compare.rows.tovek_v251.name_hit": 282,
-    "compare.rows.tovek_v26.calls": 637,
+    "compare.rows.tovek_v26.calls": 645,
     "compare.rows.tovek_v26.census": 780,
-    "compare.rows.tovek_v26.census_hits": 633,
-    "compare.rows.tovek_v26.lines": 26664,
-    "compare.rows.tovek_v26.name_hit": 317,
+    "compare.rows.tovek_v26.census_hits": 641,
+    "compare.rows.tovek_v26.lines": 26632,
+    "compare.rows.tovek_v26.name_hit": 318,
     "compare.rows.tovek_v26.name_total": 1039,
     "expression.fraction.v251": "clone.Transparency = 0.6666666666666666",
     "expression.fraction.v26": "clone.Transparency = 2 / 3",
@@ -172,11 +188,11 @@
     "field.totals.scripts": 8822,
     "field.totals.v251.nonblank_lines": 1168956,
     "field.totals.v251.rebuilt_calls": 4260,
-    "field.totals.v26.nonblank_lines": 1033044,
-    "field.totals.v26.rebuilt_calls": 8842,
+    "field.totals.v26.nonblank_lines": 1033069,
+    "field.totals.v26.rebuilt_calls": 8845,
     "field.totals.v26.scripts_ok": 8822,
     "fuzz.programs_run": 3000,
-    "fuzz.v251.counts.failed": 615,
+    "fuzz.v251.counts.failed": 635,
     "fuzz.v26.counts.failed": 0,
     "opcode.cases.0.original.prints": "false",
     "opcode.cases.0.v251.prints": "true",

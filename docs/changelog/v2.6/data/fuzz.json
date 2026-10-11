@@ -8,17 +8,17 @@
     "invalid": "the generated program itself does not compile (e.g. register limit)"
   },
   "generator": "typed-families-v3",
-  "families": 19,
+  "families": 20,
   "seed_start": 260000,
   "seeds": 1000,
   "programs_run": 3000,
   "v26": {
     "programs_run": 3000,
     "counts": {
-      "passed": 2582,
+      "passed": 2580,
       "failed": 0,
-      "refused": 286,
-      "invalid": 132
+      "refused": 289,
+      "invalid": 131
     },
     "unmutated": {
       "passed": 1513,
@@ -27,42 +27,42 @@
       "invalid": 13
     },
     "mutated": {
-      "passed": 1069,
+      "passed": 1067,
       "failed": 0,
-      "refused": 286,
-      "invalid": 119
+      "refused": 289,
+      "invalid": 118
     },
     "generator": "typed-families-v3",
-    "families": 19,
+    "families": 20,
     "exit_code": 0
   },
   "v251": {
     "programs_run": 3000,
     "counts": {
-      "passed": 2253,
-      "failed": 615,
+      "passed": 2234,
+      "failed": 635,
       "refused": 0,
-      "invalid": 132
+      "invalid": 131
     },
     "unmutated": {
-      "passed": 1248,
-      "failed": 265,
+      "passed": 1240,
+      "failed": 273,
       "refused": 0,
       "invalid": 13
     },
     "mutated": {
-      "passed": 1005,
-      "failed": 350,
+      "passed": 994,
+      "failed": 362,
       "refused": 0,
-      "invalid": 119
+      "invalid": 118
     },
     "generator": "typed-families-v3",
-    "families": 19,
+    "families": 20,
     "exit_code": 1
   },
   "fairness_note": "The families of the grammar come from bug classes that reviews found, many of them during V2.6 work, so these programs are harder for V2.5.1 than ordinary game code.",
   "binaries": {
     "v251_sha256": "8df15ad38731a1b146e0f3e761035b234689ee2a04c83d70eaed8584bf1198c5",
-    "v26_sha256": "0d59f6e3592e6c4019578c09ee5b4352a1222b8b69437eccef508c6962dbf89f"
+    "v26_sha256": "16d618191c03b9c3a4b84a4eea7d24449b88e03d23e3176932e13ec6a7eaf1c8"
   }
 }
