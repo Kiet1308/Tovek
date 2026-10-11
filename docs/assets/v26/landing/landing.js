@@ -580,7 +580,11 @@ function paintStep(i) {
     t.tabIndex = on ? 0 : -1;
     t.style.removeProperty('--p');
   });
-  steps.forEach((s, k) => { s.classList.toggle('is-on', k === i); if (k === i) markMore(s); });
+  steps.forEach((s, k) => {
+    s.classList.toggle('is-on', k === i);
+    s.tabIndex = k === i ? 0 : -1;
+    if (k === i) markMore(s);
+  });
   frAt.textContent = String(i + 1).padStart(2, '0');
   const id = steps[i].dataset.note;
   for (const m of $$('mark.ns', code)) m.classList.toggle('is-on', m.dataset.note === id);
@@ -811,7 +815,7 @@ async function enterHistory(prev, token) {
   await scrollPortTo(anchor.offsetTop - port.clientHeight * (phone.matches ? 0.12 : 0.2));
   drawRail();
   if (token !== stepToken) return;
-  if (playing || (prev >= 0 && prev !== historyIndex && !reduced.matches && !userStopped)) playHistory();
+  if (playing) playHistory();
 }
 
 function leaveHistory() {
@@ -928,7 +932,7 @@ async function readChip(chip) {
   }
   const res = await t.decompile(bytes, { name });
   if (!res.error) same = (await sha256Hex(res.source)) === sha;
-  show(res, { title: `${title}.luau`, bytes: bytes.length, version: t.info.version, same, beacon: chip.dataset.sample === 'Beacon' });
+  show(res, { title: name.replace(/\.lua$/, '') + '.luau', bytes: bytes.length, version: t.info.version, same, beacon: chip.dataset.sample === 'Beacon' });
 }
 for (const c of chips) c.addEventListener('click', () => readChip(c));
 const tryBtn = $('#out-try');
