@@ -20,7 +20,7 @@ export const FILMS = [
     title: 'Tovek V2.6',
     description: 'What Tovek is, and what V2.6 brings.',
     src: './v26.js',
-    available: false,
+    available: true,
     note: 'Coming with the V2.6 release.',
   },
   {
