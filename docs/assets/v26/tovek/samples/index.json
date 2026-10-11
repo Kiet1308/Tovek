@@ -3,7 +3,7 @@
   "about": "Sample inputs for Tovek in the browser. native = the CLI's own output for the same input and script name (sha256 of the UTF-8 source without the trailing newline the CLI prints).",
   "compiled_with": "luau-compile --binary -O2 -g1",
   "native_cli": {
-    "sha256": "0d59f6e3592e6c4019578c09ee5b4352a1222b8b69437eccef508c6962dbf89f",
+    "sha256": "16d618191c03b9c3a4b84a4eea7d24449b88e03d23e3176932e13ec6a7eaf1c8",
     "raw": "luau-lifter <file> --script-name <name>",
     "text": "luau-lifter decompile-folder <folder holding the file>"
   },
@@ -92,8 +92,8 @@
         "url": "https://github.com/Roblox/rodux/blob/120e94ec609c4992c9f2da7c7ae45542b168fd25/src/Store.lua"
       },
       "native": {
-        "sha256": "d97931edaedb53e2af140292caa432a03d2a9bdd91866974829baa197d96c707",
-        "bytes": 4214,
+        "sha256": "0874124e48f7d1a01114707042a246c9a6c58e2be7e37b0dab652513826f25a1",
+        "bytes": 4218,
         "lines": 180,
         "nonblank": 146
       }
@@ -152,10 +152,10 @@
         "url": "https://github.com/Sleitnick/RbxUtil/blob/31f9120fca021e3dec275b42bc7047d626962082/modules/trove/init.luau"
       },
       "native": {
-        "sha256": "cbc03d1461d09651fea490aa58dd774d33db8343c5030302e84719f93c631c90",
-        "bytes": 5511,
-        "lines": 268,
-        "nonblank": 215
+        "sha256": "dd8684bbbc4a890fe78ada9a527577e5a425ed1b459930534337c5f8472c3a64",
+        "bytes": 5133,
+        "lines": 249,
+        "nonblank": 198
       }
     },
     {
@@ -182,10 +182,10 @@
         "url": "https://github.com/MaximumADHD/Roblox-Client-Tracker/blob/45007a62fecfc910f099af1497e8a2ef945b95e0/scripts/PlayerScripts/StarterPlayerScripts/PlayerModule.module/ControlModule/ClickToMoveController.lua"
       },
       "native": {
-        "sha256": "4e69b687aa2d92a01c4d56078fe1ff596cc37aeda88a031a0835ddbeb6f81e53",
-        "bytes": 32116,
-        "lines": 1301,
-        "nonblank": 1066
+        "sha256": "7f1f218c9853f03483c502e8de0155ce5891a4bb664ac2401fe26d76ac3d8a20",
+        "bytes": 32295,
+        "lines": 1306,
+        "nonblank": 1071
       }
     },
     {

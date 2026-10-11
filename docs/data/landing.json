@@ -37,8 +37,8 @@
     ]
   },
   "binary": {
-    "sha256": "0d59f6e3592e6c4019578c09ee5b4352a1222b8b69437eccef508c6962dbf89f",
-    "version": "luau-lifter V2.5.1"
+    "sha256": "16d618191c03b9c3a4b84a4eea7d24449b88e03d23e3176932e13ec6a7eaf1c8",
+    "version": "luau-lifter V2.6"
   },
   "script": {
     "file": "Beacon.luau",
@@ -15470,7 +15470,7 @@
     {
       "tag": "v2.6",
       "name": "V2.6",
-      "date": "2026-10-10",
+      "date": "2026-10-11",
       "tool": "Tovek V2.6",
       "bytecode": "v9",
       "anchor": 121,
@@ -16078,24 +16078,24 @@
     "fuzz": {
       "programs": 3000,
       "wrong": 0,
-      "passed": 2582,
-      "refused": 286,
-      "invalid": 132,
-      "wrong_v251": 615,
-      "families": 19
+      "passed": 2580,
+      "refused": 289,
+      "invalid": 131,
+      "wrong_v251": 635,
+      "families": 20
     },
     "edge": {
       "v26": {
-        "cases": 216,
-        "runs": 648,
-        "passed": 648,
+        "cases": 229,
+        "runs": 687,
+        "passed": 687,
         "failed": 0
       },
       "v251": {
-        "cases": 216,
-        "runs": 648,
-        "passed": 313,
-        "failed": 335
+        "cases": 229,
+        "runs": 687,
+        "passed": 332,
+        "failed": 355
       },
       "what": "every reported or fuzzed bug, kept as a test: compiled at -O0, -O1 and -O2, decompiled, compiled again and run beside the original on Luau’s own VM"
     },
@@ -16103,9 +16103,9 @@
       "games": 4,
       "scripts": 8822,
       "ok_v26": 8822,
-      "calls_v26": 8842,
+      "calls_v26": 8845,
       "calls_v251": 4260,
-      "lines_v26": 1033044,
+      "lines_v26": 1033069,
       "lines_v251": 1168956,
       "lines_saved_pct": 11.6
     }
