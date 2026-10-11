@@ -23,7 +23,7 @@ static ALLOC: dhat::Alloc = dhat::Alloc;
 static ALLOC: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
 #[derive(Parser, Debug)]
-#[command(about, version = "V2.5.1", author)]
+#[command(about, version = "V2.6", author)]
 struct Cli {
     #[command(subcommand)]
     command: Command,
