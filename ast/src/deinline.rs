@@ -630,11 +630,15 @@ fn admitted_pairs(progress: &Progress) -> FxHashSet<(Option<FnPtr>, RcLocal)> {
     let pairs: Vec<_> = progress.probed.iter().collect();
     let counts: Vec<evidence::Probed> = pairs
         .iter()
-        .map(|&(key, &(hits, proto))| evidence::Probed {
-            caller: lines.caller(key.0),
-            helper: proto,
-            hits,
-            rebuilt: progress.rebuilt.get(key).copied().unwrap_or(0),
+        .map(|&(key, &(hits, proto))| {
+            let caller = lines.caller(key.0);
+            evidence::Probed {
+                caller,
+                helper: proto,
+                hits,
+                rebuilt: progress.rebuilt.get(key).copied().unwrap_or(0),
+                folded_left: proto.map_or(0, |helper| evidence::folded_left(&lines.copies, caller, helper)),
+            }
         })
         .collect();
     let admit = evidence::admitted(&lines.copies, &counts);
@@ -644,15 +648,15 @@ fn admitted_pairs(progress: &Progress) -> FxHashSet<(Option<FnPtr>, RcLocal)> {
             (Some(caller), Some(helper)) => lines.copies.copies(Some(caller), helper) as usize,
             _ => 0,
         };
-        let agrees = count.hits > 0 && count.hits + count.rebuilt == copies;
+        let agrees = count.hits > 0 && count.folded_left == 0 && count.hits + count.rebuilt == copies;
         crate::telemetry::count(if agrees { "evidence_admitted_pairs" } else { "evidence_refused_pairs" }, 1);
         if !agrees {
             crate::reconstruction_stats::refuse_site("evidence_count_mismatch");
         }
         if crate::env_flag!("MEDAL_TRACE_EVIDENCE") {
             eprintln!(
-                "EVIDENCE caller=p{:?} helper={} proto=p{:?} hits={} rebuilt={} copies={copies} admit={admit}",
-                count.caller, binder, count.helper, count.hits, count.rebuilt
+                "EVIDENCE caller=p{:?} helper={} proto=p{:?} hits={} rebuilt={} copies={copies} folded_left={} admit={admit}",
+                count.caller, binder, count.helper, count.hits, count.rebuilt, count.folded_left
             );
         }
         if admit {

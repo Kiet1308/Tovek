@@ -167,6 +167,11 @@ pub(crate) fn inlined_copies(functions: &[Function], lines: &[Vec<Option<u32>>],
         /// helper's `RETURN` on its `end` line).
         last: u32,
         single: Option<Vec<u8>>,
+        /// The operation kinds of the helper's own code on the lines a
+        /// caller's code may share with it: its first line (code after
+        /// `function f(...)` on that line) and the last line of its span
+        /// (code after its `end`, or a nested function starting there).
+        edge_kinds: [(u32, Vec<u8>); 2],
     }
     // An operation, by kind: the constant and register forms alike, a jump
     // or move none (an inlined copy adds and drops those).
@@ -223,8 +228,8 @@ pub(crate) fn inlined_copies(functions: &[Function], lines: &[Vec<Option<u32>>],
         // A function whose code is all copies of helpers defined before it
         // (`return function(k) return frames(k) end`) has no line of its
         // own at or after its first: its span is that line alone.
-        let end = own.max().max(start);
-        let first = (start..=end).find(|&line| own.contains(line)).unwrap_or(start);
+        let own_end = own.max().max(start);
+        let first = (start..=own_end).find(|&line| own.contains(line)).unwrap_or(start);
         let last = function
             .instructions
             .iter()
@@ -232,7 +237,12 @@ pub(crate) fn inlined_copies(functions: &[Function], lines: &[Vec<Option<u32>>],
             .rev()
             .filter(|(instruction, _)| opcode_of(instruction) != LOP_RETURN)
             .find_map(|(_, line)| line.filter(|&line| line >= first))
-            .unwrap_or(end);
+            .unwrap_or(own_end);
+        // The span ends where a copy can: on the line of the last operation
+        // but a return. A void helper's lone `RETURN` sits on its `end`
+        // line, which code after the `end` shares (`end print("start")`):
+        // that code is the caller's, never a copy.
+        let end = last.max(first);
         let single = (first == end).then(|| {
             let mut operations = Vec::new();
             let mut pc = 0;
@@ -245,7 +255,20 @@ pub(crate) fn inlined_copies(functions: &[Function], lines: &[Vec<Option<u32>>],
             }
             operations
         });
-        helpers.push(Some(Helper { span: (start, end), lines: own, first, last, single }));
+        let kinds_on = |line: u32| {
+            let mut kinds = Vec::new();
+            let mut pc = 0;
+            while let Some(instruction) = function.instructions.get(pc) {
+                let opcode = opcode_of(instruction);
+                if pcs.get(pc).copied().flatten() == Some(line) && let Some(kind) = kind(opcode) {
+                    kinds.push(kind);
+                }
+                pc += if opcode.has_aux() { 2 } else { 1 };
+            }
+            kinds
+        };
+        let edge_kinds = [(first, kinds_on(first)), (end, kinds_on(end))];
+        helpers.push(Some(Helper { span: (start, end), lines: own, first, last, single, edge_kinds }));
     }
     // The helpers whose fully folded copies are counted (plan E2): one line
     // of arithmetic on parameters returning one value, and no constant load
@@ -378,10 +401,42 @@ pub(crate) fn inlined_copies(functions: &[Function], lines: &[Vec<Option<u32>>],
             if owners.first() == Some(&caller_id) && own.is_some_and(|(own_start, own_end)| own_start < line && line < own_end) {
                 return None;
             }
+            // The prototype a closure instruction makes: never a copy of
+            // that helper, even inside a copy of the function defining it
+            // (`local function pair(x) local function f() ... end ... end`
+            // inlined: its NEWCLOSURE of `f` is no copy of `f`).
+            let made = match instructions.get(pc) {
+                Some(Instruction::AD { op_code: LOP_NEWCLOSURE, d, .. }) => {
+                    functions[caller].functions.get(*d as usize).copied()
+                }
+                Some(Instruction::AD { op_code: LOP_DUPCLOSURE, d, .. }) => match constants.get(*d as usize) {
+                    Some(Constant::Closure(child)) => Some(*child),
+                    _ => None,
+                },
+                _ => None,
+            };
             owners.iter().copied().find(|&id| {
                 let (start, end) = spans[id as usize];
                 let defines = own.is_none_or(|(own_start, _)| own_start <= start) && line == start;
+                // On a line the caller may share with the helper, only an
+                // operation the helper has on that line starts its copy (two
+                // helpers on one line, code after `end`, a call whose run
+                // a line splits), or a number load where the helper has
+                // arithmetic there that a constant argument may have folded
+                // (`local h = seed + 2166136261` copied as one constant). A
+                // helper with no operation there (`return b, a`) is copied
+                // as moves alone.
+                let edge = helpers[id as usize].as_ref().and_then(|helper| {
+                    helper.edge_kinds.iter().find(|(edge, _)| *edge == line).map(|(_, kinds)| kinds)
+                });
+                let shared_line_op = edge.is_none_or(|kinds| {
+                    kind(opcode).map_or(kinds.is_empty(), |kind| kinds.contains(&kind))
+                        || ((folds[id as usize] || kinds.iter().any(|kind| (1..=9).contains(kind)))
+                            && instructions.get(pc).and_then(|instruction| loaded_number(instruction, constants)).is_some())
+                });
                 id != caller_id
+                    && made != Some(id as usize)
+                    && shared_line_op
                     && !own.is_some_and(|(own_start, own_end)| start <= own_start && own_end <= end)
                     && !(defines && (definition(opcode) || creating_at(pc)))
             })
@@ -490,7 +545,10 @@ pub(crate) fn inlined_copies(functions: &[Function], lines: &[Vec<Option<u32>>],
                 Some((seen, found)) if seen == line => found,
                 _ => {
                     let found = innermost(line, opcode, pc);
-                    let reusable = helper_at(line).iter().all(|&id| spans[id as usize].0 != line);
+                    let reusable = helper_at(line).iter().all(|&id| {
+                        spans[id as usize].0 != line
+                            && helpers[id as usize].as_ref().is_none_or(|helper| helper.edge_kinds.iter().all(|(edge, _)| *edge != line))
+                    });
                     last_line = reusable.then_some((line, found));
                     found
                 }
@@ -778,6 +836,58 @@ mod tests {
         assert!(copies.present(Some(1), 0) && !copies.present(None, 0));
         // No line info, no evidence.
         assert!(inlined_copies(&[prototype(1, &[LOP_RETURN]), prototype(1, &[LOP_RETURN])], &[vec![], vec![]], 1).is_none());
+    }
+
+    /// Caller code may share a line with a helper: after a void helper's
+    /// `end` (`end print("start")`, the `RETURN` on that line), on a
+    /// one-line helper's line (`function inc(x) return x + 1 end print(`), or
+    /// on a line two helpers share. Only an operation the helper itself has
+    /// there starts a copy, and the span ends at the last operation but the
+    /// return (m3-review F2, fr-deinline 2b).
+    #[test]
+    fn code_sharing_a_helper_line_is_no_copy() {
+        use OpCode::*;
+        // p0, lines 1-3: `local function reset(t) t.count = 0 end print(...)`:
+        // the store on line 2, the `RETURN` on line 3, the `end` line.
+        let reset = prototype(1, &[LOP_LOADN, LOP_SETTABLEKS, LOP_RETURN]);
+        // The chunk: defines p0 on line 1, then `print("start")` after the
+        // `end` on line 3 (GETIMPORT, LOADK, CALL), then its own code.
+        let chunk = prototype(1, &[LOP_NEWCLOSURE, LOP_GETIMPORT, LOP_LOADK, LOP_CALL, LOP_GETIMPORT, LOP_RETURN]);
+        let lines = vec![vec![Some(2), Some(2), Some(3)], vec![Some(1), Some(3), Some(3), Some(3), Some(4), Some(5)]];
+        let copies = inlined_copies(&[reset, chunk], &lines, 1).unwrap();
+        assert_eq!(copies.copies(None, 0), 0);
+        assert!(!copies.present(None, 0));
+
+        // p0 `inc` (ADDK) and p1 `dbl` (MULK) on line 1; p2 runs one copy of
+        // dbl there (MULK) and a hand-written `v + 1` on line 4.
+        let inc = prototype(1, &[LOP_ADDK, LOP_RETURN]);
+        let dbl = prototype(1, &[LOP_MULK, LOP_RETURN]);
+        let run = prototype(2, &[LOP_MULK, LOP_ADDK, LOP_RETURN]);
+        let chunk = prototype(1, &[LOP_NEWCLOSURE, LOP_NEWCLOSURE, LOP_NEWCLOSURE, LOP_RETURN]);
+        let lines = vec![vec![Some(1), Some(1)], vec![Some(1), Some(1)], vec![Some(1), Some(4), Some(5)], vec![Some(1), Some(1), Some(2), Some(7)]];
+        let copies = inlined_copies(&[inc, dbl, run, chunk], &lines, 3).unwrap();
+        assert_eq!((copies.copies(Some(2), 0), copies.copies(Some(2), 1)), (0, 1));
+    }
+
+    /// An inlined copy of a function defining a closure makes that closure
+    /// (`local function pair(x) local function f() ... end return x, f end`):
+    /// the NEWCLOSURE of `f` on `f`'s first line is no copy of `f`
+    /// (fr-deinline 2a).
+    #[test]
+    fn making_a_helper_is_no_copy_of_it() {
+        use OpCode::*;
+        // p0 `f`, line 2 (MULK); p1 `pair`, lines 1-4, defines p0 on line 2.
+        let f = prototype(2, &[LOP_MULK, LOP_RETURN]);
+        let mut pair = prototype(1, &[LOP_NEWCLOSURE, LOP_RETURN]);
+        pair.functions = vec![0];
+        // p2 `run`, lines 5-9, runs a copy of p1: the NEWCLOSURE of p0 on
+        // line 2, then its own code.
+        let mut run = prototype(5, &[LOP_NEWCLOSURE, LOP_MULK, LOP_CALL, LOP_RETURN]);
+        run.functions = vec![0];
+        let chunk = prototype(1, &[LOP_NEWCLOSURE, LOP_NEWCLOSURE, LOP_RETURN]);
+        let lines = vec![vec![Some(2), Some(2)], vec![Some(2), Some(4)], vec![Some(2), Some(7), Some(8), Some(9)], vec![Some(1), Some(5), Some(10)]];
+        let copies = inlined_copies(&[f, pair, run, chunk], &lines, 3).unwrap();
+        assert_eq!(copies.copies(Some(2), 0), 0);
     }
 
     #[test]

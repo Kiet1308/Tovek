@@ -413,19 +413,23 @@ impl Walk<'_> {
         let pairs: Vec<_> = self.probed.iter().collect();
         let counts: Vec<_> = pairs
             .iter()
-            .map(|&(key, &(hits, proto))| crate::deinline::evidence::Probed {
-                caller: self.caller(key.0),
-                helper: proto,
-                hits,
-                rebuilt: self.rebuilt.get(key).copied().unwrap_or(0),
+            .map(|&(key, &(hits, proto))| {
+                let caller = self.caller(key.0);
+                crate::deinline::evidence::Probed {
+                    caller,
+                    helper: proto,
+                    hits,
+                    rebuilt: self.rebuilt.get(key).copied().unwrap_or(0),
+                    folded_left: proto.map_or(0, |helper| crate::deinline::evidence::folded_left(copies, caller, helper)),
+                }
             })
             .collect();
         let admit = crate::deinline::evidence::admitted(copies, &counts);
         if crate::env_flag!("MEDAL_TRACE_EVIDENCE") {
             for ((key, _), (count, admit)) in pairs.iter().zip(counts.iter().zip(&admit)) {
                 eprintln!(
-                    "EVIDENCE expression caller=p{:?} helper={} proto=p{:?} hits={} rebuilt={} admit={admit}",
-                    count.caller, key.1, count.helper, count.hits, count.rebuilt
+                    "EVIDENCE expression caller=p{:?} helper={} proto=p{:?} hits={} rebuilt={} folded_left={} admit={admit}",
+                    count.caller, key.1, count.helper, count.hits, count.rebuilt, count.folded_left
                 );
             }
         }

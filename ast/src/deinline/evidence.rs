@@ -141,6 +141,9 @@ pub(crate) struct Probed {
     pub(crate) helper: Option<usize>,
     pub(crate) hits: usize,
     pub(crate) rebuilt: usize,
+    /// The helper's fully folded copies there still literals
+    /// ([`folded_left`]): copies no match can be.
+    pub(crate) folded_left: u32,
 }
 
 /// The count oracle: for each probed pair, whether its helper is rebuilt in
@@ -148,14 +151,18 @@ pub(crate) struct Probed {
 /// rebuilt there, are exactly its copies there: then each match is a copy
 /// and each copy a match. Any other count refuses them all (a copy the
 /// structurer cloned or merged, one that does not unify, code written like
-/// the helper by hand). Outermost first: a helper whose copies sit inside
+/// the helper by hand). A fully folded copy the constant ledger left a
+/// literal is such a copy: no match can be it, so a match counted in its
+/// place is code written like the helper. Outermost first: a helper whose copies sit inside
 /// copies of another one admitted in the same function waits for a later
 /// round, after that one's calls took in the code they hold.
 pub(crate) fn admitted(copies: &Copies, probed: &[Probed]) -> Vec<bool> {
     let agrees: Vec<bool> = probed
         .iter()
         .map(|p| match (p.caller, p.helper) {
-            (Some(caller), Some(helper)) => p.hits > 0 && p.hits + p.rebuilt == copies.copies(Some(caller), helper) as usize,
+            (Some(caller), Some(helper)) => {
+                p.hits > 0 && p.folded_left == 0 && p.hits + p.rebuilt == copies.copies(Some(caller), helper) as usize
+            }
             _ => false,
         })
         .collect();
@@ -178,17 +185,49 @@ pub(crate) fn admitted(copies: &Copies, probed: &[Probed]) -> Vec<bool> {
 
 thread_local! {
     static STATE: RefCell<Option<Rc<Copies>>> = const { RefCell::new(None) };
+    /// The fully folded copies the constant ledger rebuilt as calls, by
+    /// `(caller, helper, value bits)`.
+    static LEDGER: RefCell<FxHashSet<(u32, u32, u64)>> = RefCell::new(FxHashSet::default());
 }
 
 /// Holds the census of the chunk being decompiled on this thread until it
 /// drops, then restores what was there before.
-pub struct Scope(Option<Rc<Copies>>, PhantomData<Rc<()>>);
+pub struct Scope(Option<Rc<Copies>>, FxHashSet<(u32, u32, u64)>, PhantomData<Rc<()>>);
 
 impl Drop for Scope {
     fn drop(&mut self) {
         let previous = self.0.take();
         STATE.with(|state| *state.borrow_mut() = previous);
+        let ledger = std::mem::take(&mut self.1);
+        LEDGER.with(|state| *state.borrow_mut() = ledger);
     }
+}
+
+/// Records that the constant ledger rebuilt the fully folded copies of
+/// `helper` with value `bits` in `caller` as calls.
+pub(crate) fn record_ledger_rebuild(caller: usize, helper: usize, bits: u64) {
+    if let (Ok(caller), Ok(helper)) = (u32::try_from(caller), u32::try_from(helper)) {
+        LEDGER.with(|state| state.borrow_mut().insert((caller, helper, bits)));
+    }
+}
+
+/// The fully folded copies of `helper` in `caller` (`None`: the chunk),
+/// outside other copies, that the constant ledger did not rebuild: they stay
+/// literals, which no match unifies with.
+pub(crate) fn folded_left(copies: &Copies, caller: Option<usize>, helper: usize) -> u32 {
+    let caller = caller.unwrap_or(copies.main);
+    let (Ok(caller), Ok(helper)) = (u32::try_from(caller), u32::try_from(helper)) else { return 0 };
+    LEDGER.with(|ledger| {
+        let ledger = ledger.borrow();
+        copies
+            .constant_copies
+            .iter()
+            .filter(|&(&(at, of, bits), counted)| {
+                at == caller && of == helper && counted.outermost > 0 && !ledger.contains(&(at, of, bits))
+            })
+            .map(|(_, counted)| counted.outermost)
+            .sum()
+    })
 }
 
 /// Makes `copies` the census of the chunk decompiled on this thread
@@ -201,7 +240,8 @@ pub fn enter(copies: Option<Copies>) -> Scope {
         Rc::new(copies)
     });
     let previous = STATE.with(|state| state.replace(copies));
-    Scope(previous, PhantomData)
+    let ledger = LEDGER.with(|state| std::mem::take(&mut *state.borrow_mut()));
+    Scope(previous, ledger, PhantomData)
 }
 
 /// The census of the chunk being decompiled, if it has line info.
@@ -246,13 +286,33 @@ mod tests {
         copies.copies.insert((1, 11), 1);
         copies.copies.insert((2, 10), 1);
         copies.nested.insert((1, 10, 11));
-        let probe = |caller, helper, hits, rebuilt| Probed { caller: Some(caller), helper: Some(helper), hits, rebuilt };
+        let probe = |caller, helper, hits, rebuilt| Probed { caller: Some(caller), helper: Some(helper), hits, rebuilt, folded_left: 0 };
         let admitted = admitted(&copies, &[
             probe(1, 10, 1, 1),  // one match, one call rebuilt before: two copies
             probe(1, 11, 1, 0),  // inside copies of 10, admitted in this round: waits
             probe(2, 10, 2, 0),  // two matches, one copy: refused
-            Probed { caller: None, helper: Some(10), hits: 1, rebuilt: 0 },
+            Probed { caller: None, helper: Some(10), hits: 1, rebuilt: 0, folded_left: 0 },
         ]);
         assert_eq!(admitted, vec![true, false, false, false]);
+    }
+
+    /// `local a = addOne(5)` folded to `6`, `local b = y + 1` written by
+    /// hand: the census counts one copy (the load of 6). With the ledger
+    /// refusing 6 (another reference to it), the hand-written look-alike
+    /// is the one match, and counted in the copy's place it would be
+    /// admitted.
+    #[test]
+    fn a_folded_copy_left_a_literal_refuses_the_helper() {
+        let mut copies = Copies::new(0);
+        copies.copies.insert((1, 7), 1);
+        let six = 6.0f64.to_bits();
+        copies.constant_copies.insert((1, 7, six), ConstantCopies { outermost: 1, nested: 0 });
+        let _scope = enter(Some(copies.clone()));
+        assert_eq!(folded_left(&copies, Some(1), 7), 1);
+        let probe = Probed { caller: Some(1), helper: Some(7), hits: 1, rebuilt: 0, folded_left: folded_left(&copies, Some(1), 7) };
+        assert_eq!(admitted(&copies, &[probe]), vec![false]);
+        // Rebuilt by the ledger, the copy is a call: none is left.
+        record_ledger_rebuild(1, 7, six);
+        assert_eq!(folded_left(&copies, Some(1), 7), 0);
     }
 }
