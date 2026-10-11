@@ -1,0 +1,303 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Tovek in the browser</title>
+<link rel="icon" href="../../favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,200..800&family=Geist:wght@300..800&family=Geist+Mono:wght@400..600&display=swap">
+<link rel="stylesheet" href="../tokens.css">
+<link rel="modulepreload" href="tovek.js">
+<style>
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0; background: var(--paper); color: var(--ink);
+    font: 400 15px/1.55 var(--font-text);
+  }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 32px var(--gutter) 56px; }
+  header { display: flex; align-items: center; gap: 14px; }
+  header img { width: 30px; height: 28px; }
+  h1 {
+    margin: 0; font: 650 clamp(24px, 3.2vw, 34px)/1.05 var(--font-display);
+    font-variation-settings: "opsz" 48; letter-spacing: -0.01em;
+  }
+  .lede { margin: 14px 0 0; max-width: 62ch; color: var(--ink-2); }
+  .status {
+    margin: 18px 0 0; font: 500 12.5px/1.5 var(--font-mono); color: var(--ink-2);
+    display: flex; flex-wrap: wrap; gap: 4px 18px; min-height: 19px;
+  }
+  .status b { font-weight: 500; color: var(--ink); }
+
+  .controls { margin: 28px 0 14px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .label { font: 500 12px/1 var(--font-mono); color: var(--ink-3); text-transform: uppercase; letter-spacing: 0.06em; margin-right: 6px; }
+  button, .file {
+    font: 500 13.5px/1 var(--font-text); color: var(--ink); background: var(--sheet);
+    border: 1px solid var(--rule-strong); border-radius: 999px; padding: 9px 14px; cursor: pointer;
+    transition: background-color 160ms var(--ease-out), border-color 160ms var(--ease-out);
+  }
+  button:hover, .file:hover { border-color: var(--ink); }
+  button[aria-pressed="true"] { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+  button:focus-visible, .file:focus-within, textarea:focus-visible {
+    outline: 2px solid var(--signal-deep); outline-offset: 2px;
+  }
+  .file input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+  .spacer { flex: 1 1 auto; }
+
+  .panel {
+    position: relative; background: var(--sheet); border: 1px solid var(--rule); border-radius: var(--radius);
+    overflow: hidden;
+  }
+  .panel.drop { border-color: var(--signal-deep); box-shadow: 0 0 0 3px var(--signal-wash); }
+  .panel-head {
+    display: flex; flex-wrap: wrap; gap: 6px 16px; align-items: baseline; justify-content: space-between;
+    padding: 12px 16px; border-bottom: 1px solid var(--rule); font: 500 12.5px/1.4 var(--font-mono); color: var(--ink-2);
+  }
+  .panel-head .name { color: var(--ink); }
+  .proof { color: var(--signal-deep); }
+  .proof.bad { color: var(--ink); text-decoration: underline wavy var(--signal); }
+  pre {
+    margin: 0; padding: 14px 0 18px; max-height: min(70vh, 760px); overflow: auto;
+    font: 400 13px/1.6 var(--font-mono); color: var(--ink); tab-size: 4;
+    counter-reset: line;
+  }
+  pre .l { display: block; padding: 0 18px 0 0; white-space: pre; }
+  /* The gutter is two tab stops wide (8ch), so tabs in the source line up with the tab grid. */
+  pre .l::before {
+    counter-increment: line; content: counter(line);
+    display: inline-block; width: 6ch; padding-right: 2ch; text-align: right; color: var(--ink-3);
+    user-select: none;
+  }
+  pre .c { color: var(--ink-3); }
+  pre .k { color: var(--ink); font-weight: 600; }
+  pre .s { color: var(--ink-2); }
+  .empty { padding: 48px 18px; text-align: center; color: var(--ink-3); }
+  .error { padding: 18px; font: 400 13px/1.6 var(--font-mono); color: var(--ink); white-space: pre-wrap; }
+
+  details { margin: 12px 0 0; }
+  summary { cursor: pointer; color: var(--ink-2); font-size: 13.5px; }
+  textarea {
+    display: block; width: 100%; margin-top: 10px; min-height: 96px; resize: vertical; padding: 10px 12px;
+    font: 400 12.5px/1.5 var(--font-mono); color: var(--ink); background: var(--sheet);
+    border: 1px solid var(--rule-strong); border-radius: 8px;
+  }
+  .row { display: flex; gap: 8px; margin-top: 8px; }
+
+  table { width: 100%; border-collapse: collapse; margin-top: 18px; font: 400 13px/1.45 var(--font-mono); }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--rule); white-space: nowrap; }
+  th { font-weight: 500; color: var(--ink-3); font-size: 12px; }
+  td.num, th.num { text-align: right; }
+  .table-wrap { overflow-x: auto; }
+  .ok { color: var(--signal-deep); }
+  footer { margin-top: 36px; color: var(--ink-3); font-size: 13px; }
+  footer a { color: var(--ink-2); }
+  @media (max-width: 560px) {
+    .wrap { padding-top: 22px; }
+    pre { font-size: 12px; tab-size: 2; }
+    pre .l::before { width: 3ch; padding-right: 1ch; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <img src="../../brand/tovek-mark.svg" alt="">
+    <h1>Tovek in the browser</h1>
+  </header>
+  <p class="lede">The decompiler runs on this page, from WebAssembly, in a background worker. Pick a sample or open a
+    bytecode file. Nothing is uploaded.</p>
+  <p class="status" id="status" aria-live="polite"><span>Loading the decompiler…</span></p>
+
+  <div class="controls" id="samples" role="group" aria-label="Samples">
+    <span class="label">Samples</span>
+  </div>
+  <div class="controls">
+    <label class="file">Open a file<input type="file" id="file"></label>
+    <span class="spacer"></span>
+    <button type="button" id="check">Check every sample</button>
+  </div>
+
+  <section class="panel" id="panel" aria-label="Decompiled source">
+    <div class="panel-head" id="head"><span class="name">Output</span><span></span></div>
+    <div id="out"><p class="empty">Drop a bytecode file here.</p></div>
+  </section>
+
+  <details>
+    <summary>Paste base64 or saved script text</summary>
+    <textarea id="paste" spellcheck="false" aria-label="Base64 bytecode, optionally after -- comment lines"></textarea>
+    <div class="row"><button type="button" id="paste-go">Decompile the text</button></div>
+  </details>
+
+  <div class="table-wrap" id="table"></div>
+
+  <footer>Tovek grew out of <a href="https://github.com/Stefanuk12/medal-decompiler">medal</a>, originally by Jujhar
+    Singh and Mathias Pedersen. MIT licence.</footer>
+</div>
+
+<script type="module">
+import { load, decompile, samples, sampleBytes } from './tovek.js';
+
+const $ = (id) => document.getElementById(id);
+const status = $('status');
+const out = $('out');
+const head = $('head');
+let rows = [];
+let busy = 0;
+
+const KEYWORDS = new Set(['local', 'function', 'end', 'if', 'then', 'else', 'elseif', 'for', 'in', 'do', 'while',
+  'repeat', 'until', 'return', 'break', 'continue', 'not', 'and', 'or', 'nil', 'true', 'false']);
+
+function escape(text) {
+  return text.replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[c]);
+}
+
+/** Near-greyscale: keywords bold, strings mid-grey, comments light. Long outputs skip the colouring. */
+function highlight(line) {
+  const parts = [];
+  const re = /(--.*$)|("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|`(?:[^`\\]|\\.)*`)|([A-Za-z_]\w*)/g;
+  let last = 0;
+  for (let m; (m = re.exec(line));) {
+    parts.push(escape(line.slice(last, m.index)));
+    if (m[1]) parts.push(`<span class="c">${escape(m[1])}</span>`);
+    else if (m[2]) parts.push(`<span class="s">${escape(m[2])}</span>`);
+    else parts.push(KEYWORDS.has(m[3]) ? `<span class="k">${m[3]}</span>` : m[3]);
+    last = re.lastIndex;
+  }
+  parts.push(escape(line.slice(last)));
+  return parts.join('');
+}
+
+function show(source) {
+  const lines = source.split('\n');
+  const colour = lines.length <= 4000;
+  out.innerHTML = `<pre tabindex="0" aria-label="Decompiled source, ${lines.length} lines">${
+    lines.map((l) => `<span class="l">${colour ? highlight(l) : escape(l)}</span>`).join('')}</pre>`;
+}
+
+async function sha256(text) {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+function setHead(name, detail, proof = '', bad = false) {
+  head.innerHTML = '';
+  const left = document.createElement('span');
+  left.className = 'name';
+  left.textContent = name;
+  const right = document.createElement('span');
+  right.textContent = detail;
+  if (proof) {
+    const p = document.createElement('span');
+    p.className = bad ? 'proof bad' : 'proof';
+    p.textContent = '  ' + proof;
+    right.append(p);
+  }
+  head.append(left, right);
+}
+
+const KEY_NAME = { 1: 'plain bytecode', 203: 'Roblox client bytecode' };
+
+const STAGE = { input: 'could not read the input', decompile: 'decompile failed', load: 'could not load',
+  crash: 'the decompiler stopped', timeout: 'stopped', cancelled: 'cancelled' };
+
+function pressSample(id) {
+  for (const b of document.querySelectorAll('#samples button')) b.setAttribute('aria-pressed', String(b.dataset.id === id));
+}
+
+async function run(input, label, options, expected) {
+  const ticket = ++busy;
+  if (!expected) pressSample(null);
+  setHead(label, 'decompiling…');
+  const r = await decompile(input, options);
+  if (ticket !== busy) return r;
+  const kind = `${KEY_NAME[r.key] || 'key ' + r.key}${r.form === 'text' ? ', from base64 text' : ''}`;
+  if (r.source === undefined) {
+    setHead(label, STAGE[r.stage] || 'failed');
+    out.innerHTML = `<p class="error">${escape(r.error)}</p>`;
+    return r;
+  }
+  show(r.source);
+  const lines = r.source.split('\n').length;
+  const detail = `${lines} lines · ${r.ms.toFixed(0)} ms · ${kind}`;
+  if (expected) {
+    const sha = await sha256(r.source);
+    const same = sha === expected;
+    setHead(label, detail, same ? `same bytes as the CLI ✓` : `differs from the CLI (${sha.slice(0, 12)})`, !same);
+    r.matches = same;
+  } else {
+    setHead(label, detail);
+  }
+  return r;
+}
+
+async function runSample(row) {
+  pressSample(row.id);
+  const bytes = await sampleBytes(row);
+  return run(bytes, row.title, { name: row.name }, row.native.sha256);
+}
+
+async function checkAll() {
+  const table = $('table');
+  const body = [];
+  let same = 0;
+  for (const row of rows) {
+    const r = await runSample(row);
+    same += r.matches ? 1 : 0;
+    body.push(`<tr><td>${escape(row.title)}</td><td class="num">${row.bytes.toLocaleString('en')}</td>`
+      + `<td class="num">${r.source ? r.source.split('\n').length : '–'}</td><td class="num">${r.ms.toFixed(0)}</td>`
+      + `<td class="${r.matches ? 'ok' : ''}">${r.matches ? 'identical' : 'differs'}</td></tr>`);
+  }
+  table.innerHTML = `<table><thead><tr><th>sample</th><th class="num">bytes in</th><th class="num">lines out</th>`
+    + `<th class="num">ms</th><th>vs native CLI</th></tr></thead><tbody>${body.join('')}</tbody></table>`;
+  table.dataset.done = `${same}/${rows.length}`;
+}
+
+$('file').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (file) run(file, file.name, {});
+});
+$('paste-go').addEventListener('click', () => {
+  const text = $('paste').value;
+  if (text.trim()) run(text, 'Pasted text', {});
+});
+$('check').addEventListener('click', checkAll);
+
+const panel = $('panel');
+panel.addEventListener('dragover', (e) => { e.preventDefault(); panel.classList.add('drop'); });
+panel.addEventListener('dragleave', () => panel.classList.remove('drop'));
+panel.addEventListener('drop', (e) => {
+  e.preventDefault();
+  panel.classList.remove('drop');
+  const file = e.dataTransfer.files[0];
+  if (file) run(file, file.name, {});
+});
+
+try {
+  const [info, list] = await Promise.all([load(), samples()]);
+  rows = list;
+  status.innerHTML = `<span><b>${escape(info.version)}</b> · code ${escape(info.commit)}</span>`
+    + `<span>ready in ${info.loadMs.toFixed(0)} ms</span><span>runs in this tab · nothing uploaded</span>`;
+  const group = $('samples');
+  for (const row of rows) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = row.title;
+    b.dataset.id = row.id;
+    b.setAttribute('aria-pressed', 'false');
+    b.title = row.about;
+    b.addEventListener('click', () => runSample(row));
+    group.append(b);
+  }
+  document.documentElement.dataset.ready = '1';
+  if (!new URLSearchParams(location.search).has('parity')) await runSample(rows[0]);
+} catch (error) {
+  status.textContent = `Could not start: ${error.message}`;
+  document.documentElement.dataset.ready = 'failed';
+}
+</script>
+</body>
+</html>
