@@ -1199,16 +1199,12 @@ pub(crate) fn precreate_dirs(work: &[Work]) -> Result<(), i32> {
     Ok(())
 }
 
-/// Size the global rayon pool once, before the first parallel call. `threads == 0`
-/// leaves rayon's default (= logical CPU count).
+/// Size the global rayon pool once, before the first parallel call, with the
+/// decompile stack ([`luau_lifter::DECOMPILE_STACK_BYTES`]). `threads == 0` keeps
+/// rayon's default count (= logical CPU count).
 pub(crate) fn size_pool(threads: usize) {
-    if threads != 0 {
-        if let Err(e) = rayon::ThreadPoolBuilder::new()
-            .num_threads(threads)
-            .build_global()
-        {
-            eprintln!("warning: could not set thread count ({e}); using default pool");
-        }
+    if let Err(e) = luau_lifter::configure_thread_pool(threads) {
+        eprintln!("warning: could not configure the thread pool ({e}); using the existing pool");
     }
 }
 

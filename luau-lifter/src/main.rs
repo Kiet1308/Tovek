@@ -23,7 +23,7 @@ static ALLOC: dhat::Alloc = dhat::Alloc;
 static ALLOC: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
 #[derive(Parser, Debug)]
-#[command(about, version = "V2.5.1", author)]
+#[command(about, version = "V2.6", author)]
 struct Cli {
     #[command(subcommand)]
     command: Command,
@@ -271,7 +271,12 @@ fn main() {
         Some("--help") | Some("-h") | Some("--version") | Some("-V") => {
             Cli::parse();
         }
-        _ => run_single_file(),
+        _ => {
+            // The per-function workers and this file's own passes get the
+            // decompile stack (a long `elseif` chain recurses once per arm).
+            let _ = luau_lifter::configure_thread_pool(0);
+            luau_lifter::with_decompile_stack(run_single_file);
+        }
     }
 }
 
@@ -365,18 +370,36 @@ mod policy_tests {
     }
 }
 
+/// The single-file mode's usage line (`luau-lifter --help` lists the folder
+/// subcommands).
+const SINGLE_FILE_USAGE: &str = "usage: luau-lifter <bytecode file> [-e] [--script-name NAME] \
+[--stats-json PATH] [--style default|compact] [--strict-no-synthetic-control] \
+[--allow-certified-dispatcher] [--dont-reuse-var] [--no-synth-helpers] [--assume-no-nan] \
+[--assume-standard-libraries] [--synthesize-arithmetic-loops]\n       luau-lifter --help";
+
+/// Report a bad invocation and exit 2. The process-wide quiet panic hook
+/// swallows panic messages, so an `expect` here exited 101 with nothing said.
+fn usage_error(message: &str) -> ! {
+    eprintln!("error: {message}\n{SINGLE_FILE_USAGE}");
+    std::process::exit(2);
+}
+
 /// Legacy single-file mode: `luau-lifter <file> [-e] [--script-name NAME]`.
 fn run_single_file() {
     let mut args = std::env::args().skip(1);
-    let file_name = args.next().expect("expected exactly one file");
+    let Some(file_name) = args.next() else { usage_error("expected a bytecode file") };
     let mut key = 1;
+    let mut encoded = false;
     let mut script_name: Option<String> = None;
     let mut stats_json = None;
     let mut options = luau_lifter::DecompileOptions::default();
 
     while let Some(arg) = args.next() {
         match arg.as_str() {
-            "-e" => key = 203,
+            "-e" => {
+                key = 203;
+                encoded = true;
+            }
             "--dont-reuse-var" => options.dont_reuse_var = true,
             "--no-synth-helpers" => options.no_synth_helpers = true,
             "--assume-no-nan" => options.assume_no_nan = true,
@@ -391,36 +414,47 @@ fn run_single_file() {
                     luau_lifter::ControlFlowOutputPolicy::StrictNoSyntheticControl;
             }
             "--script-name" => {
-                script_name = Some(args.next().expect("--script-name requires a value"));
+                script_name = Some(args.next().unwrap_or_else(|| usage_error("--script-name requires a value")));
             }
             "--stats-json" => {
-                stats_json = Some(PathBuf::from(args.next().expect("--stats-json requires a path")));
+                stats_json = Some(PathBuf::from(args.next().unwrap_or_else(|| usage_error("--stats-json requires a path"))));
             }
             "--style" | "--style=default" | "--style=compact" => {
                 let style = match arg.strip_prefix("--style=") {
                     Some(style) => style.to_owned(),
-                    None => args.next().expect("--style requires `default` or `compact`"),
+                    None => args.next().unwrap_or_else(|| usage_error("--style requires `default` or `compact`")),
                 };
                 options.compact_style = match style.as_str() {
                     "compact" => true,
                     "default" => false,
-                    other => panic!("--style must be `default` or `compact`, got `{other}`"),
+                    other => usage_error(&format!("--style must be `default` or `compact`, got `{other}`")),
                 };
             }
-            _ => panic!("unexpected argument: {arg}"),
+            _ => usage_error(&format!("unexpected argument: {arg}")),
         }
     }
 
     if let Some(path) = stats_json {
         luau_lifter::stats::enable(path, file_name.clone());
     }
-    let bytecode = std::fs::read(&file_name).expect("failed to read file");
-    match luau_lifter::try_decompile_bytecode_with_options(
-        &bytecode,
-        key,
-        script_name.as_deref(),
-        options,
-    ) {
+    let bytecode = std::fs::read(&file_name).unwrap_or_else(|error| {
+        eprintln!("error: cannot read {file_name}: {error}");
+        std::process::exit(2);
+    });
+    let mut result =
+        luau_lifter::try_decompile_bytecode_with_options(&bytecode, key, script_name.as_deref(), options);
+    // Roblox client bytecode (from getscriptbytecode) encodes its opcodes;
+    // without -e, a file the plain key cannot read is read once more with
+    // the Roblox key before giving up.
+    if !encoded
+        && let Err(error) = &result
+        && error.starts_with("deserialize:")
+        && let Ok(source) =
+            luau_lifter::try_decompile_bytecode_with_options(&bytecode, 203, script_name.as_deref(), options)
+    {
+        result = Ok(source);
+    }
+    match result {
         Ok(source) => println!("{source}"),
         Err(err) => {
             eprintln!("{err}");

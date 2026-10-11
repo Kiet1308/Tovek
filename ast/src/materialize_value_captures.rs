@@ -327,7 +327,7 @@ fn define_self_capture(statement: &mut Statement, mutated: &dyn Fn(&RcLocal) -> 
 /// identities. Materialization runs after upvalue linking, so fresh Function
 /// addresses are safe here (later passes build any identity maps from the cloned
 /// tree). The memo also handles a recursive closure graph if one is synthesized.
-fn clone_function_tree(
+pub(crate) fn clone_function_tree(
     function: &Arc<Mutex<Function>>,
     memo: &mut FxHashMap<*const Mutex<Function>, Arc<Mutex<Function>>>,
 ) -> Arc<Mutex<Function>> {

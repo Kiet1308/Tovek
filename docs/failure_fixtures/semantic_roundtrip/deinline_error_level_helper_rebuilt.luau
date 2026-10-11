@@ -1,21 +1,13 @@
--- `error(message, level)` prefixes the message with the position of the
+-- `error(message, level)` prefixes a string message with the position of the
 -- frame `level` up: level 2 is the caller of the function calling `error`.
--- In a helper's body, that frame moves once the code is a call of the
--- helper: written out in `setSpeed`, level 2 is the caller of `setSpeed`
--- (`pcall`, a C function: no position); in a call `checkNumber(v,
--- "speed")`, it is `setSpeed` (a position). Like `debug.info(2, ...)`, such
--- a call reads the caller's frame, and its helper is never rebuilt.
--- `setSpeed` is a hand-written copy of `checkNumber`'s body, so the source
--- itself has no frame for the helper; `setAngle` calls it, and Luau's -O2
--- copy there drops the helper's frame too (checked against the bytecode,
--- the source keeping the frame: only the message is printed there).
--- Level 1 (or none) names the function calling `error`, in this script on
--- a line no output keeps, and level 0 no position: `need` stays a helper
--- (`need(x, label)`).
--- `_G.error` (`_G["error"]`) is `error`, as `_G.debug` is `debug`: the
--- hand-written copies of `checkName` in `setName` and of the expression
--- helper `needName` in `nameOf` keep their frames too (rebuilt, both
--- printed a position where the source has none).
+-- A rebuilt helper call adds a frame, so that position moves: written out in
+-- `setSpeed`, level 2 is the caller of `setSpeed` (`pcall`, a C function: no
+-- position); in a call `checkNumber(v, "speed")`, it is `setSpeed`. Positions
+-- are not part of what a decompile keeps (no output line keeps its number
+-- either), so the frame gate no longer refuses such helpers (it did; TestEZ's
+-- assertLevel and trove's assertions stayed written out): the copies may be
+-- rebuilt, and only the message text has to match, here stripped of its
+-- position. Real frame reads (`debug.info`) still refuse a helper.
 local function checkNumber(v, name)
 	if type(v) ~= "number" then
 		error("bad " .. name, 2)
@@ -78,10 +70,6 @@ local function nameOf(v)
 	return name
 end
 
-local function where(message)
-	return if string.find(message, "^.-:%d+: ") then "with a position" else "without a position"
-end
-
 local function text(message)
 	return (string.gsub(message, "^.-:%d+: ", ""))
 end
@@ -89,7 +77,7 @@ end
 checkNumber(4, "count")
 print(setSpeed(3), setAngle(8), setLabel(1, "label"), setTitle(2, "title"))
 local ok, message = pcall(setSpeed, "fast")
-print(ok, text(message), where(message))
+print(ok, text(message))
 ok, message = pcall(setAngle, "wide")
 print(ok, text(message))
 ok, message = pcall(setLabel, nil, "label")
@@ -97,6 +85,6 @@ print(ok, text(message))
 checkName("first")
 print(setName("ab"), needName("cd"), nameOf("ef"))
 ok, message = pcall(setName, 5)
-print(ok, text(message), where(message))
+print(ok, text(message))
 ok, message = pcall(nameOf, false)
-print(ok, text(message), where(message))
+print(ok, text(message))

@@ -101,6 +101,11 @@ pub(crate) struct UpvaluesOpen<'a> {
     // Construction keeps this immutable until every open-cell query finishes.
     // Borrow it instead of cloning every SSA identity and register handle.
     old_locals: &'a FxHashMap<ast::RcLocal, ast::RcLocal>,
+    /// Definitions reaching a loop whose cell stays open around it (see
+    /// `extend_loop_carried_cells`): the register, the cell's open-location
+    /// set, and the version to group, or `None` for the function's
+    /// parameter when no definition precedes the loop.
+    pub carried: Vec<(ast::RcLocal, IndexSet<(NodeIndex, usize)>, Option<ast::RcLocal>)>,
 }
 
 #[cfg(test)]
@@ -295,7 +300,7 @@ mod tests {
         let [register, first, second, generator, state, control] = std::array::from_fn(|_| ast::RcLocal::default());
         let old_locals = FxHashMap::from_iter([(first.clone(), register.clone()), (second.clone(), register.clone()),
             (control.clone(), register.clone())]);
-        let analysis = UpvaluesOpen { open: Default::default(), old_locals: &old_locals };
+        let analysis = UpvaluesOpen { open: Default::default(), old_locals: &old_locals, carried: Vec::new() };
         let statements: Vec<ast::Statement> = vec![
             ast::Assign::new(vec![first.clone().into(), second.clone().into()], vec![ast::Literal::Nil.into(), ast::Literal::Number(1.0).into()]).into(),
             ast::Assign::new(vec![first.clone().into(), first.clone().into()], vec![ast::Literal::Number(1.0).into(), ast::Literal::Nil.into()]).into(),
@@ -333,7 +338,7 @@ mod tests {
         function.set_entry(entry);
         function.block_mut(entry).unwrap().push(ast::Assign::new(vec![ast::RcLocal::default().into()], vec![closure.into()]).into());
         let old_locals = FxHashMap::from_iter([(reference.clone(), register)]);
-        let analysis = UpvaluesOpen { open: Default::default(), old_locals: &old_locals };
+        let analysis = UpvaluesOpen { open: Default::default(), old_locals: &old_locals, carried: Vec::new() };
         let before = analysis.consumed_versions(&function);
         assert!(!before.contains(&reference));
         assert!(before.contains(&copy));
@@ -450,7 +455,7 @@ impl<'a> UpvaluesOpen<'a> {
             (node, locals)
         }).collect();
         drop(labels);
-        let mut this = Self { open, old_locals };
+        let mut this = Self { open, old_locals, carried: Vec::new() };
         drop(phase);
         let _phase = ast::telemetry::Span::new("SSA_UPVALUES_EXTEND_BACKWARD");
         this.extend_open_backward::<true>(function);
@@ -461,7 +466,7 @@ impl<'a> UpvaluesOpen<'a> {
     fn new_reference(function: &Function, old_locals: &'a FxHashMap<ast::RcLocal, ast::RcLocal>) -> Self {
         type Sites = IndexSet<(NodeIndex, usize)>;
         type Open = FxHashMap<ast::RcLocal, Sites>;
-        let mut this = Self { open: Default::default(), old_locals };
+        let mut this = Self { open: Default::default(), old_locals, carried: Vec::new() };
         let entry = function.entry().unwrap();
         let mut incoming: FxHashMap<NodeIndex, Open> = FxHashMap::default();
         let mut work = VecDeque::from([entry]);
@@ -756,6 +761,148 @@ impl<'a> UpvaluesOpen<'a> {
         if consumed.get().is_none() {
             ast::telemetry::count("ssa_upvalues_backward_consumed_skipped", 1);
         }
+        self.extend_loop_carried_cells(function, &starts);
+    }
+
+    /// A cell open around a loop (no CLOSE before the back edge, so every
+    /// iteration's closures share it) holds one variable declared before the
+    /// loop. When the value the register has at the loop entry is dead (the
+    /// body writes the register before any read, so no loop-header phi
+    /// exists), the forward pass sees only the versions written inside the
+    /// loop, and the variable would be declared in the body: one cell per
+    /// iteration. `local label = ""; for ... do label = item.name; t[#t + 1]
+    /// = function() return label end end` printed `local name = item.name`
+    /// inside the loop (fr-core F1).
+    ///
+    /// For each block open at entry, with no phi of the register, on a cycle
+    /// through open blocks (a loop header the cell stays open around), walk
+    /// back from its predecessors where the cell is not open (the loop
+    /// entry) to the definitions reaching it and group them into the cell,
+    /// whatever their kind: an initializer, a merge (phi), an enclosing
+    /// `for` loop's variable, or, at the function entry, the parameter
+    /// (`carried`). This is the VM's own semantics: the register is one
+    /// variable from those definitions through every iteration until the
+    /// CLOSE after the loop. (A source local declared inside the loop is
+    /// closed at the end of each iteration, so it never reaches this rule.)
+    fn extend_loop_carried_cells(
+        &mut self,
+        function: &Function,
+        starts: &[(NodeIndex, usize, ast::RcLocal, IndexSet<(NodeIndex, usize)>)],
+    ) {
+        let last = |node: NodeIndex| function.block(node).map_or(0, |block| block.len().saturating_sub(1));
+        let mut carried = Vec::new();
+        for (node, start, local, locs) in starts {
+            if *start != 0
+                || function.edges_to_block(*node).any(|(_, edge)| {
+                    edge.arguments.iter().any(|(param, _)| self.old_locals.get(param) == Some(local))
+                })
+            {
+                continue;
+            }
+            let mut entry_side = function
+                .predecessor_blocks(*node)
+                .filter(|predecessor| !self.is_open_at(*predecessor, local, last(*predecessor)))
+                .collect::<Vec<_>>();
+            if entry_side.is_empty() {
+                continue;
+            }
+            entry_side.sort_by_key(|predecessor| predecessor.index());
+            entry_side.dedup();
+            // Is `node` on a cycle of the open region (open at a block's end,
+            // open at its successor's entry, back to `node`)?
+            let mut work = vec![*node];
+            let mut seen = FxHashSet::from_iter([*node]);
+            let mut cycle = false;
+            while let Some(block) = work.pop() {
+                if cycle || !self.is_open_at(block, local, last(block)) {
+                    continue;
+                }
+                for successor in function.successor_blocks(block) {
+                    if successor == *node {
+                        cycle = true;
+                    } else if self.is_open_at(successor, local, 0) && seen.insert(successor) {
+                        work.push(successor);
+                    }
+                }
+            }
+            if cycle {
+                carried.push((entry_side, local.clone(), locs.clone()));
+            }
+        }
+        if carried.is_empty() {
+            return;
+        }
+        ast::telemetry::count("ssa_upvalues_loop_carried_cells", carried.len() as u64);
+        let entry = function.entry().unwrap();
+        let mut visited: FxHashSet<(NodeIndex, ast::RcLocal)> = FxHashSet::default();
+        let mut found = Vec::new();
+        for (entry_side, local, locs) in carried {
+            let mut work: VecDeque<NodeIndex> = entry_side.into_iter().collect();
+            while let Some(node) = work.pop_front() {
+                if !visited.insert((node, local.clone())) {
+                    continue;
+                }
+                let block = function.block(node).unwrap();
+                let len = block.len();
+                let mut decided = false;
+                for i in (0..len).rev() {
+                    match block.get(i).unwrap() {
+                        ast::Statement::Close(close) => {
+                            if close.locals.contains(&local) {
+                                decided = true;
+                                break;
+                            }
+                        }
+                        statement => {
+                            if !matches!(self.def_kind(statement, &local), DefKind::NotDef) {
+                                // Only the written version: the statement may
+                                // also read the register's earlier value (a
+                                // call's function, `x = x + 1`).
+                                statement.visit_local_writes(&mut |written| {
+                                    if self.old_locals.get(written) == Some(&local) {
+                                        found.push(Some(written.clone()));
+                                    }
+                                    true
+                                });
+                                decided = true;
+                                break;
+                            }
+                        }
+                    }
+                }
+                if decided {
+                    continue;
+                }
+                if self.block_has_phi_def(function, node, &local) {
+                    for (_, edge) in function.edges_to_block(node) {
+                        for (param, _) in &edge.arguments {
+                            if self.old_locals.get(param) == Some(&local) {
+                                found.push(Some(param.clone()));
+                            }
+                        }
+                    }
+                    continue;
+                }
+                if node == entry {
+                    found.push(None);
+                    continue;
+                }
+                let mut predecessors = function.predecessor_blocks(node).collect::<Vec<_>>();
+                predecessors.sort_by_key(|predecessor| predecessor.index());
+                predecessors.dedup();
+                work.extend(predecessors);
+            }
+            for version in found.drain(..) {
+                self.carried.push((local.clone(), locs.clone(), version));
+            }
+        }
+    }
+
+    fn is_open_at(&self, node: NodeIndex, local: &ast::RcLocal, index: usize) -> bool {
+        self.open
+            .get(&node)
+            .and_then(|locals| locals.get(local))
+            .is_some_and(|ranges| ranges.contains_key(&index))
     }
 
     /// True if `block` contains a definition or a `Close` of `local` that the

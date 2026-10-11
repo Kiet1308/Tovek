@@ -36,7 +36,10 @@ pub struct Function {
     /// Every load of one constant yields the same closure object while the
     /// captured values stay rawequal, so copies `-O2` inlining made of one
     /// literal are one object ([`crate::closure_identity`]). `None` for
-    /// NEWCLOSURE (a new object each time) and synthesized functions.
+    /// NEWCLOSURE (a new object each time), synthesized functions, and a
+    /// copy whose captures never equal those another copy, run first, filled
+    /// the constant with (a new object each time too,
+    /// [`crate::closure_identity::LoadedConstants::mark_uncached_copies`]).
     pub closure_constant: Option<usize>,
     /// Immutable bytecode hint: retain the local closure binder through SSA so
     /// the module reconstruction pass can inspect it after child bodies exist.

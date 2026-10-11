@@ -20,17 +20,25 @@ what the closure captures (through a factory Luau -O2 inlines, or as a call
 argument at every level), and `recursive-arm` defines a recursive local
 function in one arm of a value branch.
 
-Five de-inline families come from a third stream the same way. Each defines
+Six de-inline families come from a third stream the same way. Each defines
 a helper Luau -O2 inlines (a plain call below -O2) beside code shaped like
 its copies: `written-param` writes its parameter, with copies that write a
 caller's local read after an enclosing `if`, around a loop or in a `while`
 condition (or dead); `returned-cell` changes outer state and returns an
 outer local to a statement that reads other outer state first;
 `error-level` calls `error(message, level)` under `pcall` and records
-whether the message has a position; `closure-identity` compares closures
+the message without its position (positions are not part of what a
+decompile keeps); `closure-identity` compares closures
 made in a loop with `==` (DUPCLOSURE against NEWCLOSURE), partly in the
 main chunk; `service-handle` passes GetService/require handles (global
-stubs) to the helper.
+stubs) to the helper; `constant-args` passes constants that the inlined
+copies fold (a pure helper's copy to one number, `1 - k` in a statement
+helper's), beside the same numbers written by hand.
+
+Bytecode built at -O0 is compiled again at -O0 where the program itself
+prints differently at -O0 and at the level drawn (`source_differs`: from -O1
+Luau reads a local passed to a builtin when the call runs, so an argument
+after it that writes the local shows at -O1 only); its row says so.
 
 A failure keeps its directory and, with `--reduce`, a reduced program (whole
 units deleted while the failure category stays). Passing seeds leave nothing.
@@ -158,7 +166,8 @@ RECURSIVE_ARMS = ("then", "else", "diamond", "diamond-value")
 # Helpers Luau -O2 really inlines, in the shapes the de-inliner rebuilds as
 # calls. Drawn like the capture families, each with this chance, from a third
 # stream of the seed (see `Generator.deinline_units`).
-DEINLINE_FAMILIES = ("written-param", "returned-cell", "error-level", "closure-identity", "service-handle")
+DEINLINE_FAMILIES = ("written-param", "returned-cell", "error-level", "closure-identity", "service-handle",
+                     "constant-args")
 DEINLINE_CHANCE = 0.15
 # Where the caller's local stands that a copy of the helper body writes.
 WRITTEN_PARAM_SITES = ("after-if", "loop", "while", "same-block", "dead")
@@ -167,13 +176,20 @@ PARAM_WRITES = (("{v} > 100", "{v} = {v} - 100"), ("{v} < 0", "{v} = -{v}"), ("{
 # The statement reading what the uniform-cell helper returns.
 CELL_HOSTS = ("tag-first", "count-first", "cell-first", "concat", "constructor", "length", "direct")
 ERROR_LEVELS = ("", ", 1", ", 2", ", 3", ", 0")
-IDENTITY_SHAPES = ("chunk", "computed", "function")
+IDENTITY_SHAPES = ("chunk", "constant", "computed", "function")
 HANDLE_SITES = ("declared", "statement-between", "declaration-between", "argument", "require", "twice")
+# A pure helper's body (`n` its parameter): `^`, `//` and `%` fold too, but
+# only some through rules a rebuilt call may rely on.
+PURE_BODIES = ("n / 60", "n * 2.5", "-n * 3", "n - 0.25", "(n + 1) / 4", "n // 2", "n % 7", "n ^ 2")
+# Its arguments: constants, signed zero, a huge value, and a variable.
+CONSTANT_ARGUMENTS = ("13", "21", "6", "0.5", "-3", "0", "-0", "143", "1e300", "input")
+CONSTANT_SITES = ("call", "by-hand", "statement", "statement-by-hand")
 
 REFUSALS = ("headroom for the vector constructor", "a method name no identifier spells",
             "a NaN constant whose payload", "a global name no identifier spells",
             "more locals at once than Luau allows", "more registers than Luau allows",
-            "no faithful source", "a builtin call names another function", "a loop prepared for")
+            "no faithful source", "a builtin call names another function", "a loop prepared for",
+            "a SETLIST index far past the array", ": DUPTABLE ")
 
 # `describe` prints every function as `fn`: only `closure-identity` observes
 # closure identity (with `==`), which DUPCLOSURE shares only from -O1, and its
@@ -666,7 +682,7 @@ class Generator:
         the capture families' ones."""
         rng = self.deinline_rng
         builders = (self.written_param, self.returned_cell, self.error_level, self.closure_identity,
-                    self.service_handle)
+                    self.service_handle, self.constant_args)
         units = []
         for family, build in zip(DEINLINE_FAMILIES, builders):
             if rng.random() < DEINLINE_CHANCE:
@@ -783,8 +799,9 @@ class Generator:
     def error_level(self):
         """A helper raising `error(message, level)`, called under `pcall`.
         In an -O2 copy, level 2 names the caller's caller; rebuilt as a
-        call, the caller (M2 review finding 5). The message keeps whether it
-        has a position (`@:`), not the position itself."""
+        call, the caller (M2 review finding 5). Positions are not part of
+        what a decompile keeps, so the message is recorded without one: the
+        helper may be rebuilt, its message must stay."""
         rng = self.deinline_rng
         check, setter = self.fresh("check"), self.fresh("set")
         message = rng.choice(["\"bad \" .. name", "{reason = name}"])
@@ -798,32 +815,30 @@ class Generator:
             ok, problem = self.fresh("ok"), self.fresh("problem")
             lines += [f"local {ok}, {problem} = pcall({protected})",
                       f"record({ok}, if typeof({problem}) == \"string\" then "
-                      f"(string.gsub({problem}, \"^[^:]*:%d+: \", \"@:\")) else {problem})"]
+                      f"(string.gsub({problem}, \"^[^:]*:%d+: \", \"\")) else {problem})"]
         return [self.unit(lines)]
 
     def closure_identity(self):
         """Closures made in a loop, compared with `==`. From -O1, DUPCLOSURE
         shares a literal whose captures are all unwritten main-chunk locals
-        (or locals bound to such a literal); NEWCLOSURE makes one per trip.
-        A local initialized once (a computed constant, or a local function)
-        is captured beside a capture-free literal, and the -O2 copy of a
+        (or locals bound to such a literal); a constant local is folded away
+        below -g2. NEWCLOSURE makes one per trip. A local initialized once (a
+        literal constant, a computed constant, or a local function) is
+        captured beside a capture-free literal, and the -O2 copy of a
         closure-making helper (always NEWCLOSURE: it captures the helper's
-        parameter) beside a literal over the same local. M2 review finding 3
-        needs that local to be a register of the main chunk, so the `chunk`
-        shape runs there (a `ChunkUnit`) and the body records what it made.
-        `run_seed` recompiles these seeds within their bytecode's regime:
-        below -O1 nothing is shared.
-
-        A local initialized with a literal (`local tag = 7`) is left out
-        while the decompiler loses its capture at -g2: Luau keeps the
-        capture (NEWCLOSURE) but folds the constant into the closure body,
-        and the printed `function() return 7 end` is shared once recompiled
-        (pre-existing; M2 fuzz report, N1)."""
+        parameter) beside a literal over the same local. With -g2 Luau keeps
+        the capture of a literal constant (NEWCLOSURE) but folds the
+        constant into the closure body (M2 fuzz report, N1). M2 review
+        finding 3 needs the local to be a register of the main chunk, so the
+        `chunk` shape runs there (a `ChunkUnit`) and the body records what
+        it made. `run_seed` recompiles these seeds within their bytecode's
+        regime: below -O1 nothing is shared."""
         rng = self.deinline_rng
         shape = rng.choice(IDENTITY_SHAPES)
         bind, made, kept, free = self.fresh("bind"), self.fresh("made"), self.fresh("kept"), self.fresh("free")
         captured = self.fresh("tag")
-        initial = {"chunk": "tostring(#{1, 2, 3} + 7)", "computed": "tostring(7)", "function": None}[shape]
+        initial = {"chunk": "tostring(#{1, 2, 3} + 7)", "constant": rng.choice(["7", "\"k\"", "true"]),
+                   "computed": "tostring(7)", "function": None}[shape]
         declaration = f"local {captured} = {initial}" if initial else f"local function {captured}() return 3 end"
         loop = rng.choice(["for i = 1, 2 do", "for _, i in {1, 2} do" if shape == "chunk" else "for i in iterate(2) do"])
         returned = rng.choice(["5", "nil", '"free"'])
@@ -870,6 +885,32 @@ class Generator:
                                   configure("Players", amount)],
             }[rng.choice(HANDLE_SITES)]()
         lines.append(f"record({services}.Lighting, {services}.Players, {services}.Config)")
+        return [self.unit(lines)]
+
+    def constant_args(self):
+        """Helpers -O2 inlines with constant arguments, which it folds into
+        the copies: a pure helper's copy becomes one number
+        (`frames(13)` as 0.21666666666666667), a statement helper's `1 - k`
+        and `k * 10` numbers in its statements. Beside them, the same
+        numbers by hand (a constant expression -O2 folds alike, in the
+        caller's own code) and copies with a variable argument. The
+        de-inliner may rebuild such a call only where Luau's folding rules
+        prove it, and never through `^`."""
+        rng = self.deinline_rng
+        pure, put, sink = self.fresh("frames"), self.fresh("put"), self.fresh("sink")
+        body = rng.choice(PURE_BODIES)
+        lines = [f"local function {pure}(n) return {body} end",
+                 f"local function {put}(t, k)", "    t.a = 1 - k", "    t.b = k * 10", "    record(t.a, t.b)", "end",
+                 f"local {sink} = {{}}"]
+        for _ in range(rng.randint(2, 5)):
+            argument = rng.choice(CONSTANT_ARGUMENTS)
+            lines += {
+                "call": lambda: [f"record({pure}({argument}))"],
+                "by-hand": lambda: [f"record({body.replace('n', f'({argument})')})"],
+                "statement": lambda: [f"{put}({sink}, {argument})"],
+                "statement-by-hand": lambda: [f"{sink}.a = 1 - {argument}", f"{sink}.b = {argument} * 10",
+                                              f"record({sink}.a, {sink}.b)"],
+            }[rng.choice(CONSTANT_SITES)]()
         return [self.unit(lines)]
 
     @staticmethod
@@ -994,6 +1035,25 @@ def check(args, units, directory, opt, debug, out_opt, mutation=None):
     return "passed", note
 
 
+def source_differs(args, units, directory, out_opt, debug):
+    """Whether the program itself prints differently compiled at -O0 and at
+    -O`out_opt` (one -g), each run on the VM with the driver."""
+    directory.mkdir(parents=True, exist_ok=True)
+    source = directory / "levels.luau"
+    source.write_text(source_of(units), encoding="utf-8", newline="\n")
+    runs = []
+    for level in (0, out_opt):
+        try:
+            data = compile_luau(args, source, level, debug)
+        except CompileError:
+            return False
+        bytecode = directory / f"levels-O{level}.bc"
+        bytecode.write_bytes(data)
+        code, output, _ = run([args.vm, bytecode, args.driver_bc], args.timeout)
+        runs.append((code, comparable(output)))
+    return runs[0] != runs[1]
+
+
 def first_difference(expected, actual):
     for index, (left, right) in enumerate(zip(expected.splitlines(), actual.splitlines())):
         if left != right:
@@ -1030,18 +1090,30 @@ def run_seed(args, seed):
         # not compiled again at -O2.
         out_opts = (0, 1, 2) if opt == 2 else (0, 1)
         out_opt = rng.choice(out_opts)
+        case = directory / f"O{opt}g{debug}"
+        level_dependent = False
         if "closure-identity" in families and (out_opt == 0) != (opt == 0):
             # Luau shares closures (DUPCLOSURE) only from -O1: identity
             # survives a recompile only within the regime of the bytecode.
             out_opt = opt
+        elif opt == 0 and out_opt != 0 and source_differs(args, units, case, out_opt, debug):
+            # The program itself prints differently at -O0 and at -O1: from
+            # -O1 Luau reads a local passed to a builtin when the call runs
+            # (FASTCALL), where -O0 copies it first, so an argument after it
+            # that writes the local (`bump`, the `__sub` of `meta`) is seen
+            # at -O1 only. No output can match both; -O0 bytecode is checked
+            # at -O0. Bytecode built at -O1 or above is still compiled again
+            # at -O0: the late read is there for the decompiler to spell.
+            out_opt, level_dependent = 0, True
         profile = (opt, debug, out_opt, seed if args.mutate and rng.random() < 0.5 else None)
-        case = directory / f"O{opt}g{debug}"
         status, detail = check(args, units, case, *profile)
         if status == "failed":
             # A crash of the VM under load (stack overflow) does not repeat.
             status, detail = check(args, units, case, *profile)
         row = {"seed": seed, "families": families, "opt": opt, "debug": debug, "out_opt": profile[2],
                "mutation": profile[3] is not None, "status": status, "detail": detail}
+        if level_dependent:
+            row["source_differs"] = True
         if status == "failed" and args.reduce:
             row["reducer"] = reduce(args, units, case, profile, detail.split(":")[0])
         elif status != "failed":

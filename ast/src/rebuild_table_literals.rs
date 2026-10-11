@@ -336,6 +336,9 @@ fn rebuild_current_block(block: &mut Block, captured: &rustc_hash::FxHashSet<RcL
                 }
                 None => break,
             };
+            if !keeps_template_layout(table, placement) {
+                break;
+            }
 
             let field_assign = std::mem::replace(statement, crate::Empty {}.into()).into_assign().unwrap();
             let (key, value) = field_assignment_key_value(field_assign);
@@ -352,52 +355,74 @@ fn rebuild_current_block(block: &mut Block, captured: &rustc_hash::FxHashSet<RcL
     changed
 }
 
+/// A list store whose index skips far past the array its constructor fills:
+/// Luau writes a constructor's list items in batches that continue each
+/// other from index 1, so only a hand-made chunk leaves a gap. A short gap
+/// still prints as `nil` items (the VM sizes the array part to the store's
+/// last index); past [`MAX_LIST_GAP`] slots no stores fill, no bounded
+/// constructor stands for it.
+pub const LIST_INDEX_GAP: &str = "a SETLIST index far past the array its constructor fills";
+
+/// The most `nil` items a hand-made list store's gap may print as.
+const MAX_LIST_GAP: usize = 255;
+
 /// The slots a constructor allocates for list items no pass could fold into
 /// it (a branch or a call came first): Luau sizes the array part from the
 /// list items, and list items keep their place in it, first under `next`.
 /// `nil` items hold the slots until the list's own stores fill them. Runs
-/// once, on the finished tree, every closure included.
-pub fn reserve_unfolded_list_slots(block: &mut Block) {
+/// once, on the finished tree, every closure included. Refuses
+/// ([`LIST_INDEX_GAP`]) a store that skips past the slots the stores fill.
+pub fn reserve_unfolded_list_slots(block: &mut Block) -> Result<(), &'static str> {
     for index in 0..block.0.len() {
         let (head, rest) = block.0.split_at_mut(index + 1);
         if let Some(object) = table_constructor_local(&head[index])
             && let Statement::Assign(assign) = &mut head[index]
             && let RValue::Table(table) = &mut assign.right[0]
         {
-            reserve_list_slots(table, rest, &object);
+            reserve_list_slots(table, rest, &object)?;
         }
         let statement = &mut block.0[index];
+        let mut nested = Ok(());
         statement.traverse_rvalues(&mut |value| {
-            if let RValue::Closure(closure) = value {
-                reserve_unfolded_list_slots(&mut closure.function.lock().body);
+            if let RValue::Closure(closure) = value
+                && nested.is_ok()
+            {
+                nested = reserve_unfolded_list_slots(&mut closure.function.lock().body);
             }
         });
+        nested?;
         match statement {
             Statement::If(node) => {
-                reserve_unfolded_list_slots(&mut node.then_block.lock());
-                reserve_unfolded_list_slots(&mut node.else_block.lock());
+                reserve_unfolded_list_slots(&mut node.then_block.lock())?;
+                reserve_unfolded_list_slots(&mut node.else_block.lock())?;
             }
-            Statement::While(node) => reserve_unfolded_list_slots(&mut node.block.lock()),
-            Statement::Repeat(node) => reserve_unfolded_list_slots(&mut node.block.lock()),
-            Statement::NumericFor(node) => reserve_unfolded_list_slots(&mut node.block.lock()),
-            Statement::GenericFor(node) => reserve_unfolded_list_slots(&mut node.block.lock()),
+            Statement::While(node) => reserve_unfolded_list_slots(&mut node.block.lock())?,
+            Statement::Repeat(node) => reserve_unfolded_list_slots(&mut node.block.lock())?,
+            Statement::NumericFor(node) => reserve_unfolded_list_slots(&mut node.block.lock())?,
+            Statement::GenericFor(node) => reserve_unfolded_list_slots(&mut node.block.lock())?,
             _ => {}
         }
     }
+    Ok(())
 }
 
-fn reserve_list_slots(table: &mut Table, statements: &[Statement], object: &RcLocal) -> bool {
+fn reserve_list_slots(table: &mut Table, statements: &[Statement], object: &RcLocal) -> Result<bool, &'static str> {
     let mut slots = 0;
     // The slots the stores write whatever a trailing call returns.
     let mut written = 0;
+    // The slots the stores fill between them: compiler output continues each
+    // batch where the last one (or the folded items) ended.
+    let mut stored = 0usize;
     for statement in statements {
         if let Statement::SetList(list) = statement
             && &list.object_local == object
         {
             // A trailing `...` takes no slot of its own; a call takes one.
             let tail = list.tail.as_ref().is_some_and(|tail| !matches!(tail, RValue::VarArg(_)));
-            slots = slots.max(list.index - 1 + list.values.len() + usize::from(tail));
-            written = written.max(list.index - 1 + list.values.len());
+            let end = list.index.saturating_sub(1).saturating_add(list.values.len());
+            slots = slots.max(end.saturating_add(usize::from(tail)));
+            written = written.max(end);
+            stored = stored.saturating_add(list.values.len() + usize::from(tail));
         }
         // Assigned again, the local names another table.
         if writes_local(statement, object) {
@@ -421,10 +446,15 @@ fn reserve_list_slots(table: &mut Table, statements: &[Statement], object: &RcLo
     }
     let listed = table.0.iter().filter(|(key, _)| key.is_none()).count();
     if slots <= listed || table.0.last().is_some_and(|(key, value)| key.is_none() && expands(value)) {
-        return false;
+        return Ok(false);
+    }
+    // Compiler output fills every slot past the folded items with a store,
+    // so the pad below stays bounded by the stores the output prints anyway.
+    if slots - listed > stored.saturating_add(MAX_LIST_GAP) {
+        return Err(LIST_INDEX_GAP);
     }
     table.0.extend(std::iter::repeat_with(|| (None, RValue::Literal(crate::Literal::Nil))).take(slots - listed));
-    true
+    Ok(true)
 }
 
 /// Whether `statement`, its nested blocks included, assigns `local`.
@@ -1065,6 +1095,22 @@ fn placement(
     }
 }
 
+/// Whether folding a store into a DUPTABLE constructor keeps the order
+/// `pairs` visits its keys in. The template's hash part has nodes for its
+/// keys rounded up to a power of two; a store adding a key past that
+/// rehashes the table, and a constructor printing the key would be a larger
+/// template, laid out otherwise: `{a = 1, b = 2}; t.c = 3` is not `{a = 1,
+/// b = 2, c = 3}` under `pairs` (fr-t1110 F2). A template's keys all exist
+/// before its stores, so moving one to the end (a `nil` slot) changes the
+/// order of insertion too.
+fn keeps_template_layout(table: &Table, placement: Placement) -> bool {
+    match placement {
+        Placement::Replace(_) => true,
+        Placement::MoveToEnd(_) => !crate::is_template_copy(table),
+        Placement::Append => crate::template_takes_another_key(table),
+    }
+}
+
 /// Whether the constructor could take a store to `key` right now. Sinking a
 /// declaration toward a store it cannot absorb only moves the table.
 fn absorbs_store(table: &Table, key: &RValue) -> bool {
@@ -1457,7 +1503,7 @@ mod tests {
                 // entry in the window must stay the selected one (it is the
                 // one a later store overwrites) even after removals.
                 (Some(string(&format!("field{}", index % (initial_len - seed % 7)))), nil())
-            }).collect(), Default::default());
+            }).collect(), Default::default(), Default::default());
             let mut expected = initial.clone();
             let mut actual = initial;
             let mut index = super::PlaceholderEntries::new(&actual).unwrap();
@@ -1487,7 +1533,7 @@ mod tests {
     fn indexed_placeholders_flush_before_dynamic_keys_and_setlist() {
         for with_setlist in [false, true] {
             let object = local("record");
-            let initial = Table((0..32).map(|i| (Some(string(&format!("f{i}"))), nil())).collect(), Default::default());
+            let initial = Table((0..32).map(|i| (Some(string(&format!("f{i}"))), nil())).collect(), Default::default(), Default::default());
             let mut expected = initial.clone();
             let mut statements = vec![declare(&object, initial.into())];
             for i in (0..32).rev() {

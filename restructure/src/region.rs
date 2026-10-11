@@ -943,7 +943,7 @@ mod capture_query_tests {
         let branch = If::new(Literal::Boolean(true).into(), Block(vec![
             ast::Return::new(vec![second.clone().into()]).into(),
         ]), Block::default());
-        let expression: RValue = ast::Table(vec![(None, shared.clone().into()), (None, second.into())], Default::default()).into();
+        let expression: RValue = ast::Table(vec![(None, shared.clone().into()), (None, second.into())], Default::default(), Default::default()).into();
         let indexed: Statement = Assign::new(vec![ast::Index::new(ast::Global::from("items").into(), expression.clone()).into()],
             vec![Literal::Nil.into()]).into();
         for publish in [false, true] {
@@ -2098,111 +2098,213 @@ impl Analysis {
         }
 
         let mut result = FxHashMap::default();
-        for (header, mut owned) in candidates {
-            let conditional =
-                function
-                    .conditional_edges(header)
-                    .and_then(|(then_edge, else_edge)| {
-                        let then_inside = owned.contains(&then_edge.target());
-                        let else_inside = owned.contains(&else_edge.target());
-                        (then_inside != else_inside).then_some((
-                            then_edge.target(),
-                            else_edge.target(),
-                            then_inside,
-                        ))
-                    });
-            let whole_header = conditional.is_none();
-            let (body_entry, normal_exit, then_inside) = match conditional {
-                Some((then_target, else_target, true)) => (then_target, else_target, true),
-                Some((then_target, else_target, false)) => (else_target, then_target, false),
-                None => (header, header, true),
+        for (&header, natural) in &candidates {
+            let read = |whole: bool| {
+                Self::read_while_candidate(function, header, natural, whole, dominators, post_dominators)
             };
-            {
-                // Whole-header cycles can have several terminal fringes
-                // (for example two cleanup loops ending in different
-                // returns). Own every header-dominated path until an entry
-                // shared with code outside this cycle. Such a shared entry
-                // remains the source loop's exit port.
-                let owner = if whole_header { header } else { body_entry };
-                let mut work = if whole_header {
-                    function.successor_blocks(header).collect_vec()
-                } else {
-                    vec![body_entry]
-                };
-                let mut seen = FxHashSet::default();
-                while let Some(node) = work.pop() {
-                    if node == header
-                        || node == normal_exit
-                        || !seen.insert(node)
-                        || !dominators.dominates(owner, node)
-                    {
-                        continue;
-                    }
-                    owned.insert(node);
-                    work.extend(function.successor_blocks(node));
-                }
-            }
-            // A body node with an incoming edge bypassing the header is a
-            // multi-entry region and cannot be represented by one `while`.
-            if owned.iter().any(|node| {
-                *node != header
-                    && function
-                        .predecessor_blocks(*node)
-                        .any(|predecessor| !owned.contains(&predecessor))
-            }) {
-                continue;
-            }
-            // Keep ownership inside this candidate's natural interval.  A
-            // nested source loop may contribute its own nodes, but a sibling
-            // tail reached only after the loop must not be absorbed.
-            owned.insert(body_entry);
-            let external_targets = owned
-                .iter()
-                .flat_map(|node| function.successor_blocks(*node))
-                .filter(|target| !owned.contains(target))
-                .unique()
-                .collect_vec();
-            let join = if whole_header && external_targets.is_empty() {
-                header
-            } else if let Some(join) = loop_exit_join(function, &external_targets, post_dominators) {
-                join
-            } else {
-                continue;
+            // A header choosing between the body and code that only it enters
+            // and that only ends the function (`repeat if c then return end
+            // ... until d`) may fail as a conditional loop whose exit is that
+            // code (`while not c`): read it again as `while true`, the
+            // `return` then the body of an `if` inside the loop.
+            let terminal_outside_arm = || {
+                function.conditional_edges(header).is_some_and(|(then_edge, else_edge)| {
+                    let (then_target, else_target) = (then_edge.target(), else_edge.target());
+                    let outside = match (natural.contains(&then_target), natural.contains(&else_target)) {
+                        (true, false) => else_target,
+                        (false, true) => then_target,
+                        _ => return false,
+                    };
+                    function.predecessor_blocks(outside).all(|predecessor| predecessor == header)
+                        && Self::exit_region_is_terminal(function, outside, header, dominators)
+                })
             };
-            if join != header && owned.contains(&join) {
-                continue;
+            if let Some(info) = read(false).or_else(|| terminal_outside_arm().then(|| read(true)).flatten()) {
+                result.insert(header, info);
             }
-            let mut condition = if whole_header {
-                Some(Literal::Boolean(true).into())
-            } else {
-                function
-                    .block(header)
-                    .and_then(|block| block.last())
-                    .and_then(|statement| statement.as_if())
-                    .map(|if_statement| if_statement.condition.clone())
-            };
-            let Some(mut condition) = condition.take() else {
-                continue;
-            };
-            if !then_inside {
-                condition = Unary::new(condition, UnaryOperation::Not).reduce_condition();
-            }
-            result.insert(header, LoopInfo {
-                header,
-                init: header,
-                body_entry,
-                normal_exit,
-                join,
-                nodes: owned,
-                res_locals: Vec::new(),
-                right: Vec::new(),
-                origin: None,
-                while_condition: Some(condition),
-                whole_header,
-                numeric: None,
-            });
         }
         result
+    }
+
+    /// Whether the code a loop exit opens belongs to the loop alone: every
+    /// block reachable from `exit` is dominated by `header`, so the region
+    /// can only end the function (a `return` inside the body). An exit
+    /// reaching a block other paths enter too (an enclosing loop's back
+    /// edge, a shared tail) is code after the loop.
+    fn exit_region_is_terminal(
+        function: &Function,
+        exit: NodeIndex,
+        header: NodeIndex,
+        dominators: &DominanceIndex,
+    ) -> bool {
+        let mut work = vec![exit];
+        let mut seen = FxHashSet::default();
+        while let Some(node) = work.pop() {
+            if !seen.insert(node) {
+                continue;
+            }
+            if node == header || !dominators.dominates(header, node) {
+                return false;
+            }
+            work.extend(function.successor_blocks(node));
+        }
+        true
+    }
+
+    /// Reads one natural cycle (`natural`, from [`Self::find_while_loops`])
+    /// as a `while` loop: conditional on its header's `if` when exactly one
+    /// arm stays inside the cycle, else (or with `whole`) as `while true`.
+    fn read_while_candidate(
+        function: &Function,
+        header: NodeIndex,
+        natural: &FxHashSet<NodeIndex>,
+        whole: bool,
+        dominators: &DominanceIndex,
+        post_dominators: &PostDominators,
+    ) -> Option<LoopInfo> {
+        let mut owned = natural.clone();
+        let conditional = if whole {
+            None
+        } else {
+            function
+                .conditional_edges(header)
+                .and_then(|(then_edge, else_edge)| {
+                    let then_inside = owned.contains(&then_edge.target());
+                    let else_inside = owned.contains(&else_edge.target());
+                    (then_inside != else_inside).then_some((
+                        then_edge.target(),
+                        else_edge.target(),
+                        then_inside,
+                    ))
+                })
+        };
+        let whole_header = conditional.is_none();
+        let (body_entry, normal_exit, then_inside) = match conditional {
+            Some((then_target, else_target, true)) => (then_target, else_target, true),
+            Some((then_target, else_target, false)) => (else_target, then_target, false),
+            None => (header, header, true),
+        };
+        {
+            // Whole-header cycles can have several terminal fringes
+            // (for example two cleanup loops ending in different
+            // returns). Own every header-dominated path until an entry
+            // shared with code outside this cycle. Such a shared entry
+            // remains the source loop's exit port.
+            //
+            // So does the join of the cycle's own exits, even where only
+            // the cycle reaches it. `repeat ... continue ... break ...
+            // until c` puts both arms of the header's `if` inside the cycle
+            // (a whole-header loop), and the block after the loop, entered
+            // from the `break` and from the `until` exit alone, is
+            // dominated by the header: owned, it would sit in the body
+            // twice. In a nested loop that join is the enclosing loop's code
+            // after this one (its `until` test and back edge), which this
+            // header dominates too. Exits that end the function (`return`)
+            // may have no common join. The port is then the join of the
+            // exits the body cannot own: one opening code that is not the
+            // loop's alone (see `exit_region_is_terminal`), or, in a `while
+            // true` reading, one entered by more than one edge (a `break`
+            // and the `until` exit). The others are `return`s inside the
+            // body, as before. (A conditional reading owns a shared
+            // terminal exit as before: the walk may copy a small one.)
+            let exit_port = {
+                let exits = owned
+                    .iter()
+                    .flat_map(|node| function.successor_blocks(*node))
+                    .filter(|target| !owned.contains(target))
+                    .unique()
+                    .collect_vec();
+                loop_exit_join(function, &exits, post_dominators).or_else(|| {
+                    let ports = exits
+                        .iter()
+                        .copied()
+                        .filter(|&exit| {
+                            (whole_header
+                                && function
+                                    .predecessor_blocks(exit)
+                                    .filter(|predecessor| owned.contains(predecessor))
+                                    .count()
+                                    > 1)
+                                || !Self::exit_region_is_terminal(function, exit, header, dominators)
+                        })
+                        .collect_vec();
+                    (!ports.is_empty()).then(|| loop_exit_join(function, &ports, post_dominators)).flatten()
+                })
+            };
+            let owner = if whole_header { header } else { body_entry };
+            let mut work = if whole_header {
+                function.successor_blocks(header).collect_vec()
+            } else {
+                vec![body_entry]
+            };
+            let mut seen = FxHashSet::default();
+            while let Some(node) = work.pop() {
+                if node == header
+                    || node == normal_exit
+                    || Some(node) == exit_port
+                    || !seen.insert(node)
+                    || !dominators.dominates(owner, node)
+                {
+                    continue;
+                }
+                owned.insert(node);
+                work.extend(function.successor_blocks(node));
+            }
+        }
+        // A body node with an incoming edge bypassing the header is a
+        // multi-entry region and cannot be represented by one `while`.
+        if owned.iter().any(|node| {
+            *node != header
+                && function
+                    .predecessor_blocks(*node)
+                    .any(|predecessor| !owned.contains(&predecessor))
+        }) {
+            return None;
+        }
+        // Keep ownership inside this candidate's natural interval.  A
+        // nested source loop may contribute its own nodes, but a sibling
+        // tail reached only after the loop must not be absorbed.
+        owned.insert(body_entry);
+        let external_targets = owned
+            .iter()
+            .flat_map(|node| function.successor_blocks(*node))
+            .filter(|target| !owned.contains(target))
+            .unique()
+            .collect_vec();
+        let join = if whole_header && external_targets.is_empty() {
+            header
+        } else {
+            loop_exit_join(function, &external_targets, post_dominators)?
+        };
+        if join != header && owned.contains(&join) {
+            return None;
+        }
+        let mut condition = if whole_header {
+            Literal::Boolean(true).into()
+        } else {
+            function
+                .block(header)
+                .and_then(|block| block.last())
+                .and_then(|statement| statement.as_if())
+                .map(|if_statement| if_statement.condition.clone())?
+        };
+        if !then_inside {
+            condition = Unary::new(condition, UnaryOperation::Not).reduce_condition();
+        }
+        Some(LoopInfo {
+            header,
+            init: header,
+            body_entry,
+            normal_exit,
+            join,
+            nodes: owned,
+            res_locals: Vec::new(),
+            right: Vec::new(),
+            origin: None,
+            while_condition: Some(condition),
+            whole_header,
+            numeric: None,
+        })
     }
 
     /// Discover numeric-for regions from the explicit FORNPREP/FORNLOOP
@@ -2723,6 +2825,86 @@ mod shared_tail_regressions {
 /// back to a local proof: the chain of single-successor blocks from a target
 /// is taken on every path from it, and the first block that every chain
 /// contains is passed through by all exits.
+/// Visit `statement` and every statement nested in its blocks (`if`, loops),
+/// not the bodies of closures, which are separate functions.
+fn visit_nested_statements(statement: &Statement, visit: &mut dyn FnMut(&Statement)) {
+    visit(statement);
+    let blocks = match statement {
+        Statement::If(node) => vec![node.then_block.clone(), node.else_block.clone()],
+        Statement::While(node) => vec![node.block.clone()],
+        Statement::Repeat(node) => vec![node.block.clone()],
+        Statement::NumericFor(node) => vec![node.block.clone()],
+        Statement::GenericFor(node) => vec![node.block.clone()],
+        _ => return,
+    };
+    for block in blocks {
+        for statement in block.lock().iter() {
+            visit_nested_statements(statement, visit);
+        }
+    }
+}
+
+/// The blocks each local is read or written in, nested statements and edge
+/// transfers included.
+fn local_blocks(function: &Function) -> FxHashMap<RcLocal, FxHashSet<NodeIndex>> {
+    let mut blocks: FxHashMap<RcLocal, FxHashSet<NodeIndex>> = FxHashMap::default();
+    for (node, block) in function.blocks() {
+        let mut record = |local: &RcLocal| {
+            blocks.entry(local.clone()).or_default().insert(node);
+            true
+        };
+        for statement in block.iter() {
+            visit_nested_statements(statement, &mut |statement| {
+                statement.visit_local_reads(&mut record);
+                statement.visit_local_writes(&mut record);
+            });
+        }
+        for edge in function.edges(node) {
+            for (destination, value) in &edge.weight().arguments {
+                record(destination);
+                value.visit_local_reads(&mut record);
+            }
+        }
+    }
+    blocks
+}
+
+/// Give a conditional's else arm the fresh cells of `copied_cell_renames`:
+/// its reads and writes and the captures of its closures, in every nested
+/// block (unshared first: a statement cloned from the CFG may share its
+/// nested blocks with the then arm's copy).
+fn rename_copied_cells(block: &mut Block, renames: &FxHashMap<RcLocal, RcLocal>) {
+    if renames.is_empty() {
+        return;
+    }
+    for statement in block.iter_mut() {
+        statement.visit_local_reads_mut(&mut |local| {
+            if let Some(fresh) = renames.get(local) {
+                *local = fresh.clone();
+            }
+            true
+        });
+        for local in statement.values_written_mut() {
+            if let Some(fresh) = renames.get(local) {
+                *local = fresh.clone();
+            }
+        }
+        let nested = match statement {
+            Statement::If(node) => vec![&mut node.then_block, &mut node.else_block],
+            Statement::While(node) => vec![&mut node.block],
+            Statement::Repeat(node) => vec![&mut node.block],
+            Statement::NumericFor(node) => vec![&mut node.block],
+            Statement::GenericFor(node) => vec![&mut node.block],
+            _ => Vec::new(),
+        };
+        for shared in nested {
+            let mut private = shared.lock().clone();
+            rename_copied_cells(&mut private, renames);
+            *shared = triomphe::Arc::new(parking_lot::Mutex::new(private));
+        }
+    }
+}
+
 fn loop_exit_join(
     function: &Function,
     targets: &[NodeIndex],
@@ -2823,6 +3005,18 @@ enum VisitedBranch {
     Many(Vec<NodeIndex>),
     #[cfg(test)]
     Reference(FxHashSet<NodeIndex>),
+}
+
+impl VisitedBranch {
+    fn nodes(&self) -> Vec<NodeIndex> {
+        match self {
+            Self::Empty => Vec::new(),
+            Self::One(node) => vec![*node],
+            Self::Many(nodes) => nodes.clone(),
+            #[cfg(test)]
+            Self::Reference(nodes) => nodes.iter().copied().collect(),
+        }
+    }
 }
 
 #[cfg(test)]
@@ -3302,6 +3496,9 @@ struct Builder<'a> {
     /// Such a join is emitted once after its `if`, so a nested conditional
     /// may target it as a guard even when it is a small terminal.
     shared_joins: Vec<NodeIndex>,
+    /// The blocks each local occurs in (nested statements included), for
+    /// `copied_cell_renames`; built on first use.
+    local_blocks: OnceCell<FxHashMap<RcLocal, FxHashSet<NodeIndex>>>,
 }
 
 impl<'a> Builder<'a> {
@@ -3404,7 +3601,59 @@ impl<'a> Builder<'a> {
             unsafe_reason,
             allow_shared_tail: true,
             shared_joins: Vec::new(),
+            local_blocks: OnceCell::new(),
         }
+    }
+
+    /// Both arms of a conditional walked the nodes `then_visited` holds that
+    /// the else arm visited too: with no join, code both arms reach is
+    /// copied into each. A cell defined in that copied code and used nowhere
+    /// else is one variable per copy, as it is in a single copy. Sharing one
+    /// identity, the copies got one declaration hoisted above them all, out
+    /// of the loop each copy's cell was fresh in every iteration of: three
+    /// copies of `for k in pairs(t) do k = f(k); sink[#sink + 1] = function()
+    /// return k end end` printed one `local v2` before them, so every
+    /// closure shared the last value (fr-core F4). Returns fresh cells for
+    /// the else arm's copy (`rename_copied_cells`).
+    fn copied_cell_renames(&self, then_visited: &VisitedBranch) -> FxHashMap<RcLocal, RcLocal> {
+        let cells = &self.function.local_capture_bindings;
+        if cells.is_empty() {
+            return FxHashMap::default();
+        }
+        let copied = then_visited
+            .nodes()
+            .into_iter()
+            .filter(|node| self.visited.contains(node))
+            .collect::<FxHashSet<_>>();
+        if copied.is_empty() {
+            return FxHashMap::default();
+        }
+        let mut captured = Vec::new();
+        for &node in copied.iter().sorted_by_key(|node| node.index()) {
+            for statement in self.function.block(node).into_iter().flat_map(|block| block.iter()) {
+                visit_nested_statements(statement, &mut |statement| {
+                    statement.visit_local_reads(&mut |local| {
+                        if cells.contains(local) && !self.function.parameters.contains(local) {
+                            captured.push(local.clone());
+                        }
+                        true
+                    });
+                });
+            }
+        }
+        if captured.is_empty() {
+            return FxHashMap::default();
+        }
+        let local_blocks = self.local_blocks.get_or_init(|| local_blocks(self.function));
+        captured
+            .into_iter()
+            .unique()
+            .filter(|cell| local_blocks.get(cell).is_some_and(|blocks| blocks.is_subset(&copied)))
+            .map(|cell| {
+                let fresh = RcLocal::new(cell.0.lock().clone());
+                (cell, fresh)
+            })
+            .collect()
     }
 
     fn reject_unsafe<T>(&mut self, reason: UnsafeStructureReason) -> Option<T> {
@@ -7017,6 +7266,7 @@ impl<'a> Builder<'a> {
             let else_transfer = self.edge_transfer(&else_edge, &base_rewrite)?;
             let else_result = self.build_transfer_arm(source, else_target, ctx)?;
             let mut else_rewrite = self.rewrite.clone();
+            let copied_cells = self.copied_cell_renames(&then_visited);
             self.visited.merge(then_visited);
             let continuation = (then_result.next == Some(ctx.info.header)
                 || else_result.next == Some(ctx.info.header))
@@ -7039,6 +7289,7 @@ impl<'a> Builder<'a> {
             then_block.extend(then_result.block.0);
             let mut else_block = else_transfer;
             else_block.extend(else_result.block.0);
+            rename_copied_cells(&mut else_block, &copied_cells);
             self.materialize_optional_export_gaps(
                 &base_rewrite,
                 &mut then_rewrite,
@@ -7124,6 +7375,31 @@ impl<'a> Builder<'a> {
         }
     }
 
+    /// One arm of a conditional whose arms meet at `join` inside the loop.
+    /// An arm leaving the loop (to its exit port, or through an adapter to
+    /// it) is a `break`: walked as a path it would put the code after the
+    /// loop into the body, where the walk after the loop meets it again.
+    /// When no break path is proven, the arm is walked as before (a terminal
+    /// block only this arm enters).
+    fn build_inside_arm(
+        &mut self,
+        source: NodeIndex,
+        target: NodeIndex,
+        join: NodeIndex,
+        ctx: &LoopContext<'_>,
+    ) -> Option<PathResult> {
+        if target != ctx.info.header && !ctx.info.nodes.contains(&target) {
+            let base_rewrite = self.rewrite.clone();
+            let base_visited = self.visited.checkpoint();
+            if let Some(result) = self.build_transfer_arm(source, target, ctx) {
+                return Some(result);
+            }
+            self.rewrite = base_rewrite;
+            self.visited.restore(&base_visited);
+        }
+        self.build_path(target, Some(join), Some(ctx))
+    }
+
     /// Conditional inside a loop whose arms meet at `join` (a node owned by the
     /// loop).  With `shared_tail`, `join` was inferred from reachability rather
     /// than post-dominance, so an arm may terminate instead of reaching it.
@@ -7152,7 +7428,7 @@ impl<'a> Builder<'a> {
                 .weight(),
             &base_rewrite,
         )?;
-        let then_result = self.build_path(then_target, Some(join), Some(ctx))?;
+        let then_result = self.build_inside_arm(source, then_target, join, ctx)?;
         let mut then_rewrite = self.rewrite.clone();
         self.rewrite = base_rewrite.clone();
         let then_visited = self.visited.take_branch(&base_visited);
@@ -7166,7 +7442,7 @@ impl<'a> Builder<'a> {
                 .weight(),
             &base_rewrite,
         )?;
-        let else_result = self.build_path(else_target, Some(join), Some(ctx))?;
+        let else_result = self.build_inside_arm(source, else_target, join, ctx)?;
         // A terminal arm has no path to the inside join.  Do not let
         // optional-export materialization mutate that arm before we
         // reject the mixed-port conditional: doing so would either
@@ -7188,11 +7464,13 @@ impl<'a> Builder<'a> {
             // into; leave this shape to the ordinary arm builder.
             return None;
         }
+        let copied_cells = self.copied_cell_renames(&then_visited);
         self.visited.merge(then_visited);
         let mut then_block = then_transfer;
         then_block.extend(then_result.block.0);
         let mut else_block = else_transfer;
         else_block.extend(else_result.block.0);
+        rename_copied_cells(&mut else_block, &copied_cells);
         self.materialize_optional_export_gaps(
             &base_rewrite,
             &mut then_rewrite,
@@ -7269,11 +7547,13 @@ impl<'a> Builder<'a> {
         if shared_tail && !both_reach && then_rewrite != else_rewrite {
             return None;
         }
+        let copied_cells = self.copied_cell_renames(&then_visited);
         self.visited.merge(then_visited);
         let mut then_block = then_transfer;
         then_block.extend(then_result.block.0);
         let mut else_block = else_transfer;
         else_block.extend(else_result.block.0);
+        rename_copied_cells(&mut else_block, &copied_cells);
         self.materialize_optional_export_gaps(
             &base_rewrite,
             &mut then_rewrite,
@@ -13608,8 +13888,12 @@ mod tests {
             .to_string();
         assert!(output.contains("while true do"), "{output}");
         assert_eq!(output.matches("finish()").count(), 1, "{output}");
+        // The exit is the loop's own exit port: `break`, then `finish()` as
+        // the function's last statement. Inside the body it would need a
+        // `return` after it.
+        let after_finish = output.split("finish()").nth(1).unwrap_or_default();
         assert!(
-            output.contains("return"),
+            output.contains("return") || after_finish.trim().is_empty(),
             "fallthrough must exit the function: {output}"
         );
     }
