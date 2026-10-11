@@ -271,7 +271,12 @@ fn main() {
         Some("--help") | Some("-h") | Some("--version") | Some("-V") => {
             Cli::parse();
         }
-        _ => run_single_file(),
+        _ => {
+            // The per-function workers and this file's own passes get the
+            // decompile stack (a long `elseif` chain recurses once per arm).
+            let _ = luau_lifter::configure_thread_pool(0);
+            luau_lifter::with_decompile_stack(run_single_file);
+        }
     }
 }
 

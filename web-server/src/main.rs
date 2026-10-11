@@ -198,8 +198,19 @@ impl FromRequest<AppState> for AdmittedBody {
     }
 }
 
-#[tokio::main]
-async fn main() -> Result<(), io::Error> {
+fn main() -> Result<(), io::Error> {
+    // Every decompile runs on a blocking thread and rayon's workers: both get
+    // the decompile stack, or a long `elseif` chain overflows it and aborts
+    // the server (a 900-arm chain did with the default 2 MiB).
+    let _ = luau_lifter::configure_thread_pool(0);
+    tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .thread_stack_size(luau_lifter::DECOMPILE_STACK_BYTES)
+        .build()?
+        .block_on(serve())
+}
+
+async fn serve() -> Result<(), io::Error> {
     // One process-global quiet panic hook, installed before any decompile work, so
     // the per-function/per-item `catch_unwind`s used by the batch path don't spam
     // stderr and don't race a per-call set_hook across threads.

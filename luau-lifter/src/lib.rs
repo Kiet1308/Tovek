@@ -457,6 +457,36 @@ pub fn install_quiet_panic_hook() {
     QUIET_HOOK.call_once(|| std::panic::set_hook(Box::new(|_| {})));
 }
 
+/// The stack of every thread that decompiles (reserved address space; pages
+/// are committed only as they are used). Each `elseif` nests the next `if` in
+/// the previous `else`, and the passes recurse once per level: a 1 MiB main
+/// thread overflowed at about 250 arms and a 2 MiB worker at about 500, where
+/// Luau compiles chains of a thousand. A stack overflow aborts the process past
+/// any `catch_unwind`: a whole `decompile-folder` run, or the web-server.
+pub const DECOMPILE_STACK_BYTES: usize = 256 << 20;
+
+/// Build rayon's global pool (`threads == 0`: one thread per logical CPU)
+/// with [`DECOMPILE_STACK_BYTES`] stacks. Call it before the first parallel
+/// call; it fails when the pool already exists.
+pub fn configure_thread_pool(threads: usize) -> Result<(), rayon::ThreadPoolBuildError> {
+    let mut builder = rayon::ThreadPoolBuilder::new().stack_size(DECOMPILE_STACK_BYTES);
+    if threads != 0 {
+        builder = builder.num_threads(threads);
+    }
+    builder.build_global()
+}
+
+/// Run `work` on a thread with a [`DECOMPILE_STACK_BYTES`] stack and return
+/// its result (a panic in `work` resumes in the caller).
+pub fn with_decompile_stack<T: Send + 'static>(work: impl FnOnce() -> T + Send + 'static) -> T {
+    let thread = std::thread::Builder::new()
+        .name("decompile".into())
+        .stack_size(DECOMPILE_STACK_BYTES)
+        .spawn(work)
+        .expect("spawn the decompile thread");
+    thread.join().unwrap_or_else(|panic| std::panic::resume_unwind(panic))
+}
+
 pub fn decompile_bytecode(bytecode: &[u8], encode_key: u8) -> String {
     decompile_bytecode_with_script_name(bytecode, encode_key, None)
 }
