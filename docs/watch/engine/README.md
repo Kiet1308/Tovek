@@ -194,8 +194,10 @@ score: defineScore({
 
 Voices: `hum` (drone), `air` (room tone), `pulse` (soft struck tone), `tick` (keystroke), `swell`
 (opening pad), `chime` (bell), `sub` (low thump). The player plays the schedule in sync with the
-clock (look-ahead scheduling, re-anchored on seek or drift); audio starts only when the viewer
-presses play and has its own mute and volume. The export renders the same schedule with
+clock (look-ahead scheduling, re-anchored on seek or on more than 50 ms of drift, measured from the
+audio clock itself rather than from the 50 ms scheduling lead, and only once a new context's clock
+has started to move); audio starts only when the viewer presses play and has its own mute and
+volume. The export renders the same schedule with
 `OfflineAudioContext` (`renderScoreWav`). Offline renders agree to within one least significant bit:
 WebAudio does not fix the order in which it sums parallel voices.
 
@@ -204,8 +206,13 @@ tail in idle time once the film is loaded (the live context runs at a fixed 48 k
 ready for it). `ScorePlayer.warm()` builds the audio graph on the press before play (the player
 calls it on `pointerdown` and on keys that do not start the film), so a click on Play only
 schedules notes. If the very first input is the play key itself, the player draws the first frame
-and `start()` follows a frame later with a dry bus; the convolver, whose FFT setup costs about
-25 ms on the main thread, is attached one frame after that.
+at once and calls `open()` in the next task. That call blocks the main thread: about 25 ms for the
+convolver's FFT setup, 10-20 ms for the audio device, and up to ~300 ms when it is the first sound
+of the browser session (the browser starts its audio service). The player re-seeks its clock to
+the time it held before the call, so the film starts that much later rather than skipping the
+frames it could not draw (the story opens on half a second of still black, where the hold cannot
+be seen). Called on its own, `start()` still splits a cold start: a dry bus now, the convolver a
+frame later.
 
 ### Also
 

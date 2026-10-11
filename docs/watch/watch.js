@@ -313,13 +313,22 @@ function finish() {
 
 const togglePlay = () => (clock.playing ? pause() : play());
 
-// Sound follows the picture. Building the audio graph costs 30-90 ms (the audio device, the reverb's
-// FFT setup), so it happens on the press that comes before play (warmAudio). If the very first
-// input is the play key itself, the first frame is drawn first and the sound joins a frame later.
+// Sound follows the picture. Building the audio graph blocks the main thread: about 25 ms for the
+// reverb's FFT setup, plus the audio device, which costs 10-20 ms once the browser's audio service
+// runs and up to ~300 ms for the first sound of a browser session. So it happens on the press that
+// comes before play (warmAudio). If the very first input is the play key itself, the first frame is
+// drawn at once, the graph is built in the next task, and the clock holds the picture across that
+// block: the film starts a moment later instead of jumping past the frames it could not draw.
 function startScore() {
   if (!score) return;
   if (score.ready) { score.start(clock.now()); return; }
-  requestAnimationFrame(() => setTimeout(() => { if (clock.playing) score.start(clock.now()); }, 0));
+  requestAnimationFrame(() => setTimeout(() => {
+    if (!clock.playing || score.ready) return;
+    const t = clock.now();
+    score.open(true);
+    clock.seek(t);
+    score.start(t);
+  }, 0));
 }
 
 const PLAY_KEYS = new Set([' ', 'k', 'K', 'Enter']);

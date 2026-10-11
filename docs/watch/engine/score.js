@@ -368,6 +368,7 @@ export class ScorePlayer {
     this.live = [];
     this.next = 0;
     this.anchor = null;
+    this.waiting = false;
     this.volume = 0.9;
     this.muted = false;
     this.lookahead = 0.35;
@@ -378,7 +379,11 @@ export class ScorePlayer {
   /** True once the audio graph exists; start() is then cheap. */
   get ready() { return !!this.ac; }
 
-  open(reverb) {
+  /**
+   * Create the audio context and the bus now (blocking: see warm()). The player calls it itself when
+   * the play key was the first input, holding its clock across the call.
+   */
+  open(reverb = true) {
     try { this.ac = new AudioContext({ latencyHint: 'playback', sampleRate: LIVE_RATE }); } catch { this.ac = new AudioContext({ latencyHint: 'playback' }); }
     this.bus = buildBus(this.ac, this.score, { reverb });
     this.applyVolume(true);
@@ -415,9 +420,16 @@ export class ScorePlayer {
 
   anchorAt(t) {
     this.silence();
+    // A new context reports 'running' before its device has rendered anything: currentTime stays
+    // at 0 for tens of milliseconds, longer on the first sound of a browser session. Notes anchored
+    // now would land late and the drift check would re-anchor every frame; update() anchors once the
+    // clock moves.
+    if (this.ac.currentTime === 0) { this.waiting = true; return; }
     const ac = this.ac;
-    const when = ac.currentTime + 0.05;
-    this.anchor = { film: t, audio: when };
+    // notes are scheduled 50 ms ahead (`audio`); drift is measured from the clock itself (`clock`),
+    // or that lead would sit right at the re-anchor threshold
+    const clock = ac.currentTime, when = clock + 0.05;
+    this.anchor = { film: t, audio: when, clock };
     const evs = this.score.events;
     let i = 0;
     for (; i < evs.length && evs[i].t < t; i++) {
@@ -445,8 +457,11 @@ export class ScorePlayer {
 
   /** Every frame while playing. */
   update(t) {
-    if (!this.ac || !this.anchor || this.ac.state !== 'running') return;
-    const drift = (this.ac.currentTime - this.anchor.audio) - (t - this.anchor.film);
+    if (!this.ac || this.ac.state !== 'running') return;
+    if (this.waiting) { if (this.ac.currentTime > 0) this.anchorAt(t); return; }
+    if (!this.anchor) return;
+    // currentTime moves in steps of one device buffer (about 21 ms), well inside the 50 ms tolerance
+    const drift = (this.ac.currentTime - this.anchor.clock) - (t - this.anchor.film);
     if (Math.abs(drift) > 0.05) this.anchorAt(t);
     else this.schedule(t);
   }
@@ -465,6 +480,7 @@ export class ScorePlayer {
     }
     this.live = [];
     this.anchor = null;
+    this.waiting = false;
   }
 
   pause() { this.silence(); }
