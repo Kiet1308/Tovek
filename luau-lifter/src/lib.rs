@@ -293,20 +293,16 @@ fn folded_capture_slots(chunk: &deserializer::chunk::Chunk) -> ast::folded_captu
 /// Whether some NEWCLOSURE literal of the chunk may print as one Luau
 /// shares, which `fresh_closures` keeps new; most chunks have none, and the
 /// walk is skipped. The chunk must be compiled at `-O1` or above (some
-/// closure is shared with DUPCLOSURE, or some capture folded:
-/// `optimized`), and some NEWCLOSURE must capture nothing by reference and
-/// only values that may print as a constant, a top-level local or a literal
-/// ([`capture_may_print_shared`]). A literal capturing a parameter or a
-/// computed value never prints shared.
+/// capture folded: `optimized`, or an instruction only `-O1` emits:
+/// [`emitted_from_o1`]), and some NEWCLOSURE must capture nothing by
+/// reference and only values that may print as a constant, a top-level
+/// local or a literal ([`capture_may_print_shared`]). A literal capturing a
+/// parameter or a computed value never prints shared.
 fn may_print_shared_fresh_closures(chunk: &deserializer::chunk::Chunk, optimized: bool) -> bool {
     use instruction::Instruction::AD;
     use op_code::OpCode::{LOP_DUPCLOSURE, LOP_NEWCLOSURE};
     let functions = &chunk.functions;
-    if !optimized
-        && !functions.iter().any(|function| {
-            function.instructions.iter().any(|instruction| matches!(instruction, AD { op_code: LOP_DUPCLOSURE, .. }))
-        })
-    {
+    if !optimized && !functions.iter().any(|function| function.instructions.iter().any(emitted_from_o1)) {
         return false;
     }
     // The closure instructions making each prototype: (function, pc).
@@ -332,6 +328,46 @@ fn may_print_shared_fresh_closures(chunk: &deserializer::chunk::Chunk, optimized
     fresh.iter().any(|&(function, pc, upvalues)| {
         (0..upvalues).all(|upvalue| capture_may_print_shared(chunk, &creators, function, pc, upvalue, 0))
     })
+}
+
+/// An instruction Luau emits only from `-O1` on (or under `@native` /
+/// `--!native`, which optimize too): a shared closure (DUPCLOSURE), an
+/// import (`canImport`), a builtin call (`analyzeBuiltins`), and the
+/// constant-operand arithmetic and comparisons that need constant analysis.
+/// At `-O0` every constant is loaded into a register first (`LOADK`; even
+/// `LOADN` appears there, as a `for` loop's implicit step). A chunk without
+/// DUPCLOSURE is still `-O1` code when its closures happen to capture
+/// values that are never shared.
+fn emitted_from_o1(instruction: &instruction::Instruction) -> bool {
+    use instruction::Instruction::{AD, BC, E};
+    use op_code::OpCode::*;
+    let (BC { op_code, .. } | AD { op_code, .. } | E { op_code, .. }) = *instruction;
+    matches!(
+        op_code,
+        LOP_DUPCLOSURE
+            | LOP_GETIMPORT
+            | LOP_FASTCALL
+            | LOP_FASTCALL1
+            | LOP_FASTCALL2
+            | LOP_FASTCALL2K
+            | LOP_FASTCALL3
+            | LOP_FASTPCALL
+            | LOP_ADDK
+            | LOP_SUBK
+            | LOP_MULK
+            | LOP_DIVK
+            | LOP_MODK
+            | LOP_POWK
+            | LOP_IDIVK
+            | LOP_SUBRK
+            | LOP_DIVRK
+            | LOP_ANDK
+            | LOP_ORK
+            | LOP_JUMPXEQKNIL
+            | LOP_JUMPXEQKB
+            | LOP_JUMPXEQKN
+            | LOP_JUMPXEQKS
+    )
 }
 
 /// Whether the `upvalue`th capture of the closure made at `pc` of `function`
@@ -4129,7 +4165,18 @@ mod fresh_closure_gate_tests {
         // Without sharing anywhere (-O0), no literal is told apart.
         assert!(!may_print_shared_fresh_closures(&chunk(body.clone(), false), false));
         // A capture whose reads Luau folded is -O1 code all the same.
-        assert!(may_print_shared_fresh_closures(&chunk(body, false), true));
+        assert!(may_print_shared_fresh_closures(&chunk(body.clone(), false), true));
+        // So is a chunk with an import or a constant operand and no shared
+        // closure at all.
+        for o1 in [ad(LOP_GETIMPORT, 2, 0), bc(LOP_ADDK, 2, 2), ad(LOP_JUMPXEQKS, 2, 0)] {
+            let mut chunk = chunk(body.clone(), false);
+            chunk.functions[0].instructions.insert(0, o1);
+            assert!(may_print_shared_fresh_closures(&chunk, false));
+        }
+        // `LOADN` is no evidence: -O0 loads a `for` loop's implicit step so.
+        let mut chunk = chunk(body, false);
+        chunk.functions[0].instructions.insert(0, ad(LOP_LOADN, 2, 1));
+        assert!(!may_print_shared_fresh_closures(&chunk, false));
     }
 
     #[test]
