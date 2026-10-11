@@ -96,6 +96,10 @@ struct SsaConstructor<'a> {
     new_upvalues_in: IndexMap<RcLocal, FxHashSet<RcLocal>>,
     upvalues_passed: FxHashMap<RcLocal, FxHashMap<(NodeIndex, usize), FxHashSet<RcLocal>>>,
     definition_records: usize,
+    /// The parameters' register locals, before renaming: a loop-carried cell
+    /// reaching the function entry (`UpvaluesOpen::carried`) groups the
+    /// parameter at the same position.
+    original_parameters: Vec<RcLocal>,
 }
 
 /// The CFG topology and DFS order stay fixed throughout construction. A block
@@ -1234,6 +1238,24 @@ impl<'a> SsaConstructor<'a> {
             self.function.block_mut(node).unwrap()
                 .retain(|statement| !matches!(statement, ast::Statement::Close(_)));
         }
+        // The definitions reaching a loop a cell stays open around belong to
+        // that cell; with none before the loop, the parameter starts it.
+        for (old_local, locations, version) in &upvalues_open.carried {
+            if incoming.contains_key(old_local) {
+                continue;
+            }
+            let version = match version {
+                Some(version) => version.clone(),
+                None => {
+                    let Some(position) = self.original_parameters.iter().position(|param| param == old_local) else {
+                        continue;
+                    };
+                    self.function.parameters[position].clone()
+                }
+            };
+            inserted += usize::from(passed.entry(old_local.clone()).or_default()
+                .entry(*locations.first().unwrap()).or_default().insert(version));
+        }
         ast::telemetry::count("ssa_open_version_queries", queries as u64);
         ast::telemetry::count("ssa_passed_versions_inserted", inserted as u64);
     }
@@ -1628,6 +1650,7 @@ pub fn construct(
     // one definition per statement instead of growing through rehashes.
     let statements = function.blocks().map(|(_, block)| block.len()).sum::<usize>();
     let index = function.local_index();
+    let original_parameters = function.parameters.clone();
     SsaConstructor {
         function,
         dfs,
@@ -1643,6 +1666,7 @@ pub fn construct(
         new_upvalues_in,
         upvalues_passed: FxHashMap::default(),
         definition_records: 0,
+        original_parameters,
     }
     .construct()
 }
