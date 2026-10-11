@@ -1158,6 +1158,36 @@ async function stopCard(card) {
   live.on = false;
   cancelAnimationFrame(live.raf);
 }
+// warm a live card ahead of the pointer: once the row is near and the page has stopped scrolling, load the film and
+// draw its poster frame once at the card's size (that fills the glyph caches), in idle time
+function warmCards() {
+  if (reduced.matches || !canHover.matches || !('IntersectionObserver' in window)) return;
+  const cards = $$('.film[data-live]');
+  if (!cards.length) return;
+  let near = false;
+  let still = 0;
+  const idle = window.requestIdleCallback || ((fn) => setTimeout(fn, 200));
+  const tryWarm = () => {
+    if (!near) return;
+    clearTimeout(still);
+    still = setTimeout(() => idle(async () => {
+      for (const card of cards) {
+        try {
+          const live = await liveFilm(card);
+          if (live.warmed) continue;
+          const r = card.querySelector('.film-frame').getBoundingClientRect();
+          live.stage.resize(r.width, r.height, Math.min(devicePixelRatio || 1, 2));
+          await new Promise((res) => idle(res, { timeout: 1500 }));
+          live.stage.draw(live.film, live.t);
+          live.warmed = true;
+        } catch { /* the poster stays */ }
+      }
+    }, { timeout: 2000 }), 260);
+  };
+  new IntersectionObserver((entries) => { near = entries.some((e) => e.isIntersecting); tryWarm(); }, { rootMargin: '0px 0px 600px 0px' }).observe($('#films'));
+  addEventListener('scroll', tryWarm, { passive: true });
+}
+
 for (const card of $$('.film[data-live]')) {
   card.addEventListener('pointerenter', (e) => { if (e.pointerType === 'mouse') playCard(card); });
   card.addEventListener('pointerleave', () => stopCard(card));
@@ -1231,6 +1261,7 @@ function start() {
   idle(() => { if (frame.getBoundingClientRect().top < innerHeight * 2) loadTexts(); }, { timeout: 3000 });
   markDownload();
   films();
+  warmCards();
 }
 
 document.fonts.ready.then(() => requestAnimationFrame(start));
