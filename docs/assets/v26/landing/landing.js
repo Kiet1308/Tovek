@@ -132,7 +132,6 @@ let geo = { lines: [], notes: [], passages: [], codeTop: 0, codeHeight: 1, lineC
 function docTop(el) { return el.getBoundingClientRect().top + scrollY; }
 
 function measure() {
-  const lines = $$('.psg-body:not([hidden]) > .ln, .psg-alt:not([hidden]) > .ln, .reading .ln', code);
   geo.codeTop = docTop(code);
   geo.codeHeight = code.offsetHeight;
   geo.topH = top.offsetHeight;
@@ -148,7 +147,6 @@ function measure() {
     const line = $(`#L${n.dataset.line}`);
     return { el: n, id: n.id, line: +n.dataset.line, top: line ? docTop(line) : 0 };
   });
-  geo.lineCount = lines.length;
 }
 
 // ------------------------------------------------------------------ margin notes and leaders (wide screens)
@@ -205,17 +203,18 @@ function layoutNotes() {
     const cap = i === items.length - 1 ? limit - items[i].h : items[i + 1].y - GAP - items[i].h;
     if (items[i].y > cap) items[i].y = Math.max(items[i].ideal - 600, cap);
   }
-  for (const it of items) {
-    const psgTop = it.n.offsetParent.getBoundingClientRect().top - msRect.top;
-    it.n.style.top = `${Math.round(it.y - psgTop)}px`;
-  }
+  const psgTops = items.map((it) => it.n.offsetParent.getBoundingClientRect().top - msRect.top);
+  const endsEarly = items.map((it) => lineEnd(it.line, msRect));
+  items.forEach((it, i) => { it.n.style.top = `${Math.round(it.y - psgTops[i])}px`; });
   // leaders: from the end of the anchor line, out past the code column, then over to the note's kicker
   const frag = document.createDocumentFragment();
   const bendX = codeRect.right - msRect.left + 12;
-  for (const it of items) {
-    const a = lineEnd(it.line, msRect);
+  const ends = endsEarly;
+  const noteLeft = items.length ? items[0].n.getBoundingClientRect().left - msRect.left - 10 : 0;
+  items.forEach((it, i) => {
+    const a = ends[i];
     const ax = Math.min(a.x + 10, codeRect.right - msRect.left - 6);
-    const nx = it.n.getBoundingClientRect().left - msRect.left - 10;
+    const nx = noteLeft;
     const ny = it.y + 9;
     const g = document.createElementNS(NS, 'g');
     g.dataset.note = it.n.id;
@@ -234,7 +233,7 @@ function layoutNotes() {
     c.setAttribute('r', 2.5);
     g.append(p, c);
     frag.append(g);
-  }
+  });
   leaders.replaceChildren(frag);
   leaders.setAttribute('width', msRect.width);
   leaders.setAttribute('height', msRect.height);
@@ -287,16 +286,23 @@ function setOn(id) {
   }
 }
 
+function noteOf(el) {
+  if (!el || !el.closest) return null;
+  const hit = el.closest('mark.ns, .note');
+  if (hit) return hit.dataset.note || hit.id;
+  const line = el.closest('.ln');
+  const m = line && $('.nm', line);
+  return m ? m.dataset.note : null;
+}
 code.addEventListener('pointerover', (e) => {
-  if (e.pointerType === 'touch') return;
-  const hit = e.target.closest('mark.ns, .note');
-  if (hit) setOn(hit.dataset.note || hit.id);
+  if (e.pointerType === 'touch' || reading) return;
+  const id = noteOf(e.target);
+  if (id) setOn(id);
 });
 code.addEventListener('pointerout', (e) => {
   if (e.pointerType === 'touch') return;
-  const from = e.target.closest('mark.ns, .note');
-  const to = e.relatedTarget && e.relatedTarget.closest && e.relatedTarget.closest('mark.ns, .note');
-  if (from && (!to || (to.dataset.note || to.id) !== (from.dataset.note || from.id))) setOn(null);
+  const from = noteOf(e.target);
+  if (from && noteOf(e.relatedTarget) !== from) setOn(null);
 });
 code.addEventListener('focusin', (e) => {
   const n = e.target.closest('.note');
@@ -359,7 +365,16 @@ const stripCanvas = $('canvas', strip);
 const stripView = $('.strip-view', strip);
 let mapLines = [];   // [{ top, indent, len, kind }] in code-column coordinates
 
+let readingLines = null;
 function collectMapLines() {
+  if (reading && readingLines) {
+    const lh = parseFloat(getComputedStyle(code).lineHeight) || 24;
+    const pad = parseFloat(getComputedStyle(code).paddingTop) || 0;
+    return readingLines.map((text, i) => {
+      const ind = text.length - text.replace(/^	+/, '').length;
+      return { top: pad + i * lh, h: lh, indent: ind, len: text.length - ind, rc: RECOVERED.test(text), bc: false, from: false };
+    });
+  }
   const codeTop = code.getBoundingClientRect().top;
   const rows = $$('.ln', code).filter((l) => l.offsetParent);
   return rows.map((l) => {
@@ -398,18 +413,22 @@ function drawMaps() {
         const bh = Math.max(1, Math.min(l.h * k * 0.62, 3));
         const x = Math.min(l.indent * 2.2, w * 0.4);
         const bw = Math.max(1.5, Math.min(l.len * 0.24, w - x));
-        ctx.fillStyle = l.rc || l.from ? 'rgba(214, 58, 12, 0.85)' : 'rgba(18, 18, 16, 0.26)';
+        ctx.fillStyle = l.rc || l.from ? 'rgba(214, 58, 12, 0.5)' : 'rgba(18, 18, 16, 0.24)';
         ctx.fillRect(x, y, bw, bh);
       }
     }
-    railMarks.replaceChildren();
+    const marks = [];
     if (!reading) {
       const railH = railMap.clientHeight;
-      for (const n of notes) {
-        if (!n.offsetParent || n.classList.contains('is-hidden')) continue;
+      const codeTop = code.getBoundingClientRect().top;
+      const tops = notes.map((n) => {
+        if (!n.offsetParent || n.classList.contains('is-hidden')) return null;
         const line = $(`#L${n.dataset.line}`);
-        if (!line) continue;
-        const top = line.getBoundingClientRect().top - code.getBoundingClientRect().top;
+        return line ? line.getBoundingClientRect().top - codeTop : null;
+      });
+      notes.forEach((n, i) => {
+        const top = tops[i];
+        if (top === null) return;
         const b = document.createElement('button');
         b.type = 'button';
         b.className = 'rail-mark';
@@ -417,9 +436,10 @@ function drawMaps() {
         b.tabIndex = -1;
         b.style.top = `${(top / total) * railH}px`;
         b.setAttribute('aria-label', `Note ${$('.nn', n).textContent}: ${$('.nkind', n).textContent}, line ${n.dataset.line}`);
-        railMarks.append(b);
-      }
+        marks.push(b);
+      });
     }
+    railMarks.replaceChildren(...marks);
   }
   // strip: lines run across
   if (narrow.matches) {
@@ -548,40 +568,62 @@ function goToNote(id) {
 
 // ------------------------------------------------------------------ the lens: a passage as bytecode, as Tovek, as written
 
-function wrapWords(container) {
-  // identifier text becomes its own span so every token can move on its own
-  for (const t of $$('.t', container)) {
-    const walker = document.createTreeWalker(t, NodeFilter.SHOW_TEXT);
-    const texts = [];
-    while (walker.nextNode()) texts.push(walker.currentNode);
-    for (const node of texts) {
-      if (node.parentElement.classList.contains('t') || node.parentElement.tagName === 'MARK') {
-        const parts = node.textContent.split(/(\s+)/);
-        if (parts.length === 1 && !parts[0]) continue;
-        const frag = document.createDocumentFragment();
-        for (const part of parts) {
-          if (!part) continue;
-          if (/^\s+$/.test(part)) frag.append(part);
-          else { const s = document.createElement('span'); s.className = 'w'; s.textContent = part; frag.append(s); }
-        }
-        node.replaceWith(frag);
-      }
-    }
-  }
-  container.classList.add('tk');
+// Tokens are read straight from the layout (element boxes and word ranges), so nothing in the DOM changes to measure.
+function linesInView(container, margin = 120) {
+  const top0 = geo.topH + geo.rhH - margin;
+  const vh = innerHeight + margin;
+  return $$('.ln, .psg-tag', container).filter((l) => { const r = l.getBoundingClientRect(); return r.bottom > top0 && r.top < vh; });
 }
 
-function tokenKey(el) {
-  let t = el.textContent.trim();
+function tokenKey(text, cls) {
+  let t = text.trim();
   if (!t) return null;
-  if (el.classList.contains('op') || el.classList.contains('lbl') || el.classList.contains('bc-from')) return null;
+  if (cls === 'op' || cls === 'lbl' || cls === 'bc-from') return null;
   if (/^R\d+$|^K\d+$|^L\d+:?$|^\+\d+$/.test(t)) return null;
   t = t.replace(/^\[|\]$/g, '').replace(/^['"`]|['"`]$/g, '').replace(/^\}|\{$/g, '');
   return t || null;
 }
 
-function tokensOf(container) {
-  return $$('.t span:not(:has(span))', container).filter((s) => s.offsetParent).map((el) => ({ el, key: tokenKey(el) }));
+const styleCache = new Map();
+function styleOf(el, cls) {
+  // colour and font per token class, read once from a real element of that class
+  const line = el.closest('.ln');
+  const key = `${cls}|${line ? line.className : ''}`;
+  let st = styleCache.get(key);
+  if (!st) {
+    const cs = getComputedStyle(el);
+    st = { color: cs.color, font: `${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}` };
+    styleCache.set(key, st);
+  }
+  return st;
+}
+
+function tokensOf(lines) {
+  const out = [];
+  const range = document.createRange();
+  for (const line of lines) {
+    const t = line.classList.contains('psg-tag') ? line : $('.t', line);
+    if (!t) continue;
+    const walker = document.createTreeWalker(t, NodeFilter.SHOW_TEXT);
+    while (walker.nextNode()) {
+      const node = walker.currentNode;
+      const parent = node.parentElement;
+      const cls = parent === t || parent.tagName === 'MARK' ? '' : parent.className;
+      const text = node.textContent;
+      const re = /\S+/g;
+      let m;
+      while ((m = re.exec(text))) {
+        range.setStart(node, m.index);
+        range.setEnd(node, m.index + m[0].length);
+        const rects = range.getClientRects();
+        if (rects.length !== 1) continue;
+        const r = rects[0];
+        const st = styleOf(parent, cls);
+        out.push({ text: m[0], key: tokenKey(m[0], cls), x: r.left, y: r.top, h: r.height, color: st.color, font: st.font });
+      }
+    }
+  }
+  return out;
 }
 
 function lcsPairs(a, b) {
@@ -646,6 +688,95 @@ function sourceHtml(p, d) {
   return tag + rows.join('') + SPACER;
 }
 
+// One canvas over the visible part of the column draws the morph: tokens both views share glide from their old
+// place to their new one, the old view's other tokens fade out, the new view's fade in. The DOM swaps at once
+// underneath and shows again when the canvas leaves.
+function playMorph(before, now, pairs, newLines) {
+  const codeRect = code.getBoundingClientRect();
+  const top0 = Math.max(codeRect.top, geo.topH + geo.rhH);
+  const bottom0 = Math.min(codeRect.bottom, innerHeight);
+  if (bottom0 - top0 < 20) return Promise.resolve();
+  const W = codeRect.width;
+  const H = bottom0 - top0;
+  const dpr = Math.min(devicePixelRatio || 1, 2);
+  const cv = document.createElement('canvas');
+  cv.className = 'morph-canvas';
+  cv.width = Math.round(W * dpr);
+  cv.height = Math.round(H * dpr);
+  cv.style.cssText = `top:${top0 - codeRect.top}px;width:${W}px;height:${H}px`;
+  const ctx = cv.getContext('2d');
+  ctx.scale(dpr, dpr);
+  ctx.textBaseline = 'alphabetic';
+  const ox = codeRect.left;
+  const oy = top0;
+  // the descent of each face, so a glyph lands on the same baseline the DOM draws it on
+  const descents = new Map();
+  const descentOf = (font) => {
+    let dsc = descents.get(font);
+    if (dsc === undefined) { ctx.font = font; dsc = ctx.measureText('Hg').fontBoundingBoxDescent || 3; descents.set(font, dsc); }
+    return dsc;
+  };
+  const matchedOld = new Set(pairs.map(([i]) => i));
+  const matchedNew = new Set(pairs.map(([, j]) => j));
+  const moves = pairs.map(([i, j]) => ({ a: before[i], b: now[j], delay: Math.min(0.12, Math.abs(now[j].y - before[i].y) / 4000) }));
+  const leaving = before.filter((_, i) => !matchedOld.has(i));
+  const arriving = now.filter((_, j) => !matchedNew.has(j)).map((t) => ({ t, delay: 0.2 + Math.min(0.25, Math.max(0, t.y - oy) / 3000) }));
+  for (const l of newLines) l.style.visibility = 'hidden';
+  code.append(cv);
+  const ease = (x) => 1 - Math.pow(1 - x, 4);
+  const DUR = 760;
+  return new Promise((resolve) => {
+    const t0 = performance.now();
+    const frame = (clock) => {
+      const t = Math.min(1, (clock - t0) / DUR);
+      ctx.clearRect(0, 0, W, H);
+      const fade = Math.max(0, 1 - t / 0.32);
+      if (fade > 0) {
+        ctx.globalAlpha = fade;
+        for (const k of leaving) { ctx.font = k.font; ctx.fillStyle = k.color; ctx.fillText(k.text, k.x - ox, k.y + k.h - descentOf(k.font) - oy); }
+      }
+      ctx.globalAlpha = 1;
+      for (const m of moves) {
+        const e = ease(Math.max(0, Math.min(1, (t - m.delay) / (1 - m.delay))));
+        const x = m.a.x + (m.b.x - m.a.x) * e;
+        const y = m.a.y + (m.b.y - m.a.y) * e;
+        if (m.a.text === m.b.text && m.a.font === m.b.font) {
+          ctx.font = m.b.font;
+          ctx.fillStyle = e < 0.5 ? m.a.color : m.b.color;
+          ctx.fillText(m.b.text, x - ox, y + m.b.h - descentOf(m.b.font) - oy);
+        } else {
+          // the same name, spelled two ways (`"Humanoid"` and `['Humanoid']`): one fades into the other as it travels
+          ctx.globalAlpha = 1 - e;
+          ctx.font = m.a.font;
+          ctx.fillStyle = m.a.color;
+          ctx.fillText(m.a.text, x - ox, y + m.a.h - descentOf(m.a.font) - oy);
+          ctx.globalAlpha = e;
+          ctx.font = m.b.font;
+          ctx.fillStyle = m.b.color;
+          ctx.fillText(m.b.text, x - ox, y + m.b.h - descentOf(m.b.font) - oy);
+          ctx.globalAlpha = 1;
+        }
+      }
+      for (const n of arriving) {
+        const e = ease(Math.max(0, Math.min(1, (t - n.delay) / (1 - n.delay))));
+        if (e <= 0) continue;
+        ctx.globalAlpha = e;
+        ctx.font = n.t.font;
+        ctx.fillStyle = n.t.color;
+        ctx.fillText(n.t.text, n.t.x - ox, n.t.y + n.t.h - descentOf(n.t.font) - oy + (1 - e) * 4);
+      }
+      ctx.globalAlpha = 1;
+      if (t < 1) requestAnimationFrame(frame);
+      else {
+        for (const l of newLines) l.style.visibility = '';
+        cv.remove();
+        resolve();
+      }
+    };
+    requestAnimationFrame(frame);
+  });
+}
+
 let morphing = false;
 
 async function setView(p, view) {
@@ -663,16 +794,13 @@ async function setView(p, view) {
     alt.hidden = true;
     const info = d.passages.find((q) => q.id === p.id);
     alt.innerHTML = view === 'bytecode' ? bytecodeHtml(info) : sourceHtml(info, d);
-    wrapWords(alt);
     p.append(alt);
   }
   const oldEl = prev === 'tovek' ? body : $(`.psg-alt[data-view="${prev}"]`, p);
   const newEl = view === 'tovek' ? body : alt;
-  if (!body.classList.contains('tk')) wrapWords(body);
 
   const animate = !reduced.matches;
-  const codeRect0 = code.getBoundingClientRect();
-  const before = animate ? tokensOf(oldEl).map((t) => ({ ...t, rect: t.el.getBoundingClientRect() })) : [];
+  const before = animate ? tokensOf(linesInView(oldEl)) : [];
   const after = passages.slice(passages.indexOf(p) + 1);
   const afterTop0 = after.length ? after[0].getBoundingClientRect().top : 0;
   const pTop0 = p.getBoundingClientRect().top;
@@ -690,58 +818,22 @@ async function setView(p, view) {
   layoutNotes();
 
   if (animate) {
-    const codeRect = code.getBoundingClientRect();
-    const now = tokensOf(newEl).map((t) => ({ ...t, rect: t.el.getBoundingClientRect() }));
+    const newLines = linesInView(newEl);
+    const now = tokensOf(newLines);
     const pairs = lcsPairs(before, now);
-    const matchedNew = new Set();
-    const matchedOld = new Set();
-    const vh = innerHeight;
-    const anims = [];
-    for (const [i, j] of pairs) {
-      const o = before[i].rect;
-      const n = now[j].rect;
-      if ((o.bottom < -200 && n.bottom < -200) || (o.top > vh + 200 && n.top > vh + 200)) continue;
-      matchedNew.add(j);
-      matchedOld.add(i);
-      const dx = o.left - n.left;
-      const dy = (o.top - codeRect0.top) - (n.top - codeRect.top);
-      if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5) continue;
-      anims.push(now[j].el.animate([{ transform: `translate(${dx}px, ${dy}px)` }, { transform: 'none' }],
-        { duration: 680, easing: EASE, delay: Math.min(140, Math.abs(dy) * 0.08) }));
-    }
-    now.forEach((t, j) => {
-      if (matchedNew.has(j)) return;
-      if (t.rect.bottom < -50 || t.rect.top > vh + 50) return;
-      anims.push(t.el.animate([{ opacity: 0, transform: 'translateY(5px)' }, { opacity: 1, transform: 'none' }],
-        { duration: 420, easing: EASE, delay: 180 + Math.min(240, (t.rect.top - codeRect.top) * 0.05), fill: 'backwards' }));
-    });
-    // the old view's unmatched tokens leave from where they were
-    const ghosts = document.createElement('div');
-    ghosts.className = 'morph-ghosts';
-    const cs = getComputedStyle(code);
-    before.forEach((t, i) => {
-      if (matchedOld.has(i)) return;
-      if (t.rect.bottom < -50 || t.rect.top > vh + 50) return;
-      const s = document.createElement('span');
-      s.className = t.el.className;
-      s.textContent = t.el.textContent;
-      s.style.left = `${t.rect.left - codeRect0.left}px`;
-      s.style.top = `${t.rect.top - codeRect0.top}px`;
-      s.style.font = cs.font;
-      if (t.el.closest('.r')) s.classList.add('r');
-      ghosts.append(s);
-    });
-    code.append(ghosts);
-    const fade = ghosts.animate([{ opacity: 1 }, { opacity: 0, filter: 'blur(2px)' }], { duration: 260, easing: 'ease-out', fill: 'forwards' });
-    fade.finished.then(() => ghosts.remove());
-    // what follows the passage slides to its new place
+    const jobs = [playMorph(before, now, pairs, newLines)];
+    // what follows the passage slides to its new place, if it is on screen
     if (after.length) {
       const dy = afterTop0 - after[0].getBoundingClientRect().top + shift;
       if (Math.abs(dy) > 0.5) {
-        for (const q of after.slice(0, 4)) anims.push(q.animate([{ transform: `translateY(${dy}px)` }, { transform: 'none' }], { duration: 620, easing: EASE }));
+        for (const q of after) {
+          const r = q.getBoundingClientRect();
+          if (r.top > innerHeight || r.top + dy > innerHeight) break;
+          jobs.push(q.animate([{ transform: `translateY(${dy}px)` }, { transform: 'none' }], { duration: 640, easing: EASE }).finished.catch(() => {}));
+        }
       }
     }
-    await Promise.all(anims.map((a) => a.finished.catch(() => {})));
+    await Promise.all(jobs);
   }
   morphing = false;
   leaders.classList.remove('is-quiet');
@@ -942,6 +1034,7 @@ function showResult(res, meta) {
   enterReading(meta.title, lines);
 }
 
+let renderJob = 0;
 function enterReading(title, lines) {
   reading = { title };
   ms.classList.add('is-reading');
@@ -949,18 +1042,36 @@ function enterReading(title, lines) {
   let box = $('.reading', code);
   if (!box) { box = document.createElement('div'); box.className = 'reading'; code.append(box); }
   box.replaceChildren();
+  readingLines = lines;
+  const job = ++renderJob;
   if (lines) {
     const highlight = lines.length <= 4000;
     const CHUNK = 200;
-    const frag = document.createDocumentFragment();
+    const lh = parseFloat(getComputedStyle(code).lineHeight) || 24;
+    const chunks = [];
     for (let i = 0; i < lines.length; i += CHUNK) {
       const chunk = document.createElement('div');
       chunk.className = 'chunk';
-      chunk.innerHTML = lines.slice(i, i + CHUNK).map((l, k) => lineHtml(l, i + k + 1, '', highlight)).join('');
-      if (i + CHUNK < lines.length) chunk.style.containIntrinsicSize = `auto ${Math.min(CHUNK, lines.length - i) * parseFloat(getComputedStyle(code).lineHeight || 24)}px`;
-      frag.append(chunk);
+      chunk.style.containIntrinsicSize = `auto ${Math.min(CHUNK, lines.length - i) * lh}px`;
+      chunk.dataset.from = i;
+      chunks.push(chunk);
     }
-    box.append(frag);
+    const fill = (chunk) => {
+      const i = +chunk.dataset.from;
+      chunk.innerHTML = lines.slice(i, i + CHUNK).map((l, k) => lineHtml(l, i + k + 1, '', highlight)).join('');
+    };
+    // the first screens at once, the rest a few chunks per frame so the page never stalls
+    chunks.slice(0, 2).forEach(fill);
+    box.append(...chunks);
+    let next = 2;
+    const step = () => {
+      if (job !== renderJob) return;
+      const until = performance.now() + 8;
+      while (next < chunks.length && performance.now() < until) fill(chunks[next++]);
+      if (next < chunks.length) requestAnimationFrame(step);
+      else relayout();
+    };
+    if (next < chunks.length) requestAnimationFrame(step);
   }
   crumbFile.textContent = title;
   crumbPsg.textContent = lines ? `${fmtInt(lines.length)} lines` : 'not decompiled';
@@ -971,6 +1082,8 @@ function enterReading(title, lines) {
 
 function leaveReading() {
   reading = null;
+  readingLines = null;
+  renderJob++;
   ms.classList.remove('is-reading');
   const box = $('.reading', code);
   if (box) box.remove();
@@ -1060,52 +1173,18 @@ $('#history').addEventListener('click', (e) => {
   if (b) readStage(b.dataset.stage);
 });
 
-// ------------------------------------------------------------------ films: the registry decides, frames are drawn live
+// ------------------------------------------------------------------ films: the page is built with the registry's films; re-check it here
 
 async function films() {
   let registry;
   try { registry = await import(here('../../../watch/films/index.js')); } catch { return; }
   const launch = registry.FILMS.find((f) => f.id === 'v26' && f.available && f.listed !== false);
-  if (launch) {
-    const btn = $('.btn-launch');
-    if (btn) btn.hidden = false;
-    const list = $('#films-list');
-    if (!$('[data-film="v26"]', list)) {
-      const a = document.createElement('a');
-      a.className = 'film';
-      a.href = 'watch/?film=v26';
-      a.dataset.film = 'v26';
-      a.innerHTML = `<span class="film-frame"><canvas aria-hidden="true"></canvas><span class="film-play" aria-hidden="true"><svg viewBox="0 0 16 16"><path d="M5 3.2v9.6L12.6 8z"/></svg></span></span>
-        <span class="film-kicker">${escapeHtml(launch.kicker || 'Launch film')}</span><span class="film-title">${escapeHtml(launch.title)}</span><span class="film-text">${escapeHtml(launch.description || '')}</span>`;
-      list.append(a);
-    }
+  const btn = $('.btn-launch');
+  if (btn) btn.hidden = !launch;
+  for (const card of $$('.film')) {
+    const f = registry.filmById(card.dataset.film);
+    if (!f || !f.available) card.hidden = true;
   }
-  const io = new IntersectionObserver((entries) => {
-    for (const en of entries) {
-      if (!en.isIntersecting) continue;
-      io.unobserve(en.target);
-      poster(en.target, registry).catch(() => {});
-    }
-  }, { rootMargin: '300px 0px' });
-  for (const f of $$('.film')) io.observe(f);
-}
-
-async function poster(card, registry) {
-  const entry = registry.filmById(card.dataset.film);
-  if (!entry || !entry.available) return;
-  const [engine, mod] = await Promise.all([
-    import(here('../../../watch/engine/index.js')),
-    import(here('../../../watch/films/' + entry.src.replace(/^\.\//, ''))),
-  ]);
-  const film = await engine.openFilm(mod, { base: here('../../../watch/') });
-  const canvas = $('canvas', card);
-  const stage = engine.createStage(canvas);
-  const draw = () => {
-    stage.resize(canvas.clientWidth, canvas.clientHeight, Math.min(devicePixelRatio || 1, 2));
-    stage.draw(film, film.poster ?? 1);
-  };
-  draw();
-  new ResizeObserver(() => requestAnimationFrame(draw)).observe(canvas);
 }
 
 // ------------------------------------------------------------------ the title is annotated too: a leader from the promise to the script's facts
@@ -1172,7 +1251,17 @@ function start() {
   });
   films();
   if (location.hash === '#read') openReader(false);
+  // lay the plates out ahead of the reader, one per idle moment, so scrolling to them costs nothing
+  const plates = $$('.plate');
+  const idle = window.requestIdleCallback || ((fn) => setTimeout(() => fn({ timeRemaining: () => 8 }), 120));
+  const readyNext = () => {
+    const next = plates.find((pl) => !pl.classList.contains('is-ready'));
+    if (!next) return;
+    next.classList.add('is-ready');
+    idle(readyNext, { timeout: 2000 });
+  };
+  idle(readyNext, { timeout: 2000 });
 }
 
-onScrollChrome();
-document.fonts.ready.then(start);
+// no layout is read while the module loads: everything waits for the fonts, then one frame
+document.fonts.ready.then(() => requestAnimationFrame(start));

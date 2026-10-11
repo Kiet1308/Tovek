@@ -357,6 +357,7 @@ mark.ns.is-on { background: var(--hl); box-shadow: inset 0 -1.5px 0 var(--signal
 .ne { margin: 10px 0 0; padding-left: 12px; box-shadow: inset 1px 0 0 var(--rule-strong); }
 .nel { margin: 0 0 3px; font: 500 10px/1.3 var(--font-mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-soft); }
 .ne pre { margin: 0; font-size: 11.5px; line-height: 1.6; color: var(--ink-2); white-space: pre-wrap; overflow-wrap: anywhere; tab-size: 2; }
+.ne pre .op { display: inline; min-width: 0; }
 .note.is-near .nn, .note.is-on .nn { color: var(--signal-ink); }
 .note.is-on .ne { box-shadow: inset 1px 0 0 var(--signal-deep); }
 .note.is-hidden { visibility: hidden; }
@@ -413,7 +414,7 @@ mark.ns.is-on { background: var(--hl); box-shadow: inset 0 -1.5px 0 var(--signal
 .rc-error { margin: 0 0 16px; padding: 12px 14px; border-radius: 8px; background: rgba(18, 18, 16, 0.045); font: 400 12.5px/1.55 var(--font-mono); color: var(--ink); white-space: pre-wrap; overflow-wrap: anywhere; }
 
 .ms.is-reading .note, .ms.is-reading .leaders { display: none; }
-.code .chunk { content-visibility: auto; contain-intrinsic-size: auto 2400px; }
+.code .chunk { content-visibility: auto; }
 
 /* end of the script */
 .ms-end { padding-top: 0; padding-bottom: clamp(64px, 10vh, 120px); }
@@ -440,6 +441,8 @@ mark.ns.is-on { background: var(--hl); box-shadow: inset 0 -1.5px 0 var(--signal
   padding: 40px 0 46px; border-top: 1px solid var(--ink);
 }
 .plate + .plate { border-top-color: var(--rule-strong); }
+/* the plates are laid out after the first screen, one per idle moment (landing.js), not all in the first frame */
+.js .plate:not(.is-ready) { content-visibility: auto; contain-intrinsic-size: auto 560px; }
 .plate-head { display: flex; flex-direction: column; gap: 10px; }
 .plate-no { margin: 0; font: 500 12px/1 var(--font-mono); letter-spacing: 0.1em; color: var(--ink-soft); }
 .plate h2 {
@@ -519,7 +522,9 @@ mark.ns.is-on { background: var(--hl); box-shadow: inset 0 -1.5px 0 var(--signal
   position: relative; display: block; aspect-ratio: 16 / 9; border-radius: var(--radius); overflow: hidden;
   background: var(--night); margin-bottom: 8px;
 }
-.film-frame canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+.film-frame img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transition: transform 0.6s var(--ease-out); }
+.film:hover .film-frame img { transform: scale(1.015); }
+.film-time { position: absolute; right: 14px; bottom: 14px; padding: 4px 8px; border-radius: 999px; background: rgba(13, 13, 12, 0.72); color: var(--paper); font: 500 11.5px/1 var(--font-mono); font-variant-numeric: tabular-nums; }
 .film-play {
   position: absolute; left: 16px; bottom: 16px; width: 44px; height: 44px; border-radius: 50%;
   display: grid; place-items: center; background: var(--paper); color: var(--ink);
@@ -569,15 +574,14 @@ mark.ns.is-on { background: var(--hl); box-shadow: inset 0 -1.5px 0 var(--signal
 .dropveil.is-on { opacity: 1; }
 .dropveil p { margin: 0; padding: 22px 28px; border: 1px dashed var(--signal-deep); border-radius: var(--radius); background: var(--sheet); font: 600 20px/1.3 var(--font-display); font-variation-settings: "opsz" 36, "wdth" 100; }
 
-/* the lens morph: tokens become boxes so each can travel on its own */
-.tk .t span { display: inline-block; text-indent: 0; }
-.tk .t .bc-from { display: inline; }
-.morph-ghosts { position: absolute; inset: 0; pointer-events: none; z-index: 2; }
-.morph-ghosts span { position: absolute; white-space: pre; }
+/* the lens morph is drawn on one canvas over the visible column */
+.morph-canvas { position: absolute; left: 0; z-index: 3; pointer-events: none; }
 
 /* ------------------------------------------------------------------ entrance */
 
-.js .hero .kicker, .js .hero h1 .h1-line, .js .hero .lead, .js .hero .actions, .js .hero-facts {
+/* nothing moves while the fonts arrive: the page shows once they are in (or after 1.6 s) */
+.js:not(.fonts-ok) .top, .js:not(.fonts-ok) main, .js:not(.fonts-ok) .foot { visibility: hidden; }
+.js.fonts-ok .hero .kicker, .js.fonts-ok .hero h1 .h1-line, .js.fonts-ok .hero .lead, .js.fonts-ok .hero .actions, .js.fonts-ok .hero-facts {
   animation: rise 0.9s var(--ease-out) both;
 }
 .js .hero h1 .h1-line:nth-child(2) { animation-delay: 70ms; }
@@ -653,7 +657,7 @@ mark.ns.is-on { background: var(--hl); box-shadow: inset 0 -1.5px 0 var(--signal
   .nm { position: relative; }
   .nm[aria-expanded="true"] { background: var(--signal-deep); color: #fff; }
   .note {
-    position: static; width: auto; opacity: 1;
+    position: static; width: auto; opacity: 1; transform: none;
     display: grid; grid-template-rows: 0fr;
     margin: 0 12px 0 var(--ln-w);
     transition: grid-template-rows 0.38s var(--ease-out), margin 0.38s var(--ease-out);

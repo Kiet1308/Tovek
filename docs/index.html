@@ -22,8 +22,16 @@
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,200..800&family=Geist:wght@300..800&family=Geist+Mono:wght@400..600&display=swap">
   <link rel="stylesheet" href="assets/v26/tokens.css">
   <link rel="stylesheet" href="assets/v26/landing/landing.css">
+  <script>
+    (function () {
+      var d = document.documentElement, ok = function () { d.classList.add('fonts-ok'); };
+      d.classList.add('js');
+      if (!document.fonts || !document.fonts.load) return ok();
+      Promise.all(['630 98px "Bricolage Grotesque"', '400 16px Geist', '400 13px "Geist Mono"'].map(function (f) { return document.fonts.load(f); })).then(ok, ok);
+      setTimeout(ok, 1600);
+    })();
+  </script>
   <link rel="prefetch" href="data/landing.json" as="fetch" crossorigin>
-  <script>document.documentElement.classList.add('js')</script>
   <script type="module" src="assets/v26/landing/landing.js"></script>
 </head>
 <body>
@@ -55,7 +63,9 @@
       <p class="actions">
         <a class="btn btn-ink" href="https://github.com/Kiet1308/Tovek/releases/latest"><span>Download V2.6</span><svg class="i" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2.5v8m-3.5-3.5L8 10.5 11.5 7M3 13.5h10"/></svg></a>
         <a class="btn" href="watch/?film=story"><svg class="i i-play" viewBox="0 0 16 16" aria-hidden="true"><path d="M5 3.2v9.6L12.6 8z"/></svg><span>Watch the film</span></a>
-        <a class="btn btn-launch" href="watch/?film=v26" hidden><svg class="i i-play" viewBox="0 0 16 16" aria-hidden="true"><path d="M5 3.2v9.6L12.6 8z"/></svg><span>Watch V2.6</span></a>
+<!-- gen:launch -->
+<a class="btn btn-launch" href="watch/?film=v26"><svg class="i i-play" viewBox="0 0 16 16" aria-hidden="true"><path d="M5 3.2v9.6L12.6 8z"/></svg><span>Watch V2.6</span></a>
+<!-- /gen:launch -->
         <a class="btn btn-text" href="changelog/v2.6/"><span>What&rsquo;s new in V2.6</span><span class="arr" aria-hidden="true">&rarr;</span></a>
       </p>
     </div>
@@ -451,14 +461,12 @@ v_u_32 <span class="o">=</span> v_u_3<span class="o">.</span>Heartbeat<span clas
       <header class="plate-head"><p class="plate-no">V</p><h2 id="films-h">Films</h2></header>
       <div class="plate-body">
         <div class="films" id="films-list">
-          <a class="film" href="watch/?film=story" data-film="story">
-            <span class="film-frame"><canvas aria-hidden="true"></canvas><span class="film-play" aria-hidden="true"><svg viewBox="0 0 16 16"><path d="M5 3.2v9.6L12.6 8z"/></svg></span></span>
-            <span class="film-kicker">A film about Tovek</span>
-            <span class="film-title">One function, seventeen releases</span>
-            <span class="film-text">The same function, decompiled by every Tovek release since medal.</span>
-          </a>
+<!-- gen:films -->
+<a class="film" href="watch/?film=story" data-film="story"><span class="film-frame"><img src="assets/v26/landing/poster-story.jpg" alt="" width="960" height="540" loading="lazy" decoding="async"><span class="film-play" aria-hidden="true"><svg viewBox="0 0 16 16"><path d="M5 3.2v9.6L12.6 8z"/></svg></span><span class="film-time">2:40</span></span><span class="film-kicker">A film about Tovek</span><span class="film-title">One function, seventeen releases</span><span class="film-text">The same function, decompiled by every Tovek release since medal.</span></a>
+<a class="film" href="watch/?film=v26" data-film="v26"><span class="film-frame"><img src="assets/v26/landing/poster-v26.jpg" alt="" width="960" height="540" loading="lazy" decoding="async"><span class="film-play" aria-hidden="true"><svg viewBox="0 0 16 16"><path d="M5 3.2v9.6L12.6 8z"/></svg></span><span class="film-time">1:52</span></span><span class="film-kicker">Launch film</span><span class="film-title">Tovek V2.6</span><span class="film-text">What Tovek is, and what V2.6 brings.</span></a>
+<!-- /gen:films -->
         </div>
-        <p class="fine">Drawn live in your browser from their source, frame by frame. <a href="watch/">Open the cinema</a></p>
+        <p class="fine">Both play in your browser, drawn live from their source, frame by frame. <a href="watch/">Open the cinema</a></p>
       </div>
     </article>
 

@@ -16041,5 +16041,23 @@
       }
     ]
   },
+  "films": [
+    {
+      "id": "story",
+      "kicker": "A film about Tovek",
+      "title": "One function, seventeen releases",
+      "description": "The same function, decompiled by every Tovek release since medal.",
+      "poster": "assets/v26/landing/poster-story.jpg",
+      "duration": 160
+    },
+    {
+      "id": "v26",
+      "kicker": "Launch film",
+      "title": "Tovek V2.6",
+      "description": "What Tovek is, and what V2.6 brings.",
+      "poster": "assets/v26/landing/poster-v26.jpg",
+      "duration": 112.5
+    }
+  ],
   "medal_bytecode_note": "medal reads bytecode up to version 5, so it got the same source compiled by Luau 0.607."
 }
