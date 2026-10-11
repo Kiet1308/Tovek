@@ -2090,16 +2090,31 @@ function warmOne() {
   if (warm.length) kick();
 }
 
+// The smallest code a still figure shows. A still figure cannot pan, so where the 10^2 lines fitted whole would come
+// out smaller (a phone), the figure is drawn larger, in a strip that scrolls sideways to the line ends.
+const STILL_MIN_FONT = 9.6;
+
 function renderStatic() {
   const figs = [...document.querySelectorAll('.plate-fig')];
   for (const fig of figs) {
     const cv = fig.querySelector('canvas');
-    const w = fig.clientWidth, h = fig.clientHeight || w;
+    const which = fig.dataset.plate;
+    unwiden(fig, cv);
+    let w = fig.clientWidth, h = fig.clientHeight || w;
     if (!w) continue;
+    const mobile = w < 520;
+    let sc = makeScene(w, h, { mobile, still: true, box: { x: 0, y: 0, w, h } });
+    if (which === '2') {
+      // the whole picture scales with the figure, its code with it
+      const grow = Math.min(2.4, STILL_MIN_FONT / (sc.lv[2].fs2 * sc.lv[2].scale));
+      if (grow > 1.02) {
+        w = Math.round(w * grow); h = Math.round(h * grow);
+        widen(fig, cv, w, h);
+        sc = makeScene(w, h, { mobile, still: true, box: { x: 0, y: 0, w, h } });
+      }
+    }
     const R = makeRenderer(cv);
     R.resize(w, h);
-    const sc = makeScene(w, h, { mobile: w < 520, still: true, box: { x: 0, y: 0, w, h } });
-    const which = fig.dataset.plate;
     const z = which === 'lit' ? 0 : Number(which);
     const q = new Float32Array(7);
     for (let i = 0; i < 7; i++) q[i] = i < z ? 1 : i === z ? 1 : 0;
@@ -2107,6 +2122,41 @@ function renderStatic() {
     if (which === '0') st.risen = false;
     render(R, sc, st, { intro: 1 });
   }
+}
+
+// A figure wider than its column scrolls on purpose: it can be focused and scrolled by keyboard, its far edge fades
+// while there is more, and a label that stays put says where the rest is.
+function widen(fig, cv, w, h) {
+  fig.classList.add('plate-fig--wide');
+  fig.tabIndex = 0;
+  fig.setAttribute('role', 'region');
+  fig.setAttribute('aria-label', 'Code figure, wider than the screen: scroll sideways for the line ends');
+  cv.style.width = `${w}px`;
+  cv.style.height = `${h}px`;
+  if (!fig.querySelector('.plate-hint')) {
+    const hint = document.createElement('span');
+    hint.className = 'plate-hint';
+    hint.setAttribute('aria-hidden', 'true');
+    fig.append(hint);
+  }
+  if (!fig.dataset.edges) { fig.dataset.edges = '1'; fig.addEventListener('scroll', () => plateEdges(fig), { passive: true }); }
+  plateEdges(fig);
+}
+function plateEdges(fig) {
+  const hint = fig.querySelector('.plate-hint');
+  if (!hint) return;
+  const right = fig.scrollLeft < fig.scrollWidth - fig.clientWidth - 2;
+  fig.classList.toggle('more-right', right);
+  hint.textContent = right ? 'Scroll for the line ends' : 'Scroll back';
+}
+function unwiden(fig, cv) {
+  if (!fig.classList.contains('plate-fig--wide')) return;
+  fig.classList.remove('plate-fig--wide', 'more-right');
+  fig.removeAttribute('tabindex');
+  fig.removeAttribute('role');
+  fig.removeAttribute('aria-label');
+  cv.style.width = cv.style.height = '';
+  fig.querySelector('.plate-hint')?.remove();
 }
 
 // ------------------------------------------------------------------ start

@@ -453,6 +453,21 @@ html:not(.js) .cap > *, .static .cap > * { grid-column: 1; }
 html:not(.js) .cap--hero, .static .cap--hero { border-top: 0; padding-top: 48px; }
 .static .plate-fig { display: block; grid-column: 2; grid-row: 1 / span 12; align-self: start; width: 100%; aspect-ratio: 1; max-width: 640px; justify-self: end; }
 .static .plate-fig canvas { width: 100%; height: 100%; }
+/* a still 10^2 on a phone, drawn at a size that reads: it scrolls sideways on purpose, its right edge fades while
+   there is more, and the label stays at the left while the code moves under it */
+.static .plate-fig--wide { aspect-ratio: auto; overflow-x: auto; overflow-y: hidden; overscroll-behavior-x: contain; scrollbar-width: none; }
+.static .plate-fig--wide::-webkit-scrollbar { display: none; }
+.static .plate-fig--wide.more-right {
+  -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 44px), transparent);
+  mask-image: linear-gradient(90deg, #000 calc(100% - 44px), transparent);
+}
+.static .plate-fig--wide canvas { display: block; max-width: none; }
+.plate-hint {
+  position: sticky; left: 0; display: flex; align-items: center; gap: 8px; width: max-content; margin-top: 10px;
+  font: 500 11px/1 var(--font-mono); letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-3);
+}
+.plate-hint::after { content: "\2192"; font-size: 13px; color: var(--signal-deep); }
+.plate-fig--wide:not(.more-right) .plate-hint::after { content: "\2190"; }
 
 /* ------------------------------------------------------------------ narrower screens */
 
