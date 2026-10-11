@@ -191,7 +191,7 @@ class FuzzRoundtripTests(unittest.TestCase):
         self.assertEqual(set(hosts), set(CELL_HOSTS) | {"block", "inlined", "reached"})
         self.assertTrue(all(hosts.values()), hosts)
 
-    def test_error_levels_are_recorded_by_whether_a_position_is_there(self):
+    def test_error_levels_are_recorded_without_a_position(self):
         levels = set()
         for seed in range(100):
             source = text_of(Generator(seed).error_level())
@@ -200,7 +200,7 @@ class FuzzRoundtripTests(unittest.TestCase):
             levels.add(level.group(2))
             self.assertRegex(source, r"local ok\d+, problem\d+ = pcall\((set\d+, |function\(\) check\d+\()")
             self.assertIn('(string.gsub(problem', source)
-            self.assertIn('"^[^:]*:%d+: ", "@:"))', source)
+            self.assertIn('"^[^:]*:%d+: ", ""))', source)
         self.assertEqual(levels, set(ERROR_LEVELS))
 
     def test_closure_identity_compares_closures_made_in_a_loop(self):

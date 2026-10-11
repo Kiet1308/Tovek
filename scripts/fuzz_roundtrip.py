@@ -27,7 +27,8 @@ caller's local read after an enclosing `if`, around a loop or in a `while`
 condition (or dead); `returned-cell` changes outer state and returns an
 outer local to a statement that reads other outer state first;
 `error-level` calls `error(message, level)` under `pcall` and records
-whether the message has a position; `closure-identity` compares closures
+the message without its position (positions are not part of what a
+decompile keeps); `closure-identity` compares closures
 made in a loop with `==` (DUPCLOSURE against NEWCLOSURE), partly in the
 main chunk; `service-handle` passes GetService/require handles (global
 stubs) to the helper; `constant-args` passes constants that the inlined
@@ -798,8 +799,9 @@ class Generator:
     def error_level(self):
         """A helper raising `error(message, level)`, called under `pcall`.
         In an -O2 copy, level 2 names the caller's caller; rebuilt as a
-        call, the caller (M2 review finding 5). The message keeps whether it
-        has a position (`@:`), not the position itself."""
+        call, the caller (M2 review finding 5). Positions are not part of
+        what a decompile keeps, so the message is recorded without one: the
+        helper may be rebuilt, its message must stay."""
         rng = self.deinline_rng
         check, setter = self.fresh("check"), self.fresh("set")
         message = rng.choice(["\"bad \" .. name", "{reason = name}"])
@@ -813,7 +815,7 @@ class Generator:
             ok, problem = self.fresh("ok"), self.fresh("problem")
             lines += [f"local {ok}, {problem} = pcall({protected})",
                       f"record({ok}, if typeof({problem}) == \"string\" then "
-                      f"(string.gsub({problem}, \"^[^:]*:%d+: \", \"@:\")) else {problem})"]
+                      f"(string.gsub({problem}, \"^[^:]*:%d+: \", \"\")) else {problem})"]
         return [self.unit(lines)]
 
     def closure_identity(self):
