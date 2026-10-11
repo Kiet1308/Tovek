@@ -729,7 +729,9 @@ function playMorph(before, now, pairs, newLines) {
   const moves = pairs.map(([i, j]) => ({ a: before[i], b: now[j], delay: Math.min(0.12, Math.abs(now[j].y - before[i].y) / 4000) }));
   const leaving = before.filter((_, i) => !matchedOld.has(i));
   const arriving = now.filter((_, j) => !matchedNew.has(j)).map((t) => ({ t, delay: 0.2 + Math.min(0.25, Math.max(0, t.y - oy) / 3000) }));
-  for (const l of newLines) l.style.visibility = 'hidden';
+  // hide the new text (not the line numbers) while the canvas draws it
+  const hidden = newLines.map((l) => (l.classList.contains('psg-tag') ? l : $('.t', l) || l));
+  for (const el of hidden) el.style.visibility = 'hidden';
   code.append(cv);
   const ease = (x) => 1 - Math.pow(1 - x, 4);
   const DUR = 760;
@@ -776,7 +778,7 @@ function playMorph(before, now, pairs, newLines) {
       ctx.globalAlpha = 1;
       if (t < 1) requestAnimationFrame(frame);
       else {
-        for (const l of newLines) l.style.visibility = '';
+        for (const el of hidden) el.style.visibility = '';
         cv.remove();
         resolve();
       }
@@ -1043,7 +1045,7 @@ function showResult(res, meta) {
 }
 
 let renderJob = 0;
-function enterReading(title, lines) {
+function enterReading(title, lines, keepScroll = false) {
   reading = { title };
   ms.classList.add('is-reading');
   for (const p of passages) p.hidden = true;
@@ -1085,7 +1087,7 @@ function enterReading(title, lines) {
   crumbPsg.textContent = lines ? `${fmtInt(lines.length)} lines` : 'not decompiled';
   for (const b of $$('button', lens)) { b.disabled = true; b.setAttribute('aria-checked', String(b.dataset.view === 'tovek')); }
   relayout();
-  requestAnimationFrame(() => scrollTo({ top: docTop(ms) - top.offsetHeight - runhead.offsetHeight, behavior: 'auto' }));
+  if (!keepScroll) requestAnimationFrame(() => scrollTo({ top: docTop(ms) - top.offsetHeight - runhead.offsetHeight, behavior: 'auto' }));
 }
 
 function leaveReading() {
@@ -1121,7 +1123,7 @@ readcard.addEventListener('click', async (e) => {
     a.click();
     setTimeout(() => URL.revokeObjectURL(url), 2000);
   }
-  if (b.dataset.act === 'stage') readStage(b.dataset.stage);
+  if (b.dataset.act === 'stage') readStage(b.dataset.stage, true);
 });
 
 // the page checks itself: decompile Beacon's bytecode here and compare with the column, byte for byte
@@ -1150,8 +1152,13 @@ $('#check-page').addEventListener('click', async (e) => {
 
 // ------------------------------------------------------------------ printing history: read the script as any release printed it
 
-async function readStage(tag) {
+async function readStage(tag, step = false) {
   if (!history) history = await (await fetch(here('../../../data/landing-history.json'))).json();
+  // stepping from one release to the next morphs the column in place, as the history film does
+  const box = $('.reading', code);
+  const morph = step && reading && box && !reduced.matches && !morphing;
+  const before = morph ? tokensOf(linesInView(box)) : null;
+  const focusDir = step && document.activeElement && document.activeElement.dataset ? document.activeElement.dataset.dir : null;
   const d = await loadData();
   const stages = history.stages;
   const i = stages.findIndex((s) => s.tag === tag);
@@ -1170,10 +1177,18 @@ async function readStage(tag) {
       <div><dt>Helper calls</dt><dd>${h.calls_written_back} of ${total}</dd></div>
       <div><dt>Bytecode read</dt><dd>${escapeHtml(h.bytecode)}</dd></div>
     </dl>
-    <p class="rc-actions">${prev ? `<button class="btn" type="button" data-act="stage" data-stage="${prev.tag}">← ${escapeHtml(prev.name)}</button>` : ''}${next ? `<button class="btn" type="button" data-act="stage" data-stage="${next.tag}">${escapeHtml(next.name)} →</button>` : ''}<button class="btn" type="button" data-act="back">Back to the annotated script</button></p>`;
+    <p class="rc-actions">${prev ? `<button class="btn" type="button" data-act="stage" data-dir="prev" data-stage="${prev.tag}">← ${escapeHtml(prev.name)}</button>` : ''}${next ? `<button class="btn" type="button" data-act="stage" data-dir="next" data-stage="${next.tag}">${escapeHtml(next.name)} →</button>` : ''}<button class="btn" type="button" data-act="back">Back to the annotated script</button></p>`;
   readcard._source = s.text;
-  enterReading('Beacon.luau', lines);
+  enterReading('Beacon.luau', lines, step);
   crumbPsg.textContent = `as ${s.name} printed it, ${fmtInt(lines.length)} lines`;
+  if (focusDir) { const b = $(`[data-dir="${focusDir}"]`, readcard) || $('[data-act="stage"]', readcard); if (b) b.focus({ preventScroll: true }); }
+  if (morph) {
+    morphing = true;
+    const newLines = linesInView($('.reading', code));
+    const now = tokensOf(newLines);
+    await playMorph(before, now, lcsPairs(before, now), newLines);
+    morphing = false;
+  }
 }
 
 $('#history').addEventListener('click', (e) => {
