@@ -5,10 +5,55 @@ use crate::{
 use std::{fmt, iter};
 
 #[derive(Clone, PartialEq, Default)]
-pub struct Table(pub Vec<(Option<RValue>, RValue)>, pub crate::node_origins::Origin);
+pub struct Table(pub Vec<(Option<RValue>, RValue)>, pub crate::node_origins::Origin, pub TableShape);
 
 impl Table {
-    pub fn new(fields: Vec<(Option<RValue>, RValue)>) -> Self { Self(fields, Default::default()) }
+    pub fn new(fields: Vec<(Option<RValue>, RValue)>) -> Self { Self(fields, Default::default(), Default::default()) }
+}
+
+/// How the bytecode built a table, which decides the order `next` and
+/// `pairs` visit its keys in: the size of its hash part, and whether a store
+/// of `nil` leaves a key in it. A DUPTABLE copies a template whose keys all
+/// exist before any store, so a key stored `nil` keeps its node; a NEWTABLE
+/// of hash size `hash` gets a key only when a store of a value creates it.
+/// A table grown past its hash part rehashes, which moves its keys. Layout
+/// only: never part of AST equality.
+#[derive(Clone, Copy, Debug, Default)]
+pub enum TableShape {
+    #[default]
+    Unknown,
+    NewTable { hash: u32 },
+    Template { keys: u32 },
+}
+
+impl PartialEq for TableShape {
+    fn eq(&self, _: &Self) -> bool { true }
+}
+
+impl TableShape {
+    /// The nodes Luau gives a hash part sized for `keys` keys.
+    pub fn nodes(keys: u32) -> u32 {
+        if keys == 0 { 0 } else { keys.next_power_of_two() }
+    }
+}
+
+/// Whether a store adding a key may fold into `table`'s constructor without
+/// changing the order `pairs` visits its keys in. A DUPTABLE's hash part has
+/// nodes for its template keys rounded up to a power of two; a store adding a
+/// key past that rehashes the table, and a constructor printing the key would
+/// be a larger template, laid out otherwise: `{a = 1, b = 2}; t.c = 3` is not
+/// `{a = 1, b = 2, c = 3}` under `pairs` (fr-t1110 F2).
+pub fn template_takes_another_key(table: &Table) -> bool {
+    let TableShape::Template { keys } = table.2 else { return true };
+    let listed = table.0.iter().filter(|(key, _)| key.is_some()).count();
+    u32::try_from(listed + 1).is_ok_and(|after| after <= TableShape::nodes(keys))
+}
+
+/// Whether `table` is a DUPTABLE copy: all its template keys exist before
+/// any store, in template order, so a constructor must keep each one in its
+/// place (no store may move a `nil` slot to the end).
+pub fn is_template_copy(table: &Table) -> bool {
+    matches!(table.2, TableShape::Template { .. })
 }
 impl fmt::Debug for Table {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result { f.debug_tuple("Table").field(&self.0).finish() }

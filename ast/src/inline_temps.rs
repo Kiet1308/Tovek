@@ -1884,7 +1884,7 @@ mod tests {
                     2 => Index::new(source.clone().into(), string("field")).into(),
                     3 => crate::Binary::new(source.clone().into(), number(1.0), crate::BinaryOperation::Add).into(),
                     4 => crate::Select::Call(Call::new(global("read"), vec![source.clone().into()])).into(),
-                    5 => crate::Table(vec![(Some(string("value")), source.clone().into())], Default::default()).into(),
+                    5 => crate::Table(vec![(Some(string("value")), source.clone().into())], Default::default(), Default::default()).into(),
                     6 => crate::Binary::new(global("flag"), source.clone().into(), crate::BinaryOperation::And).into(),
                     _ => closure_capturing(&source),
                 };

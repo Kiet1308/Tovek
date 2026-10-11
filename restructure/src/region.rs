@@ -943,7 +943,7 @@ mod capture_query_tests {
         let branch = If::new(Literal::Boolean(true).into(), Block(vec![
             ast::Return::new(vec![second.clone().into()]).into(),
         ]), Block::default());
-        let expression: RValue = ast::Table(vec![(None, shared.clone().into()), (None, second.into())], Default::default()).into();
+        let expression: RValue = ast::Table(vec![(None, shared.clone().into()), (None, second.into())], Default::default(), Default::default()).into();
         let indexed: Statement = Assign::new(vec![ast::Index::new(ast::Global::from("items").into(), expression.clone()).into()],
             vec![Literal::Nil.into()]).into();
         for publish in [false, true] {

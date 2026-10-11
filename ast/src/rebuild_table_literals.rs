@@ -336,6 +336,9 @@ fn rebuild_current_block(block: &mut Block, captured: &rustc_hash::FxHashSet<RcL
                 }
                 None => break,
             };
+            if !keeps_template_layout(table, placement) {
+                break;
+            }
 
             let field_assign = std::mem::replace(statement, crate::Empty {}.into()).into_assign().unwrap();
             let (key, value) = field_assignment_key_value(field_assign);
@@ -1092,6 +1095,22 @@ fn placement(
     }
 }
 
+/// Whether folding a store into a DUPTABLE constructor keeps the order
+/// `pairs` visits its keys in. The template's hash part has nodes for its
+/// keys rounded up to a power of two; a store adding a key past that
+/// rehashes the table, and a constructor printing the key would be a larger
+/// template, laid out otherwise: `{a = 1, b = 2}; t.c = 3` is not `{a = 1,
+/// b = 2, c = 3}` under `pairs` (fr-t1110 F2). A template's keys all exist
+/// before its stores, so moving one to the end (a `nil` slot) changes the
+/// order of insertion too.
+fn keeps_template_layout(table: &Table, placement: Placement) -> bool {
+    match placement {
+        Placement::Replace(_) => true,
+        Placement::MoveToEnd(_) => !crate::is_template_copy(table),
+        Placement::Append => crate::template_takes_another_key(table),
+    }
+}
+
 /// Whether the constructor could take a store to `key` right now. Sinking a
 /// declaration toward a store it cannot absorb only moves the table.
 fn absorbs_store(table: &Table, key: &RValue) -> bool {
@@ -1484,7 +1503,7 @@ mod tests {
                 // entry in the window must stay the selected one (it is the
                 // one a later store overwrites) even after removals.
                 (Some(string(&format!("field{}", index % (initial_len - seed % 7)))), nil())
-            }).collect(), Default::default());
+            }).collect(), Default::default(), Default::default());
             let mut expected = initial.clone();
             let mut actual = initial;
             let mut index = super::PlaceholderEntries::new(&actual).unwrap();
@@ -1514,7 +1533,7 @@ mod tests {
     fn indexed_placeholders_flush_before_dynamic_keys_and_setlist() {
         for with_setlist in [false, true] {
             let object = local("record");
-            let initial = Table((0..32).map(|i| (Some(string(&format!("f{i}"))), nil())).collect(), Default::default());
+            let initial = Table((0..32).map(|i| (Some(string(&format!("f{i}"))), nil())).collect(), Default::default(), Default::default());
             let mut expected = initial.clone();
             let mut statements = vec![declare(&object, initial.into())];
             for i in (0..32).rev() {

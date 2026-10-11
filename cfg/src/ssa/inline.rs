@@ -1141,10 +1141,18 @@ fn fold_table_constructor_field_assignments(
                                 && ast::is_total_pure(value)
                                 && !value.any_local_read(&mut |read| upvalue_to_group.contains_key(read))
                         }) => FieldSlot::Replace(p),
-                Some(p) if ast::is_template_placeholder(&table.0[p].1) && ast::is_total_table_key(key) => {
+                // A DUPTABLE copy keeps its template keys in place and its
+                // hash part's size (`ast::template_takes_another_key`): the
+                // order `pairs` visits keys in depends on both.
+                Some(p) if ast::is_template_placeholder(&table.0[p].1)
+                    && ast::is_total_table_key(key)
+                    && !ast::is_template_copy(table) =>
+                {
                     FieldSlot::MoveToEnd(p)
                 }
+                Some(_) => break,
                 _ if listed.get_or_insert_with(|| ast::ListedKeys::new(table)).lists(table, key) => break,
+                _ if !ast::template_takes_another_key(table) => break,
                 _ => FieldSlot::Append,
             };
 

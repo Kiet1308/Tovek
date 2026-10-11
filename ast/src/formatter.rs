@@ -2299,8 +2299,44 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
         self.format_table_as(table, sequential_keys, should_format)
     }
 
+    /// The entry whose key prints bracketed (`["Parent"] = ...`) so that a
+    /// table the bytecode built with NEWTABLE and stores compiles that way
+    /// again. Printed with record fields only (at most 32), Luau compiles it
+    /// as a DUPTABLE template, whose keys all exist before any store: a key
+    /// stored `nil`, which a NEWTABLE never gets, keeps its node, and `pairs`
+    /// visits the other keys in another order (fr-t1110 F1: `Parent =
+    /// visible and "p" or nil`). A bracketed key keeps the constructor a
+    /// NEWTABLE of the same size, filled in the same order. Only for a value
+    /// spelling `nil` (a `nil` literal, an `and`/`or`/`if` with a `nil`
+    /// arm): any local or call may hold `nil` too, but bracketing every such
+    /// table (most of an older compiler's constructors are NEWTABLE) would
+    /// cost more than the order of a key `pairs` skips.
+    fn keeps_new_table_at(table: &Table) -> Option<usize> {
+        if !matches!(table.2, crate::TableShape::NewTable { .. }) || table.0.is_empty() || table.0.len() > 32 {
+            return None;
+        }
+        let records = table.0.iter().all(|(key, _)| {
+            matches!(key, Some(RValue::Literal(Literal::String(field))) if Self::is_valid_name(field))
+        });
+        if !records {
+            return None;
+        }
+        fn spells_nil(value: &RValue) -> bool {
+            match value {
+                RValue::Literal(Literal::Nil) => true,
+                RValue::Binary(binary) if matches!(binary.operation, crate::BinaryOperation::And | crate::BinaryOperation::Or) => {
+                    spells_nil(&binary.left) || spells_nil(&binary.right)
+                }
+                RValue::IfExpression(node) => spells_nil(&node.then_value) || spells_nil(&node.else_value),
+                _ => false,
+            }
+        }
+        table.0.iter().position(|(_, value)| spells_nil(value))
+    }
+
     /// `should_format`: one entry per line.
     fn format_table_as(&mut self, table: &Table, sequential_keys: bool, should_format: bool) -> fmt::Result {
+        let bracketed = if sequential_keys { None } else { Self::keeps_new_table_at(table) };
         let should_space = !table.0.is_empty();
         write!(self.output, "{{")?;
         if should_format {
@@ -2321,7 +2357,7 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
                     if let Some(key) = key {
                         match key {
                             RValue::Literal(Literal::String(field))
-                                if Self::is_valid_name(field) =>
+                                if Self::is_valid_name(field) && bracketed != Some(index) =>
                             {
                                 write!(self.output, "{} = ", std::str::from_utf8(field).unwrap())?;
                             }
