@@ -344,14 +344,22 @@ function onScroll() {
   moveMapViews();
 }
 
+function markLens(view) {
+  // a radio group: the checked button is the one tab stop, arrows move between them
+  for (const b of $$('button', lens)) {
+    const on = b.dataset.view === view;
+    b.setAttribute('aria-checked', String(on));
+    b.tabIndex = on ? 0 : -1;
+  }
+}
+
 function setCurrent(p) {
   if (current) current.classList.remove('is-current');
   current = p;
   if (!p) return;
   p.classList.add('is-current');
   crumbPsg.textContent = p.dataset.title;
-  const v = views.get(p.id);
-  for (const b of $$('button', lens)) b.setAttribute('aria-checked', String(b.dataset.view === v));
+  markLens(views.get(p.id));
 }
 
 // ------------------------------------------------------------------ the minimap rail (wide) and strip (phones)
@@ -811,7 +819,7 @@ async function setView(p, view) {
   views.set(p.id, view);
   p.dataset.view = view;
   for (const n of notes) if (n.dataset.passage === p.id) n.classList.toggle('is-hidden', view !== 'tovek');
-  for (const b of $$('button', lens)) b.setAttribute('aria-checked', String(b.dataset.view === view));
+  markLens(view);
   // keep the passage where the reader is looking
   const shift = p.getBoundingClientRect().top - pTop0;
   if (shift) scrollBy(0, shift);

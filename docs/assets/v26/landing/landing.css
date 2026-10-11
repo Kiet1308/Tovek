@@ -162,8 +162,9 @@ button { font: inherit; color: inherit; }
 }
 .runhead.is-stuck { background: var(--sheet); box-shadow: 0 1px 0 var(--rule); border-top-color: transparent; }
 .rh-in { height: var(--rh-h); align-items: center; }
+.rh-main { grid-column: 2; grid-row: 1; min-width: 0; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 .crumb {
-  grid-column: 2; grid-row: 1; margin: 0; min-width: 0;
+  flex: 1 1 auto; margin: 0; min-width: 0;
   display: flex; align-items: baseline; gap: 10px;
   font: 500 13px/1 var(--font-mono); color: var(--ink);
   white-space: nowrap; overflow: hidden;
@@ -172,7 +173,7 @@ button { font: inherit; color: inherit; }
 .crumb-psg { color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; }
 .crumb-file { flex: none; }
 .lens {
-  grid-column: 2; grid-row: 1; justify-self: end;
+  flex: none;
   display: inline-flex; align-items: center; gap: 2px;
   padding: 3px; border-radius: 999px; border: 1px solid var(--rule);
   background: var(--paper);
@@ -295,7 +296,7 @@ button { font: inherit; color: inherit; }
 }
 .ln::before {
   content: attr(data-n); flex: none; width: var(--ln-w); padding-right: 16px; text-align: right;
-  font-size: 11px; color: var(--ink-3); font-variant-numeric: tabular-nums;
+  font-size: 11px; color: #75736a; font-variant-numeric: tabular-nums;
   user-select: none; -webkit-user-select: none;
 }
 .ln .t {
@@ -595,8 +596,12 @@ mark.ns.is-on { background: var(--hl); box-shadow: inset 0 -1.5px 0 var(--signal
 @media (max-width: 1279px) {
   :root { --notes-w: 300px; --lead-w: 52px; --col-gap: 18px; }
 }
+@media (max-width: 1279px) {
+  .lens-label { display: none; }
+}
 @media (max-width: 1099px) {
   :root { --notes-w: 256px; --lead-w: 40px; --col-gap: 14px; --rail-w: 24px; --ln-w: 44px; }
+  .crumb-file, .crumb-sep { display: none; }
   .drop { grid-template-columns: 1fr; }
   .drop-actions, .samples { grid-column: 1; grid-row: auto; }
   .dls { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -619,14 +624,13 @@ mark.ns.is-on { background: var(--hl); box-shadow: inset 0 -1.5px 0 var(--signal
   .hero-facts { margin-top: 30px; }
   .facts div { grid-template-columns: 84px 1fr; }
 
-  .runhead .rh-in { height: 46px; grid-template-columns: minmax(0, 1fr) auto auto; column-gap: 8px; }
-  .crumb { grid-column: 1; font-size: 12px; gap: 6px; }
-  .crumb-file { display: none; }
-  .crumb-sep { display: none; }
-  .lens { grid-column: 2; padding: 2px; }
+  .runhead .rh-in { height: 46px; grid-template-columns: minmax(0, 1fr) auto; column-gap: 8px; }
+  .rh-main { grid-column: 1; gap: 8px; }
+  .crumb { font-size: 12px; gap: 6px; }
+  .lens { padding: 2px; }
   .lens-label { display: none; }
   .lens button { height: 28px; padding: 0 9px; font-size: 11.5px; }
-  .own { grid-column: 3; width: 36px; height: 34px; padding: 0; justify-content: center; }
+  .own { grid-column: 2; width: 36px; height: 34px; padding: 0; justify-content: center; }
   .own span { display: none; }
   .strip {
     display: block; position: relative; height: 30px; margin: 0 var(--gutter);
