@@ -833,6 +833,7 @@ function stopHistoryPlay() {
   hToken++;
   hPlay.setAttribute('aria-pressed', 'false');
   $('span', hPlay).textContent = 'Play every release';
+  hPlay.setAttribute('aria-label', 'Play every release');
 }
 
 // rewind to medal, then step forward through every release; the passage changes only where the release changed it
@@ -841,7 +842,8 @@ async function playHistory() {
   const token = ++hToken;
   hPlaying = true;
   hPlay.setAttribute('aria-pressed', 'true');
-  $('span', hPlay).textContent = 'Playing';
+  $('span', hPlay).textContent = 'Pause';
+  hPlay.setAttribute('aria-label', 'Pause');
   await sleep(500);
   if (token !== hToken) return;
   await requestStage(0);
@@ -1121,15 +1123,14 @@ function liveFilm(card) {
   }
   return entry;
 }
-const clock = (n) => `${Math.floor(n / 60)}:${String(Math.floor(n % 60)).padStart(2, '0')}`;
 async function playCard(card) {
   if (reduced.matches || !canHover.matches) return;
   let live;
   try { live = await liveFilm(card); } catch { return; }
   if (!card.matches(':hover, :focus-visible')) return;
   const frameEl = card.querySelector('.film-frame');
-  const timeEl = card.querySelector('.film-time');
-  const total = timeEl.dataset.total || (timeEl.dataset.total = timeEl.textContent);
+  let bar = frameEl.querySelector('.film-bar');
+  if (!bar) { bar = document.createElement('span'); bar.className = 'film-bar'; bar.setAttribute('aria-hidden', 'true'); frameEl.append(bar); }
   const r = frameEl.getBoundingClientRect();
   live.stage.resize(r.width, r.height, Math.min(devicePixelRatio || 1, 2));
   live.on = true;
@@ -1142,7 +1143,7 @@ async function playCard(card) {
     live.last = now;
     if (live.t >= live.film.duration) live.t = 0;
     live.stage.draw(live.film, live.t);
-    timeEl.textContent = `${clock(live.t)} / ${total}`;
+    bar.style.transform = `scaleX(${(live.t / live.film.duration).toFixed(4)})`;
     live.raf = requestAnimationFrame(tick);
   };
   live.stage.draw(live.film, live.t);
@@ -1156,8 +1157,6 @@ async function stopCard(card) {
   try { live = await entry; } catch { return; }
   live.on = false;
   cancelAnimationFrame(live.raf);
-  const timeEl = card.querySelector('.film-time');
-  if (timeEl.dataset.total) timeEl.textContent = timeEl.dataset.total;
 }
 for (const card of $$('.film[data-live]')) {
   card.addEventListener('pointerenter', (e) => { if (e.pointerType === 'mouse') playCard(card); });

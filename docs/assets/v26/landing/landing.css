@@ -347,8 +347,9 @@ button { font: inherit; color: inherit; }
 .h-now { display: flex; align-items: baseline; gap: 12px; margin: 0 0 12px; }
 .h-now b { font-family: var(--font-display); font-weight: 620; font-variation-settings: "opsz" 48, "wdth" 100; font-size: 30px; line-height: 1; color: var(--ink); min-width: 150px; white-space: nowrap; }
 .h-now > span { font: 500 12px/1 var(--font-mono); color: var(--ink-soft); white-space: nowrap; }
-.h-play { margin-left: auto; align-self: center; }
+.h-play { margin-left: auto; align-self: center; width: 150px; justify-content: center; }
 .h-play[aria-pressed="true"] { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+.h-play[aria-pressed="true"] svg { display: none; }
 .h-scrub { position: relative; padding: 0 0 24px; }
 .h-ticks { position: absolute; left: 9px; right: 9px; top: 6px; height: 12px; pointer-events: none; }
 .h-ticks i { position: absolute; left: calc(var(--x) * 100%); top: 0; width: 1px; height: 12px; margin-left: -0.5px; background: var(--ink-3); }
@@ -512,6 +513,8 @@ button { font: inherit; color: inherit; }
 .film:hover .film-frame img { transform: scale(1.02); }
 .film-live { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; transition: opacity 0.35s var(--ease-out); }
 .film.is-live .film-live { opacity: 1; }
+.film-bar { position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background: rgba(242, 240, 235, 0.72); transform: scaleX(0); transform-origin: left; opacity: 0; transition: opacity 0.3s; will-change: transform; }
+.film.is-live .film-bar { opacity: 1; }
 .film.is-live .film-play { transform: scale(0.9); opacity: 0; }
 .film-play { transition: transform 0.3s var(--ease-out), opacity 0.3s; }
 .film-time { position: absolute; right: 12px; bottom: 12px; padding: 4px 8px; border-radius: 999px; background: rgba(13, 13, 12, 0.72); color: var(--paper); font: 500 11.5px/1 var(--font-mono); font-variant-numeric: tabular-nums; }
@@ -672,6 +675,10 @@ button { font: inherit; color: inherit; }
   .bits { font-size: 10.5px; }
   .bits div { grid-template-columns: 62px 1fr; }
   .h-now b { font-size: 26px; min-width: 128px; }
+  .h-play { width: auto; min-width: 72px; padding: 0 10px; }
+  .h-play span { font-size: 0; }
+  .h-play span::after { content: "Play"; font-size: 12.5px; }
+  .h-play[aria-pressed="true"] span::after { content: "Pause"; }
   .h-era.tight { visibility: hidden; }
   .h-facts dd { font-size: 16px; }
   .h-facts div { padding-right: 4px; }
