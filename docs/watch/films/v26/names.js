@@ -9,7 +9,7 @@ import {
   T, C, TY, S, PAGE, f, fmt, surface, kicker, say, leader, underline, numberCard, strokePath,
   cameraTrack, frameAt, applyCamera, toScreen, drawHero, tokenXY, headV, drift,
 } from './base.js';
-import { ease, clamp, lerp, progress, envelope, layoutText, drawText, codeMetrics, setFont, mix } from '../../engine/index.js';
+import { ease, clamp, lerp, progress, envelope, layoutText, drawText, codeMetrics, setFont } from '../../engine/index.js';
 import { wideCam, drawScan } from './open.js';
 
 // ---------------------------------------------------------------------------------------- set-up
@@ -141,7 +141,7 @@ export function drawPage(ctx, t) {
       const isF = N.featured.some((x) => x.v === tk.v);
       a = envelope(t, r - 0.05, r + (isF ? 2.0 : 0.9), 0.2, isF ? 1.1 : 0.7) * (isF ? 1 : 0.8);
     }
-    return Math.max(a, loopAccent(t, tk));
+    return Math.max(a, loopAccent(t, tk, cam));
   };
   ctx.save();
   applyCamera(ctx, cam);
@@ -204,15 +204,17 @@ function drawNames(ctx, t, cam, named) {
     for (const e of ev) underline(ctx, e.a.x, e.a.y, e.w, u, { width: lw });
     // the leader: from the evidence to the name's slot. On one line it dips into the gap below the
     // line; across lines it swings out to the left, through the indent
-    const from = { x: ev[0].a.x + ev[0].w / 2, y: ev[0].a.y + lw * 1.5 };
+    const near = !fe.sameLine && Math.abs(fe.evidence[0].line - fe.decl.line) <= 1;
+    const left = ev.reduce((m, e) => (e.a.x < m.a.x ? e : m), ev[0]);
+    const from = near ? { x: left.a.x + 4, y: left.a.y + lw * 1.5 } : { x: ev[0].a.x + ev[0].w / 2, y: ev[0].a.y + lw * 1.5 };
     const to = { x: d0.x + (nameW * s) / 2, y: d0.y + lw * 1.5 };
-    const lp = progress(t, t0 + 0.4, fe.sameLine ? 0.5 : 0.8, ease.inOut);
+    const lp = progress(t, t0 + 0.4, fe.sameLine || near ? 0.5 : 0.8, ease.inOut);
     // across lines the curve's middle runs down the indent, left of the code (quadratic: mid = (a + 2c + b) / 4)
     const gutterX = toScreen(cam, 1.6 * H.cw, 0).x;
     const ctrl = fe.sameLine
       ? { x: (from.x + to.x) / 2, y: from.y + H.lh * s * 1.05 }
-      : { x: (4 * gutterX - from.x - to.x) / 2, y: (from.y + to.y) / 2 };
-    leader(ctx, from, to, lp, { width: 2.5, ctrl, head: true });
+      : near ? null : { x: (4 * gutterX - from.x - to.x) / 2, y: (from.y + to.y) / 2 };
+    leader(ctx, from, to, lp, { width: 2.5, ctrl, bend: 16, head: true });
     // the name's slot is marked while it waits
     const slot = envelope(t, t0 + 0.3, fe.resolve + 0.4, 0.2, 0.3);
     if (slot > 0) underline(ctx, d0.x, d0.y, nameW * s, 1, { width: lw, alpha: slot });
@@ -290,26 +292,18 @@ function structurePath(j, cam) {
   return [[s.x + 12, s.y], [lane, s.y], [lane, e.y], [e.x, e.y]];
 }
 
-/** Accent on the loop's keywords once their jumps have been carried over. */
-function loopAccent(t, tk) {
+/** Accent on the loop's keywords: each lights as the forward head passes it, and settles after the number. */
+function loopAccent(t, tk, cam) {
   if (!LOOP || t < T.fwd0) return 0;
   const K = S.D.hero.loop.keywords;
-  const out = 1 - progress(t, T.loopsNum + 1.6, 0.8);
-  for (const j of LOOP.jumps) {
-    const lit = progress(t, moveAt(j) + 0.7, 0.35) * out;
-    if (j.role === 'loop' && ((tk.line === K.loop.line && (tk.text === 'for' || tk.text === 'do')) || (tk.line === K.loop.end_line && tk.text === 'end' && tk.colB === 0))) return lit;
-    if ((j.role === 'continue' || j.role === 'break') && tk.line === K[j.role].line && tk.text === j.role) return lit;
-  }
-  return 0;
+  const isKw = (tk.line === K.loop.line && (tk.text === 'for' || tk.text === 'do'))
+    || (tk.line === K.loop.end_line && tk.text === 'end' && tk.colB === 0)
+    || (tk.line === K.continue.line && tk.text === 'continue')
+    || (tk.line === K.break.line && tk.text === 'break');
+  if (!isKw) return 0;
+  const x = toScreen(cam, tk.colB * S.hero.cw, 0).x;
+  return clamp((headFwd(t) - x) / 90) * (1 - progress(t, T.loopsNum + 1.6, 0.8));
 }
-
-/** When a jump starts to travel: as the forward head passes its lane. */
-const moveAt = (j) => {
-  const p = (j.lane + 40) / 2000;
-  // invert the head's sine ease for its position
-  const q = Math.acos(1 - 2 * clamp(p)) / Math.PI;
-  return T.fwd0 + q * (T.fwd1 - T.fwd0) + 0.05;
-};
 
 function drawLoop(ctx, t, cam) {
   const lp = S.D.hero.loop;
@@ -327,23 +321,28 @@ function drawLoop(ctx, t, cam) {
   // the title: ink on the paper, paper on the night
   const title = (color) => say(ctx, 'Loops, not jumps.', 140, 196, t, T.loops + 0.45, { font: TY.title, color, out: T.loopsNum - 0.4, tracking: -0.012 });
   splitDraw(ctx, night, () => title(C.ink), () => title(C.onNight));
-  // the jumps: drawn in the listing, then carried over into the loop as the head passes
+  // the jumps. On the night side they are the bytecode's jumps; on the paper side, the loop's structure.
+  // As the forward head passes, each jump turns into what it became (the enter jump folds into `for`)
+  const out = 1 - progress(t, T.loopsNum + 1.6, 0.8);
+  const paperEdge = night ? night.x0 : 1924;
   for (const j of LOOP.jumps) {
-    const draw = progress(t, j.at, 0.5, ease.inOut);
-    if (draw <= 0) continue;
-    const m = progress(t, moveAt(j), 0.85, ease.inOutCubic);
-    const A = listingPath(j), Bp = structurePath(j, cam);
-    const lift = Math.sin(Math.PI * m) * 60;
-    const pts = A.map((p, i) => [lerp(p[0], Bp[i][0], m), lerp(p[1], Bp[i][1], m) - lift]);
-    const fadeOut = j.role === 'enter' ? progress(t, moveAt(j) + 0.3, 0.5) : progress(t, T.loopsNum + 1.6, 0.8);
-    const a = 1 - fadeOut;
-    if (a <= 0) continue;
-    ctx.save();
-    ctx.globalAlpha *= a;
-    const onPaper = !night || A[0][0] < night.x0;
-    const color = m > 0.02 ? mix(onPaper ? C.ink3 : C.onNight2, C.signalDeep, m) : onPaper ? C.ink3 : C.onNight2;
-    strokePath(ctx, pts, draw, { color, width: lerp(2.4, 3, m), head: true, dot: true });
-    ctx.restore();
+    if (night && t >= j.at) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(night.x0, -4, night.x1 - night.x0, 1088);
+      ctx.clip();
+      strokePath(ctx, listingPath(j), progress(t, j.at, 0.5, ease.inOut), { color: C.onNight2, width: 2.4, head: true, dot: true });
+      ctx.restore();
+    }
+    if (t >= T.fwd0 && j.role !== 'enter' && out > 0) {
+      ctx.save();
+      ctx.globalAlpha *= out;
+      ctx.beginPath();
+      ctx.rect(-4, -4, paperEdge + 4, 1088);
+      ctx.clip();
+      strokePath(ctx, structurePath(j, cam), 1, { color: C.signalDeep, width: 3, head: true, dot: true });
+      ctx.restore();
+    }
   }
   // the heads
   if (t >= T.back0 && t < T.back1 + 0.1) headV(ctx, headBack(t), envelope(t, T.back0, T.back1, 0.08, 0.15), { side: 1 });

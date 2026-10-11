@@ -119,7 +119,7 @@ function helperCam(t) {
   const n = HP.chunks.length + 2;
   const sEnd = Math.min(1.32, 1560 / (HP.callCols * cw));
   const done = frameAt(0, (n * lh) / 2, 196, 560, sEnd);
-  const right = frameAt(0, (n * lh) / 2, 960, 560, 0.8);
+  const right = frameAt(0, (n * lh) / 2, 940, 560, 0.76);
   let cam = close;
   const p = progress(t, T.hpull, 1.0, ease.inOutCubic);
   if (p > 0) cam = blendCam(close, fold, p);
@@ -214,12 +214,14 @@ export function drawHelpers(ctx, t) {
   if (ka > 0) kicker(ctx, `Roblox's own ${h.script}`, 144, 258, { color: C.ink2, alpha: ka });
 
   // the tally while they fold
-  const ta = envelope(t, T.fold0 - 0.4, T.helpersNum + 0.05, 0.3, 0.4);
+  // the tally rides on the head
+  const ta = envelope(t, T.fold0 - 0.35, T.fold1 + FOLD.dur + 0.75, 0.3, 0.4);
   if (ta > 0) {
     let done = 0;
     HP.chunks.forEach((_, k) => { if (foldP(t, k) >= 0.5) done++; });
     const all = done === HP.chunks.length;
-    kicker(ctx, `${done} of ${HP.chunks.length} pasted copies rebuilt as calls`, 196, 120, { color: all ? C.signalDeep : C.ink2, alpha: ta, size: 20 });
+    drawText(ctx, layoutText(`${done} / ${HP.chunks.length}`, f(76, 'display', 640), { around: AROUND }), 1780, FOLD.head - 22, { color: all ? C.signalDeep : C.ink, align: 'right', alpha: ta, tracking: -0.01 });
+    kicker(ctx, 'pasted copies rebuilt as calls', 1780, FOLD.head + 38, { color: C.ink2, alpha: ta, size: 16, align: 'right' });
   }
 
   if (t >= T.helpersNum) {
