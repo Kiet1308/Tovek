@@ -12,11 +12,14 @@ use crate::{Block, Function, LocalRw, RValue, RcLocal, Statement, Traverse, Upva
 /// The locals each lifted function reads its upvalues through, by slot.
 pub type Inputs = FxHashMap<ByAddress<Arc<Mutex<Function>>>, Vec<RcLocal>>;
 
-pub fn link_upvalues(body: &mut Block, upvalues: &Inputs) {
-    link_block(body, upvalues, &FxHashMap::default());
+pub fn link_upvalues(body: &mut Block, upvalues: &mut Inputs) {
+    link_block(body, upvalues, &FxHashMap::default(), &mut FxHashMap::default());
 }
 
-fn link_block(body: &mut Block, upvalues: &Inputs, locals: &FxHashMap<RcLocal, RcLocal>) {
+/// The captures each function body was linked to, by function.
+type Linked = FxHashMap<ByAddress<Arc<Mutex<Function>>>, Vec<RcLocal>>;
+
+fn link_block(body: &mut Block, upvalues: &mut Inputs, locals: &FxHashMap<RcLocal, RcLocal>, linked: &mut Linked) {
     for statement in &mut body.0 {
         if !locals.is_empty() {
             statement.visit_local_reads_mut(&mut |local| {
@@ -30,6 +33,31 @@ fn link_block(body: &mut Block, upvalues: &Inputs, locals: &FxHashMap<RcLocal, R
         }
         statement.traverse_rvalues(&mut |value| {
             if let RValue::Closure(closure) = value {
+                let captures = closure.upvalues.iter().map(|capture| {
+                    let (Upvalue::Copy(local) | Upvalue::Ref(local)) = capture;
+                    local.clone()
+                }).collect::<Vec<_>>();
+                if let Some(first) = linked.get(&closure.function) && *first != captures {
+                    // Copies of one statement share their closure's body
+                    // (the structurer copied a tail into several arms). This
+                    // copy captures other locals (each copy of a cell its own,
+                    // `restructure` `copied_cell_renames`), but the body was
+                    // linked to the first copy's: it gets a body of its own.
+                    let renames = first.iter().zip(&captures)
+                        .filter(|(first, capture)| first != capture)
+                        .map(|(first, capture)| (first.clone(), capture.clone()))
+                        .collect::<FxHashMap<_, _>>();
+                    let clone = ByAddress(crate::materialize_value_captures::clone_function_tree(
+                        &closure.function.0, &mut FxHashMap::default()));
+                    crate::replace_locals::replace_locals(&mut clone.lock().body, &renames);
+                    if let Some(inputs) = upvalues.get(&closure.function).cloned() {
+                        upvalues.insert(clone.clone(), inputs);
+                    }
+                    linked.insert(clone.clone(), captures);
+                    closure.function = clone;
+                    return;
+                }
+                linked.insert(closure.function.clone(), captures);
                 // A function the lifter wrote itself, already in source form,
                 // has no bytecode inputs.
                 let inputs = upvalues.get(&closure.function).map_or(&[][..], Vec::as_slice);
@@ -37,10 +65,10 @@ fn link_block(body: &mut Block, upvalues: &Inputs, locals: &FxHashMap<RcLocal, R
                     let (Upvalue::Copy(new) | Upvalue::Ref(new)) = capture;
                     (old.clone(), new.clone())
                 }).collect();
-                link_block(&mut closure.function.lock().body, upvalues, &locals);
+                link_block(&mut closure.function.lock().body, upvalues, &locals, linked);
             }
         });
-        visit_blocks(statement, |block| link_block(block, upvalues, locals));
+        visit_blocks(statement, |block| link_block(block, upvalues, locals, linked));
     }
 }
 
@@ -142,6 +170,37 @@ mod tests {
     }
 
     #[test]
+    fn copies_capturing_other_cells_get_a_body_each() {
+        // Two copies of one closure statement share the function body; each
+        // captures its own cell (a structurer copy). Each body must read its
+        // own copy's cell once linked.
+        let input = RcLocal::default();
+        let function = ByAddress(Arc::new(Mutex::new(Function {
+            body: vec![Return::new(vec![input.clone().into()]).into()].into(),
+            ..Default::default()
+        })));
+        let mut inputs = Inputs::default();
+        inputs.insert(function.clone(), vec![input]);
+        let (first, second) = (RcLocal::default(), RcLocal::default());
+        let closure = |cell: &RcLocal| -> RValue {
+            Closure { node_origin: Default::default(), function: function.clone(),
+                upvalues: vec![Upvalue::Ref(cell.clone())] }.into()
+        };
+        let mut body: Block = vec![Return::new(vec![closure(&first), closure(&second)]).into()].into();
+        link_upvalues(&mut body, &mut inputs);
+        let Statement::Return(r#return) = &body.0[0] else { unreachable!() };
+        let read = |value: &RValue| {
+            let RValue::Closure(closure) = value else { unreachable!() };
+            let body = closure.function.lock().body.clone();
+            let Statement::Return(inner) = &body.0[0] else { unreachable!() };
+            inner.values[0].as_local().unwrap().clone()
+        };
+        assert_eq!(read(&r#return.values[0]), first);
+        assert_eq!(read(&r#return.values[1]), second);
+        assert_eq!(inputs.len(), 2, "the copy's body keeps the inputs' name evidence");
+    }
+
+    #[test]
     fn top_down_linking_matches_bottom_up_cells_evidence_owners_and_format() {
         for captures in [false, true] {
             for depth in [0, 1, 3, 20, 40] {
@@ -149,8 +208,8 @@ mod tests {
                 reference(&mut old, &old_inputs);
                 let expected = snapshot(&mut old);
                 let expected_text = old.to_string();
-                let (mut new, new_inputs) = fixture(depth, captures);
-                link_upvalues(&mut new, &new_inputs);
+                let (mut new, mut new_inputs) = fixture(depth, captures);
+                link_upvalues(&mut new, &mut new_inputs);
                 assert_eq!(snapshot(&mut new), expected, "depth={depth} captures={captures}");
                 assert_eq!(new.to_string(), expected_text);
             }

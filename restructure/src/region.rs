@@ -2825,6 +2825,86 @@ mod shared_tail_regressions {
 /// back to a local proof: the chain of single-successor blocks from a target
 /// is taken on every path from it, and the first block that every chain
 /// contains is passed through by all exits.
+/// Visit `statement` and every statement nested in its blocks (`if`, loops),
+/// not the bodies of closures, which are separate functions.
+fn visit_nested_statements(statement: &Statement, visit: &mut dyn FnMut(&Statement)) {
+    visit(statement);
+    let blocks = match statement {
+        Statement::If(node) => vec![node.then_block.clone(), node.else_block.clone()],
+        Statement::While(node) => vec![node.block.clone()],
+        Statement::Repeat(node) => vec![node.block.clone()],
+        Statement::NumericFor(node) => vec![node.block.clone()],
+        Statement::GenericFor(node) => vec![node.block.clone()],
+        _ => return,
+    };
+    for block in blocks {
+        for statement in block.lock().iter() {
+            visit_nested_statements(statement, visit);
+        }
+    }
+}
+
+/// The blocks each local is read or written in, nested statements and edge
+/// transfers included.
+fn local_blocks(function: &Function) -> FxHashMap<RcLocal, FxHashSet<NodeIndex>> {
+    let mut blocks: FxHashMap<RcLocal, FxHashSet<NodeIndex>> = FxHashMap::default();
+    for (node, block) in function.blocks() {
+        let mut record = |local: &RcLocal| {
+            blocks.entry(local.clone()).or_default().insert(node);
+            true
+        };
+        for statement in block.iter() {
+            visit_nested_statements(statement, &mut |statement| {
+                statement.visit_local_reads(&mut record);
+                statement.visit_local_writes(&mut record);
+            });
+        }
+        for edge in function.edges(node) {
+            for (destination, value) in &edge.weight().arguments {
+                record(destination);
+                value.visit_local_reads(&mut record);
+            }
+        }
+    }
+    blocks
+}
+
+/// Give a conditional's else arm the fresh cells of `copied_cell_renames`:
+/// its reads and writes and the captures of its closures, in every nested
+/// block (unshared first: a statement cloned from the CFG may share its
+/// nested blocks with the then arm's copy).
+fn rename_copied_cells(block: &mut Block, renames: &FxHashMap<RcLocal, RcLocal>) {
+    if renames.is_empty() {
+        return;
+    }
+    for statement in block.iter_mut() {
+        statement.visit_local_reads_mut(&mut |local| {
+            if let Some(fresh) = renames.get(local) {
+                *local = fresh.clone();
+            }
+            true
+        });
+        for local in statement.values_written_mut() {
+            if let Some(fresh) = renames.get(local) {
+                *local = fresh.clone();
+            }
+        }
+        let nested = match statement {
+            Statement::If(node) => vec![&mut node.then_block, &mut node.else_block],
+            Statement::While(node) => vec![&mut node.block],
+            Statement::Repeat(node) => vec![&mut node.block],
+            Statement::NumericFor(node) => vec![&mut node.block],
+            Statement::GenericFor(node) => vec![&mut node.block],
+            _ => Vec::new(),
+        };
+        for shared in nested {
+            let mut private = shared.lock().clone();
+            rename_copied_cells(&mut private, renames);
+            *shared = triomphe::Arc::new(parking_lot::Mutex::new(private));
+        }
+    }
+}
+
 fn loop_exit_join(
     function: &Function,
     targets: &[NodeIndex],
@@ -2925,6 +3005,18 @@ enum VisitedBranch {
     Many(Vec<NodeIndex>),
     #[cfg(test)]
     Reference(FxHashSet<NodeIndex>),
+}
+
+impl VisitedBranch {
+    fn nodes(&self) -> Vec<NodeIndex> {
+        match self {
+            Self::Empty => Vec::new(),
+            Self::One(node) => vec![*node],
+            Self::Many(nodes) => nodes.clone(),
+            #[cfg(test)]
+            Self::Reference(nodes) => nodes.iter().copied().collect(),
+        }
+    }
 }
 
 #[cfg(test)]
@@ -3404,6 +3496,9 @@ struct Builder<'a> {
     /// Such a join is emitted once after its `if`, so a nested conditional
     /// may target it as a guard even when it is a small terminal.
     shared_joins: Vec<NodeIndex>,
+    /// The blocks each local occurs in (nested statements included), for
+    /// `copied_cell_renames`; built on first use.
+    local_blocks: OnceCell<FxHashMap<RcLocal, FxHashSet<NodeIndex>>>,
 }
 
 impl<'a> Builder<'a> {
@@ -3506,7 +3601,59 @@ impl<'a> Builder<'a> {
             unsafe_reason,
             allow_shared_tail: true,
             shared_joins: Vec::new(),
+            local_blocks: OnceCell::new(),
         }
+    }
+
+    /// Both arms of a conditional walked the nodes `then_visited` holds that
+    /// the else arm visited too: with no join, code both arms reach is
+    /// copied into each. A cell defined in that copied code and used nowhere
+    /// else is one variable per copy, as it is in a single copy. Sharing one
+    /// identity, the copies got one declaration hoisted above them all, out
+    /// of the loop each copy's cell was fresh in every iteration of: three
+    /// copies of `for k in pairs(t) do k = f(k); sink[#sink + 1] = function()
+    /// return k end end` printed one `local v2` before them, so every
+    /// closure shared the last value (fr-core F4). Returns fresh cells for
+    /// the else arm's copy (`rename_copied_cells`).
+    fn copied_cell_renames(&self, then_visited: &VisitedBranch) -> FxHashMap<RcLocal, RcLocal> {
+        let cells = &self.function.local_capture_bindings;
+        if cells.is_empty() {
+            return FxHashMap::default();
+        }
+        let copied = then_visited
+            .nodes()
+            .into_iter()
+            .filter(|node| self.visited.contains(node))
+            .collect::<FxHashSet<_>>();
+        if copied.is_empty() {
+            return FxHashMap::default();
+        }
+        let mut captured = Vec::new();
+        for &node in copied.iter().sorted_by_key(|node| node.index()) {
+            for statement in self.function.block(node).into_iter().flat_map(|block| block.iter()) {
+                visit_nested_statements(statement, &mut |statement| {
+                    statement.visit_local_reads(&mut |local| {
+                        if cells.contains(local) && !self.function.parameters.contains(local) {
+                            captured.push(local.clone());
+                        }
+                        true
+                    });
+                });
+            }
+        }
+        if captured.is_empty() {
+            return FxHashMap::default();
+        }
+        let local_blocks = self.local_blocks.get_or_init(|| local_blocks(self.function));
+        captured
+            .into_iter()
+            .unique()
+            .filter(|cell| local_blocks.get(cell).is_some_and(|blocks| blocks.is_subset(&copied)))
+            .map(|cell| {
+                let fresh = RcLocal::new(cell.0.lock().clone());
+                (cell, fresh)
+            })
+            .collect()
     }
 
     fn reject_unsafe<T>(&mut self, reason: UnsafeStructureReason) -> Option<T> {
@@ -7119,6 +7266,7 @@ impl<'a> Builder<'a> {
             let else_transfer = self.edge_transfer(&else_edge, &base_rewrite)?;
             let else_result = self.build_transfer_arm(source, else_target, ctx)?;
             let mut else_rewrite = self.rewrite.clone();
+            let copied_cells = self.copied_cell_renames(&then_visited);
             self.visited.merge(then_visited);
             let continuation = (then_result.next == Some(ctx.info.header)
                 || else_result.next == Some(ctx.info.header))
@@ -7141,6 +7289,7 @@ impl<'a> Builder<'a> {
             then_block.extend(then_result.block.0);
             let mut else_block = else_transfer;
             else_block.extend(else_result.block.0);
+            rename_copied_cells(&mut else_block, &copied_cells);
             self.materialize_optional_export_gaps(
                 &base_rewrite,
                 &mut then_rewrite,
@@ -7315,11 +7464,13 @@ impl<'a> Builder<'a> {
             // into; leave this shape to the ordinary arm builder.
             return None;
         }
+        let copied_cells = self.copied_cell_renames(&then_visited);
         self.visited.merge(then_visited);
         let mut then_block = then_transfer;
         then_block.extend(then_result.block.0);
         let mut else_block = else_transfer;
         else_block.extend(else_result.block.0);
+        rename_copied_cells(&mut else_block, &copied_cells);
         self.materialize_optional_export_gaps(
             &base_rewrite,
             &mut then_rewrite,
@@ -7396,11 +7547,13 @@ impl<'a> Builder<'a> {
         if shared_tail && !both_reach && then_rewrite != else_rewrite {
             return None;
         }
+        let copied_cells = self.copied_cell_renames(&then_visited);
         self.visited.merge(then_visited);
         let mut then_block = then_transfer;
         then_block.extend(then_result.block.0);
         let mut else_block = else_transfer;
         else_block.extend(else_result.block.0);
+        rename_copied_cells(&mut else_block, &copied_cells);
         self.materialize_optional_export_gaps(
             &base_rewrite,
             &mut then_rewrite,
