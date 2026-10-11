@@ -436,6 +436,11 @@ impl CaptureSafety {
                     // `debug.info(thread, level, options)`, `debug.info(f, options)`.
                     self.frames.functions |= !matches!(call.arguments.last(),
                         Some(RValue::Literal(Literal::String(options))) if !options.contains(&b'f'));
+                } else if debug_member(&call.value) == Some(Some(b"traceback".as_slice())) {
+                    // The trace lists every frame: one a helper adds, and
+                    // every one above it.
+                    self.frames.read = true;
+                    self.frames.callers.extend(owner);
                 }
             }
             _ if is_debug_library(value) => self.frames.library += 1,
@@ -541,13 +546,16 @@ fn reads_beyond_caller(call: &crate::Call) -> bool {
     ] if *level == 1.0 || (*level == 2.0 && options.iter().all(|option| matches!(option, b's' | b'l'))))
 }
 
-/// Whether `value` calls `debug.info` reading which frames run, closure
-/// bodies aside.
+/// Whether `value` calls `debug.info` reading which frames run, or
+/// `debug.traceback`, which lists them, closure bodies aside. (Passed on as
+/// a value, `xpcall(f, debug.traceback)`, the trace is a diagnostic of an
+/// error, like the position `error` prefixes: no frame read.)
 fn calls_debug_info(value: &RValue) -> bool {
     match value {
         RValue::Closure(_) => false,
         RValue::Call(call) | RValue::Select(crate::Select::Call(call))
-            if debug_member(&call.value) == Some(Some(b"info".as_slice())) && reads_frame_identity(call) =>
+            if (debug_member(&call.value) == Some(Some(b"info".as_slice())) && reads_frame_identity(call))
+                || debug_member(&call.value) == Some(Some(b"traceback".as_slice())) =>
         {
             true
         }
@@ -789,13 +797,18 @@ mod tests {
         assert!(census(vec![member(global("_G"), "getfenv")]).dynamic_environment());
     }
 
-    /// A direct `debug.info(...)` call reads frames; any other use of the
-    /// library may call it under another name.
+    /// A direct `debug.info(...)` or `debug.traceback(...)` call reads
+    /// frames; any other use of the library may call it under another name.
     #[test]
     fn debug_info_is_tracked_by_its_calls() {
         let call = |callee: RValue| -> RValue { crate::Call::new(callee, vec![]).into() };
         let traceback = census(vec![call(member(global("debug"), "traceback"))]);
-        assert!(!traceback.reads_call_frames());
+        assert!(traceback.reads_call_frames() && !traceback.call_frames_untracked());
+        let traced = crate::Call::new(member(global("debug"), "traceback"), vec![]);
+        assert!(traceback.reads_frames(&[crate::Return::new(vec![traced.into()]).into()]));
+        // An error handler: the trace of an error, not of this code.
+        let handler = census(vec![member(global("debug"), "traceback")]);
+        assert!(!handler.reads_call_frames());
         for direct in [member(global("debug"), "info"), member(member(global("_G"), "debug"), "info")] {
             let safety = census(vec![call(direct)]);
             assert!(safety.reads_call_frames() && !safety.call_frames_untracked());
