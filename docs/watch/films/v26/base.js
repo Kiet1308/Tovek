@@ -26,7 +26,7 @@ export const T = {
   // II. back to source: the line, the bytes gather into the shape of the code, the read head scans it
   source: 10.0, sayOut: 12.2, gather0: 12.35, gather1: 14.85, scan0: 14.9, scan1: 17.1,
   // III. names: they drain away, then come back from their evidence one by one
-  names: 20.0, drain0: 20.7, drain1: 21.4, n1: 21.85, n2: 23.75, n3: 25.85, n4: 27.8, rest0: 29.25, rest1: 29.95, namesNum: 30.35,
+  names: 20.0, drain0: 20.7, drain1: 21.4, n1: 21.8, n2: 23.5, n3: 25.75, n4: 27.75, rest0: 29.25, rest1: 29.95, namesNum: 30.35,
   // IV. loops: back to the bytecode's jumps, then forward into the loop's structure
   loops: 32.5, back0: 33.75, back1: 34.75, arcs0: 34.95, fwd0: 36.55, fwd1: 38.15, loopsNum: 39.6,
   // V. new in V2.6
@@ -36,9 +36,9 @@ export const T = {
   // VII. constants: the folded number, its 64 bits, Luau's fold of 1 / 60 beside them, frames(1)
   consts: 60.0, bits0: 61.85, match0: 62.75, match1: 65.0, back: 65.55, frac0: 67.45,
   // VIII. checked: silence, then every program run again
-  checked: 70.0, say8: 70.85, grid0: 72.55, grid1: 76.25, zero: 76.65,
+  checked: 70.0, say8: 70.85, grid0: 73.0, grid1: 76.55, zero: 76.95,
   // IX. scale: four games in real time
-  scale: 80.0, sweep0: 81.4, sweepMax: 6.0, total: 0,
+  scale: 80.0, sweep0: 81.6, sweepMax: 6.0, total: 0,
   // X. free and open
   free: 90.0, os: 92.5, term0: 94.4, browser: 98.45,
   // XI. the end card
@@ -82,9 +82,11 @@ export const TY = {
   url: f(36, 'mono', 400),
   credit: f(22, 'text', 400),
 };
-export const TRACK = { hero: -0.012, title: -0.012, giant: -0.02, num: -0.02 };
-// Bricolage sets a period tight against its digits ("2.6"): open it a little.
+export const TRACK = { hero: -0.006, title: -0.006, word: -0.01, giant: -0.02, num: -0.02 };
+// Bricolage sets a period tight against its digits ("2.6"): open it a little. Its kerning lets "ov"
+// touch at display sizes: open that one pair (checked by work-launch/glyphcheck_v26.py).
 export const AROUND = { '.': 0.03 };
+export const PAIRS = { ov: 0.03 };
 
 // --------------------------------------------------------------------------------------- state
 // Filled once by prepare(); render() only reads it.
@@ -127,7 +129,7 @@ export function note(ctx, text, x, y, t, start, out, { color = C.ink2, align = '
  * `out` is the time it starts to leave (Infinity to stay).
  */
 export function say(ctx, text, x, y, t, start, { font: F = TY.hero, color = C.onNight, align = 'left', out = Infinity, stagger = 0.075, dur = 0.85, colorOf, maxWidth, lineHeight = 1.04, tracking } = {}) {
-  const L = layoutText(text, F, { maxWidth, lineHeight, around: AROUND });
+  const L = layoutText(text, F, { maxWidth, lineHeight, around: AROUND, pairs: PAIRS });
   if (t < start) return L;
   reveal(ctx, L, x, y, t, {
     unit: 'word', start, stagger, dur, align, color, colorOf, mask: true, rise: 1.0,

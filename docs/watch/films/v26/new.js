@@ -6,8 +6,7 @@
 //      folds it, bit for bit. Then frames(1), and 2 / 3.
 
 import {
-  T, C, TY, S, f, fmt, surface, kicker, say, note, leader, numberCard, cameraTrack, frameAt, applyCamera,
-  toScreen, TRACK, AROUND, headH, drift, mixQ,
+  T, C, TY, S, f, fmt, surface, kicker, say, note, leader, numberCard, cameraTrack, frameAt, applyCamera, toScreen, TRACK, AROUND, headH, drift, mixQ,
 } from './base.js';
 import {
   ease, clamp, lerp, progress, envelope, layoutText, drawText, reveal, layoutCode, codeMetrics, drawCode,
@@ -209,7 +208,7 @@ export function drawHelpers(ctx, t) {
 
   // the title, and whose code this is
   const tOut = T.hpull + 0.05;
-  say(ctx, 'Helpers, rebuilt.', 140, 196, t, T.helpers + 0.3, { font: TY.title, color: C.ink, out: tOut, tracking: -0.012 });
+  say(ctx, 'Helpers, rebuilt.', 140, 196, t, T.helpers + 0.3, { font: TY.title, color: C.ink, out: tOut, tracking: TRACK.title });
   const ka = envelope(t, T.helpers + 0.65, tOut + 0.45, 0.4, 0.4);
   if (ka > 0) kicker(ctx, `Roblox's own ${h.script}`, 144, 258, { color: C.ink2, alpha: ka });
 
@@ -331,7 +330,7 @@ export function drawConstants(ctx, t) {
   ctx.save();
   drift(ctx, t, T.consts, T.checked, 0.025, 960, EXPR.y);
   // the title
-  say(ctx, 'Constants, solved.', 140, 196, t, T.consts + 0.1, { font: TY.title, color: C.ink, out: T.bits0 - 0.25, tracking: -0.012 });
+  say(ctx, 'Constants, solved.', 140, 196, t, T.consts + 0.1, { font: TY.title, color: C.ink, out: T.bits0 - 0.25, tracking: TRACK.title });
 
   // the expression as Luau left it, then (after the bits) the call it came from
   const before = fr.v251, after = fr.v26;

@@ -3912,7 +3912,7 @@
     "featured_names": [
       {
         "name": "humanoid",
-        "why": "the class it is looked up by",
+        "why": "the class it is found by",
         "decl": {
           "line": 4,
           "col": 10,
@@ -3955,7 +3955,7 @@
       },
       {
         "name": "spawnLocation",
-        "why": "the class it is checked against",
+        "why": "the class it is checked for",
         "decl": {
           "line": 28,
           "col": 7,

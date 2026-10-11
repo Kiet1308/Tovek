@@ -6,8 +6,7 @@
 // The page is one object from the scan to the end of the loop shot; one camera moves over it.
 
 import {
-  T, C, TY, S, PAGE, f, fmt, surface, kicker, say, leader, underline, numberCard, strokePath,
-  cameraTrack, frameAt, applyCamera, toScreen, drawHero, tokenXY, headV, drift,
+  T, C, TY, S, PAGE, f, fmt, surface, kicker, say, leader, underline, numberCard, strokePath, cameraTrack, frameAt, applyCamera, toScreen, drawHero, tokenXY, headV, drift, TRACK,
 } from './base.js';
 import { ease, clamp, lerp, progress, envelope, layoutText, drawText, codeMetrics, setFont } from '../../engine/index.js';
 import { wideCam, drawScan } from './open.js';
@@ -178,8 +177,8 @@ function drawNames(ctx, t, cam, named) {
   // the title, left of the page
   if (t < N.featured[0].at + 0.4) {
     const out = N.featured[0].at - 0.5;
-    say(ctx, 'Names,', 140, 372, t, T.names + 0.15, { font: TY.title, color: C.ink, out, tracking: -0.012 });
-    say(ctx, 'from evidence.', 140, 372 + 116, t, T.names + 0.3, { font: TY.title, color: C.ink, out: out + 0.05, tracking: -0.012 });
+    say(ctx, 'Names,', 140, 372, t, T.names + 0.15, { font: TY.title, color: C.ink, out, tracking: TRACK.title });
+    say(ctx, 'from evidence.', 140, 372 + 116, t, T.names + 0.3, { font: TY.title, color: C.ink, out: out + 0.05, tracking: TRACK.title });
   }
 
   // each featured name: underline the evidence, draw the leader to the name, then the name arrives
@@ -319,7 +318,7 @@ function drawLoop(ctx, t, cam) {
     ctx.restore();
   }
   // the title: ink on the paper, paper on the night
-  const title = (color) => say(ctx, 'Loops, not jumps.', 140, 196, t, T.loops + 0.45, { font: TY.title, color, out: T.loopsNum - 0.4, tracking: -0.012 });
+  const title = (color) => say(ctx, 'Loops, not jumps.', 140, 196, t, T.loops + 0.45, { font: TY.title, color, out: T.loopsNum - 0.4, tracking: TRACK.title });
   splitDraw(ctx, night, () => title(C.ink), () => title(C.onNight));
   // the jumps. On the night side they are the bytecode's jumps; on the paper side, the loop's structure.
   // As the forward head passes, each jump turns into what it became (the enter jump folds into `for`)

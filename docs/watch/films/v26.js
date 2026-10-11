@@ -79,12 +79,19 @@ function warmUp(ctx, t) {
   warm = { w: c.width, h: c.height, canvas, wctx, done: new Uint8Array(n), left: n, lastT: 0, finished: false, t0: performance.now() };
   const idle = globalThis.requestIdleCallback || ((cb) => setTimeout(() => cb({ timeRemaining: () => 8 }), 40));
   const W = warm;
+  // first the frames where something is drawn for the first time (each shot's start, each new size of
+  // display type), then whatever lies ahead of the playhead
+  const firsts = [...new Set(firstTimes().map((t) => Math.min(n - 1, Math.max(0, Math.round(t / WARM_STEP)))))];
   const step = (deadline) => {
     if (warm !== W) return;
     while (W.left > 0 && deadline.timeRemaining() > 5) {
-      let i = Math.max(0, Math.floor(W.lastT / WARM_STEP));
-      while (i < n && W.done[i]) i++;
-      if (i >= n) { i = 0; while (i < n && W.done[i]) i++; }
+      let i = -1;
+      while (firsts.length && i < 0) { const k = firsts.shift(); if (!W.done[k]) i = k; }
+      if (i < 0) {
+        i = Math.max(0, Math.floor(W.lastT / WARM_STEP));
+        while (i < n && W.done[i]) i++;
+        if (i >= n) { i = 0; while (i < n && W.done[i]) i++; }
+      }
       W.done[i] = 1;
       W.left--;
       W.wctx.setTransform(W.w / 1920, 0, 0, W.h / 1080, 0, 0);
@@ -96,6 +103,20 @@ function warmUp(ctx, t) {
   idle(step, { timeout: 500 });
 }
 
+/** Moments that draw something new: each shot's first frames and each first appearance of display type. */
+function firstTimes() {
+  const out = SHOTS.map((sh) => sh.t0 + 0.1);
+  const k = [
+    T.first + 0.5, T.line1 + 0.7, T.label + 0.5, T.source + 0.7, T.gather0 + 0.5, T.gather1 + 0.2, T.scan0 + 0.3, T.scan1 + 0.4,
+    T.scan1 + 1.4, T.names + 0.6, T.n1 + 1.2, T.n2 + 1.2, T.n3 + 1.2, T.n4 + 1.2, T.namesNum + 1.2, T.loops + 1.0, T.back0 + 0.5,
+    T.arcs0 + 1.0, T.fwd0 + 0.8, T.loopsNum + 1.0, T.sting + 1.5, T.split + 0.5, T.evidence0 + 1.5, T.hpull + 0.8, T.fold0 + 0.6,
+    T.fold1 + 0.6, T.helpersNum + 1.2, T.consts + 0.5, T.bits0 + 1.0, T.match0 + 1.0, T.back + 1.0, T.frac0 + 1.2, T.say8 + 0.7,
+    T.grid0 + 1.0, T.zero + 1.2, T.scale + 0.7, T.sweep0 + 1.0, T.total + 1.2, T.free + 1.3, T.os + 0.9, T.term0 + 1.6,
+    T.browser + 0.9, T.mark0 + 1.0, T.word + 1.2, T.url + 1.0,
+  ];
+  return out.concat(k).filter((t) => t >= 0 && t < T.duration);
+}
+
 // --------------------------------------------------------------------------------- the film
 
 const MONO = [15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 30, 46, 56, 72].map((s) => codeFont(s).css);
@@ -104,7 +125,7 @@ const film = {
   title: 'Tovek V2.6',
   description: 'What Tovek is, and what V2.6 brings: real bytecode, real output, measured numbers.',
   duration: T.duration,
-  poster: 25.2,
+  poster: 1.3,
   background: V26.night,
   fonts: [...new Set([
     ...Object.values(TY).map((x) => x.css), ...MONO,
@@ -157,7 +178,6 @@ function buildChaptersCaptions() {
   const add = (start, end, text) => { if (text && end > start) c.push({ start: +start.toFixed(2), end: +end.toFixed(2), text }); };
   const featured = h.featured_names.slice(0, 4);
   const at = [T.n1, T.n2, T.n3, T.n4];
-  const linesApart = (fe) => Math.abs(fe.evidence[0].line - fe.decl.line);
   const level = (h.compiler.match(/-O\d/) || ['-O2'])[0];
   // I-II
   add(0.9, 5.4, 'Every Roblox game ships as bytecode.');
@@ -167,37 +187,36 @@ function buildChaptersCaptions() {
   add(T.scan0 + 0.1, T.scan1 + 0.3, 'And comes out as plain Luau.');
   add(T.scan1 + 0.45, T.names - 0.1, 'This is the real output of Tovek V2.6.');
   // III
-  add(T.names + 0.1, at[0] - 0.05, 'Names come from evidence. The bytecode keeps none.');
+  add(T.names + 0.1, at[0] - 0.05, 'The bytecode keeps no names.');
   featured.forEach((fe, i) => {
     const end = i + 1 < featured.length ? at[i + 1] - 0.05 : T.rest0 - 0.05;
-    const far = linesApart(fe) > 2 ? `, ${linesApart(fe)} lines further down` : '';
-    add(at[i], end, `${fe.name}: from ${fe.why}${far}.`);
+    add(at[i], end, `${fe.name}: ${fe.why}.`);
   });
-  add(T.rest0, T.namesNum + 0.4, 'Every other name comes back the same way.');
-  add(T.namesNum + 0.6, T.loops - 0.1, `${fmt(sc.locals_named)} locals named in four real games. ${sc.local_names_in_bytecode === 0 ? 'Their bytecode stored no names.' : ''}`.trim());
+  add(T.rest0, T.namesNum + 0.05, 'All the rest, the same way.');
+  add(T.namesNum + 0.1, T.loops - 0.1, `${fmt(sc.locals_named)} locals named in four real games.`);
   // IV
   add(T.loops + 0.1, T.back0 - 0.05, 'Loops, not jumps.');
   add(T.back0, T.fwd0 - 0.05, 'In bytecode, a loop is only jumps.');
-  add(T.fwd0, T.loopsNum - 0.1, 'Tovek turns each jump back into the loop, its continue and its break.');
+  add(T.fwd0, T.loopsNum - 0.1, 'Tovek turns each jump back into a loop, a continue, a break.');
   add(T.loopsNum + 0.2, T.sting - 0.1, `${fmt(sc.goto_statements)} goto statements in ${fmt(sc.scripts)} scripts.`);
   // V-VI
   add(T.sting + 0.3, T.split + 0.6, 'New in Tovek V2.6.');
-  add(T.split + 0.7, T.evidence0 - 0.05, `Helpers, rebuilt. This is Roblox's own ${hp.script}.`);
-  add(T.evidence0, T.hpull - 0.05, `Luau pasted its ${hp.name} helper into this function. The line numbers still point at the helper.`);
-  add(T.hpull, T.fold1 + 0.2, `Tovek V2.6 finds all ${words(foldCount())} copies and turns them back into calls.`);
-  add(T.fold1 + 0.25, T.helpersNum + 0.2, 'Each call is marked as an inferred equivalent.');
-  add(T.helpersNum + 0.4, T.consts - 0.1, `${fmt(D.field.rebuilt_calls)} helper calls rebuilt across four real games.`);
+  add(T.split + 0.6, T.evidence0 - 0.05, `This is Roblox's own ${hp.script}.`);
+  add(T.evidence0, T.hpull - 0.05, 'Luau pasted a helper in here. Its line numbers still point at the helper.');
+  add(T.hpull, T.fold1 - 0.3, `Tovek V2.6 finds all ${words(foldCount())} copies and turns them back into calls.`);
+  add(T.fold1 - 0.25, T.helpersNum + 0.3, 'Each call is marked as an inferred equivalent.');
+  add(T.helpersNum + 0.4, T.consts - 0.1, `${fmt(D.field.rebuilt_calls)} helper calls rebuilt in four real games.`);
   // VII
-  add(T.consts + 0.1, T.bits0 - 0.05, `Constants, solved. Luau folded frames(1) into ${k.bits.value}.`);
+  add(T.consts + 0.1, T.bits0 - 0.05, 'Luau folded frames(1) into a number.');
   add(T.bits0, T.back - 0.05, 'Tovek folds 1 / 60 the way Luau does. All 64 bits match.');
   add(T.back, T.frac0 - 0.05, 'So the call comes back: frames(1).');
   add(T.frac0 + 0.2, T.checked - 0.15, `Exact fractions too: ${k.fraction.constant} is ${k.fraction.v26.split('= ')[1]}.`);
   // VIII
-  add(T.say8 + 0.05, T.grid0 - 0.05, 'Each output is compiled again and run beside its bytecode.');
+  add(T.checked + 0.35, T.grid0 - 0.05, 'Each output is compiled again and run beside its bytecode.');
   add(T.grid0, T.zero - 0.05, `${fmt(fz.programs)} fresh programs at ${fz.levels}. Patched bytecode is refused, not guessed.`);
   add(T.zero + 0.1, T.scale - 0.1, `${fmt(fz.counts.failed || 0)} wrong outputs.`);
   // IX
-  add(T.scale + 0.1, T.sweep0 - 0.05, `Four real games: ${fmt(sc.scripts)} scripts.`);
+  add(T.scale + 0.05, T.sweep0 - 0.05, `Four real games: ${fmt(sc.scripts)} scripts.`);
   add(T.sweep0, T.total + 1.3, T.sweepRate > 1.001 ? `Shown ${T.sweepRate.toFixed(1)} times faster than it ran.` : `This is real time, on one ${sc.machine && sc.machine.kind ? sc.machine.kind : 'computer'}.`);
   add(T.total + 1.4, T.free - 0.1, `${fmt(sc.scripts)} scripts in ${sc.wall_seconds.toFixed(1)} seconds. ${sc.failed === 0 ? 'None failed.' : ''}`.trim());
   // X
@@ -294,7 +313,8 @@ function buildScore() {
   chime(T.fold1 + 0.02, 'A5', 0.06, 3.4);
   chime(T.fold1 + 0.1, 'E6', 0.04, 3.0);
   pulse(T.helpersNum + 0.4, 'E3', 0.07, 2.6);
-  // VII. the bits land as ticks; a bell when all 64 match; another for 2 / 3
+  // VII. a low bed; the bits land as ticks; a bell when all 64 match; another for 2 / 3
+  E.push({ t: T.consts, voice: 'hum', dur: T.checked - T.consts - 0.15, freq: note('A1'), gain: 0.05, attack: 1.2, release: 0.9, cutoff: 380 });
   pulse(T.consts + 0.15, 'A3', 0.06);
   for (let i = 0; i < 64; i += 2) {
     const at = T.match0 + 0.2 + (i / 63) * (T.match1 - T.match0 - 0.45);
@@ -320,7 +340,8 @@ function buildScore() {
     pulse(T.sweep0 + acc / T.sweepRate, ['C#4', 'E4', 'F#4', 'A4'][i % 4], 0.045, 1.6);
   });
   chime(T.total + 0.6, 'A5', 0.04, 3);
-  // X. a struck tone on each word; keystrokes while the commands type
+  // X. a low bed; a struck tone on each word; keystrokes while the commands type
+  E.push({ t: T.free - 0.4, voice: 'hum', dur: T.end - T.free + 0.2, freq: note('E2'), gain: 0.045, attack: 1.0, release: 0.8, cutoff: 420 });
   [0, 1, 2].forEach((i) => pulse(T.free + 0.05 + i * BEAT, ['A3', 'C#4', 'E4'][i], 0.06, 1.6));
   [0, 1, 2].forEach((i) => pulse(T.os + i * BEAT * 0.8, ['E4', 'F#4', 'A4'][i], 0.042, 1.4));
   E.push(...ticks(T.term0 + 0.35, T.term0 + 1.25, { rate: 16, seed: 19, gain: 0.02 }));

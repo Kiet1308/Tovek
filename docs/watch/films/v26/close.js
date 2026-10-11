@@ -3,7 +3,9 @@
 // XI. The end card: the mark and Tovek V2.6, the site underlined by the read head, and medal, where it
 //     began. The opening's bytes are there, faint, behind it.
 
-import { T, C, TY, S, BEAT, f, fmt, surface, kicker, say, note, TRACK, AROUND, headH, drift } from './base.js';
+import {
+  T, C, TY, S, BEAT, f, fmt, surface, kicker, say, note, TRACK, AROUND, headH, drift, PAIRS,
+} from './base.js';
 import { ease, clamp, lerp, progress, envelope, layoutText, drawText, reveal, typewriter, drawMark, markWidth, mix } from '../../engine/index.js';
 
 // ----------------------------------------------------------------------------------------- X. free
@@ -38,13 +40,13 @@ export function drawFree(ctx, t) {
   const words = ['Free.', 'Open source.', `${S.D.license || 'MIT'} license.`];
   const leave = T.term0 - 0.15;
   words.forEach((w, i) => {
-    say(ctx, w, 140, WORD_Y[i], t, T.free + 0.05 + i * BEAT, { font: TY.word, color: C.ink, out: leave + i * 0.05, stagger: 0.05, tracking: -0.02 });
+    say(ctx, w, 140, WORD_Y[i], t, T.free + 0.05 + i * BEAT, { font: TY.word, color: C.ink, out: leave + i * 0.05, stagger: 0.05, tracking: TRACK.word });
   });
   // the systems, on the same baselines as the words
   osRows().forEach((r, i) => {
     const at = T.os + i * BEAT * 0.8;
     const y = WORD_Y[i];
-    say(ctx, r.os, 1250, y, t, at, { font: TY.os, color: C.ink, out: leave + 0.15 + i * 0.05, tracking: -0.015 });
+    say(ctx, r.os, 1250, y, t, at, { font: TY.os, color: C.ink, out: leave + 0.15 + i * 0.05, tracking: TRACK.word });
     const a = progress(t, at + 0.3, 0.5) * (1 - progress(t, leave + 0.15, 0.4));
     if (r.note) kicker(ctx, r.note, 1254, y + 44, { color: C.ink3, alpha: a, size: 17 });
   });
@@ -60,7 +62,7 @@ function drawTerminal(ctx, t) {
   const gone = browser ? T.browser - 0.15 : T.end - 0.45;
   // in the browser, when there is a build for it
   if (browser && t >= T.browser) {
-    say(ctx, 'And in your browser.', 140, 520, t, T.browser, { font: TY.title, color: C.ink, out: T.end - 0.45, tracking: -0.012 });
+    say(ctx, 'And in your browser.', 140, 520, t, T.browser, { font: TY.title, color: C.ink, out: T.end - 0.45, tracking: TRACK.title });
     note(ctx, 'Nothing is uploaded.', 144, 620, t, T.browser + 0.5, T.end - 0.5, { color: C.ink2, font: f(40, 'text', 400) });
   }
   const a = progress(t, T.term0, 0.4, ease.out) * (1 - progress(t, gone, 0.45));
@@ -103,7 +105,7 @@ export function drawEnd(ctx, t) {
   drift(ctx, t, T.end, T.duration, 0.03, 960, 520);
   // the lockup: the mark, then the name beside it, centred as one
   const size = 196;
-  const L = layoutText('Tovek V2.6', TY.mark, { around: AROUND, pairs: { ov: 0.02 } });
+  const L = layoutText('Tovek V2.6', TY.mark, { around: AROUND, pairs: PAIRS });
   const gap = 64;
   const mw = markWidth(size);
   const total = mw + gap + L.width + (L.glyphCount - 1) * TRACK.title * TY.mark.size;
