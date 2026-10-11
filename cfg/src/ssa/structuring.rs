@@ -290,7 +290,7 @@ pub fn structure_conditionals_with_changes(function: &mut Function, captured: &i
         if simplify_condition(function, node) {
             did_structure = true;
         }
-        if structure_bool_conditional(function, node) {
+        if structure_bool_conditional(function, node, captured) {
             did_structure = true;
             topology_changed = true;
         }
@@ -453,7 +453,18 @@ fn is_multret_tail(rv: &ast::RValue) -> bool {
     )
 }
 
-fn structure_bool_conditional(function: &mut Function, node: NodeIndex) -> bool {
+/// Collapses an `if` whose arms only choose the value of one phi into a
+/// select (`c and x or y`) bound to a local, which the edges pass to the phi.
+/// A captured version (`captured`) shares its cell with the other versions
+/// of its group: an arm assigning one writes the cell that closures see. The
+/// collapse drops the arm, so its write survives only where the phi it
+/// feeds is a cell version too (the edge or the select then writes the
+/// cell); an arm writing a cell into a plain phi is kept.
+fn structure_bool_conditional(
+    function: &mut Function,
+    node: NodeIndex,
+    captured: &impl Fn(&ast::RcLocal) -> bool,
+) -> bool {
     let match_triangle = |assigner, next, next_args: FxHashMap<&ast::RcLocal, &ast::RValue>| {
         if let Some(edge_to_next) = function.unconditional_edge(assigner)
             && edge_to_next.target() == next
@@ -467,6 +478,7 @@ fn structure_bool_conditional(function: &mut Function, node: NodeIndex) -> bool 
             && !assign.reads_own_target()
             && next_args.len() == 1 && let Ok((param, ast::RValue::Local(arg))) = edge_to_next.weight().arguments.iter().exactly_one()
             && arg == assigned_local
+            && (!captured(assigned_local) || captured(param))
         {
             // TODO: unnecessary clone
             Some((param, assign.right[0].clone(), (*next_args[param]).clone()))
@@ -630,6 +642,7 @@ fn structure_bool_conditional(function: &mut Function, node: NodeIndex) -> bool 
             && then_param == else_param
             && then_assign.left[0].as_local() == Some(then_arg)
             && else_assign.left[0].as_local() == Some(else_arg)
+            && (captured(then_param) || !captured(then_arg) && !captured(else_arg))
             // As in `match_triangle`: no arm may be a self-capturing closure.
             && !then_assign.reads_own_target()
             && !else_assign.reads_own_target()
