@@ -39,7 +39,7 @@
     <a href="../../changelog.html" aria-current="page">Changelog</a>
     <a class="hide-s" href="../../watch/?film=story">Films</a>
   </nav>
-  <a class="top-cta" href="#download">Download V2.6</a>
+  <a class="top-cta" href="#download">Download V2.6.1</a>
 </header>
 
 <main id="main">
@@ -54,7 +54,7 @@
           <h1><span>Tovek</span> <span>V2.6</span></h1>
           <p class="promise">Helpers come back, with proof.</p>
           <p class="lead">Luau pastes small helpers into the code that calls them. V2.6 finds the copies, checks each one against the bytecode&rsquo;s own line numbers and Luau&rsquo;s own arithmetic, and writes the calls back: <b data-v="calls_v26">8,845</b> in four real games, up from <span data-v="calls_v251">4,260</span>.</p>
-          <p class="actions"><a class="btn btn--ink" href="#download">Download V2.6</a><a class="btn" href="#parts">The parts list</a></p>
+          <p class="actions"><a class="btn btn--ink" href="#download">Download V2.6.1</a><a class="btn" href="#parts">The parts list</a></p>
           <button class="cue" id="cue" type="button"><span class="cue-mark" aria-hidden="true"><i></i><i></i><i></i></span><span class="cue-text">Scroll to dive</span><span class="cue-arrow" aria-hidden="true">↓</span></button>
         </article>
 
@@ -247,15 +247,16 @@ print(v.Play == v.Shop)</code></pre><p class="case-out">prints <b>false</b><span
     </section>
 
     <section class="block" id="download" aria-labelledby="download-title">
-      <h3 class="block-title" id="download-title"><span class="no">D</span>Download</h3>
+      <h3 class="block-title" id="download-title"><span class="no">D</span>Download V2.6.1</h3>
+      <p class="block-lead">V2.6.1 is the latest patch for V2.6. It fixes shared loop returns that could stop scripts such as <code>Events.lua</code> from decompiling. <a href="https://github.com/Kiet1308/Tovek/releases/tag/v2.6.1">Read the patch notes</a>.</p>
       <div class="dl-grid">
-        <a class="dl" href="https://github.com/Kiet1308/Tovek/releases/download/v2.6/Tovek-V2.6-windows-x86_64.zip"><b>Windows</b><span>x86_64 · ZIP</span><i aria-hidden="true">↓</i></a>
-        <a class="dl" href="https://github.com/Kiet1308/Tovek/releases/download/v2.6/Tovek-V2.6-linux-x86_64.tar.gz"><b>Linux</b><span>x86_64 · glibc 2.35+</span><i aria-hidden="true">↓</i></a>
-        <a class="dl" href="https://github.com/Kiet1308/Tovek/releases/download/v2.6/Tovek-V2.6-linux-aarch64.tar.gz"><b>Linux ARM64</b><span>aarch64 · glibc 2.35+</span><i aria-hidden="true">↓</i></a>
-        <a class="dl" href="https://github.com/Kiet1308/Tovek/releases/download/v2.6/Tovek-V2.6-macos-aarch64.tar.gz"><b>macOS</b><span>Apple silicon · aarch64</span><i aria-hidden="true">↓</i></a>
+        <a class="dl" href="https://github.com/Kiet1308/Tovek/releases/download/v2.6.1/Tovek-V2.6.1-windows-x86_64.zip"><b>Windows</b><span>x86_64 · ZIP</span><i aria-hidden="true">↓</i></a>
+        <a class="dl" href="https://github.com/Kiet1308/Tovek/releases/download/v2.6.1/Tovek-V2.6.1-linux-x86_64.tar.gz"><b>Linux</b><span>x86_64 · glibc 2.35+</span><i aria-hidden="true">↓</i></a>
+        <a class="dl" href="https://github.com/Kiet1308/Tovek/releases/download/v2.6.1/Tovek-V2.6.1-linux-aarch64.tar.gz"><b>Linux ARM64</b><span>aarch64 · glibc 2.35+</span><i aria-hidden="true">↓</i></a>
+        <a class="dl" href="https://github.com/Kiet1308/Tovek/releases/download/v2.6.1/Tovek-V2.6.1-macos-aarch64.tar.gz"><b>macOS</b><span>Apple silicon · aarch64</span><i aria-hidden="true">↓</i></a>
       </div>
       <div class="dl-notes">
-        <p>Each download holds <code>luau-lifter</code>, <code>web-server</code> and the licence. Check them against <a href="https://github.com/Kiet1308/Tovek/releases/download/v2.6/SHA256SUMS.txt">SHA256SUMS.txt</a>.</p>
+        <p>Each download holds <code>luau-lifter</code>, <code>web-server</code> and the licence. Check them against <a href="https://github.com/Kiet1308/Tovek/releases/download/v2.6.1/SHA256SUMS.txt">SHA256SUMS.txt</a>.</p>
         <pre class="code code--light"><code>luau-lifter <span class="nw">decompile-folder</span> &lt;in&gt; &lt;out&gt; <span class="nw">--stats-json</span> stats.json</code></pre>
         <p class="fine">New in V2.6: <code>--stats-json &lt;file&gt;</code> writes, per script, the calls V2.6 rebuilt, the helpers, and why a helper or a call site was refused. On macOS, if Gatekeeper blocks the files, run <code>xattr -d com.apple.quarantine luau-lifter web-server</code> in the extracted folder.</p>
       </div>
