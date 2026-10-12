@@ -1840,6 +1840,18 @@
       "bytes": 3966,
       "lines": 304
     },
+    "semantic/loop_shared_return__O0.luau": {
+      "bytes": 2410,
+      "lines": 168
+    },
+    "semantic/loop_shared_return__O1.luau": {
+      "bytes": 2412,
+      "lines": 168
+    },
+    "semantic/loop_shared_return__O2.luau": {
+      "bytes": 3177,
+      "lines": 173
+    },
     "semantic/loop_swap_with_later_capture__O0.luau": {
       "bytes": 435,
       "lines": 37
