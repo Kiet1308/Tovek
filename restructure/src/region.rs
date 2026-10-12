@@ -2004,7 +2004,7 @@ impl Analysis {
                 .filter(|target| !nodes_in_loop.contains(target))
                 .unique()
                 .collect_vec();
-            let join = loop_exit_join(function, &external_targets, post_dominators)?;
+            let join = loop_continuation(function, &external_targets, normal_exit, post_dominators)?;
             if nodes_in_loop.contains(&join) {
                 continue;
             }
@@ -2274,7 +2274,7 @@ impl Analysis {
         let join = if whole_header && external_targets.is_empty() {
             header
         } else {
-            loop_exit_join(function, &external_targets, post_dominators)?
+            loop_continuation(function, &external_targets, normal_exit, post_dominators)?
         };
         if join != header && owned.contains(&join) {
             return None;
@@ -2500,7 +2500,7 @@ impl Analysis {
                 .filter(|target| !nodes_in_loop.contains(target))
                 .unique()
                 .collect_vec();
-            let Some(join) = loop_exit_join(function, &external_targets, post_dominators) else {
+            let Some(join) = loop_continuation(function, &external_targets, normal_exit, post_dominators) else {
                 continue;
             };
             if nodes_in_loop.contains(&join) {
@@ -2905,6 +2905,27 @@ fn rename_copied_cells(block: &mut Block, renames: &FxHashMap<RcLocal, RcLocal>)
     }
 }
 
+fn loop_continuation(
+    function: &Function,
+    targets: &[NodeIndex],
+    normal_exit: NodeIndex,
+    post_dominators: &PostDominators,
+) -> Option<NodeIndex> {
+    if let Some(join) = loop_exit_join(function, targets, post_dominators) {
+        return Some(join);
+    }
+    // A return shared with an outer branch is not owned by the loop, but it
+    // terminates the function instead of joining its continuation. Keep the
+    // normal exit even when it is itself a return: exhaustion still needs a
+    // continuation, and a body edge to that same exit remains a break.
+    let continuing = targets.iter().copied()
+        .filter(|&node| node == normal_exit || !is_return_block(function, node))
+        .collect_vec();
+    (continuing.len() != targets.len())
+        .then(|| loop_exit_join(function, &continuing, post_dominators))
+        .flatten()
+}
+
 fn loop_exit_join(
     function: &Function,
     targets: &[NodeIndex],
@@ -2926,6 +2947,18 @@ fn loop_exit_join(
         let rest = rest.iter().map(|&target| forced_chain(target).1).collect_vec();
         forced_chain(*first).0.into_iter().find(|node| rest.iter().all(|seen| seen.contains(node)))
     })
+}
+
+/// A return can be emitted on each incoming path without giving that path
+/// ownership of a shared tail. Restrict this to one explicit return; neither
+/// a break (whose loop owner matters) nor arbitrary statements qualify.
+fn is_return_block(function: &Function, node: NodeIndex) -> bool {
+    if function.successor_blocks(node).next().is_some() {
+        return false;
+    }
+    let Some(block) = function.block(node) else { return false };
+    let mut statements = block.iter().filter(|statement| !is_ignorable(statement));
+    matches!((statements.next(), statements.next()), (Some(Statement::Return(_)), None))
 }
 
 fn common_postdominator(
@@ -6677,7 +6710,10 @@ impl<'a> Builder<'a> {
                 self.trace_unsupported("unowned-loop-header", current, stop);
                 return None;
             }
-            if !self.visited.insert(current) {
+            // A shared return can be reached by sequential loops as well as
+            // sibling branches. It has no continuation or declarations to
+            // claim twice, so each incoming path may emit its own return.
+            if !self.visited.insert(current) && !is_return_block(self.function, current) {
                 self.trace_unsupported("revisited-node", current, stop);
                 return None;
             }
@@ -6856,6 +6892,11 @@ impl<'a> Builder<'a> {
                             });
                         }
                         if !ctx.info.nodes.contains(target) {
+                            if *target != ctx.info.join && is_return_block(self.function, *target) {
+                                let terminal = self.build_path(*target, None, Some(ctx))?;
+                                output.extend(terminal.block.0);
+                                return Some(PathResult { block: output, next: None });
+                            }
                             // This edge originates in the loop body, not in
                             // the FORGLOOP header. Even when it happens to
                             // target the header's normal-exhaustion adapter,
@@ -7765,6 +7806,9 @@ impl<'a> Builder<'a> {
         }
         if context.info.nodes.contains(&target) {
             return self.build_path(target, Some(context.info.header), Some(context));
+        }
+        if target != context.info.join && is_return_block(self.function, target) {
+            return self.build_path(target, None, Some(context));
         }
         if self.external_region_reaches_header(target, context) {
             return self.build_path(target, Some(context.info.header), Some(context));
@@ -12471,6 +12515,121 @@ mod tests {
         assert!(output.contains("if should_return then"), "{output}");
         assert!(output.contains("return value"), "{output}");
         assert!(!output.contains("goto "), "{output}");
+    }
+
+    #[test]
+    fn structures_loop_return_shared_with_an_outer_branch() {
+        for kind in ["generic", "numeric", "while"] {
+            for linear_arm in [false, true] {
+                let mut function = Function::new(0);
+                let entry = function.new_block();
+                let init = function.new_block();
+                let header = function.new_block();
+                let body = function.new_block();
+                let early = function.new_block();
+                let shared = function.new_block();
+                let exit = function.new_block();
+                function.set_entry(entry);
+                let condition = || If::new(Global::from("condition").into(), Block::default(), Block::default());
+                function.block_mut(entry).unwrap().push(condition().into());
+                function.set_edges(entry, vec![
+                    (init, BlockEdge::new(BranchType::Then)),
+                    (shared, BlockEdge::new(BranchType::Else)),
+                ]);
+                let value = RcLocal::new(Local::new(Some("value".into())));
+                let state = RcLocal::default();
+                let control = RcLocal::default();
+                match kind {
+                    "generic" => {
+                        let generator = RcLocal::default();
+                        let mut marker = GenericForInit::new(generator.clone(), state.clone(), control.clone());
+                        marker.0.right = vec![Global::from("items").into()];
+                        function.block_mut(init).unwrap().push(marker.into());
+                        function.block_mut(header).unwrap().push(
+                            GenericForNext::new(vec![value], generator.into(), state, control).into());
+                    }
+                    "numeric" => {
+                        let mut marker = NumForInit::new(value.clone(), state.clone(), control.clone());
+                        marker.counter.1 = Literal::Number(1.0).into();
+                        marker.limit.1 = Literal::Number(3.0).into();
+                        marker.step.1 = Literal::Number(1.0).into();
+                        function.block_mut(init).unwrap().push(marker.into());
+                        function.block_mut(header).unwrap().push(NumForNext::new(value, state.into(), control.into()).into());
+                    }
+                    _ => function.block_mut(header).unwrap().push(condition().into()),
+                }
+                function.set_edges(init, vec![(header, BlockEdge::default())]);
+                function.set_edges(header, vec![
+                    (body, BlockEdge::new(BranchType::Then)),
+                    (exit, BlockEdge::new(BranchType::Else)),
+                ]);
+                function.block_mut(body).unwrap().push(condition().into());
+                function.set_edges(body, vec![
+                    (if linear_arm { early } else { shared }, BlockEdge::new(BranchType::Then)),
+                    (header, BlockEdge::new(BranchType::Else)),
+                ]);
+                if linear_arm {
+                    function.block_mut(early).unwrap().push(
+                        Call::new(Global::from("effect").into(), vec![]).into());
+                    function.set_edges(early, vec![(shared, BlockEdge::default())]);
+                }
+                function.block_mut(shared).unwrap().push(
+                    ast::Return::new(vec![Call::new(Global::from("finish").into(), vec![]).into()]).into());
+                function.block_mut(exit).unwrap().push(ast::Return::new(vec![Literal::Number(0.0).into()]).into());
+                let output = lift(function).unwrap_or_else(|| panic!("{kind}, linear_arm={linear_arm}")).to_string();
+                assert!((1..=2).contains(&output.matches("return finish()").count()), "{output}");
+                assert!(output.contains("return 0"), "{output}");
+                assert_eq!(output.matches("effect()").count(), usize::from(linear_arm), "{output}");
+                assert!(!output.contains("goto ") && !output.contains("controlFlowState"), "{output}");
+            }
+        }
+    }
+
+    #[test]
+    fn sequential_loops_can_revisit_one_shared_return_node() {
+        let mut function = Function::new(0);
+        let entry = function.new_block();
+        let first_init = function.new_block();
+        let second_init = function.new_block();
+        let shared = function.new_block();
+        let exhausted = function.new_block();
+        function.set_entry(entry);
+        function.block_mut(entry).unwrap().push(
+            If::new(Global::from("run").into(), Block::default(), Block::default()).into());
+        function.set_edges(entry, vec![
+            (first_init, BlockEdge::new(BranchType::Then)),
+            (shared, BlockEdge::new(BranchType::Else)),
+        ]);
+        for (init, follow) in [(first_init, second_init), (second_init, exhausted)] {
+            let header = function.new_block();
+            let body = function.new_block();
+            let generator = RcLocal::default();
+            let state = RcLocal::default();
+            let control = RcLocal::default();
+            let value = RcLocal::default();
+            let mut marker = GenericForInit::new(generator.clone(), state.clone(), control.clone());
+            marker.0.right = vec![Global::from("items").into()];
+            function.block_mut(init).unwrap().push(marker.into());
+            function.block_mut(header).unwrap().push(
+                GenericForNext::new(vec![value], generator.into(), state, control).into());
+            function.block_mut(body).unwrap().push(
+                If::new(Global::from("stop").into(), Block::default(), Block::default()).into());
+            function.set_edges(init, vec![(header, BlockEdge::default())]);
+            function.set_edges(header, vec![
+                (body, BlockEdge::new(BranchType::Then)),
+                (follow, BlockEdge::new(BranchType::Else)),
+            ]);
+            function.set_edges(body, vec![
+                (shared, BlockEdge::new(BranchType::Then)),
+                (header, BlockEdge::new(BranchType::Else)),
+            ]);
+        }
+        function.block_mut(shared).unwrap().push(ast::Return::new(vec![Literal::Number(7.0).into()]).into());
+        function.block_mut(exhausted).unwrap().push(ast::Return::new(vec![Literal::Number(0.0).into()]).into());
+        let output = lift(function).expect("both loops may emit the same terminal node").to_string();
+        assert_eq!(output.matches(" in items do").count(), 2, "{output}");
+        assert_eq!(output.matches("return 7").count(), 3, "{output}");
+        assert_eq!(output.matches("return 0").count(), 1, "{output}");
     }
 
     #[test]
