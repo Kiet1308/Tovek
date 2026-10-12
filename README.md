@@ -3,11 +3,11 @@
   <img alt="Tovek" src="docs/assets/brand/tovek-logo.svg" height="64">
 </picture></h1>
 
-**A high-readability, high-performance Luau decompiler.** **Tovek V2.5**
+**A high-readability, high-performance Luau decompiler.** **Tovek V2.6.1**
 
-[**Download V2.5 for Windows, Linux or macOS**](https://github.com/Kiet1308/Tovek/releases/tag/v2.5.1) · [What’s new in V2.5](https://kiet1308.github.io/Tovek/changelog/v2.5/) · [All release notes](https://kiet1308.github.io/Tovek/changelog.html)
+[**Download V2.6.1 for Windows, Linux or macOS**](https://github.com/Kiet1308/Tovek/releases/tag/v2.6.1) · [What’s new in V2.6.1](https://github.com/Kiet1308/Tovek/releases/tag/v2.6.1) · [All release notes](https://kiet1308.github.io/Tovek/changelog.html)
 
-Builds are published for Windows x86_64, Linux x86_64, Linux aarch64 and macOS on Apple silicon. Each package holds the two programs, `luau-lifter` (CLI) and `web-server` (local HTTP server), plus the licence; the executor client scripts live in this repository. The release tag is `v2.5.1`; Rust package versions are `2.5.1`.
+Builds are published for Windows x86_64, Linux x86_64, Linux aarch64 and macOS on Apple silicon. Each package holds the two programs, `luau-lifter` (CLI) and `web-server` (local HTTP server), plus the licence; the executor client scripts live in this repository. The release tag is `v2.6.1`; Rust package versions are `2.6.1`.
 
 [**💬 Join the Tovek Discord →**](https://discord.gg/phY6VUDSF7)
 
