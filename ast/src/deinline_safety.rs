@@ -71,12 +71,30 @@ struct CallGraph {
     private_writers: std::cell::RefCell<FxHashMap<u64, Option<std::rc::Rc<FxHashSet<u64>>>>>,
 }
 
+/// How much a census traversal records: [`SHAPE`] only its size, depth and
+/// literal bounds; [`CAPTURES`] also captured locals and upvalues; [`FULL`]
+/// everything [`CaptureSafety::new`] answers.
+const SHAPE: u8 = 0;
+const CAPTURES: u8 = 1;
+const FULL: u8 = 2;
+
 impl CaptureSafety {
     pub(crate) fn new(body: &Block) -> Self {
         let mut result = Self::default();
-        result.block::<true, 200_000>(&body.0, 0, &FxHashSet::default(), None);
+        result.block::<FULL, 200_000>(&body.0, 0, &FxHashSet::default(), None);
         result.visited.clear();
         result.frames.observers = result.frame_observers();
+        result
+    }
+
+    /// The captures alone: which locals closures capture, and each function's
+    /// upvalues. Only [`Self::uncaptured`] and [`Self::register_of`] are
+    /// answered; the traversal and its budget are the full census's, so
+    /// [`Self::complete`] agrees with [`Self::new`] on the same body.
+    pub(crate) fn captures(body: &Block) -> Self {
+        let mut result = Self::default();
+        result.block::<CAPTURES, 200_000>(&body.0, 0, &FxHashSet::default(), None);
+        result.visited.clear();
         result
     }
 
@@ -85,7 +103,7 @@ impl CaptureSafety {
     /// and stop as soon as the helper's smaller node limit is exceeded.
     pub(crate) fn helper_within_shape_budget(body: &Block) -> bool {
         let mut result = Self::default();
-        result.block::<false, 2048>(&body.0, 0, &FxHashSet::default(), None);
+        result.block::<SHAPE, 2048>(&body.0, 0, &FxHashSet::default(), None);
         !result.exhausted
     }
 
@@ -323,7 +341,7 @@ impl CaptureSafety {
 
     /// `upvalues`: the locals the function owning `statements` reads as
     /// upvalues; `owner`: its identity (`None`: the chunk).
-    fn block<const FACTS: bool, const NODE_LIMIT: usize>(&mut self, statements: &[Statement], depth: usize, upvalues: &FxHashSet<u64>, owner: Option<usize>) {
+    fn block<const FACTS: u8, const NODE_LIMIT: usize>(&mut self, statements: &[Statement], depth: usize, upvalues: &FxHashSet<u64>, owner: Option<usize>) {
         for statement in statements {
             if !self.spend::<NODE_LIMIT>(depth) { return; }
             // Check wide containers before Traverse allocates their root list.
@@ -337,7 +355,7 @@ impl CaptureSafety {
                 _ => 0,
             };
             if width > 200_000usize.saturating_sub(self.nodes) { self.exhausted = true; return; }
-            if FACTS {
+            if FACTS >= FULL {
                 match statement {
                     Statement::Call(call) => self.call(call, owner),
                     // `local function f` / `local f = function`: the closure's name.
@@ -359,7 +377,7 @@ impl CaptureSafety {
                     _ => {}
                 }
             }
-            if FACTS && let Statement::Assign(assign) = statement {
+            if FACTS >= FULL && let Statement::Assign(assign) = statement {
                 for left in &assign.left {
                     match left {
                         LValue::Global(global) => {
@@ -418,7 +436,7 @@ impl CaptureSafety {
         }
     }
 
-    fn value<const FACTS: bool, const NODE_LIMIT: usize>(&mut self, value: &RValue, depth: usize, owner: Option<usize>) {
+    fn value<const FACTS: u8, const NODE_LIMIT: usize>(&mut self, value: &RValue, depth: usize, owner: Option<usize>) {
         if !self.spend::<NODE_LIMIT>(depth) { return; }
         let width = match value {
             RValue::Table(s) => s.0.len().saturating_mul(2),
@@ -428,7 +446,7 @@ impl CaptureSafety {
             _ => 0,
         };
         if width > 200_000usize.saturating_sub(self.nodes) { self.exhausted = true; return; }
-        if FACTS {
+        if FACTS >= FULL {
             if names_environment_function(value) {
                 self.dynamic_environment = true;
             }
@@ -468,8 +486,10 @@ impl CaptureSafety {
         }
         if let RValue::Closure(closure) = value {
             let identity = triomphe::Arc::as_ptr(&closure.function.0) as usize;
-            if FACTS {
+            if FACTS >= FULL {
                 *self.calls.closures.entry(identity).or_default() += 1;
+            }
+            if FACTS >= CAPTURES {
                 let upvalues = self.upvalues.entry(identity).or_default();
                 upvalues.extend(closure.upvalues.iter().map(|capture| {
                     let (Upvalue::Ref(local) | Upvalue::Copy(local)) = capture;
@@ -478,14 +498,15 @@ impl CaptureSafety {
             }
             for capture in &closure.upvalues {
                 if !self.spend::<NODE_LIMIT>(depth) { return; }
-                if FACTS {
+                if FACTS >= CAPTURES {
                     let (Upvalue::Ref(local) | Upvalue::Copy(local)) = capture;
                     self.captured.insert(local.stable_id());
                     if let Upvalue::Ref(local) = capture { self.references.insert(local.stable_id()); }
                 }
             }
             if self.visited.insert(identity) {
-                let upvalues = if FACTS { self.upvalues[&identity].clone() } else { FxHashSet::default() };
+                // Only the full census reads a function's upvalues (writes to them).
+                let upvalues = if FACTS >= FULL { self.upvalues[&identity].clone() } else { FxHashSet::default() };
                 self.block::<FACTS, NODE_LIMIT>(&closure.function.0.lock().body.0, depth + 1, &upvalues, Some(identity));
             }
         } else {
@@ -750,6 +771,45 @@ mod tests {
             vec![crate::Index::new(closure.clone().into(), Literal::Nil.into()).into()],
             vec![closure.clone().into(), closure.into()],
         ).into()]));
+    }
+
+    #[test]
+    fn capture_census_answers_captures_as_the_full_census() {
+        let locals: Vec<crate::RcLocal> = (0..4).map(|_| crate::RcLocal::default()).collect();
+        let function = |body: Vec<Statement>| by_address::ByAddress(triomphe::Arc::new(parking_lot::Mutex::new(crate::Function {
+            body: Block(body),
+            ..Default::default()
+        })));
+        let inner = crate::Closure {
+            node_origin: Default::default(),
+            function: function(vec![crate::Return::new(vec![locals[2].clone().into()]).into()]),
+            upvalues: vec![Upvalue::Ref(locals[2].clone())],
+        };
+        let outer_function = function(vec![
+            crate::Assign::new(vec![locals[1].clone().into()], vec![inner.clone().into()]).into(),
+            crate::Return::new(vec![locals[0].clone().into()]).into(),
+        ]);
+        let outer = crate::Closure { node_origin: Default::default(), function: outer_function.clone(), upvalues: vec![Upvalue::Copy(locals[0].clone())] };
+        let identities = [None, Some(triomphe::Arc::as_ptr(&outer_function.0) as usize),
+            Some(triomphe::Arc::as_ptr(&inner.function.0) as usize)];
+        let mut bodies = vec![
+            Block::default(),
+            Block(vec![crate::Assign::new(vec![locals[3].clone().into()], vec![outer.clone().into()]).into()]),
+            Block(vec![crate::Return::new(vec![outer.clone().into(), outer.into()]).into()]),
+        ];
+        // Past the node budget both censuses know nothing.
+        bodies.push(Block(vec![Statement::Empty(crate::Empty {}); 200_001]));
+        for body in &bodies {
+            let full = CaptureSafety::new(body);
+            let captures = CaptureSafety::captures(body);
+            assert_eq!(full.complete(), captures.complete());
+            for local in &locals {
+                assert_eq!(full.uncaptured(local), captures.uncaptured(local));
+                for function in identities {
+                    assert_eq!(full.register_of(local, function), captures.register_of(local, function));
+                }
+            }
+        }
     }
 
     #[test]

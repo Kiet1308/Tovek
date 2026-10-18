@@ -41,15 +41,57 @@ const MAX_NON_OPTIONAL_EXPRESSION_COST: usize = 80;
 /// branch RHS evaluation point except for expression-order details that are
 /// guarded below.
 pub fn reconstruct_conditional_expressions(block: &mut Block) {
-    let safety = CaptureSafety::new(block);
+    if !foldable_anywhere(&block.0) {
+        return;
+    }
+    // Only captures are asked (`uncaptured`, `register_of`).
+    let safety = CaptureSafety::captures(block);
     reconstruct_with_style(block, true, Scope { safety: &safety, function: None });
 }
 
 /// Reconstruct only value-exact boolean short-circuit idioms. Branch values
 /// outside this subset stay as assignments; this never emits IfExpression.
 pub fn reconstruct_short_circuit_expressions(block: &mut Block) {
-    let safety = CaptureSafety::new(block);
+    if !foldable_anywhere(&block.0) {
+        return;
+    }
+    // Only captures are asked (`uncaptured`, `register_of`).
+    let safety = CaptureSafety::captures(block);
     reconstruct_with_style(block, false, Scope { safety: &safety, function: None });
+}
+
+/// Whether some block, in the chunk or any function, declares a candidate
+/// right before an `if` assigning it in both branches: the only shape
+/// [`reconstruct_current_block`] rewrites, and only after asking the census.
+/// Without one, nothing changes and the census is not built. The walk visits
+/// every nested block and every function, a superset of the rewrite's.
+fn foldable_anywhere(statements: &[Statement]) -> bool {
+    statements.iter().enumerate().any(|(index, statement)| {
+        if let Some(local) = candidate_decl(statement)
+            && let Some(Statement::If(r#if)) = statements.get(index + 1)
+            && branch_assignments(r#if, &local).is_some()
+        {
+            return true;
+        }
+        let nested = match statement {
+            Statement::If(r#if) => {
+                foldable_anywhere(&r#if.then_block.lock().0) || foldable_anywhere(&r#if.else_block.lock().0)
+            }
+            Statement::While(node) => foldable_anywhere(&node.block.lock().0),
+            Statement::Repeat(node) => foldable_anywhere(&node.block.lock().0),
+            Statement::NumericFor(node) => foldable_anywhere(&node.block.lock().0),
+            Statement::GenericFor(node) => foldable_anywhere(&node.block.lock().0),
+            _ => false,
+        };
+        if nested {
+            return true;
+        }
+        let mut found = false;
+        collect_closures_in_statement(statement, &mut |closure| {
+            found = found || foldable_anywhere(&closure.function.lock().body.0);
+        });
+        found
+    })
 }
 
 /// Where a block runs: the module's capture census and the function owning

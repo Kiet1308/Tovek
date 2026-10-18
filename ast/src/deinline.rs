@@ -1068,6 +1068,12 @@ pub fn deinline_orphans_in(body: &mut Block, chunk_orphans: &mut Vec<(RcLocal, C
         let chunk_orphans_active = newly.orphan_scopes.get(&None).cloned().unwrap_or_default();
         {
             let _span = crate::telemetry::Span::new("D_SCAN");
+            let _round = crate::telemetry::Span::new(match (&evidence_round, assign_phase) {
+                (EvidenceRound::Probe, _) => "D_SCAN_PROBE",
+                (EvidenceRound::Admit(_), _) => "D_SCAN_ADMIT",
+                (EvidenceRound::Off, true) => "D_SCAN_ASSIGN",
+                (EvidenceRound::Off, false) => "D_SCAN_PLAIN",
+            });
             deinline_block(
                 &mut body.0,
                 &targets,

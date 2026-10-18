@@ -45,6 +45,11 @@ struct Group {
 /// closure body. Returns the number of synthesized helpers.
 pub fn synthesize_terminal_helpers(body: &mut Block) -> usize {
     crate::factor_common_tails::unshare_blocks(body);
+    // Most chunks have no scope with two candidate sites; then nothing below
+    // can change, and the whole-chunk census is not worth building.
+    if !scope_with_sites(&body.0) {
+        return 0;
+    }
     // A helper is a new closure with the globals its creating function has
     // then: after a `setfenv`, its copy of the code reads other globals; and
     // a new call frame, which `debug.info` under another name may read.
@@ -53,6 +58,36 @@ pub fn synthesize_terminal_helpers(body: &mut Block) -> usize {
         return 0;
     }
     synthesize_in_existing_closures(&mut body.0, &safety) + synthesize_scope(&mut body.0, &safety)
+}
+
+/// Whether the chunk or any function in it has the two candidate sites
+/// [`synthesize_scope`] needs before it tries anything: the scopes it visits,
+/// in the same walk as [`synthesize_in_existing_closures`].
+fn scope_with_sites(stmts: &[Statement]) -> bool {
+    count_potential_sites(stmts, 2) >= 2 || closures_with_sites(stmts)
+}
+
+fn closures_with_sites(stmts: &[Statement]) -> bool {
+    stmts.iter().any(|statement| {
+        let nested = match statement {
+            Statement::If(node) => {
+                closures_with_sites(&node.then_block.lock().0) || closures_with_sites(&node.else_block.lock().0)
+            }
+            Statement::While(node) => closures_with_sites(&node.block.lock().0),
+            Statement::Repeat(node) => closures_with_sites(&node.block.lock().0),
+            Statement::NumericFor(node) => closures_with_sites(&node.block.lock().0),
+            Statement::GenericFor(node) => closures_with_sites(&node.block.lock().0),
+            _ => false,
+        };
+        nested || !crate::deinline::visit_stmt_rvalues(statement, &mut |value| !value_with_sites(value))
+    })
+}
+
+fn value_with_sites(value: &RValue) -> bool {
+    if let RValue::Closure(closure) = value {
+        return scope_with_sites(&closure.function.0.lock().body.0);
+    }
+    !value.visit_rvalues(&mut |child| !value_with_sites(child))
 }
 
 fn synthesize_in_existing_closures(stmts: &mut [Statement], safety: &CaptureSafety) -> usize {
