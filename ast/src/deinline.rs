@@ -988,8 +988,10 @@ pub fn deinline_orphans_in(body: &mut Block, chunk_orphans: &mut Vec<(RcLocal, C
                     targets
                 }
                 None => {
-                    let captures = initial_captures.take().unwrap_or_else(||
-                        std::rc::Rc::new(crate::deinline_safety::CaptureSafety::new(body)));
+                    let captures = initial_captures.take().unwrap_or_else(|| {
+                        let _span = crate::telemetry::Span::new("D_ROUND_CENSUS");
+                        std::rc::Rc::new(crate::deinline_safety::CaptureSafety::new(body))
+                    });
                     current_captures = Some(captures.clone());
                     if let Some(last) = last_targets.take() {
                         helper_cache.keep_targets(last);

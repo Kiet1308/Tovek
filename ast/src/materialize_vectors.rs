@@ -13,6 +13,48 @@ use crate::{
     Upvalue,
 };
 
+/// How the chunk's vector constants print, decided once per chunk from its
+/// bytecode (`luau-lifter`'s `vector_spelling`).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum VectorSpelling {
+    /// `local createVector = vector.create` once at the top, then
+    /// `createVector(x, y, z)`. A constant must not look its constructor up
+    /// when it runs: code outside the chunk may replace the function's
+    /// environment (`getfenv(f).vector = ...`) after it loaded, and the
+    /// bytecode's constant ignores that.
+    #[default]
+    Snapshot,
+    /// `Vector3.new(x, y, z)`: the compiler ran with Roblox's vector
+    /// constructor (a Roblox client's bytecode, or a FASTCALL of the vector
+    /// builtin falling back to `Vector3.new`), which folds such a call into
+    /// the same constant, whatever the environment holds.
+    Vector3New,
+}
+
+impl VectorSpelling {
+    /// The global a vector constant prints through, which naming keeps free.
+    pub fn global(self) -> &'static str {
+        match self {
+            Self::Snapshot => "vector",
+            Self::Vector3New => "Vector3",
+        }
+    }
+}
+
+/// [`materialize_vectors`] under a chunk's [`VectorSpelling`].
+pub fn spell_vectors(
+    body: &mut Block,
+    spelling: VectorSpelling,
+) -> Result<Option<crate::local_producers::Pass>, &'static str> {
+    match spelling {
+        VectorSpelling::Snapshot => materialize_vectors(body),
+        VectorSpelling::Vector3New => {
+            crate::library_constants::spell_vector3_constants(body);
+            Ok(None)
+        }
+    }
+}
+
 pub fn materialize_vectors(
     body: &mut Block,
 ) -> Result<Option<crate::local_producers::Pass>, &'static str> {

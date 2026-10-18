@@ -53,6 +53,8 @@ const ARGUMENT_HINT_SCORE: u8 = 30;
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub struct NameLocalOptions {
     pub dont_reuse_var: bool,
+    /// How vector constants will print; naming keeps that global free.
+    pub vector_spelling: crate::materialize_vectors::VectorSpelling,
 }
 
 /// Turn an arbitrary hint string (a field name, service name, type name, ...)
@@ -3324,6 +3326,8 @@ fn rewind_scope_suffixes(cursors: &mut FxHashMap<String, usize>, released: &str)
 struct Namer {
     rename: bool,
     dont_reuse_var: bool,
+    /// The global vector constants print through (`vector` or `Vector3`).
+    vector_global: &'static str,
     module_hint: Option<String>,
     /// Names that may not currently be assigned to a local: every global
     /// referenced in the program (added once in `collect`, kept reserved
@@ -4951,7 +4955,7 @@ impl Namer {
                     Either::Right(RValue::Literal(crate::Literal::Vector(..) | crate::Literal::VectorD(..))) => {
                         // Literal formatting introduces this builtin even when
                         // the input bytecode contains no GETGLOBAL for it.
-                        globals.push("vector".to_string());
+                        globals.push(self.vector_global.to_string());
                     }
                     Either::Right(RValue::Global(global)) | Either::Left(crate::LValue::Global(global)) => {
                         match std::str::from_utf8(&global.0) {
@@ -5784,6 +5788,7 @@ fn name_locals_impl<const REFERENCE: bool>(
     let mut namer = Namer {
         rename,
         dont_reuse_var: options.dont_reuse_var,
+        vector_global: options.vector_spelling.global(),
         module_hint: script_name.and_then(script_module_hint),
         reserved: FxHashSet::default(),
         used_file_names: FxHashSet::default(),
@@ -7168,6 +7173,7 @@ mod tests {
             None,
             super::NameLocalOptions {
                 dont_reuse_var: true,
+                ..Default::default()
             },
         );
 
@@ -7245,6 +7251,7 @@ mod tests {
             None,
             super::NameLocalOptions {
                 dont_reuse_var: true,
+                ..Default::default()
             },
         );
 
@@ -7279,6 +7286,7 @@ mod tests {
             None,
             super::NameLocalOptions {
                 dont_reuse_var: true,
+                ..Default::default()
             },
         );
 

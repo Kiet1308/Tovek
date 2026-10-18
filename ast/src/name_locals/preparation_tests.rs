@@ -237,7 +237,7 @@ fn complete_naming_matches_legacy_preparation_with_ids_evidence_and_origins() {
     for seed in 0..48 {
         for rename in [false, true] {
             for collect_evidence in [false, true] {
-                let options = NameLocalOptions { dont_reuse_var: seed & 2 != 0 };
+                let options = NameLocalOptions { dont_reuse_var: seed & 2 != 0, ..Default::default() };
                 let mut actual = fixture(seed);
                 NAME_OWNERS.with(|trace| *trace.borrow_mut() = Some(Vec::new()));
                 let report = name_locals_impl::<false>(&mut actual.block, rename, Some("UI/Widget.luau"), options, collect_evidence);

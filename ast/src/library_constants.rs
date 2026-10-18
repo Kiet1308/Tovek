@@ -75,15 +75,35 @@ fn spelled(literal: &Literal, libraries: Libraries) -> Option<RValue> {
         }
         // A single-precision component is written in its shortest decimal
         // form, which the compiler narrows back to the same float.
-        Literal::Vector(x, y, z) if libraries.vector3 => Some(vector3([x, y, z].map(|c| {
-            let wide = if c.is_finite() { c.to_string().parse().unwrap_or(f64::from(c)) } else { f64::from(c) };
-            spelled(&Literal::Number(wide), libraries).unwrap_or_else(|| Literal::Number(wide).into())
-        }))),
-        Literal::VectorD(x, y, z) if libraries.vector3 => Some(vector3([x, y, z].map(|c| {
-            spelled(&Literal::Number(c), libraries).unwrap_or_else(|| Literal::Number(c).into())
-        }))),
+        Literal::Vector(x, y, z) if libraries.vector3 => {
+            let wide = [x, y, z].map(|c| if c.is_finite() { c.to_string().parse().unwrap_or(f64::from(c)) } else { f64::from(c) });
+            Some(signed_vector3(wide, libraries))
+        }
+        Literal::VectorD(x, y, z) if libraries.vector3 => Some(signed_vector3([x, y, z], libraries)),
         _ => None,
     }
+}
+
+/// Every vector constant in `body` as `Vector3.new(x, y, z)` (single-precision
+/// components in their shortest decimal form). When every component has its
+/// sign bit set and one is `-0`, the constant prints as the negation the
+/// compiler folded it from: `-Vector3.new(0, 10, 0)` is `(-0, -10, -0)`.
+pub fn spell_vector3_constants(body: &mut Block) {
+    rewrite_block(body, Libraries { math: false, vector3: true });
+}
+
+/// `Vector3.new(x, y, z)`, or `-Vector3.new(-x, -y, -z)` when every component
+/// is negative or `-0` and one is `-0` (negation flips each sign bit, so the
+/// folded constant is the same bit for bit).
+fn signed_vector3(components: [f64; 3], libraries: Libraries) -> RValue {
+    let component = |c: f64| spelled(&Literal::Number(c), libraries).unwrap_or_else(|| Literal::Number(c).into());
+    let negated = components.iter().all(|c| c.is_sign_negative() && !c.is_nan())
+        && components.iter().any(|c| *c == 0.0);
+    if negated {
+        let value = vector3(components.map(|c| component(-c)));
+        return Unary::new(value, UnaryOperation::Negate).into();
+    }
+    vector3(components.map(component))
 }
 
 fn vector3(components: [RValue; 3]) -> RValue {

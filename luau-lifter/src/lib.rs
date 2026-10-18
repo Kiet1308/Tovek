@@ -527,6 +527,43 @@ fn capture_may_print_shared(
     }
 }
 
+/// How the chunk's vector constants print ([`ast::materialize_vectors::VectorSpelling`]):
+/// `Vector3.new` when the chunk never assigns `Vector3` and the compiler is
+/// known to have run with Roblox's vector constructor: the bytecode is a Roblox
+/// client's (its opcodes encoded with key 203; Roblox always compiles with
+/// `Vector3.new` as the vector constructor), or a FASTCALL of the vector builtin
+/// (54) falls back to `Vector3.new`. Otherwise, and in a chunk that may change
+/// its environment, the snapshot.
+fn vector_spelling(chunk: &deserializer::chunk::Chunk, globals: &ast::ChunkGlobals, roblox_client: bool) -> ast::materialize_vectors::VectorSpelling {
+    use ast::materialize_vectors::VectorSpelling;
+    use crate::{instruction::Instruction, op_code::OpCode};
+    use deserializer::constant::Constant;
+    if globals.dynamic_environment || globals.unspellable {
+        return VectorSpelling::Snapshot;
+    }
+    const VECTOR_BUILTIN: u8 = 54;
+    let roblox_constructor = !globals.written.contains(b"Vector3".as_slice())
+        && (roblox_client || chunk.functions.iter().any(|function| {
+            let string = |constant: u32| match function.constants.get(constant as usize) {
+                Some(Constant::String(index)) => index.checked_sub(1).and_then(|index| chunk.string_table.get(index)).copied(),
+                _ => None,
+            };
+            function.instructions.iter().enumerate().any(|(pc, instruction)| match *instruction {
+                Instruction::BC {
+                    op_code: OpCode::LOP_FASTCALL | OpCode::LOP_FASTCALL1 | OpCode::LOP_FASTCALL2
+                        | OpCode::LOP_FASTCALL2K | OpCode::LOP_FASTCALL3,
+                    a: VECTOR_BUILTIN,
+                    c,
+                    ..
+                } => fallback_import(&function.instructions, pc, usize::from(c))
+                    .and_then(|aux| import_names(aux, &string))
+                    .is_some_and(|(names, count)| names_path(&names[..count], "Vector3.new")),
+                _ => false,
+            })
+        }));
+    if roblox_constructor { VectorSpelling::Vector3New } else { VectorSpelling::Snapshot }
+}
+
 fn pristine_libraries(globals: &ast::ChunkGlobals) -> ast::library_constants::Libraries {
     if globals.dynamic_environment {
         return Default::default();
@@ -849,6 +886,7 @@ fn decompile_bytecode_internal(
             let _inlined_copies = ast::deinline::evidence::enter(inlined_copies);
             let capture_effects = capture_effects::CaptureEffects::build(&chunk);
             let globals = std::sync::Arc::new(chunk_globals(&chunk));
+            let vector_spelling = vector_spelling(&chunk, &globals, encode_key == 203);
             // A global no identifier spells is written `getfenv(1)["name"]`,
             // which needs the standard `getfenv` reading the environment the
             // global is read from: code naming getfenv or setfenv may
@@ -1216,6 +1254,7 @@ fn decompile_bytecode_internal(
                     script_name,
                     NameLocalOptions {
                         dont_reuse_var: options.dont_reuse_var,
+                        vector_spelling,
                     },
                     emit_upvalue_analysis,
                 )
@@ -1421,7 +1460,7 @@ fn decompile_bytecode_internal(
                 matches!(constant, deserializer::constant::Constant::Vector(..)
                     | deserializer::constant::Constant::VectorD(..))
             })) {
-                if let Some(pass) = ast::materialize_vectors::materialize_vectors(&mut body)
+                if let Some(pass) = ast::materialize_vectors::spell_vectors(&mut body, vector_spelling)
                     .map_err(DecompileFailure::message)?
                 {
                     if options.emit_binding_provenance { local_producers.push(pass); }
