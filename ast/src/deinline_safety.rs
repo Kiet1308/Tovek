@@ -74,10 +74,19 @@ struct CallGraph {
 impl CaptureSafety {
     pub(crate) fn new(body: &Block) -> Self {
         let mut result = Self::default();
-        result.block(&body.0, 0, &FxHashSet::default(), None);
+        result.block::<true, 200_000>(&body.0, 0, &FxHashSet::default(), None);
         result.visited.clear();
         result.frames.observers = result.frame_observers();
         result
+    }
+
+    /// Helper admission only needs the census's size/depth/literal bounds.
+    /// Reuse the exact traversal without building capture or call-graph facts,
+    /// and stop as soon as the helper's smaller node limit is exceeded.
+    pub(crate) fn helper_within_shape_budget(body: &Block) -> bool {
+        let mut result = Self::default();
+        result.block::<false, 2048>(&body.0, 0, &FxHashSet::default(), None);
+        !result.exhausted
     }
 
     /// [`FrameReads::observers`]: from each function calling `debug.info`,
@@ -306,17 +315,17 @@ impl CaptureSafety {
         matches!(value, RValue::Literal(_)) || self.stable(value) || self.constant_import(value)
     }
 
-    fn spend(&mut self, depth: usize) -> bool {
+    fn spend<const NODE_LIMIT: usize>(&mut self, depth: usize) -> bool {
         self.nodes += 1;
-        if depth >= 128 || self.nodes > 200_000 { self.exhausted = true; }
+        if depth >= 128 || self.nodes > NODE_LIMIT { self.exhausted = true; }
         !self.exhausted
     }
 
     /// `upvalues`: the locals the function owning `statements` reads as
     /// upvalues; `owner`: its identity (`None`: the chunk).
-    fn block(&mut self, statements: &[Statement], depth: usize, upvalues: &FxHashSet<u64>, owner: Option<usize>) {
+    fn block<const FACTS: bool, const NODE_LIMIT: usize>(&mut self, statements: &[Statement], depth: usize, upvalues: &FxHashSet<u64>, owner: Option<usize>) {
         for statement in statements {
-            if !self.spend(depth) { return; }
+            if !self.spend::<NODE_LIMIT>(depth) { return; }
             // Check wide containers before Traverse allocates their root list.
             let width = match statement {
                 Statement::Assign(s) => s.left.len().saturating_mul(2).saturating_add(s.right.len()),
@@ -328,27 +337,29 @@ impl CaptureSafety {
                 _ => 0,
             };
             if width > 200_000usize.saturating_sub(self.nodes) { self.exhausted = true; return; }
-            match statement {
-                Statement::Call(call) => self.call(call, owner),
-                // `local function f` / `local f = function`: the closure's name.
-                Statement::Assign(assign) if assign.prefix => {
-                    for left in &assign.left {
-                        if let LValue::Local(local) = left {
-                            self.calls.declared_in.insert(local.stable_id(), owner);
+            if FACTS {
+                match statement {
+                    Statement::Call(call) => self.call(call, owner),
+                    // `local function f` / `local f = function`: the closure's name.
+                    Statement::Assign(assign) if assign.prefix => {
+                        for left in &assign.left {
+                            if let LValue::Local(local) = left {
+                                self.calls.declared_in.insert(local.stable_id(), owner);
+                            }
+                        }
+                        if let ([LValue::Local(name)], [RValue::Closure(closure)]) = (assign.left.as_slice(), assign.right.as_slice()) {
+                            let identity = triomphe::Arc::as_ptr(&closure.function.0) as usize;
+                            let entry = self.calls.bound.entry(identity).or_insert((0, Some(name.stable_id())));
+                            entry.0 += 1;
+                            if entry.1 != Some(name.stable_id()) {
+                                entry.1 = None;
+                            }
                         }
                     }
-                    if let ([LValue::Local(name)], [RValue::Closure(closure)]) = (assign.left.as_slice(), assign.right.as_slice()) {
-                        let identity = triomphe::Arc::as_ptr(&closure.function.0) as usize;
-                        let entry = self.calls.bound.entry(identity).or_insert((0, Some(name.stable_id())));
-                        entry.0 += 1;
-                        if entry.1 != Some(name.stable_id()) {
-                            entry.1 = None;
-                        }
-                    }
+                    _ => {}
                 }
-                _ => {}
             }
-            if let Statement::Assign(assign) = statement {
+            if FACTS && let Statement::Assign(assign) = statement {
                 for left in &assign.left {
                     match left {
                         LValue::Global(global) => {
@@ -379,18 +390,18 @@ impl CaptureSafety {
             }
             match statement {
                 Statement::If(s) => {
-                    self.block(&s.then_block.lock().0, depth + 1, upvalues, owner);
-                    self.block(&s.else_block.lock().0, depth + 1, upvalues, owner);
+                    self.block::<FACTS, NODE_LIMIT>(&s.then_block.lock().0, depth + 1, upvalues, owner);
+                    self.block::<FACTS, NODE_LIMIT>(&s.else_block.lock().0, depth + 1, upvalues, owner);
                 }
-                Statement::While(s) => self.block(&s.block.lock().0, depth + 1, upvalues, owner),
-                Statement::Repeat(s) => self.block(&s.block.lock().0, depth + 1, upvalues, owner),
-                Statement::NumericFor(s) => self.block(&s.block.lock().0, depth + 1, upvalues, owner),
-                Statement::GenericFor(s) => self.block(&s.block.lock().0, depth + 1, upvalues, owner),
+                Statement::While(s) => self.block::<FACTS, NODE_LIMIT>(&s.block.lock().0, depth + 1, upvalues, owner),
+                Statement::Repeat(s) => self.block::<FACTS, NODE_LIMIT>(&s.block.lock().0, depth + 1, upvalues, owner),
+                Statement::NumericFor(s) => self.block::<FACTS, NODE_LIMIT>(&s.block.lock().0, depth + 1, upvalues, owner),
+                Statement::GenericFor(s) => self.block::<FACTS, NODE_LIMIT>(&s.block.lock().0, depth + 1, upvalues, owner),
                 _ => {}
             }
             if self.exhausted { return; }
             crate::deinline::visit_stmt_rvalues(statement, &mut |value| {
-                self.value(value, depth + 1, owner);
+                self.value::<FACTS, NODE_LIMIT>(value, depth + 1, owner);
                 !self.exhausted
             });
             if self.exhausted { return; }
@@ -407,8 +418,8 @@ impl CaptureSafety {
         }
     }
 
-    fn value(&mut self, value: &RValue, depth: usize, owner: Option<usize>) {
-        if !self.spend(depth) { return; }
+    fn value<const FACTS: bool, const NODE_LIMIT: usize>(&mut self, value: &RValue, depth: usize, owner: Option<usize>) {
+        if !self.spend::<NODE_LIMIT>(depth) { return; }
         let width = match value {
             RValue::Table(s) => s.0.len().saturating_mul(2),
             RValue::Call(s) | RValue::Select(crate::Select::Call(s)) => s.arguments.len(),
@@ -417,37 +428,39 @@ impl CaptureSafety {
             _ => 0,
         };
         if width > 200_000usize.saturating_sub(self.nodes) { self.exhausted = true; return; }
-        if names_environment_function(value) {
-            self.dynamic_environment = true;
-        }
-        match value {
-            RValue::Local(local) => *self.calls.reads.entry(local.stable_id()).or_default() += 1,
-            RValue::Call(call) | RValue::Select(crate::Select::Call(call)) => {
-                self.call(call, owner);
-                if debug_member(&call.value) == Some(Some(b"info".as_slice())) {
-                    self.frames.info_calls += 1;
-                    if reads_frame_identity(call) {
-                        self.frames.read = true;
-                    }
-                    if reads_beyond_caller(call) {
-                        self.frames.callers.extend(owner);
-                    }
-                    // The options come last: `debug.info(level, options)`,
-                    // `debug.info(thread, level, options)`, `debug.info(f, options)`.
-                    self.frames.functions |= !matches!(call.arguments.last(),
-                        Some(RValue::Literal(Literal::String(options))) if !options.contains(&b'f'));
-                }
+        if FACTS {
+            if names_environment_function(value) {
+                self.dynamic_environment = true;
             }
-            _ if is_debug_library(value) => self.frames.library += 1,
-            RValue::Index(_) => match debug_member(value) {
-                Some(Some(name)) => {
-                    self.frames.members += 1;
-                    self.frames.info += u32::from(name == b"info");
+            match value {
+                RValue::Local(local) => *self.calls.reads.entry(local.stable_id()).or_default() += 1,
+                RValue::Call(call) | RValue::Select(crate::Select::Call(call)) => {
+                    self.call(call, owner);
+                    if debug_member(&call.value) == Some(Some(b"info".as_slice())) {
+                        self.frames.info_calls += 1;
+                        if reads_frame_identity(call) {
+                            self.frames.read = true;
+                        }
+                        if reads_beyond_caller(call) {
+                            self.frames.callers.extend(owner);
+                        }
+                        // The options come last: `debug.info(level, options)`,
+                        // `debug.info(thread, level, options)`, `debug.info(f, options)`.
+                        self.frames.functions |= !matches!(call.arguments.last(),
+                            Some(RValue::Literal(Literal::String(options))) if !options.contains(&b'f'));
+                    }
                 }
-                Some(None) => self.frames.computed = true,
-                None => {}
-            },
-            _ => {}
+                _ if is_debug_library(value) => self.frames.library += 1,
+                RValue::Index(_) => match debug_member(value) {
+                    Some(Some(name)) => {
+                        self.frames.members += 1;
+                        self.frames.info += u32::from(name == b"info");
+                    }
+                    Some(None) => self.frames.computed = true,
+                    None => {}
+                },
+                _ => {}
+            }
         }
         if let RValue::Literal(crate::Literal::String(bytes)) = value {
             self.literal_bytes = self.literal_bytes.saturating_add(bytes.len());
@@ -455,25 +468,29 @@ impl CaptureSafety {
         }
         if let RValue::Closure(closure) = value {
             let identity = triomphe::Arc::as_ptr(&closure.function.0) as usize;
-            *self.calls.closures.entry(identity).or_default() += 1;
-            let upvalues = self.upvalues.entry(identity).or_default();
-            upvalues.extend(closure.upvalues.iter().map(|capture| {
-                let (Upvalue::Ref(local) | Upvalue::Copy(local)) = capture;
-                local.stable_id()
-            }));
+            if FACTS {
+                *self.calls.closures.entry(identity).or_default() += 1;
+                let upvalues = self.upvalues.entry(identity).or_default();
+                upvalues.extend(closure.upvalues.iter().map(|capture| {
+                    let (Upvalue::Ref(local) | Upvalue::Copy(local)) = capture;
+                    local.stable_id()
+                }));
+            }
             for capture in &closure.upvalues {
-                if !self.spend(depth) { return; }
-                let (Upvalue::Ref(local) | Upvalue::Copy(local)) = capture;
-                self.captured.insert(local.stable_id());
-                if let Upvalue::Ref(local) = capture { self.references.insert(local.stable_id()); }
+                if !self.spend::<NODE_LIMIT>(depth) { return; }
+                if FACTS {
+                    let (Upvalue::Ref(local) | Upvalue::Copy(local)) = capture;
+                    self.captured.insert(local.stable_id());
+                    if let Upvalue::Ref(local) = capture { self.references.insert(local.stable_id()); }
+                }
             }
             if self.visited.insert(identity) {
-                let upvalues = self.upvalues[&identity].clone();
-                self.block(&closure.function.0.lock().body.0, depth + 1, &upvalues, Some(identity));
+                let upvalues = if FACTS { self.upvalues[&identity].clone() } else { FxHashSet::default() };
+                self.block::<FACTS, NODE_LIMIT>(&closure.function.0.lock().body.0, depth + 1, &upvalues, Some(identity));
             }
         } else {
             value.visit_rvalues(&mut |child| {
-                self.value(child, depth + 1, owner);
+                self.value::<FACTS, NODE_LIMIT>(child, depth + 1, owner);
                 !self.exhausted
             });
         }
@@ -697,6 +714,44 @@ impl SearchBudget {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn helper_shape_budget_matches_full_census_at_boundaries_and_shared_closures() {
+        let check = |body: &Block| {
+            let full = CaptureSafety::new(body);
+            assert_eq!(CaptureSafety::helper_within_shape_budget(body), full.complete() && full.nodes() <= 2048);
+        };
+        for count in [0, 1, 2047, 2048, 2049, 4096] {
+            check(&Block(vec![Statement::Empty(crate::Empty {}); count]));
+        }
+        // Width is a conservative allocation guard, not the node count: local
+        // assignment destinations are not values visited by this census.
+        check(&Block(vec![crate::Assign::new(
+            (0..2048).map(|_| crate::RcLocal::default().into()).collect(), vec![]).into()]));
+        for bytes in [8 * 1024 * 1024, 8 * 1024 * 1024 + 1] {
+            check(&Block(vec![crate::Return::new(vec![Literal::String(vec![0; bytes]).into()]).into()]));
+        }
+        let mut nested = Block(vec![crate::Return::new(vec![Literal::Nil.into()]).into()]);
+        for _ in 0..130 {
+            check(&nested);
+            nested = Block(vec![crate::If::new(Literal::Boolean(true).into(), nested, Block::default()).into()]);
+        }
+        let local = crate::RcLocal::default();
+        let closure = crate::Closure {
+            node_origin: Default::default(),
+            function: by_address::ByAddress(triomphe::Arc::new(parking_lot::Mutex::new(crate::Function {
+                body: Block(vec![crate::Return::new(vec![local.clone().into()]).into(); 600]),
+                ..Default::default()
+            }))),
+            upvalues: vec![Upvalue::Copy(local.clone()), Upvalue::Ref(local)],
+        };
+        // Each occurrence charges its captures; the shared function body is
+        // visited only once, including when reached through an LHS operand.
+        check(&Block(vec![crate::Assign::new(
+            vec![crate::Index::new(closure.clone().into(), Literal::Nil.into()).into()],
+            vec![closure.clone().into(), closure.into()],
+        ).into()]));
+    }
+
     #[test]
     fn budgets_fail_closed_and_literals_do_not_hide_environment_lookups() {
         let safety = CaptureSafety::new(&Block::default());

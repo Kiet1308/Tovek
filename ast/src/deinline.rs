@@ -22,6 +22,7 @@
 //! operators, node kinds) to match exactly.
 
 mod constant_copies;
+mod local_queries;
 pub mod evidence;
 pub(crate) mod fold;
 mod statement_values;
@@ -2093,8 +2094,15 @@ impl std::ops::Deref for Window {
 struct CanonCache {
     windows: FxHashMap<(usize, usize), Window>,
     middle: Option<std::rc::Rc<Vec<Statement>>>,
-    last: Vec<Option<Statement>>,
+    last: Vec<Option<Window>>,
     nodes: Vec<usize>,
+    /// Return-mode windows always end at the block's end. They used to be
+    /// rebuilt for every target, even at the same position. Their fuel is
+    /// still charged for every attempt; these caches only save tree copies.
+    returned: Option<Window>,
+    returned_shape: Option<Option<usize>>,
+    returned_nodes: Option<usize>,
+    returned_prefix: Option<Option<std::rc::Rc<(Vec<Statement>, Vec<RValue>)>>>,
     /// Whether the block returns on every path ([`block_always_returns`]),
     /// which every return-mode window, running to its end, needs.
     returns: Option<bool>,
@@ -2107,6 +2115,10 @@ impl CanonCache {
     /// A new position: its windows start elsewhere.
     fn clear(&mut self) {
         self.windows.clear();
+        self.returned = None;
+        self.returned_shape = None;
+        self.returned_nodes = None;
+        self.returned_prefix = None;
         self.kinds = None;
     }
 
@@ -2137,7 +2149,7 @@ impl CanonCache {
     /// `stmts[start..start + added]` replaced `removed` statements at
     /// `start`: the canonical forms of the others stay as they are.
     fn spliced(&mut self, stmts: &[Statement], start: usize, removed: usize, added: usize) {
-        self.windows.clear();
+        self.clear();
         match self.middle.as_mut().map(std::rc::Rc::get_mut) {
             Some(Some(middle)) => {
                 middle.splice(
@@ -2158,6 +2170,41 @@ impl CanonCache {
         self.middle.get_or_insert_with(|| {
             std::rc::Rc::new(stmts.iter().map(|statement| canon_statement(statement.clone(), false)).collect())
         })
+    }
+
+    fn last(&mut self, stmts: &[Statement], at: usize) -> Window {
+        if self.last.is_empty() {
+            self.last.resize(stmts.len(), None);
+        }
+        self.last[at].get_or_insert_with(|| {
+            Window::owned(vec![canon_statement(stmts[at].clone(), true)])
+        }).clone()
+    }
+
+    fn returned(&mut self, stmts: &[Statement], start: usize) -> Window {
+        if let Some(window) = &self.returned {
+            return window.clone();
+        }
+        // Return-mode windows may be the first match tried near the end of
+        // a large block. Do not initialize `middle` for its unrelated prefix.
+        let window = Window::owned(canon_recurse(canon_top(&stmts[start..], true), true));
+        self.returned = Some(window.clone());
+        window
+    }
+
+    fn returned_shape(&mut self, window: &[Statement]) -> Option<usize> {
+        *self.returned_shape.get_or_insert_with(|| {
+            (!block_has_void_return(window) && !has_depth_zero_loop_control(window, 0))
+                .then(|| canon_top_len(window, true))
+        })
+    }
+
+    fn returned_nodes(&mut self, window: &[Statement]) -> usize {
+        *self.returned_nodes.get_or_insert_with(|| window.iter().map(dbg_stmt_node_count).sum())
+    }
+
+    fn returned_prefix(&mut self, stmts: &[Statement], start: usize) -> Option<std::rc::Rc<(Vec<Statement>, Vec<RValue>)>> {
+        self.returned_prefix.get_or_insert_with(|| returned_before(&stmts[start..]).map(std::rc::Rc::new)).clone()
     }
 
     /// The node count of `stmts[start..start + w]`, what [`charge_window`]
@@ -2189,17 +2236,20 @@ impl CanonCache {
         if distributed || body.iter().any(|&k| is_foldable_guard(&stmts[k])) {
             return Window::owned(canon_recurse(canon_top(&stmts[start..start + w], true), true));
         }
+        // A single statement needs only its tail form. Building `middle`
+        // here used to canonicalize the entire block, including all the
+        // unrelated branches, even when no multi-statement window was tried.
+        if body.is_empty() {
+            return self.last(stmts, tail);
+        }
         let middle = self.middle(stmts).clone();
         let contiguous = tail + 1 - first == real.len();
         if contiguous && !matches!(stmts[tail], Statement::If(_)) {
             return Window { statements: middle, range: first..tail + 1 };
         }
-        if self.last.is_empty() {
-            self.last.resize(stmts.len(), None);
-        }
         let mut out = Vec::with_capacity(real.len());
         out.extend(body.iter().map(|&k| middle[k].clone()));
-        out.push(self.last[tail].get_or_insert_with(|| canon_statement(stmts[tail].clone(), true)).clone());
+        out.push(self.last(stmts, tail)[0].clone());
         Window::owned(out)
     }
 }
@@ -4917,7 +4967,7 @@ fn match_value(
         // shape the callee's `local L = E; S(L)…; return L` unifies against.
         let attempts: [(Window, Option<Vec<Statement>>); 2] = [
             (cwin, None),
-            match alias_result_leaves(region, &r) {
+            match alias_result_leaves(region, &r, t.captures.uncaptured(&r)) {
                 Some(rw) if !block_has_return(&rw) && canon_top_len(&rw, true) == kc && charge_window(t, &rw) => (
                     Window::owned(canon_recurse(canon_top(&rw, true), true)),
                     Some(rw),
@@ -5046,20 +5096,34 @@ fn match_returned_value(
     // A whole function body is never one call (the thin-wrapper case):
     // only where its `return` gives more values than the copy's.
     let whole_body = is_func_body_top && i == 0;
-    let mut attempt = |window: &[Statement], before: Vec<RValue>| -> Option<Hit> {
+    let mut attempt = |window: &[Statement], before: &[RValue], canon_cache: &mut CanonCache| -> Option<Hit> {
         if whole_body && before.is_empty() {
             return None;
         }
         if !block_always_returns(window) || leading_statement_refused(t, window) || leading_condition_refused(t, window) {
             return None;
         }
-        if block_has_void_return(window) || has_depth_zero_loop_control(window, 0) || canon_top_len(window, true) != kc {
-            return None;
+        if before.is_empty() {
+            if canon_cache.returned_shape(window) != Some(kc)
+                || t.search.exhausted()
+                || !t.search.spend(canon_cache.returned_nodes(window))
+            {
+                return None;
+            }
+        } else {
+            if block_has_void_return(window) || has_depth_zero_loop_control(window, 0)
+                || canon_top_len(window, true) != kc || !charge_window(t, window)
+            {
+                return None;
+            }
         }
-        if !charge_window(t, window) {
-            return None;
-        }
-        let canonical = canon_recurse(canon_top(window, true), true);
+        // Keep the original per-attempt charge above. Return-mode caching
+        // must neither consume nor grant the ordinary window cache's fuel.
+        let canonical = if before.is_empty() {
+            canon_cache.returned(stmts, i)
+        } else {
+            Window::owned(canon_recurse(canon_top(window, true), true))
+        };
         if !charge_unify(t, &canonical) {
             return None;
         }
@@ -5084,16 +5148,17 @@ fn match_returned_value(
             }
         }
         let mode = if before.is_empty() { "site_returned" } else { "site_returned_tuple" };
-        Some(Hit { returns_value: true, returned_before: before, mode, ..Hit::call(t, end - i, u, Vec::new()) })
+        Some(Hit { returns_value: true, returned_before: before.to_vec(), mode, ..Hit::call(t, end - i, u, Vec::new()) })
     };
-    if let Some(hit) = attempt(&stmts[i..end], Vec::new()) {
+    if let Some(hit) = attempt(&stmts[i..end], &[], canon_cache) {
         return Some(hit);
     }
     // The caller's `return` may give values before the copy's: the same
     // ones on every path (`return p, f(x)`, the copy's leaves each `return
     // p, A`), split off.
-    let (stripped, before) = returned_before(&stmts[i..end])?;
-    attempt(&stripped, before)
+    let prefix = canon_cache.returned_prefix(stmts, i)?;
+    let (stripped, before) = prefix.as_ref();
+    attempt(stripped, before, canon_cache)
 }
 
 /// `stmts`, a window returning on every path, with each `return v1, ...,
@@ -5157,11 +5222,15 @@ fn leading_condition_refused(t: &Target, stmts: &[Statement]) -> bool {
     let (Some(Statement::If(pattern)), Some(Statement::If(head))) = (t.pat.first(), stmts.iter().find(|s| !is_match_trivia(s))) else {
         return false;
     };
+    let refused = |condition: &RValue| unify_rvalue(&t.ctx(), &pattern.condition, condition, &mut Bindings::default()).is_err();
+    if !refused(&head.condition) {
+        return false;
+    }
     let negated = negate_canon(head.condition.clone());
-    let twice = negate_canon(negated.clone());
-    [&head.condition, &negated, &twice]
-        .into_iter()
-        .all(|condition| unify_rvalue(&t.ctx(), &pattern.condition, condition, &mut Bindings::default()).is_err())
+    if !refused(&negated) {
+        return false;
+    }
+    refused(&negate_canon(negated))
 }
 
 /// Whether the window `stmts`, running to the end of its block, may
@@ -6684,22 +6753,23 @@ impl<'a> SitePrefix<'a> {
 /// cannot leave early: no `return` — the caller checks — and no depth-zero
 /// `break`/`continue`) and is exactly the shape the pattern unifies against. Leaves
 /// already ending in a RESULT write are left alone. `None` when nothing changed.
-fn alias_result_leaves(region: &[Statement], r: &RcLocal) -> Option<Vec<Statement>> {
+fn alias_result_leaves(region: &[Statement], r: &RcLocal, allow_merged: bool) -> Option<Vec<Statement>> {
     let mut out = region.to_vec();
     let mut changed = false;
-    alias_leaf_block(&mut out, r, &mut changed);
+    alias_leaf_block(&mut out, r, allow_merged, &mut changed);
     changed.then_some(out)
 }
 
 fn is_plain_local_write(a: &Assign, r: &RcLocal) -> bool {
     !a.prefix
         && !a.parallel
+        && !a.compound
         && a.left.len() == 1
         && a.right.len() == 1
         && matches!(&a.left[0], LValue::Local(x) if x == r)
 }
 
-fn alias_leaf_block(stmts: &mut Vec<Statement>, r: &RcLocal, changed: &mut bool) {
+fn alias_leaf_block(stmts: &mut Vec<Statement>, r: &RcLocal, allow_merged: bool, changed: &mut bool) {
     let Some(last) = stmts.iter().rposition(|s| !is_match_trivia(s)) else {
         return;
     };
@@ -6713,9 +6783,17 @@ fn alias_leaf_block(stmts: &mut Vec<Statement>, r: &RcLocal, changed: &mut bool)
         collect_written(&then, &mut w);
         collect_written(&els, &mut w);
         if w.contains(r) {
-            alias_leaf_block(&mut then, r, changed);
-            alias_leaf_block(&mut els, r, changed);
             let cond = f.condition.clone();
+            // SSA can reuse RESULT for a helper local before the final
+            // branch, then overwrite it only on the selected path. Keep
+            // that local in a fresh temporary and make each leaf's result
+            // explicit before matching, including the unchanged path.
+            if allow_merged && alias_merged_result(stmts, last, r) {
+                *changed = true;
+                return;
+            }
+            alias_leaf_block(&mut then, r, allow_merged, changed);
+            alias_leaf_block(&mut els, r, allow_merged, changed);
             stmts[last] = Statement::If(If::new(cond, Block(then), Block(els)));
             return;
         }
@@ -6775,6 +6853,58 @@ fn alias_leaf_block(stmts: &mut Vec<Statement>, r: &RcLocal, changed: &mut bool)
         compound: false,
     }));
     *changed = true;
+}
+
+/// Matching-only normalization of `R = E; S(R); if c then R = V end`
+/// into `local T = E; S(T); if c then R = V else R = T end`.
+///
+/// The caller requires R to be uncaptured in the whole chunk. Its first
+/// value must be defined before any read, every later store must be a
+/// terminal leaf, and no path may leave the region before that leaf. We
+/// neither move evaluations nor duplicate them: only a private register
+/// and its reads change names. Exact unification still proves the helper
+/// and every argument, and the usual liveness/arity/frame gates still run.
+fn alias_merged_result(stmts: &mut [Statement], last: usize, r: &RcLocal) -> bool {
+    let Some(first) = stmts[..last].iter().position(|statement| {
+        matches!(statement, Statement::Assign(assign) if is_plain_local_write(assign, r))
+    }) else {
+        return false;
+    };
+    if block_reads_local(&stmts[..=first], r)
+        || block_writes_local(&stmts[..first], r)
+        || !result_writes_are_terminal(&stmts[first + 1..=last], r)
+        || has_depth_zero_loop_control(&stmts[first + 1..=last], 0)
+        || closures_capture_any(&stmts[first..=last], std::slice::from_ref(r))
+    {
+        return false;
+    }
+
+    let temp = RcLocal::default();
+    let Statement::Assign(assign) = &mut stmts[first] else { unreachable!() };
+    assign.left[0] = LValue::Local(temp.clone());
+    assign.prefix = true;
+    for statement in &mut stmts[first + 1..=last] {
+        *statement = subst_reads_owned(statement.clone(), r, &temp);
+    }
+    let Statement::If(branch) = &mut stmts[last] else { unreachable!() };
+    complete_result_leaves(&mut branch.then_block.lock().0, r, &temp);
+    complete_result_leaves(&mut branch.else_block.lock().0, r, &temp);
+    true
+}
+
+/// The preceding proof permits only tail stores and fallthrough here.
+/// Preserve explicit stores; a fallthrough path keeps the original value.
+fn complete_result_leaves(stmts: &mut Vec<Statement>, result: &RcLocal, original: &RcLocal) {
+    match stmts.iter_mut().rfind(|statement| !is_match_trivia(statement)) {
+        Some(Statement::Assign(assign)) if is_plain_local_write(assign, result) => return,
+        Some(Statement::If(branch)) => {
+            complete_result_leaves(&mut branch.then_block.lock().0, result, original);
+            complete_result_leaves(&mut branch.else_block.lock().0, result, original);
+            return;
+        }
+        _ => {}
+    }
+    stmts.push(Assign::new(vec![result.clone().into()], vec![original.clone().into()]).into());
 }
 
 /// `s` with every (non-closure) read of `old` replaced by `new`, nested blocks
@@ -8169,21 +8299,14 @@ fn sequence_has_return_tail(stmts: &[Statement]) -> bool {
 }
 
 fn has_depth_zero_loop_control(stmts: &[Statement], loop_depth: usize) -> bool {
+    // Once inside another loop, every break/continue belongs to that loop
+    // (or a deeper one). No descendant can transfer to the original loop.
+    if loop_depth != 0 { return false; }
     stmts.iter().any(|statement| match statement {
-        Statement::Break(_) | Statement::Continue(_) => loop_depth == 0,
+        Statement::Break(_) | Statement::Continue(_) => true,
         Statement::If(node) => {
             has_depth_zero_loop_control(&node.then_block.lock().0, loop_depth)
                 || has_depth_zero_loop_control(&node.else_block.lock().0, loop_depth)
-        }
-        Statement::While(node) => has_depth_zero_loop_control(&node.block.lock().0, loop_depth + 1),
-        Statement::Repeat(node) => {
-            has_depth_zero_loop_control(&node.block.lock().0, loop_depth + 1)
-        }
-        Statement::NumericFor(node) => {
-            has_depth_zero_loop_control(&node.block.lock().0, loop_depth + 1)
-        }
-        Statement::GenericFor(node) => {
-            has_depth_zero_loop_control(&node.block.lock().0, loop_depth + 1)
         }
         _ => false,
     })
@@ -8220,7 +8343,7 @@ fn result_decl(s: &Statement) -> Option<RcLocal> {
 }
 
 fn block_reads_local(stmts: &[Statement], target: &RcLocal) -> bool {
-    count_local_reads(stmts, target) > 0
+    local_queries::reads(stmts, target)
 }
 
 fn args_vec_eq(a: &[RValue], b: &[RValue]) -> bool {
@@ -8447,13 +8570,11 @@ fn unflag_value_loop(
 }
 
 fn reads_local(value: &RValue, local: &RcLocal) -> bool {
-    count_local_reads(&[Statement::Return(Return::new(vec![value.clone()]))], local) > 0
+    local_queries::value_reads(value, local)
 }
 
 fn block_writes_local(stmts: &[Statement], local: &RcLocal) -> bool {
-    let mut written = FxHashSet::default();
-    collect_written(stmts, &mut written);
-    written.contains(local)
+    local_queries::writes(stmts, local)
 }
 
 fn is_void_return_guard(statement: &Statement) -> bool {
@@ -9025,8 +9146,7 @@ fn analyze_helper(
             return Err(HelperAnalysis::RefusedLater(RejectReason::UnsupportedReturnShape));
         }
     };
-    let shape = crate::deinline_safety::CaptureSafety::new(&g.body);
-    if !shape.complete() || shape.nodes() > 2048 {
+    if !crate::deinline_safety::CaptureSafety::helper_within_shape_budget(&g.body) {
         return Err(HelperAnalysis::RefusedLater(RejectReason::ShapeBudget));
     }
     let pat = if falls_off { canon(&returning_nil(&body)) } else { canon(&body) };
@@ -13271,6 +13391,70 @@ mod tests {
     }
 
     #[test]
+    fn canonical_windows_are_lazy_and_match_the_uncached_form_after_splices() {
+        let make = |kind: usize| match kind % 8 {
+            0 => Statement::Empty(Empty {}),
+            1 => print_x(),
+            2 => void_return(),
+            3 => return_one(number(1.0)),
+            4 => if_stmt(global("condition"), vec![return_one(number(2.0))], vec![]),
+            5 => if_stmt(global("condition"), vec![print_x()], vec![print_x()]),
+            6 => if_stmt(global("condition"), vec![if_stmt(global("inner"), vec![return_one(number(3.0))], vec![])], vec![]),
+            _ => Statement::While(While::new(global("running"), Block(vec![print_x(), void_return()]))),
+        };
+        for seed in 0..64usize {
+            let mut statements: Vec<_> = (0..8).map(|i| make(seed.rotate_right(i as u32) + i)).collect();
+            let mut returned_only = CanonCache::default();
+            let tail = returned_only.returned(&statements, 6);
+            assert_eq!(format!("{:?}", &*tail), format!("{:?}", canon(&statements[6..])));
+            assert_eq!(returned_only.returned_nodes(&statements[6..]), statements[6..].iter().map(dbg_stmt_node_count).sum::<usize>());
+            assert!(returned_only.middle.is_none() && returned_only.last.is_empty() && returned_only.nodes.is_empty(),
+                "a returned suffix must not normalize or count the unrelated prefix");
+            let mut cache = CanonCache::default();
+            let singleton = cache.canonical(&statements, 5, 1);
+            assert_eq!(format!("{singleton:?}", singleton = &*singleton), format!("{:?}", canon(&statements[5..6])));
+            assert!(cache.middle.is_none(), "a singleton must not normalize unrelated statements");
+            for revision in 0..3 {
+                let original = format!("{statements:?}");
+                for start in 0..statements.len() {
+                    cache.clear();
+                    for width in 1..=statements.len() - start {
+                        let got = cache.canonical(&statements, start, width);
+                        let expected = canon(&statements[start..start + width]);
+                        assert_eq!(format!("{:?}", &*got), format!("{expected:?}"), "seed={seed} start={start} width={width}");
+                    }
+                    let first = cache.returned(&statements, start);
+                    let again = cache.returned(&statements, start);
+                    assert_eq!(cache.returned_nodes(&statements[start..]), statements[start..].iter().map(dbg_stmt_node_count).sum::<usize>());
+                    assert!(std::rc::Rc::ptr_eq(&first.statements, &again.statements));
+                    assert_eq!(format!("{:?}", &*first), format!("{:?}", canon(&statements[start..])));
+                }
+                assert_eq!(format!("{statements:?}"), original, "matching must leave the source tree alone");
+                let replacement = vec![make(seed + revision), make(seed + revision + 3)];
+                statements.splice(2..5, replacement);
+                cache.spliced(&statements, 2, 3, 2);
+            }
+        }
+    }
+
+    #[test]
+    fn returned_prefix_cache_includes_misses_and_is_invalidated_on_edit() {
+        let mut statements = vec![print_x(), return_one(number(1.0))];
+        let mut cache = CanonCache::default();
+        assert!(cache.returned_prefix(&statements, 0).is_none());
+        assert!(matches!(cache.returned_prefix, Some(None)));
+        statements[1] = Return::new(vec![number(7.0), number(1.0)]).into();
+        cache.spliced(&statements, 1, 1, 1);
+        let first = cache.returned_prefix(&statements, 0).unwrap();
+        let again = cache.returned_prefix(&statements, 0).unwrap();
+        assert!(std::rc::Rc::ptr_eq(&first, &again));
+        assert_eq!(first.1, vec![number(7.0)]);
+        cache.clear();
+        let next = cache.returned_prefix(&statements, 1).unwrap();
+        assert_eq!(next.0.len(), 1);
+    }
+
+    #[test]
     fn consuming_unguard_matches_reference_shape_origins_and_owners() {
         use crate::{node_origins, Traverse, Upvalue};
         type OriginSnapshot = Option<(Vec<std::sync::Arc<node_origins::Input>>, bool, bool, bool, Option<&'static str>)>;
@@ -13623,7 +13807,7 @@ mod tests {
             ],
             vec![assign_local(&r, local_value(&x), false)],
         )];
-        let rewritten = alias_result_leaves(&region, &r).expect("then-leaf is the alias shape");
+        let rewritten = alias_result_leaves(&region, &r, true).expect("then-leaf is the alias shape");
         let Statement::If(f) = &rewritten[0] else {
             panic!()
         };
@@ -13650,14 +13834,66 @@ mod tests {
             vec![assign_local(&r, number(1.0), false)],
             vec![assign_local(&r, local_value(&x), false)],
         )];
-        assert!(alias_result_leaves(&plain, &r).is_none());
+        assert!(alias_result_leaves(&plain, &r, true).is_none());
         // RESULT read before its write -> refused (left unchanged)
         let read_first = vec![if_stmt(
             local_value(&c),
             vec![print_local(&r), assign_local(&r, number(1.0), false), print_local(&r)],
             vec![assign_local(&r, local_value(&x), false)],
         )];
-        assert!(alias_result_leaves(&read_first, &r).is_none());
+        assert!(alias_result_leaves(&read_first, &r, true).is_none());
+    }
+
+    #[test]
+    fn merged_result_keeps_default_on_unwritten_branch() {
+        let result = local("result");
+        let candidate = local("candidate");
+        let condition = local("condition");
+        let original = vec![
+            assign_local(&result, number(10.0), false),
+            assign_local(&candidate, add_one(&result), true),
+            if_stmt(local_value(&condition),
+                vec![assign_local(&result, local_value(&candidate), false)], vec![]),
+        ];
+        let before = Block(original.clone()).to_string();
+        let rewritten = alias_result_leaves(&original, &result, true).expect("merged default");
+        let Statement::Assign(first) = &rewritten[0] else { panic!() };
+        assert!(first.prefix);
+        let LValue::Local(temp) = &first.left[0] else { panic!() };
+        assert_ne!(temp, &result);
+        assert_eq!(count_local_reads(&rewritten[1..2], temp), 1);
+        assert!(!block_reads_local(&rewritten, &result));
+        let Statement::If(branch) = &rewritten[2] else { panic!() };
+        let otherwise = branch.else_block.lock();
+        assert!(matches!(otherwise.0.as_slice(), [Statement::Assign(assign)]
+            if matches!(assign.left.as_slice(), [LValue::Local(local)] if local == &result)
+                && matches!(assign.right.as_slice(), [RValue::Local(local)] if local == temp)));
+        assert_eq!(Block(original.clone()).to_string(), before, "shared input blocks stay untouched");
+        assert!(alias_result_leaves(&original, &result, false).is_none(),
+            "a captured result cannot delay its intermediate store");
+    }
+
+    #[test]
+    fn merged_result_refuses_preexisting_reads_nonterminal_writes_and_loop_exits() {
+        let result = local("result");
+        let condition = local("condition");
+        let tail = if_stmt(local_value(&condition),
+            vec![assign_local(&result, number(20.0), false)], vec![]);
+        for prefix in [
+            vec![print_local(&result), assign_local(&result, number(10.0), false)],
+            vec![assign_local(&result, add_one(&result), false)],
+            vec![assign_local(&result, number(10.0), false), assign_local(&result, number(11.0), false)],
+            vec![assign_local(&result, number(10.0), false),
+                if_stmt(local_value(&condition), vec![crate::Continue {}.into()], vec![])],
+        ] {
+            let mut region = prefix;
+            region.push(tail.clone());
+            assert!(alias_result_leaves(&region, &result, true).is_none(), "{}", Block(region));
+        }
+        let mut compound = assign_local(&result, number(10.0), false);
+        let Statement::Assign(assign) = &mut compound else { panic!() };
+        assign.compound = true;
+        assert!(alias_result_leaves(&[compound, tail], &result, true).is_none());
     }
 
     #[test]

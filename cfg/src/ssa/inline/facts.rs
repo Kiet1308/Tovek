@@ -31,10 +31,11 @@ impl StatementFacts {
     ) -> Self {
         let single_rhs = statement.as_assign().filter(|assign| assign.right.len() == 1);
         let single_rhs_effect = single_rhs.map(|assign| ast::is_observable(&assign.right[0]));
+        let local_destinations = single_rhs.is_some_and(|assign| assign.left.iter().all(|left| left.as_local().is_some()));
         // Local destinations have no effects. For this common SSA assignment
         // shape, the statement and its one RHS have identical observability.
         // Keep captured reads as a separate, stricter movement constraint.
-        let observable = if single_rhs.is_some_and(|assign| assign.left.iter().all(|left| left.as_local().is_some())) {
+        let observable = if local_destinations {
             *observability_reuses += 1;
             single_rhs_effect.unwrap()
         } else {
@@ -46,16 +47,27 @@ impl StatementFacts {
             writes_upvalue: false,
             reads_capture: false,
             observable,
-            single_rhs_observable: single_rhs
-                .map(|assign| single_rhs_effect.unwrap()
-                    || assign.right[0].any_local_read(&mut |local| upvalue_to_group.contains_key(local))),
+            single_rhs_observable: single_rhs_effect,
         };
+        let mut reads_upvalue = false;
         statement.visit_local_reads(&mut |local| {
             if let Some(&group) = local_to_group.get(local) { facts.read_groups.push(group); }
-            facts.reads_capture |= upvalue_to_group.contains_key(local)
-                && !readonly_capture_ids.contains(&local.stable_id());
+            let upvalue = upvalue_to_group.contains_key(local);
+            reads_upvalue |= upvalue;
+            facts.reads_capture |= upvalue && !readonly_capture_ids.contains(&local.stable_id());
             true
         });
+        // With local destinations the statement's reads are exactly its RHS
+        // reads. Reuse the census above, keeping *all* upvalues distinct from
+        // the stricter mutable-capture motion barrier. Indexed destinations
+        // still need the RHS-only query; an empty capture map needs no query.
+        if facts.single_rhs_observable == Some(false) && !upvalue_to_group.is_empty() {
+            facts.single_rhs_observable = Some(if local_destinations {
+                reads_upvalue
+            } else {
+                single_rhs.unwrap().right[0].any_local_read(&mut |local| upvalue_to_group.contains_key(local))
+            });
+        }
         statement.visit_local_writes(&mut |local| {
             if let Some(&group) = local_to_group.get(local) { facts.write_groups.push(group); }
             facts.writes_upvalue |= upvalue_to_group.contains_key(local);
@@ -285,13 +297,17 @@ mod tests {
                 vec![ast::Index::new(captured.clone().into(), Literal::Nil.into()).into()],
             ] {
                 for right in [vec![value.clone()], vec![value.clone(), value.clone()]] {
-                    let statement = Assign::new(left.clone(), right).into();
-                    let mut reuses = 0;
-                    let readonly = FxHashSet::default();
-                    let actual = StatementFacts::new(&statement, &groups, &captures, &readonly, &mut reuses);
-                    assert_eq!(actual, StatementFacts::new_reference(&statement, &groups, &captures, &readonly));
-                    let assign = statement.as_assign().unwrap();
-                    assert_eq!(reuses, u64::from(assign.right.len() == 1 && assign.left.iter().all(|left| left.as_local().is_some())));
+                    for mode in 0..3 {
+                        let empty = IndexMap::default();
+                        let captures = if mode == 0 { &empty } else { &captures };
+                        let readonly = if mode == 2 { FxHashSet::from_iter([captured.stable_id()]) } else { FxHashSet::default() };
+                        let statement = Assign::new(left.clone(), right.clone()).into();
+                        let mut reuses = 0;
+                        let actual = StatementFacts::new(&statement, &groups, captures, &readonly, &mut reuses);
+                        assert_eq!(actual, StatementFacts::new_reference(&statement, &groups, captures, &readonly));
+                        let assign = statement.as_assign().unwrap();
+                        assert_eq!(reuses, u64::from(assign.right.len() == 1 && assign.left.iter().all(|left| left.as_local().is_some())));
+                    }
                 }
             }
         }
@@ -339,6 +355,7 @@ mod tests {
         let readonly_c = FxHashSet::from_iter([c.stable_id()]);
         let mut readonly_cache = Cache::new(4, &groups, &captures, &readonly_c);
         assert!(!readonly_cache.get(0, &statement).reads_capture);
+        assert_eq!(readonly_cache.get(0, &statement).single_rhs_observable, Some(true));
         statement = ast::Empty {}.into();
         cache.invalidate(0);
         let facts = cache.get(0, &statement);

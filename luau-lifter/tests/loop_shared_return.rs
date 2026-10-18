@@ -26,6 +26,8 @@ fn events_shared_loop_return_is_source_shaped() {
     }
     assert!(source.contains("sendEventsInArray("), "{source}");
     assert!(source.contains("for ") && source.contains(" in pairs("), "{source}");
+    assert_eq!(source.matches("getClientTsAdjusted(").count(), 3,
+        "the existing definition and both reconstructed timestamp calls:\n{source}");
 }
 
 #[test]
