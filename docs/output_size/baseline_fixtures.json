@@ -1,5 +1,29 @@
 {
   "files": {
+    "semantic/deinline_merged_result_branches__O0.luau": {
+      "bytes": 2035,
+      "lines": 124
+    },
+    "semantic/deinline_merged_result_branches__O1.luau": {
+      "bytes": 2026,
+      "lines": 118
+    },
+    "semantic/deinline_merged_result_branches__O2.luau": {
+      "bytes": 2257,
+      "lines": 118
+    },
+    "semantic/late_control_flow_shapes__O0.luau": {
+      "bytes": 1280,
+      "lines": 106
+    },
+    "semantic/late_control_flow_shapes__O1.luau": {
+      "bytes": 1235,
+      "lines": 101
+    },
+    "semantic/late_control_flow_shapes__O2.luau": {
+      "bytes": 1676,
+      "lines": 94
+    },
     "residual/ReplicatedStorage/Cmdr/Server commands/Admin/teleportServer.luau": {
       "bytes": 570,
       "lines": 21

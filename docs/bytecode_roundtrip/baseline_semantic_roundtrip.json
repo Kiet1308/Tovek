@@ -21,6 +21,8 @@
    "while_header_opens_for": "fr-fix loop exit port (39313ba, 2026-10-11): `while true do ... if alpha >= 1 then return ... end end` now reads as `repeat ... until v2 >= 1` followed by the return; the recompiled loop tests at its end where the bytecode branched to the return (nonequiv 0 -> 1); runtime round-trips hold."
   },
   "added_fixtures": {
+   "deinline_merged_result_branches": "V2.7 merged-result regression (2026-10-12): the opaque clock service preserves the positive recovered adjusted(p) call; a captured result observed by check remains inline. No non-equivalent prototypes. All O0/O1/O2 source round-trips and 9 actual-bytecode VM comparisons pass, including effects, errors and return arity.",
+   "late_control_flow_shapes": "V2.7 late cleanup regression (2026-10-12): small guards, bottom-tested loops, continue-sensitive tests, scoped locals and one-shot exits. Main reduces the inlined/unrolled source and one unused prototype disappears (nonequiv 2); all O0/O1/O2 source round-trips and 9 actual-bytecode VM comparisons pass. Introducing-fixture baseline only; existing thresholds unchanged.",
    "call_before_capture_read": "Regression fixture for a reported bug (2026-09-29); baselined from the fixing commit output.",
    "inner_loop_continues_outer": "Regression fixture for a reported bug (2026-09-29); baselined from the fixing commit output.",
    "nested_loop_exits_parent": "Regression fixture for a reported bug (2026-09-29); baselined from the fixing commit output.",
@@ -250,6 +252,18 @@
   "equiv_ratio": 0.78378
  },
  "files": [
+  {
+   "file": "deinline_merged_result_branches",
+   "status": "ok",
+   "nonequiv": 0,
+   "protos": 10
+  },
+  {
+   "file": "late_control_flow_shapes",
+   "status": "ok",
+   "nonequiv": 2,
+   "protos": 7
+  },
   {
    "file": "alias_iterators",
    "status": "ok",

@@ -39,6 +39,7 @@ pub mod local_producers;
 pub mod canonicalize_branches;
 pub mod branch_constructors;
 pub mod cleanup_final;
+pub mod cleanup_control_flow;
 pub mod cleanup_returns;
 pub mod coalesce_locals;
 pub mod compact_conditionals;

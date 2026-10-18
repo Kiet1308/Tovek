@@ -1352,6 +1352,11 @@ fn decompile_bytecode_internal(
                 ast::flatten_guards::flatten_terminal_tail_guards(&mut body);
             }
             dump_stage("final_guards", &body);
+            // Presentation-only control flow runs after every helper matcher.
+            // It keeps lexical declarations scoped and never complements a
+            // comparison or moves a continue across a loop condition.
+            ast::cleanup_control_flow::cleanup_control_flow(&mut body);
+            dump_stage("final_control_flow", &body);
             // Luau has no `goto` or labels.  The structurer uses them only as an
             // internal edge representation, so allowing either AST node to reach
             // formatting would produce source that Luau cannot parse.  Keep this
