@@ -17,7 +17,7 @@
 //! Arms stay statements when a value is a function or table literal, or when
 //! the expression would not fit on one readable line.
 
-use crate::{Block, LValue, Literal, RValue, RcLocal, Statement, Traverse};
+use crate::{Block, LValue, Literal, LocalRw, RValue, RcLocal, Statement, Traverse};
 
 /// Longest one-line if-expression (condition and arms) this style writes.
 const MAX_WIDTH: usize = 90;
@@ -25,40 +25,59 @@ const MAX_WIDTH: usize = 90;
 const MAX_ARMS: usize = 4;
 
 pub fn compact_conditionals(block: &mut Block) {
-    for statement in &mut block.0 {
-        compact_nested(statement);
-    }
-    compact_block(block);
+    rewrite(block, true, 0);
 }
 
-fn compact_nested(statement: &Statement) {
+/// Default presentation: two atomic arms in a value position, at most 72
+/// columns including the assignment/return and four columns per indent.
+pub fn readable_conditionals(block: &mut Block) {
+    rewrite(block, false, 0);
+}
+
+fn rewrite(block: &mut Block, compact: bool, depth: usize) {
+    for statement in &mut block.0 {
+        compact_nested(statement, compact, depth);
+    }
+    compact_block(block, compact, depth);
+}
+
+fn compact_nested(statement: &Statement, compact: bool, depth: usize) {
     let mut functions = Vec::new();
     crate::inline_temps::collect_closures_in_statement(statement, &mut |closure| {
         functions.push(closure.function.clone());
     });
     for function in functions {
-        compact_conditionals(&mut function.lock().body);
+        rewrite(&mut function.lock().body, compact, depth + 1);
     }
     match statement {
         Statement::If(r#if) => {
-            compact_conditionals(&mut r#if.then_block.lock());
-            compact_conditionals(&mut r#if.else_block.lock());
+            rewrite(&mut r#if.then_block.lock(), compact, depth + 1);
+            rewrite(&mut r#if.else_block.lock(), compact, depth + 1);
         }
-        Statement::While(r#while) => compact_conditionals(&mut r#while.block.lock()),
-        Statement::Repeat(repeat) => compact_conditionals(&mut repeat.block.lock()),
-        Statement::NumericFor(numeric_for) => compact_conditionals(&mut numeric_for.block.lock()),
-        Statement::GenericFor(generic_for) => compact_conditionals(&mut generic_for.block.lock()),
+        Statement::While(r#while) => rewrite(&mut r#while.block.lock(), compact, depth + 1),
+        Statement::Repeat(repeat) => rewrite(&mut repeat.block.lock(), compact, depth + 1),
+        Statement::NumericFor(numeric_for) => rewrite(&mut numeric_for.block.lock(), compact, depth + 1),
+        Statement::GenericFor(generic_for) => rewrite(&mut generic_for.block.lock(), compact, depth + 1),
         _ => {}
     }
 }
 
-fn compact_block(block: &mut Block) {
+fn compact_block(block: &mut Block, compact: bool, depth: usize) {
     let mut index = 0;
     while index < block.0.len() {
         let Statement::If(_) = &block.0[index] else {
             index += 1;
             continue;
         };
+        if !compact && let Some((value, consumes_next)) = returned_select(&block.0[index], block.0.get(index + 1)) {
+            let replacement: Statement = crate::Return::new(vec![value]).into();
+            if readable_width(&replacement, depth) {
+                block.0[index] = replacement;
+                if consumes_next { block.0.remove(index + 1); }
+                index += 1;
+                continue;
+            }
+        }
         // `local x` directly before the chain: the missing arm is its `nil`.
         let declared = index
             .checked_sub(1)
@@ -68,21 +87,23 @@ fn compact_block(block: &mut Block) {
             index += 1;
             continue;
         };
-        let Some(value) = select_value(&block.0[index], &target, declared.is_some(), 0) else {
+        let Some(value) = select_value(&block.0[index], &target, declared.is_some(), 0, compact) else {
             index += 1;
             continue;
         };
-        if !fits_one_line(&value) {
+        let mut assign = crate::Assign::new(vec![LValue::Local(target)], vec![value]);
+        assign.prefix = declared.is_some();
+        if if compact { !fits_one_line(&assign.right[0]) }
+            else { !readable_width(&assign.clone().into(), depth) }
+        {
             index += 1;
             continue;
         }
         if declared.is_some() {
             let declaration = block.0[index - 1].as_assign_mut().unwrap();
-            declaration.right = vec![value];
+            declaration.right = assign.right;
             block.0.remove(index);
         } else {
-            let mut assign = crate::Assign::new(vec![LValue::Local(target)], vec![value]);
-            assign.node_origin = crate::node_origins::Origin::default();
             block.0[index] = assign.into();
             index += 1;
         }
@@ -110,19 +131,21 @@ fn first_assigned_local(statement: &Statement) -> Option<RcLocal> {
 
 /// The if-expression equivalent to this `if` chain assigning `target`, or
 /// `None` when any arm is not exactly `target = value`.
-fn select_value(statement: &Statement, target: &RcLocal, else_is_nil: bool, depth: usize) -> Option<RValue> {
+fn select_value(statement: &Statement, target: &RcLocal, else_is_nil: bool, depth: usize, compact: bool) -> Option<RValue> {
     let Statement::If(r#if) = statement else { return None };
-    if depth >= MAX_ARMS {
+    if depth >= if compact { MAX_ARMS } else { 1 }
+        || else_is_nil && r#if.condition.values_read().contains(&target)
+    {
         return None;
     }
     // `else_is_nil`: the chain folds into the target's declaration.
-    let then_value = arm_value(&r#if.then_block.lock(), target, else_is_nil)?;
+    let then_value = arm_value(&r#if.then_block.lock(), target, else_is_nil, compact)?;
     let else_block = r#if.else_block.lock();
     let else_value = match else_block.0.as_slice() {
-        [] if else_is_nil => RValue::Literal(Literal::Nil),
+        [] if else_is_nil && compact => RValue::Literal(Literal::Nil),
         [] => return None,
-        [nested @ Statement::If(_)] => select_value(nested, target, else_is_nil, depth + 1)?,
-        _ => arm_value(&else_block, target, else_is_nil)?,
+        [nested @ Statement::If(_)] => select_value(nested, target, else_is_nil, depth + 1, compact)?,
+        _ => arm_value(&else_block, target, else_is_nil, compact)?,
     };
     Some(crate::conditional_expressions::select_expression(r#if.condition.clone(), then_value, else_value))
 }
@@ -130,7 +153,7 @@ fn select_value(statement: &Statement, target: &RcLocal, else_is_nil: bool, dept
 /// The value of an arm that is exactly `target = value`. Folded into the
 /// declaration `local target = ...`, a value reading `target` would read an
 /// outer binding instead (`Assign::reads_own_target`).
-fn arm_value(block: &Block, target: &RcLocal, into_declaration: bool) -> Option<RValue> {
+fn arm_value(block: &Block, target: &RcLocal, into_declaration: bool, compact: bool) -> Option<RValue> {
     let [Statement::Assign(assign)] = block.0.as_slice() else { return None };
     if assign.prefix || assign.parallel || assign.left.len() != 1 || assign.right.len() != 1 {
         return None;
@@ -139,7 +162,39 @@ fn arm_value(block: &Block, target: &RcLocal, into_declaration: bool) -> Option<
         return None;
     }
     let value = &assign.right[0];
-    (!contains_multiline_literal(value)).then(|| value.clone())
+    (if compact { !contains_multiline_literal(value) } else { atomic(value) }).then(|| value.clone())
+}
+
+fn atomic(value: &RValue) -> bool {
+    match value {
+        RValue::Literal(_) | RValue::Local(_) | RValue::Global(_) => true,
+        RValue::Index(index) => atomic(&index.left) && matches!(*index.right, RValue::Literal(_)),
+        _ => false,
+    }
+}
+
+fn returned_select(statement: &Statement, following: Option<&Statement>) -> Option<(RValue, bool)> {
+    let Statement::If(branch) = statement else { return None; };
+    let arm = |block: &Block| {
+        let [Statement::Return(ret)] = block.0.as_slice() else { return None; };
+        let [value] = ret.values.as_slice() else { return None; };
+        atomic(value).then(|| value.clone())
+    };
+    let yes = arm(&branch.then_block.lock())?;
+    let otherwise = branch.else_block.lock();
+    let (no, consumes_next) = if otherwise.0.is_empty() {
+        let Statement::Return(ret) = following? else { return None; };
+        let [value] = ret.values.as_slice() else { return None; };
+        if !atomic(value) { return None; }
+        (value.clone(), true)
+    } else { (arm(&otherwise)?, false) };
+    Some((crate::conditional_expressions::select_expression(branch.condition.clone(), yes, no), consumes_next))
+}
+
+fn readable_width(statement: &Statement, depth: usize) -> bool {
+    // A block preview also emits the mandatory inferred-call site comment.
+    let text = Block(vec![statement.clone()]).to_string();
+    !text.contains('\n') && text.chars().count() + depth * 4 <= 72
 }
 
 fn contains_multiline_literal(value: &RValue) -> bool {
@@ -241,5 +296,71 @@ mod tests {
         ]);
         compact_conditionals(&mut block);
         assert!(block.to_string().starts_with("if flag then"));
+    }
+
+    #[test]
+    fn default_selects_only_two_atomic_arms() {
+        let flag = local("flag");
+        let mode = local("mode");
+        let chain = |right| If::new(value(&flag), Block(vec![assign(&mode, string("a"))]),
+            Block(vec![assign(&mode, right)])).into();
+        let mut block = Block(vec![declare(&mode), chain(string("b"))]);
+        super::readable_conditionals(&mut block);
+        assert_eq!(block.to_string(), "local mode = if flag then \"a\" else \"b\"");
+        let mut block = Block(vec![chain(Call::new(Global::from("effect").into(), vec![]).into())]);
+        super::readable_conditionals(&mut block);
+        assert!(matches!(block.0[0], crate::Statement::If(_)));
+    }
+
+    #[test]
+    fn default_width_includes_target_and_indentation() {
+        let flag = local("flag");
+        let mode = local("mode");
+        let chain = || If::new(value(&flag), Block(vec![assign(&mode, string("a"))]),
+            Block(vec![assign(&mode, string(&"b".repeat(34)))])).into();
+        let mut root = Block(vec![declare(&mode), chain()]);
+        super::readable_conditionals(&mut root);
+        assert!(root.to_string().chars().count() <= 72);
+        assert_eq!(root.0.len(), 1);
+        let mut nested = Block(vec![declare(&mode), chain()]);
+        super::rewrite(&mut nested, false, 2);
+        assert_eq!(nested.0.len(), 2, "indentation counts toward the line budget");
+    }
+
+    #[test]
+    fn default_width_includes_rebuilt_call_comments() {
+        let mut condition = Call::new(Global::from("predicate").into(), vec![]);
+        condition.rebuilt = Some(crate::call_origins::Kind::StatementDeinline);
+        let mut block = Block(vec![If::new(condition.into(),
+            Block(vec![crate::Return::new(vec![string("accepted")]).into()]),
+            Block(vec![crate::Return::new(vec![string("refused")]).into()])).into()]);
+        super::readable_conditionals(&mut block);
+        assert!(matches!(block.0[0], crate::Statement::If(_)));
+        assert!(block.to_string().contains("-- inferred equivalent call"));
+    }
+
+    #[test]
+    fn default_returns_preserve_false_nil_and_multret_arity() {
+        let ret = |value| crate::Return::new(vec![value]).into();
+        let mut block = Block(vec![If::new(Global::from("flag").into(),
+            Block(vec![ret(Literal::Boolean(false).into())]), Block::default()).into(), ret(Literal::Nil.into())]);
+        super::readable_conditionals(&mut block);
+        assert_eq!(block.to_string(), "return if flag then false else nil");
+        let mut block = Block(vec![If::new(Global::from("flag").into(),
+            Block(vec![ret(Call::new(Global::from("many").into(), vec![]).into())]),
+            Block(vec![ret(Literal::Nil.into())])).into()]);
+        super::readable_conditionals(&mut block);
+        assert!(matches!(block.0[0], crate::Statement::If(_)), "a call can return multiple values");
+    }
+
+    #[test]
+    fn declaration_condition_must_not_read_the_new_binding() {
+        for compact in [false, true] {
+            let mode = local("mode");
+            let mut block = Block(vec![declare(&mode), If::new(value(&mode),
+                Block(vec![assign(&mode, string("a"))]), Block(vec![assign(&mode, string("b"))])).into()]);
+            super::rewrite(&mut block, compact, 0);
+            assert_eq!(block.0.len(), 2, "folding would bind the condition to an outer mode");
+        }
     }
 }

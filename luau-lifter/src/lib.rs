@@ -1487,6 +1487,9 @@ fn decompile_bytecode_internal(
             if options.compact_style {
                 let _span = ast::telemetry::Span::new("S_COMPACT_CONDITIONALS");
                 ast::compact_conditionals::compact_conditionals(&mut body);
+            } else {
+                let _span = ast::telemetry::Span::new("S_READABLE_CONDITIONALS");
+                ast::compact_conditionals::readable_conditionals(&mut body);
             }
             // A closure the bytecode makes anew stays new where the output
             // would share it (`fresh_closures`).
@@ -2087,7 +2090,7 @@ fn parameter_type_from_bytecode(
         LBC_TYPE_BOOLEAN => (Some(with_optional("boolean")), Some("flag".to_string())),
         LBC_TYPE_NUMBER => (Some(with_optional("number")), None),
         LBC_TYPE_STRING => (Some(with_optional("string")), None),
-        LBC_TYPE_VECTOR => (Some(with_optional("Vector3")), Some("vector".to_string())),
+        LBC_TYPE_VECTOR => (Some(with_optional("Vector3")), Some("vector3".to_string())),
         // `buf`, not `buffer`: the `buffer` library global is almost always in
         // scope wherever a buffer value is, and would force a `buffer2` suffix.
         LBC_TYPE_BUFFER => (Some(with_optional("buffer")), Some("buf".to_string())),
@@ -2112,12 +2115,11 @@ fn parameter_type_from_bytecode(
 }
 
 fn userdata_type_hint(name: &str) -> Option<String> {
-    // These built-in hints avoid a trailing digit before the namer's numeric
-    // disambiguation suffix (`point2`, rather than `vector22`).
+    // Vector dimensions are semantic; the namer disambiguates them as vector2_2.
     Some(match name {
         "CFrame" => "cframe".to_string(),
         "Color3" => "color".to_string(),
-        "Vector2" => "point".to_string(),
+        "Vector2" => "vector2".to_string(),
         "UDim2" | "UDim" => "udim".to_string(),
         "RaycastResult" => "raycastResult".to_string(),
         "NumberRange" => "range".to_string(),
@@ -2134,7 +2136,7 @@ fn type_hint_from_bytecode(tag: u8, userdata_type_names: &[(u8, &[u8])]) -> Opti
     use deserializer::function::*;
     match tag & !LBC_TYPE_OPTIONAL_BIT {
         LBC_TYPE_BOOLEAN => Some("flag".to_string()),
-        LBC_TYPE_VECTOR => Some("vector".to_string()),
+        LBC_TYPE_VECTOR => Some("vector3".to_string()),
         LBC_TYPE_BUFFER => Some("buf".to_string()),
         LBC_TYPE_THREAD => Some("thread".to_string()),
         LBC_TYPE_FUNCTION => Some("callback".to_string()),
@@ -2948,7 +2950,7 @@ mod v11_fixtures {
                 None,
                 None,
                 None,
-                Some("vector".to_string()),
+                Some("vector3".to_string()),
                 Some("callback".to_string()),
                 Some("cframe".to_string()),
                 Some("color".to_string()),
@@ -2980,7 +2982,7 @@ mod v11_fixtures {
                 LBC_TYPE_BOOLEAN => (Some(annotation("boolean")), Some("flag".into())),
                 LBC_TYPE_NUMBER => (Some(annotation("number")), None),
                 LBC_TYPE_STRING => (Some(annotation("string")), None),
-                LBC_TYPE_VECTOR => (Some(annotation("Vector3")), Some("vector".into())),
+                LBC_TYPE_VECTOR => (Some(annotation("Vector3")), Some("vector3".into())),
                 LBC_TYPE_BUFFER => (Some(annotation("buffer")), Some("buf".into())),
                 LBC_TYPE_THREAD => (Some(annotation("thread")), Some("thread".into())),
                 LBC_TYPE_FUNCTION => (None, Some("callback".into())),
@@ -2990,7 +2992,7 @@ mod v11_fixtures {
                     let hint = match name.as_str() {
                         "CFrame" => "cframe".into(),
                         "Color3" => "color".into(),
-                        "Vector2" => "point".into(),
+                        "Vector2" => "vector2".into(),
                         "UDim2" | "UDim" => "udim".into(),
                         "RaycastResult" => "raycastResult".into(),
                         "NumberRange" => "range".into(),

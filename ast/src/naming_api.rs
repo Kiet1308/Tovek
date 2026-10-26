@@ -25,6 +25,33 @@ pub fn buffer_arguments(member: &str) -> &'static [&'static str] {
     }
 }
 
+/// Version of the curated Roblox role table, not an engine/API release number.
+pub const ROBLOX_VERSION: &str = "roblox-event-roles-v1";
+pub const ROBLOX_SOURCE: &str = "https://create.roblox.com/docs/reference/engine/classes";
+
+/// Ordered parameter names for a Roblox event's `:Connect` callback. A `None`
+/// slot keeps the param's default name. Only conservative, well-known signatures
+/// are listed; overloaded/arbitrary ones (`Changed`, `OnClientEvent`, ...) are
+/// intentionally absent so we never invent a misleading name.
+pub fn roblox_event_parameters(event: &str) -> Option<&'static [Option<&'static str>]> {
+    Some(match event {
+        "Heartbeat" | "RenderStepped" | "PreSimulation" | "PostSimulation" | "PreRender"
+        | "PreAnimation" => &[Some("dt")],
+        "Stepped" => &[Some("time"), Some("dt")],
+        "InputBegan" | "InputEnded" | "InputChanged" => &[Some("input"), Some("gameProcessed")],
+        "ChildAdded" | "ChildRemoved" => &[Some("child")],
+        "DescendantAdded" | "DescendantRemoving" => &[Some("descendant")],
+        "AncestryChanged" => &[None, Some("parent")],
+        "CharacterAdded" | "CharacterRemoving" | "CharacterAppearanceLoaded" => {
+            &[Some("character")]
+        }
+        "PlayerAdded" | "PlayerRemoving" => &[Some("player")],
+        "Triggered" | "PromptTriggered" => &[Some("player")],
+        "Touched" | "TouchEnded" => &[Some("otherPart")],
+        _ => return None,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -35,5 +62,10 @@ mod tests {
         assert_eq!(buffer_arguments("copy")[2], "source");
         assert!(buffer_arguments("readCustom").is_empty());
         assert!(buffer_arguments("Readu32").is_empty());
+        assert_eq!(roblox_event_parameters("CharacterAdded"), Some([Some("character")].as_slice()));
+        assert_eq!(roblox_event_parameters("AncestryChanged"), Some([None, Some("parent")].as_slice()));
+        assert!(roblox_event_parameters("OnClientEvent").is_none());
+        assert!(roblox_event_parameters("Changed").is_none());
+        assert!(roblox_event_parameters("characterAdded").is_none());
     }
 }

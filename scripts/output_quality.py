@@ -13,7 +13,7 @@ from pathlib import Path
 import re
 import subprocess
 
-from source_fidelity import parse_ast
+from source_fidelity import ATOMS, parse_ast
 
 
 def identity(local):
@@ -24,6 +24,43 @@ def unwrap(node):
     while isinstance(node, dict) and node.get('type') == 'AstExprGroup':
         node = node['expr']
     return node
+
+
+def readable_conditionals(tree, text):
+    """Default V2.7 style: atomic arms in assignment/return values, <=72 columns."""
+    def atomic(node):
+        node = unwrap(node)
+        kind = node.get('type')
+        if kind in ATOMS:
+            return True
+        if kind == 'AstExprIndexName':
+            return atomic(node['expr'])
+        if kind == 'AstExprIndexExpr':
+            return atomic(node['expr']) and node['index'].get('type', '').startswith('AstExprConstant')
+        return False
+
+    lines = text.splitlines()
+    stack = [(tree, None, None)]
+    while stack:
+        node, parent, field = stack.pop()
+        if isinstance(node, list):
+            stack.extend((child, parent, field) for child in node)
+        elif isinstance(node, dict):
+            kind = node.get('type')
+            if kind == 'AstExprIfElse':
+                if parent not in ('AstStatLocal', 'AstStatAssign', 'AstStatReturn') or field not in ('values', 'list'):
+                    return False
+                if not atomic(node['trueExpr']) or not atomic(node['falseExpr']):
+                    return False
+                location = re.fullmatch(r'(\d+),(\d+) - (\d+),(\d+)', node.get('location', ''))
+                if not location:
+                    return False
+                first, _, last, _ = map(int, location.groups())
+                if first != last or first >= len(lines) or len(lines[first].expandtabs(4)) > 72:
+                    return False
+            if kind != 'AstLocal':
+                stack.extend((value, kind, key) for key, value in node.items())
+    return True
 
 
 def analyze_tree(tree, text=''):

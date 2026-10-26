@@ -1,4 +1,4 @@
-//! Two source `return`s stay two returns.
+//! Complex return guards stay statements; short atomic arms may use if-expressions.
 //!
 //! The accompanying source was compiled with Luau c2ec0d4:
 //! `luau-compile --binary -O2 -g0 --fflags=false return_guard.luau`.
@@ -8,7 +8,8 @@
 //! `PlantReplicator` `calculateScaleFactor`), and guards returning `true`
 //! then `false` into `return c and true or false` (SkyGarden
 //! `ItemDropFXClient`). `return c and a or b` compiles to a single RETURN,
-//! so two RETURNs are the guard the source wrote.
+//! so complex guards retain their source-shaped statements. V2.7 permits the
+//! two atomic boolean arms as an if-expression, which still coerces the result.
 
 const BYTECODE: &[u8] = include_bytes!("fixtures/return_guard.luaubc");
 
@@ -28,6 +29,7 @@ fn guard_return_is_not_fused_into_and_or() {
 fn boolean_returns_fold_only_on_a_boolean_condition() {
     let source = decompile();
     assert!(!source.contains("and true or false"), "{source}");
-    assert!(source.contains("\t\treturn true\n\tend\n\n\treturn false"), "{source}");
+    assert!(source.contains("return if callback(p) then true else false"), "{source}");
+    assert!(!source.contains("return callback(p)\n"), "truthy values must still become booleans: {source}");
     assert!(source.contains("return p < 1"), "{source}");
 }

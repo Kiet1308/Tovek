@@ -2013,7 +2013,7 @@ impl<'a> Lifter<'a> {
 /// Where the loop instruction at `pc` jumping by `offset` lands. A target
 /// too far for the 16-bit offset is reached through a trampoline Luau emits
 /// right before the instruction: `JUMP +1; JUMPX target; <instruction>`.
-fn loop_jump_target(instructions: &[Instruction], pc: usize, offset: i16) -> usize {
+pub(crate) fn loop_jump_target(instructions: &[Instruction], pc: usize, offset: i16) -> usize {
     let target = ((pc + 1) as isize + offset as isize) as usize;
     let trampoline = target + 1 == pc
         && target.checked_sub(1).and_then(|skip| instructions.get(skip))

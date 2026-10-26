@@ -15,7 +15,10 @@ pub(crate) fn naming_report(report: ast::refine_names::Report, legacy: ast::nami
         "rows": legacy.bindings.into_iter().map(|binding| json!({
             "binding_id": format!("b{}", binding.id),
             "final_binding_present": final_ids.contains(&binding.id),
-            "selected_hint": binding.selected_hint.map(|(name, priority)| json!({"name": name, "priority": priority})),
+            "selected_hint": binding.selected_hint.map(|(name, priority)| json!({
+                "name": name, "priority": priority, "tier": ast::NameTier::from_priority(priority).as_str(),
+                "weak": ast::NameTier::from_priority(priority) == ast::NameTier::TypeFallback,
+            })),
             "invalidations": binding.invalidations, "truncated": binding.truncated,
             "candidates": binding.candidates.into_iter().map(|candidate| json!({
                 "name": candidate.name, "priority": candidate.priority, "reason": candidate.rule,
@@ -32,6 +35,8 @@ pub(crate) fn naming_report(report: ast::refine_names::Report, legacy: ast::nami
         "api_naming_metadata": {"version": ast::naming_api::VERSION,
             "compiler_commit": ast::naming_api::COMPILER_COMMIT, "source_path": ast::naming_api::SOURCE_PATH,
             "contract": "inferred positional roles for exact syntactic API members; no runtime callee, type, effect or totality proof"},
+        "roblox_naming_metadata": {"version": ast::naming_api::ROBLOX_VERSION,
+            "source": ast::naming_api::ROBLOX_SOURCE, "contract": "curated names only; no runtime type or callee proof"},
         "type_evidence_contract": "Bytecode annotations/tags are compiler-recorded representations, not evidence that an author wrote the same annotation. API and usage names are inferred roles; no complex source aliases or generics are invented.",
         "limits": {"nodes": 100000, "bindings": 50000, "depth": 256, "candidates_per_binding": 24, "propagation_rounds": 4},
         "visited_nodes": report.visited_nodes, "bindings": report.binding_count,
@@ -41,6 +46,7 @@ pub(crate) fn naming_report(report: ast::refine_names::Report, legacy: ast::nami
         "rows": report.bindings.into_iter().map(|binding| json!({
             "binding_id": format!("b{}", binding.id), "before": binding.before,
             "after": binding.after, "kind": binding.kind, "scope": binding.scope,
+            "name_tier": binding.name_tier.as_str(), "weak_name": binding.name_tier == ast::NameTier::TypeFallback,
             "status": binding.status,
             "type_evidence": binding.type_evidence.into_iter().map(|e| json!({
                 "representation": e.representation, "origin": e.origin, "semantic_proof": false,

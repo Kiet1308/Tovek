@@ -27,7 +27,10 @@
 //!   compiler folds some (`math.floor(1.5)`), but the rebuilt call would
 //!   call the library at run time, which a script may have replaced.
 //!
-//! Integers (`LBC_CONSTANT_INTEGER`), vectors, tables, globals and any other
+//! Vector literals use their recorded float precision, with componentwise
+//! arithmetic and XYZ access only. Constructors and vector library calls are
+//! never evaluated. The compiler's implicit fourth-component gate still applies.
+//! Integers (`LBC_CONSTANT_INTEGER`), tables, globals and any other
 //! expression are unknown, and so is a NaN: its payload is the hardware's.
 
 use rustc_hash::FxHashMap;
@@ -48,6 +51,7 @@ pub(crate) enum Value {
     Boolean(bool),
     Number(f64),
     String(Vec<u8>),
+    Vector { components: [f64; 3], double: bool },
 }
 
 impl Value {
@@ -58,13 +62,19 @@ impl Value {
             Literal::Boolean(value) => Some(Value::Boolean(*value)),
             Literal::Number(value) => Value::number(*value),
             Literal::String(value) => Some(Value::String(value.clone())),
-            Literal::Integer(_) | Literal::Vector(..) | Literal::VectorD(..) => None,
+            Literal::Vector(x, y, z) => Value::vector([*x as f64, *y as f64, *z as f64], false),
+            Literal::VectorD(x, y, z) => Value::vector([*x, *y, *z], true),
+            Literal::Integer(_) => None,
         }
     }
 
     /// A number, unless it is NaN, whose payload no rule here pins.
     fn number(value: f64) -> Option<Value> {
         (!value.is_nan()).then_some(Value::Number(value))
+    }
+
+    fn vector(components: [f64; 3], double: bool) -> Option<Value> {
+        components.iter().all(|value| !value.is_nan()).then_some(Value::Vector { components, double })
     }
 
     /// The literal writing this constant.
@@ -74,6 +84,8 @@ impl Value {
             Value::Boolean(value) => Literal::Boolean(*value),
             Value::Number(value) => Literal::Number(*value),
             Value::String(value) => Literal::String(value.clone()),
+            Value::Vector { components: [x, y, z], double: true } => Literal::VectorD(*x, *y, *z),
+            Value::Vector { components: [x, y, z], double: false } => Literal::Vector(*x as f32, *y as f32, *z as f32),
         }
     }
 
@@ -89,20 +101,26 @@ impl Value {
             (Value::Boolean(a), Value::Boolean(b)) => a == b,
             (Value::Number(a), Value::Number(b)) => a.to_bits() == b.to_bits(),
             (Value::String(a), Value::String(b)) => a == b,
+            (Value::Vector { components: a, double: ad }, Value::Vector { components: b, double: bd }) =>
+                ad == bd && a.iter().zip(b).all(|(a, b)| a.to_bits() == b.to_bits()),
             _ => false,
         }
     }
 }
 
 /// Luau's `constantsEqual`: what `==` folds to.
-fn constants_equal(left: &Value, right: &Value) -> bool {
-    match (left, right) {
+fn constants_equal(left: &Value, right: &Value) -> Option<bool> {
+    Some(match (left, right) {
         (Value::Nil, Value::Nil) => true,
         (Value::Boolean(a), Value::Boolean(b)) => a == b,
         (Value::Number(a), Value::Number(b)) => a == b,
         (Value::String(a), Value::String(b)) => a == b,
+        (Value::Vector { components: a, double: ad }, Value::Vector { components: b, double: bd }) => {
+            if ad != bd { return None; }
+            a == b
+        }
         _ => false,
-    }
+    })
 }
 
 /// A local function whose whole body is `return V`, `V` computed from its
@@ -179,6 +197,7 @@ pub(crate) fn foldable(value: &RValue, is_param: &dyn Fn(&RcLocal) -> bool, help
         RValue::Literal(literal) => Value::of(literal).is_some(),
         RValue::Local(local) => is_param(local),
         RValue::Unary(unary) => foldable(&unary.value, is_param, helpers),
+        RValue::Index(index) => vector_component(&index.right).is_some() && foldable(&index.left, is_param, helpers),
         RValue::Binary(binary) => {
             binary.operation != BinaryOperation::Pow
                 && foldable(&binary.left, is_param, helpers)
@@ -208,6 +227,11 @@ fn evaluate_at(value: &RValue, env: &dyn Fn(&RcLocal) -> Option<Value>, helpers:
     match value {
         RValue::Literal(literal) => Value::of(literal),
         RValue::Local(local) => env(local),
+        RValue::Index(index) => {
+            let component = vector_component(&index.right)?;
+            let Value::Vector { components, .. } = evaluate_at(&index.left, env, helpers, depth)? else { return None; };
+            Value::number(components[component])
+        }
         RValue::Unary(unary) => fold_unary(unary.operation, &evaluate_at(&unary.value, env, helpers, depth)?),
         RValue::Binary(binary) => {
             let left = evaluate_at(&binary.left, env, helpers, depth)?;
@@ -249,6 +273,7 @@ fn fold_unary(operation: UnaryOperation, value: &Value) -> Option<Value> {
     match (operation, value) {
         (UnaryOperation::Not, value) => Some(Value::Boolean(!value.truthy())),
         (UnaryOperation::Negate, Value::Number(value)) => Value::number(-value),
+        (UnaryOperation::Negate, Value::Vector { components, double }) => Value::vector(components.map(|x| -x), *double),
         (UnaryOperation::Length, Value::String(value)) => Value::number(value.len() as f64),
         _ => None,
     }
@@ -258,8 +283,19 @@ fn fold_unary(operation: UnaryOperation, value: &Value) -> Option<Value> {
 fn fold_binary(operation: BinaryOperation, left: &Value, right: &Value) -> Option<Value> {
     use BinaryOperation::*;
     match (operation, left, right) {
-        (Equal, left, right) => Some(Value::Boolean(constants_equal(left, right))),
-        (NotEqual, left, right) => Some(Value::Boolean(!constants_equal(left, right))),
+        (Equal, left, right) => constants_equal(left, right).map(Value::Boolean),
+        (NotEqual, left, right) => constants_equal(left, right).map(|equal| Value::Boolean(!equal)),
+        (Add | Sub | Mul, Value::Vector { components: a, double: ad }, Value::Vector { components: b, double: bd })
+            if ad == bd => vector_arithmetic(operation, *a, *b, *ad),
+        (Mul | Div, Value::Vector { components, double }, Value::Number(scalar)) => {
+            // In a three-component constant W=0. Luau refuses a fold whose
+            // fourth component would become NaN/inf in a four-wide VM.
+            let scalar = if *double { *scalar } else { (*scalar as f32) as f64 };
+            let w = if operation == Mul { 0.0 * scalar } else { 0.0 / scalar };
+            if w != 0.0 { return None; }
+            vector_arithmetic(operation, *components, [scalar; 3], *double)
+        }
+        (Mul, Value::Number(_), Value::Vector { .. }) => fold_binary(Mul, right, left),
         (Concat, Value::String(a), Value::String(b)) if a.len() + b.len() <= STRING_LIMIT => {
             Some(Value::String([a.as_slice(), b.as_slice()].concat()))
         }
@@ -290,6 +326,25 @@ fn fold_binary(operation: BinaryOperation, left: &Value, right: &Value) -> Optio
         }
         _ => None,
     }
+}
+
+fn vector_component(value: &RValue) -> Option<usize> {
+    let RValue::Literal(Literal::String(key)) = value else { return None; };
+    match key.as_slice() { b"x" | b"X" => Some(0), b"y" | b"Y" => Some(1), b"z" | b"Z" => Some(2), _ => None }
+}
+
+fn vector_arithmetic(operation: BinaryOperation, a: [f64; 3], b: [f64; 3], double: bool) -> Option<Value> {
+    use BinaryOperation::*;
+    let mut result = [0.0; 3];
+    for i in 0..3 {
+        result[i] = if double {
+            match operation { Add => a[i] + b[i], Sub => a[i] - b[i], Mul => a[i] * b[i], Div => a[i] / b[i], _ => return None }
+        } else {
+            let (a, b) = (a[i] as f32, b[i] as f32);
+            (match operation { Add => a + b, Sub => a - b, Mul => a * b, Div => a / b, _ => return None }) as f64
+        };
+    }
+    Value::vector(result, double)
 }
 
 /// How many times `value` reads `local` (function bodies aside).
@@ -352,8 +407,7 @@ fn invert(
     match value {
         RValue::Local(local) if local == unknown => Some(goal),
         RValue::Unary(unary) if unary.operation == UnaryOperation::Negate => {
-            let Value::Number(goal) = goal else { return None };
-            invert(&unary.value, Value::Number(-goal), unknown, env, helpers, depth)
+            invert(&unary.value, fold_unary(UnaryOperation::Negate, &goal)?, unknown, env, helpers, depth)
         }
         RValue::Binary(binary) => {
             let in_left = reads(&binary.left, unknown) > 0;
@@ -367,6 +421,23 @@ fn invert(
                 (Concat, Value::String(k), Value::String(g)) => {
                     let rest = if in_left { g.strip_suffix(k.as_slice()) } else { g.strip_prefix(k.as_slice()) };
                     Value::String(rest?.to_vec())
+                }
+                (Add | Sub | Mul, Value::Vector { components: k, double: kd }, Value::Vector { components: g, double: gd }) if kd == gd => {
+                    match binary.operation {
+                        Add => vector_arithmetic(Sub, *g, *k, *gd)?,
+                        Sub if in_left => vector_arithmetic(Add, *g, *k, *gd)?,
+                        Sub => vector_arithmetic(Sub, *k, *g, *gd)?,
+                        Mul if k.iter().all(|k| *k != 0.0) => vector_arithmetic(Div, *g, *k, *gd)?,
+                        _ => return None,
+                    }
+                }
+                (Mul | Div, Value::Number(k), Value::Vector { components: g, double }) => {
+                    let k = if *double { *k } else { (*k as f32) as f64 };
+                    match binary.operation {
+                        Mul if k != 0.0 => vector_arithmetic(Div, *g, [k; 3], *double)?,
+                        Div if in_left => vector_arithmetic(Mul, *g, [k; 3], *double)?,
+                        _ => return None,
+                    }
                 }
                 _ => return None,
             };
@@ -481,6 +552,42 @@ mod tests {
     fn number(value: f64) -> RValue {
         RValue::Literal(Literal::Number(value))
     }
+
+    #[test]
+    fn vector_folds_use_component_precision_and_preserve_signed_zero() {
+        use BinaryOperation::*;
+        let vector = |x, y, z| RValue::Literal(Literal::Vector(x, y, z));
+        let sum = fold(&binary(vector(16_777_216.0, -0.0, 1.5), Add, vector(1.0, -0.0, 0.5))).unwrap();
+        assert!(sum.same(&Value::of(&Literal::Vector(16_777_216.0, -0.0, 2.0)).unwrap()));
+        let scaled = fold(&binary(vector(1.0, 2.0, 3.0), Mul, number(16_777_217.0))).unwrap();
+        assert!(scaled.same(&Value::of(&Literal::Vector(16_777_216.0, 33_554_432.0, 50_331_648.0)).unwrap()));
+        let negated = fold(&unary(UnaryOperation::Negate, vector(0.0, -0.0, 2.0))).unwrap();
+        assert!(negated.same(&Value::of(&Literal::Vector(-0.0, 0.0, -2.0)).unwrap()));
+        assert!(!negated.same(&Value::of(&Literal::Vector(0.0, 0.0, -2.0)).unwrap()));
+        let double = fold(&binary(Literal::VectorD(16_777_216.0, 0.0, 1.0).into(), Add,
+            Literal::VectorD(1.0, 0.0, 1.0).into())).unwrap();
+        assert!(double.same(&Value::of(&Literal::VectorD(16_777_217.0, 0.0, 2.0)).unwrap()));
+        assert!(fold(&binary(vector(1.0, 2.0, 3.0), Div, vector(1.0, 2.0, 3.0))).is_none());
+        assert!(fold(&binary(vector(1.0, 2.0, 3.0), Mul, number(f64::INFINITY))).is_none());
+        assert!(fold(&binary(vector(1.0, 2.0, 3.0), Div, number(0.0))).is_none());
+    }
+
+    #[test]
+    fn vector_components_and_inverse_arguments_are_proved() {
+        let vector = RValue::Literal(Literal::Vector(1.0, -0.0, 3.0));
+        assert_number(&crate::Index::new(vector.clone(), string("Y")).into(), -0.0);
+        assert!(fold(&crate::Index::new(vector.clone(), string("W")).into()).is_none());
+        assert_value(&binary(vector.clone(), BinaryOperation::Equal,
+            Literal::Vector(1.0, 0.0, 3.0).into()), Value::Boolean(true));
+        let argument = RcLocal::default();
+        let body = binary(argument.clone().into(), BinaryOperation::Mul, number(2.0));
+        let goal = Value::of(&Literal::Vector(2.0, -0.0, 6.0)).unwrap();
+        let solved = solve(&body, &goal, &argument, &|_| None, &PureHelpers::default()).unwrap();
+        assert!(solved.same(&Value::of(&Literal::Vector(1.0, -0.0, 3.0)).unwrap()));
+        // Syntactic vector.create remains a mutable library lookup.
+        assert!(fold(&Call::new(crate::Index::new(crate::Global::from("vector").into(), string("create")).into(),
+            vec![number(1.0), number(2.0), number(3.0)]).into()).is_none());
+    }
     fn string(value: &str) -> RValue {
         RValue::Literal(Literal::String(value.as_bytes().to_vec()))
     }
@@ -570,7 +677,7 @@ mod tests {
         assert!(fold(&binary(number(0.1), Mod, number(0.01))).is_none());
         assert!(fold(&number(f64::NAN)).is_none());
         assert!(fold(&RValue::Literal(Literal::Integer(3))).is_none());
-        assert!(fold(&RValue::Literal(Literal::Vector(1.0, 2.0, 3.0))).is_none());
+        assert!(fold(&RValue::Literal(Literal::Vector(f32::NAN, 2.0, 3.0))).is_none());
     }
 
     /// `"ab" .. "cd"` loads 'abcd'; 2048 + 2048 bytes fold, 2048 + 2049 do
@@ -618,8 +725,8 @@ mod tests {
         assert_value(&binary(number(2.0), GreaterThanOrEqual, number(2.0)), Value::Boolean(true));
         assert!(fold(&binary(string("a"), LessThan, string("b"))).is_none());
         // NaN equals nothing, itself included.
-        assert!(!constants_equal(&Value::Number(f64::NAN), &Value::Number(f64::NAN)));
-        assert!(constants_equal(&Value::Number(0.0), &Value::Number(-0.0)));
+        assert_eq!(constants_equal(&Value::Number(f64::NAN), &Value::Number(f64::NAN)), Some(false));
+        assert_eq!(constants_equal(&Value::Number(0.0), &Value::Number(-0.0)), Some(true));
     }
 
     /// `nil and 5` loads nil, `false and u` false, `false or "x"` 'x',

@@ -5,6 +5,26 @@
 
 const MERGED: &[u8] = include_bytes!("fixtures/deinline_merged_result_branches.luaubc");
 const CONTROL: &[u8] = include_bytes!("fixtures/late_control_flow_shapes.luaubc");
+const WHILE: &[u8] = include_bytes!("fixtures/while_inlined_condition.luaubc");
+const EVENT: &[u8] = include_bytes!("fixtures/event_parameter_roles.luaubc");
+
+#[test]
+fn rebuilt_head_test_recovers_while_and_keeps_its_call_comment() {
+    let source = luau_lifter::try_decompile_bytecode_with_options(
+        WHILE, 1, None, Default::default(),
+    ).expect("inlined while condition decompiles");
+    assert!(source.contains("while alive(p) do -- inferred equivalent call"), "{source}");
+    assert!(source.contains("while not done() do -- inferred equivalent call"), "{source}");
+}
+
+#[test]
+fn character_event_parameter_is_not_named_after_parent_store() {
+    let source = luau_lifter::try_decompile_bytecode_with_options(
+        EVENT, 1, None, Default::default(),
+    ).expect("event role regression decompiles");
+    assert!(source.contains("Connect(function(character)"), "{source}");
+    assert!(source.contains(".Parent = character"), "{source}");
+}
 
 #[test]
 fn merged_default_rebuilds_only_when_the_result_cell_is_unobserved() {

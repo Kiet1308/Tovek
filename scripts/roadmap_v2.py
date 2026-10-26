@@ -20,7 +20,7 @@ import time
 from bytecode_dataflow import compare_dataflow
 from bytecode_roundtrip import compare_chunks, parse_chunk
 from source_fidelity import compare_ast, conditional_count, parse_ast
-from output_quality import analyze_tree
+from output_quality import analyze_tree, readable_conditionals
 
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
@@ -123,10 +123,11 @@ def check_case(args, case, root, work, opt, debug):
             row["source_fidelity"] = compare_ast(source_ast, output_ast)
             row["output_quality"] = analyze_tree(output_ast, output.decode('utf-8'))
             row["output_conditional_expressions"] = conditional_count(output_ast)
-            # `--style compact` writes scalar selects as if-expressions by design.
+            # Default permits only short atomic selects; compact also permits
+            # longer chains and non-atomic arms. Keep a real presentation gate.
             compact = any(arg in ("compact", "--style=compact") for arg in args.lifter_arg)
-            if row["output_conditional_expressions"] and not compact:
-                raise RuntimeError("statement output style gate failed")
+            if not compact and not readable_conditionals(output_ast, output.decode('utf-8')):
+                raise RuntimeError("readable if-expression style gate failed")
             if debug == 2 and "minimum_exact_names_g2" in case:
                 if row["source_fidelity"].get("exact_names", -1) < case["minimum_exact_names_g2"]:
                     raise RuntimeError("binding-aware debug-name recovery gate failed")

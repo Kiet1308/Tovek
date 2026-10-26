@@ -1,270 +1,15 @@
 {
- "provenance": {
-  "lifter_commit": "d31366187777b49430fd1164e00e7aece3df6beb",
-  "compiler_commit": "c2ec0d4e5ca50796ba174a7565298f59aa572268",
-  "normalization": "VM table-template defaults are numeric zero; explicit nil is applied after all template entries.",
-  "migration": "Replayed the original baseline lifter with corrected normalization; thresholds are not regenerated from current decompiler output.",
-  "reviewed_count_changes": {
-   "alias_iterators": "Historical output adds an implicit zero for the private sum field before its closure store. The same difference is present in current output; the fixture passes runtime round-trips at O0/O1/O2.",
-   "deinline_method_receiver_read_late": "Main inlines `make` twice; both copies of its `report` literal load one DUPCLOSURE constant, so the old and new tables share one closure. The copies now print as one hoisted `local function report` stored at both sites (closure identity, M0 2026-10-06), which adds a local to the main prototype; the fixture passes runtime round-trips at O0/O1/O2.",
-   "conditional_value_before_short_circuit": "m3-e1 (line evidence, 2026-10-10): `callback`, below the anchor floor, is one copy in `test` by line info and rebuilds as `local v = not p and callback()` (the select splits off `not p`); the recompiled `test` tests with NOT/AND where the bytecode branched, so it differs by construction (nonequiv 1 -> 2); runtime round-trips and the bytecode reference hold.",
-   "constructor_key_error_after_branch_call": "m3-e1 (line evidence, 2026-10-10): `change`, below the anchor floor, rebuilds as `local v = not p and change()`; the recompiled function tests with NOT/AND where the bytecode branched (nonequiv 0 -> 1, by construction).",
-   "deinline_fresh_closure_capturing_a_constant": "m3-e1 (line evidence, 2026-10-10): at -g1 the loop copies of `bind` and `nest` rebuild as calls (`bind(true)`, `bind(name)`, `nest(name)`, `bind(title)`), each a new closure as in the bytecode; main compiles them as calls where the bytecode inlined them (nonequiv 3 -> 4); the private-copy cases still apply where the copies stay inline (-g0). fr-fix census (17b5a93, 2026-10-11): the copy of `bind` holding the folded constant \"y\" now counts and rebuilds as `bind(\"y\")`, a new closure per call as in the bytecode (nonequiv 4 -> 5, by construction).",
-   "returned_parameter_helper": "m3-e1 (line evidence, 2026-10-10): `bump(v, 10)` rebuilds in `run` as the source has it; recompiled, `run` costs more than the -O2 inline budget (cost 28) and main calls it where the bytecode inlined it (outlined by construction, nonequiv 0 -> 1).",
-   "captured_copy_into_plain_local": "m3-e1 ratchet 2 -> 1 (2026-10-10): a helper copy line evidence admits rebuilds as the source calls it.",
-   "loop_after_breaking_for": "m3-e1 ratchet 2 -> 1 (2026-10-10): the copies of `done` rebuild as `until done()`.",
-   "naming_counter_compaction_respects_captures": "m3-e1 ratchet 2 -> 1 (2026-10-10): a helper copy line evidence admits rebuilds as the source calls it.",
-   "swap_of_two_captured_cells": "m3-e1 ratchet 2 -> 1 (2026-10-10): a helper copy line evidence admits rebuilds as the source calls it.",
-   "upvalue_operand_read_before_call": "m3-e1 ratchet 1 -> 0 (2026-10-10): `v + change()` and `v2 * 3 + changeY() * 2 - 1` rebuild as the source has them; recompiled equal to the bytecode.",
-   "loop_shapes": "fr-fix census (17b5a93, 2026-10-11): the two copies of `cycle` in the chunk now count as copies and rebuild as `print(cycle(1), cycle(4))`; the recompiled chunk calls where the bytecode looped (nonequiv 1 -> 2, by construction).",
-   "value_capture_into_its_own_target": "fr-fix census (17b5a93, 2026-10-11): the copy of `make` in the chunk now counts and rebuilds as `make(\"b\")()`; the recompiled chunk calls where the bytecode built the closure (nonequiv 8 -> 9, by construction).",
-   "while_header_opens_for": "fr-fix loop exit port (39313ba, 2026-10-11): `while true do ... if alpha >= 1 then return ... end end` now reads as `repeat ... until v2 >= 1` followed by the return; the recompiled loop tests at its end where the bytecode branched to the return (nonequiv 0 -> 1); runtime round-trips hold."
-  },
-  "added_fixtures": {
-   "deinline_merged_result_branches": "V2.7 merged-result regression (2026-10-12): the opaque clock service preserves the positive recovered adjusted(p) call; a captured result observed by check remains inline. No non-equivalent prototypes. All O0/O1/O2 source round-trips and 9 actual-bytecode VM comparisons pass, including effects, errors and return arity.",
-   "late_control_flow_shapes": "V2.7 late cleanup regression (2026-10-12): small guards, bottom-tested loops, continue-sensitive tests, scoped locals and one-shot exits. Main reduces the inlined/unrolled source and one unused prototype disappears (nonequiv 2); all O0/O1/O2 source round-trips and 9 actual-bytecode VM comparisons pass. Introducing-fixture baseline only; existing thresholds unchanged.",
-   "call_before_capture_read": "Regression fixture for a reported bug (2026-09-29); baselined from the fixing commit output.",
-   "inner_loop_continues_outer": "Regression fixture for a reported bug (2026-09-29); baselined from the fixing commit output.",
-   "nested_loop_exits_parent": "Regression fixture for a reported bug (2026-09-29); baselined from the fixing commit output.",
-   "report_nested_numeric_accumulate": "Regression fixture for a reported bug (2026-09-29); baselined from the fixing commit output.",
-   "report_repeat_break_in_numeric_for": "Regression fixture for a reported bug (2026-09-29); baselined from the fixing commit output.",
-   "builtin_alias_across_blocks": "Regression fixture for a real-dump structuring failure (2026-09-29); baselined from the fixing commit output.",
-   "while_header_opens_for": "Regression fixture for a real-dump structuring failure (2026-09-29); baselined from the fixing commit output.",
-   "captured_connection_after_branch": "Regression fixture for a real-dump dropped captured write (2026-09-29); baselined from the fixing commit output.",
-   "captured_cell_block_param_rename": "Regression fixture for a real-dump captured cell split (2026-09-29); baselined from the fixing commit output.",
-   "captured_handle_from_merge": "Regression fixture for a real-dump captured cell split (2026-09-29); baselined from the fixing commit output.",
-   "fastcall_argument_order": "Argument order fixture for FASTCALL callee folding (2026-09-29); baselined from the introducing commit output.",
-   "generic_for_iterates_local_call": "added_fixtures",
-   "first_read_argument_hoist": "De-inline fixture (2026-09-30): main outlines the rebuilt helper calls, so it differs by construction; `late` differs because `function T.trace` folds into the table constructor, which -O2 then inlines. Baselined from the introducing commit output.",
-   "first_read_statement_hoist": "De-inline fixture (2026-09-30): main outlines the rebuilt helper calls, so it differs by construction; baselined from the introducing commit output.",
-   "declared_select_helper": "De-inline fixture (2026-09-30): `steer` outlines the rebuilt helper calls, so it differs by construction; baselined from the introducing commit output.",
-   "declared_select_prefix": "De-inline fixture (2026-10-01): main outlines the rebuilt helper calls, so it differs by construction; baselined from the introducing commit output.",
-   "embedded_helper_value": "De-inline fixture (2026-10-01): main outlines the rebuilt helper calls, so it differs by construction; baselined from the introducing commit output.",
-   "template_repeated_key": "added_fixtures",
-   "fall_off_helper_arity": "De-inline fixture (2026-10-01): main outlines the rebuilt helper calls, so it differs by construction; baselined from the introducing commit output.",
-   "local_tuple_helper": "De-inline fixture (2026-10-01): run outlines the rebuilt `makeTrack` calls, so it and the -O2 copies differ by construction; baselined from the introducing commit output.",
-   "outer_local_helpers": "De-inline fixture (2026-10-01): run outlines the rebuilt `emit`/`purchase` calls, so it differs by construction; baselined from the introducing commit output.",
-   "cps_copy_without_return": "Review fixture (2026-10-01): a loop copy without `return` stays inline; the -O2 loop unrolling differs as in loop_shapes; baselined from the fixing commit output.",
-   "embedded_prefix_order": "Review fixture (2026-10-01): the callee read before the value keeps the helper inline; baselined from the fixing commit output.",
-   "dynamic_environment": "Review fixture (2026-10-01): no call is inferred in a module that reads setfenv; baselined from the fixing commit output.",
-   "untruncated_arguments": "Output fixture (2026-10-01): one-result parentheses dropped only where the callee drops extra values; baselined from the introducing commit output.",
-   "returned_parameter_helper": "De-inline fixture (2026-10-01): a helper handing back its argument rebuilds with one result; baselined from the introducing commit output.",
-   "loop_return_flag": "De-inline fixture (2026-10-01): a loop return lowered to a flag and break rebuilds as the call; baselined from the introducing commit output.",
-   "import_callee_alias": "Output fixture (2026-10-01): a constant import callee is named in place of its alias; baselined from the introducing commit output.",
-   "callback_written_capture": "Motion fixture (2026-10-01): a temp reading a captured local folds only when no write follows its capture; baselined from the introducing commit output.",
-   "capture_written_after_yield": "Motion fixture (2026-10-01): a cell written after a yield keeps its snapshot; the selects and coroutine restructuring differ; baselined from the introducing commit output.",
-   "parameter_hole_multret": "Review fixture (2026-10-01): a call spread into a parameter position is not the helper call; baselined from the fixing commit output.",
-   "rewritten_helper_arity": "Review fixture (2026-10-01): only a helper proven single-valued collapses into return; baselined from the fixing commit output.",
-   "compound_local_base": "Compound fixture (2026-10-01): a local snapshot folds into the op= base only as an upvalue or an uncaptured local; a rebound local keeps it; baselined from the fixing commit output.",
-   "tuple_store_targets": "Tuple fixture (2026-10-01): stores right after a multi-result call fold into one multiple assignment; a plain swap and re-read results stay; baselined from the introducing commit output.",
-   "repeated_select_operand": "Select fixture (2026-10-01): a repeated pure last operand of and/or folds; an __index read stays; baselined from the introducing commit output.",
-   "nested_capture_argument": "Capture fixture (2026-10-01): a once-written local re-captured through a parent's upvalue is a stable argument; a rebound one is not; argument copies fold into early expression rebuilds; baselined from the fixing commit output.",
-   "branch_tuple_helper": "Tuple fixture (2026-10-01): a helper returning two values through branches rebuilds into its result locals (shared result register); a copy storing into its argument register stays; baselined from the introducing commit output.",
-   "arithmetic_region_captured_operand": "Review fixture (2026-10-02): v2.1..main review regression, fixed; baselined from the fixing commit output.",
-   "builtin_argument_zero_results": "Review fixture (2026-10-02): v2.1..main review regression, fixed; baselined from the fixing commit output.",
-   "embedded_field_read_before_prefix": "Review fixture (2026-10-02): v2.1..main review regression, fixed; baselined from the fixing commit output.",
-   "embedded_global_read_before_prefix": "Review fixture (2026-10-02): v2.1..main review regression, fixed; baselined from the fixing commit output.",
-   "embedded_value_multi_target": "Review fixture (2026-10-02): v2.1..main review regression, fixed; baselined from the fixing commit output.",
-   "embedded_value_multi_target_helper": "Review fixture (2026-10-02): v2.1..main review regression, fixed; baselined from the fixing commit output.",
-   "fastcall_captured_register_read": "Review fixture (2026-10-02): v2.1..main review regression, fixed; baselined from the fixing commit output.",
-   "first_read_captured_operand": "Review fixture (2026-10-02): v2.1..main review regression, fixed; baselined from the fixing commit output.",
-   "first_read_captured_statement": "Review fixture (2026-10-02): v2.1..main review regression, fixed; baselined from the fixing commit output.",
-   "first_read_captured_store": "Review fixture (2026-10-02): v2.1..main review regression, fixed; baselined from the fixing commit output.",
-   "import_alias_error_timing": "Review fixture (2026-10-02): v2.1..main review regression, fixed; baselined from the fixing commit output.",
-   "import_alias_field_reassigned": "Review fixture (2026-10-02): v2.1..main review regression, fixed; baselined from the fixing commit output.",
-   "table_store_after_appended_call": "Review fixture (2026-10-02): v2.1..main review regression, fixed; baselined from the fixing commit output.",
-   "arith_moved_past_captured_store": "Review fixture (2026-10-02): v2.1..main review, out-of-SSA/inlining/naming bug, fixed; baselined from the fixing commit output.",
-   "call_moved_past_captured_store": "Review fixture (2026-10-02): v2.1..main review, out-of-SSA/inlining/naming bug, fixed; baselined from the fixing commit output.",
-   "codefined_results_kept_apart": "Review fixture (2026-10-02): v2.1..main review, out-of-SSA/inlining/naming bug, fixed; baselined from the fixing commit output.",
-   "codefined_results_kept_apart_plain": "Review fixture (2026-10-02): v2.1..main review, out-of-SSA/inlining/naming bug, fixed; baselined from the fixing commit output.",
-   "codefined_results_loop_swap": "Review fixture (2026-10-02): v2.1..main review, out-of-SSA/inlining/naming bug, fixed; baselined from the fixing commit output.",
-   "duplicate_local_multi_assign": "Review fixture (2026-10-02): v2.1..main review, out-of-SSA/inlining/naming bug, fixed; baselined from the fixing commit output.",
-   "late_register_read_captured": "Review fixture (2026-10-02): v2.1..main review, out-of-SSA/inlining/naming bug, fixed; baselined from the fixing commit output.",
-   "script_index_past_captured_read": "Review fixture (2026-10-02): v2.1..main review, out-of-SSA/inlining/naming bug, fixed; baselined from the fixing commit output.",
-   "unused_local_vs_global_underscore": "Review fixture (2026-10-02): v2.1..main review, out-of-SSA/inlining/naming bug, fixed; baselined from the fixing commit output.",
-   "captured_copy_into_plain_local": "review fixes 2026-10-02 (SSA cells)",
-   "captured_swap_cell_phi": "review fixes 2026-10-02 (SSA cells)",
-   "conditional_capture_loop_swap": "review fixes 2026-10-02 (SSA cells)",
-   "loop_capture_post_loop_swap": "review fixes 2026-10-02 (SSA cells)",
-   "loop_capture_post_loop_write": "review fixes 2026-10-02 (SSA cells)",
-   "cell_joins_its_register_phi": "review fixes 2026-10-02 (cells, store order)",
-   "cell_phi_other_variable": "review fixes 2026-10-02 (cells, store order)",
-   "cell_phi_other_variable_folded": "review fixes 2026-10-02 (cells, store order)",
-   "cell_snapshot_after_trivial_phi": "review fixes 2026-10-02 (cells, store order)",
-   "numeric_for_init_reads_cell": "review fixes 2026-10-02 (cells, store order)",
-   "store_address_read_at_store": "review fixes 2026-10-02 (cells, store order)",
-   "store_site_helper_call": "review fixes 2026-10-02 (cells, store order)",
-   "cell_written_in_loop_read_after": "review fixes 2026-10-02 (cells, store order)",
-   "loop_swap_with_later_capture": "review fixes 2026-10-02 (cells, store order)",
-   "cell_copy_reassigned_in_loop": "review follow-ups 2026-10-02 (cell copies, loop exits)",
-   "cell_copy_unwritten_or_forwarded": "review follow-ups 2026-10-02 (cell copies, loop exits)",
-   "loop_after_breaking_for": "review follow-ups 2026-10-02 (cell copies, loop exits)",
-   "loop_swaps_of_captured_locals": "review follow-ups 2026-10-02 (cell copies, loop exits)",
-   "swap_after_breaking_for": "review follow-ups 2026-10-02 (cell copies, loop exits)",
-   "value_capture_of_cell_copy": "review follow-ups 2026-10-02 (cell copies, loop exits)",
-   "returned_local_helper": "review follow-ups 2026-10-02 (cell copies, loop exits)",
-   "builtin_last_argument_kinds": "external review 2026-10-02 (builtin args, import aliases)",
-   "import_alias_script_globals": "external review 2026-10-02 (builtin args, import aliases)",
-   "services_table_under_pressure": "services table under pressure / local-limit retry (2026-10-02)",
-   "unfoldable_temporaries_over_local_limit": "services table under pressure / local-limit retry (2026-10-02)",
-   "connection_stored_only_where_written": "full-project review 2026-10-02 (raising imports, signed zero, connection stores)",
-   "import_lookup_may_raise": "full-project review 2026-10-02 (raising imports, signed zero, connection stores)",
-   "signed_zero_operands": "full-project review 2026-10-02 (raising imports, signed zero, connection stores)",
-   "loop_return_value": "De-inline fixture (2026-10-02): a value returned from inside a loop, lowered to a store, a flag and a break, rebuilds as the call; main outlines the rebuilt calls; baselined from the introducing commit output.",
-   "rebuilt_call_result_names": "Naming fixture (2026-10-02): rebuilt call results take the name of the local the helper returns; baselined from the introducing commit output.",
-   "folded_constant_argument": "De-inline fixture (2026-10-02): a constant argument whose truth-only reads Luau folded away is inferred for the rebuilt call; main outlines the rebuilt calls; baselined from the introducing commit output.",
-   "numeric_loop_return": "Structuring fixture (2026-10-02): a value returned from inside a numeric for, inlined, exports the loop counter past an exhaustion adapter run under the flag (a helper break runs a copy of it); main outlines the rebuilt calls; baselined from the introducing commit output.",
-   "fastcall_multret_argument_copied": "Regression fixture for a reported bug (2026-10-03); baselined from the fixing commit output.",
-   "snapshot_compared_after_callback": "Regression fixture for a reported bug (2026-10-03); baselined from the fixing commit output.",
-   "snapshot_receiver_and_constructor_key": "Regression fixture for a reported bug (2026-10-03); baselined from the fixing commit output.",
-   "snapshot_store_address_after_callback": "Regression fixture for a reported bug (2026-10-03); baselined from the fixing commit output.",
-   "cell_swap_beside_copy": "Regression fixture for a reported bug (2026-10-03); baselined from the fixing commit output.",
-   "collapsed_conditional_stays_ssa": "Regression fixture for a reported bug (2026-10-03); baselined from the fixing commit output.",
-   "loop_return_skips_loop_tail": "Regression fixture for a reported bug (2026-10-03); baselined from the fixing commit output.",
-   "paren_call_truncates_multret": "Regression fixture (2026-10-03, paren_call_truncates_multret); baselined from the 2026-10-03 fix commit output.",
-   "cell_copy_dead_update": "review 10-03 (R01-R20) + user reports + fuzz swap",
-   "closure_in_store_key_captures": "review 10-03 (R01-R20) + user reports + fuzz swap",
-   "conditional_value_before_short_circuit": "review 10-03 (R01-R20) + user reports + fuzz swap",
-   "conditional_value_before_store_address": "review 10-03 (R01-R20) + user reports + fuzz swap",
-   "conditional_value_before_upvalue_callee": "review 10-03 (R01-R20) + user reports + fuzz swap",
-   "deinline_free_cell_read_late": "review 10-03 (R01-R20) + user reports + fuzz swap",
-   "deinline_method_receiver_read_late": "review 10-03 (R01-R20) + user reports + fuzz swap",
-   "drained_field_positional_slot": "review 10-03 (R01-R20) + user reports + fuzz swap",
-   "format_call_statement": "review 10-03 (R01-R20) + user reports + fuzz swap",
-   "library_fetch_with_replaced_library": "review 10-03 (R01-R20) + user reports + fuzz swap",
-   "nan_sign_preserved": "review 10-03 (R01-R20) + user reports + fuzz swap",
-   "next_call_generic_for": "review 10-03 (R01-R20) + user reports + fuzz swap",
-   "numeric_loops_sharing_registers": "review 10-03 (R01-R20) + user reports + fuzz swap",
-   "paren_statement_after_index_and_unary": "review 10-03 (R01-R20) + user reports + fuzz swap",
-   "swap_of_two_captured_cells": "review 10-03 (R01-R20) + user reports + fuzz swap",
-   "table_constructor_snapshot_before_call": "review 10-03 (R01-R20) + user reports + fuzz swap",
-   "vector_constant_full_upvalues": "review 10-03 (R01-R20) + user reports + fuzz swap",
-   "deep_expression_vector_constant": "deep expression with a vector constant",
-   "constructor_key_error_after_branch_call": "review 10-04 (N01-N08, #1, #3)",
-   "debug_info_frame_at_call_site": "review 10-04 (N01-N08, #1, #3)",
-   "function_from_debug_info_writes_cell": "review 10-04 (N01-N08, #1, #3)",
-   "nested_calls_after_blocks": "review 10-04 (N01-N08, #1, #3)",
-   "register_store_target_after_value_call": "review 10-04 (N01-N08, #1, #3)",
-   "signed_zero_table_keys": "review 10-04 (N01-N08, #1, #3)",
-   "upvalue_operand_read_before_call": "review 10-04 (N01-N08, #1, #3)",
-   "vector_nan_sign": "review 10-04 (N01-N08, #1, #3)",
-   "debug_info_through_local_function": "review 10-04 round 3 + PR #6",
-   "generic_loop_result_keeps_outer_value": "review 10-04 round 3 + PR #6",
-   "long_accumulation_chain": "review 10-04 round 3 + PR #6",
-   "multiline_string_keys": "review 10-04 round 3 + PR #6",
-   "nested_rejected_format_calls": "review 10-04 round 3 + PR #6",
-   "reroll_within_register_limit": "review 10-04 round 3 + PR #6",
-   "signed_zero_key_kept_by_moved_entry": "review 10-04 round 3 + PR #6",
-   "flattened_do_blocks_register_limit": "flattened do blocks under the register limit",
-   "one_variable_generic_loops_register_limit": "review v2 (2026-10-04) N02: generic loops hold room for two variables",
-   "signed_zero_key_after_nil_slot": "review v2 (2026-10-04) N01: a nil slot keeps no signed-zero key",
-   "constructor_split_keeps_list_slots": "V2.6 fuzzer: list items keep their constructor slots; SETLIST-run stores fold back",
-   "generic_loop_body_only_breaks": "V2.6 fuzzer: FORGLOOP threaded through a break body",
-   "locals_past_the_limit_take_if_expressions": "V2.6 register fuzzer: compact retry past the local limit",
-   "recursive_local_function_in_loop": "V2.6 fuzzer: a closure capturing its own register by value",
-   "swap_around_generic_loop": "V2.6 fuzzer: phi copies at a for step move to its edges",
-   "value_capture_written_after_closure": "V2.6 fuzzer: by-value capture of a local written later",
-   "reserved_list_slots_keep_keyed_entries": "V2.6 typed fuzzer seed 30585: reserved list slots keep keyed entries",
-   "captured_swap_before_generic_loop": "V2.7 typed fuzzer seeds 100381/101553: captured swap before a generic loop",
-   "capture_coalesced_into_closure_target": "M0 correctness fixture (2026-10-06): a by-value capture kept apart from its closure's target, a self-capturing arm kept in its block, or one binding for inlined copies of a shared closure; baselined from the fixing output.",
-   "closure_identity_across_inlined_copies": "M0 correctness fixture (2026-10-06): a by-value capture kept apart from its closure's target, a self-capturing arm kept in its block, or one binding for inlined copies of a shared closure; baselined from the fixing output.",
-   "promise_advancers_capture_their_handlers": "M0 correctness fixture (2026-10-06): a by-value capture kept apart from its closure's target, a self-capturing arm kept in its block, or one binding for inlined copies of a shared closure; baselined from the fixing output.",
-   "recursive_local_function_in_value_branch": "M0 correctness fixture (2026-10-06): a by-value capture kept apart from its closure's target, a self-capturing arm kept in its block, or one binding for inlined copies of a shared closure; baselined from the fixing output.",
-   "value_capture_into_its_own_target": "M0 correctness fixture (2026-10-06): a by-value capture kept apart from its closure's target, a self-capturing arm kept in its block, or one binding for inlined copies of a shared closure; baselined from the fixing output.",
-   "value_capture_through_call_argument": "M0 correctness fixture (2026-10-06): a by-value capture kept apart from its closure's target, a self-capturing arm kept in its block, or one binding for inlined copies of a shared closure; baselined from the fixing output.",
-   "call_argument_width": "M1 printing and layout fixture (2026-10-06): de-inline site comments, backtick strings, long brackets, native flags, nested comparisons and line layout; baselined from the M1 output, equivalent at every proto.",
-   "comparison_inside_comparison": "M1 printing and layout fixture (2026-10-06): de-inline site comments, backtick strings, long brackets, native flags, nested comparisons and line layout; baselined from the M1 output, equivalent at every proto.",
-   "exact_fraction_constants": "M1 constant fixture (2026-10-06): numbers that are exactly p/q (q <= 1000) print as fractions; baselined from the M1 output, equivalent at every proto (Luau folds the division back to the same constant).",
-   "inferred_call_comments": "M1 printing and layout fixture (2026-10-06): de-inline site comments, backtick strings, long brackets, native flags, nested comparisons and line layout; baselined from the M1 output, equivalent at every proto.",
-   "long_bracket_prose_only": "M1 printing and layout fixture (2026-10-06): de-inline site comments, backtick strings, long brackets, native flags, nested comparisons and line layout; baselined from the M1 output, equivalent at every proto.",
-   "long_condition_wrapping": "M1 printing and layout fixture (2026-10-06): de-inline site comments, backtick strings, long brackets, native flags, nested comparisons and line layout; baselined from the M1 output, equivalent at every proto.",
-   "multi_line_elements_one_per_line": "M1 printing and layout fixture (2026-10-06): de-inline site comments, backtick strings, long brackets, native flags, nested comparisons and line layout; baselined from the M1 output, equivalent at every proto.",
-   "naming_builtin_spellings_never_capture": "M1 naming fixture (2026-10-06): spellings, suffix compaction and reservations change names only; baselined from the M1 output, equivalent at every proto.",
-   "naming_counter_compaction_respects_captures": "M1 naming fixture (2026-10-06): counter compaction never merges a name an inner function reads from outside. Two non-equivalent protos, the same at M0: the original -O2 chunk inlines `curry` and unrolls the inlined `grid(2)` loops, which print as written, so the rebuilt main keeps the unrolled sums and one inlined closure; the fixture passes runtime round-trips at O0/O1/O2.",
-   "naming_sequential_bindings_stay_distinct": "M1 naming fixture (2026-10-06): spellings, suffix compaction and reservations change names only; baselined from the M1 output, equivalent at every proto.",
-   "naming_unused_bindings_keep_their_reads": "M1 naming fixture (2026-10-06): spellings, suffix compaction and reservations change names only; baselined from the M1 output, equivalent at every proto.",
-   "native_function_attribute": "M1 printing fixture (2026-10-06): `@native` printed from the prototype flag. One non-equivalent proto, the same at M0: `local M = {}; function M.offset` folds into the constructor `{ offset = function ... }`, and the pinned -O2 compiler inlines a constructor-literal function, so the rebuilt main adds `x + 1` where the original calls `M.offset`; the fixture passes runtime round-trips at O0/O1/O2.",
-   "native_module_hot_comment": "M1 printing and layout fixture (2026-10-06): de-inline site comments, backtick strings, long brackets, native flags, nested comparisons and line layout; baselined from the M1 output, equivalent at every proto.",
-   "short_tables_one_line": "M1 printing and layout fixture (2026-10-06): de-inline site comments, backtick strings, long brackets, native flags, nested comparisons and line layout; baselined from the M1 output, equivalent at every proto.",
-   "interpolated_string_in_last_position": "M1 printing fixture (2026-10-06): truncation parentheses dropped around backtick strings. One non-equivalent proto, the same at M0: `{ (\"item %*\"):format(p) }` prints as the one-value interpolation `{ `item {p}` }`, so the rebuilt constructor ends in SETLIST(1) where the original's open format call gives SETLIST(*); the fixture passes runtime round-trips at O0/O1/O2.",
-   "deinline_discarded_result": "M2a D1: discard variant of value helpers (track, describe, remember), declared result from a kept temp; 0 inequivalent",
-   "deinline_ordered_leading_reads": "M2a D4: ordered leading reads; 1 inequivalent proto (main), same at M1: Log.note and Service:Create print as table constructors (template LOADK 0 + SETTABLEKS)",
-   "deinline_result_stored_into_its_argument": "M2a D1: assigned results with identity-leaf elision and argument-temp absorption; 1 inequivalent proto (copyInto), same at M1: an SSA phi printed as an init-less local (extra LOADNIL)",
-   "deinline_written_parameter_alias": "M2a D1: written parameter standing for a dead caller local, loop-tail continue; 4 inequivalent protos, same at M1: init-less locals for SSA phis in kept/held (LOADNIL x2), main's held copy folds its captured constant 5 after recompiling (accept)",
-   "deinline_store_rebuilt_below_its_caller_copy": "De-inline fixture (2026-10-09): main recompiles the rebuilt Hitbox methods as inlined copies, so it differs by construction; Circle and Full stay exact only while the assignment-phase shortcut stops below a rewrite; baselined from the introducing stage output.",
-   "deinline_late_register_read_of_a_cell": "m2b late register read fix, nonequiv 2: main and remote recompile the constructor-literal functions they print (hooks.bump, hooks.tag) as inlined copies, by construction",
-   "fractions_over_source_denominators": "M1 fix-up ab5b085 fixture, baselined by m2b: nonequiv 0",
-   "inferred_call_comment_on_its_first_line": "M1 fix-up ab5b085 fixture, baselined by m2b: nonequiv 0",
-   "naming_mixed_screaming_and_builtin_plurals": "M1 fix-up ab5b085 fixture, baselined by m2b: nonequiv 0",
-   "naming_suffixes_from_evidence_stay": "M1 fix-up ab5b085 fixture, baselined by m2b: nonequiv 0",
-   "naming_taken_name_falls_back": "M1 fix-up ab5b085 fixture, baselined by m2b: nonequiv 0",
-   "deinline_returns_distributed_and_short_circuit": "m2b D3, nonequiv 1: main recompiles the constructor-literal functions it prints (M.check ...) as inlined copies, by construction",
-   "deinline_hosted_values": "m2b D5, nonequiv 2: main and stamp recompile the constructor-literal functions they print (M.vary, hooks.bump) as inlined copies, by construction",
-   "deinline_closure_factories": "m2b D6, nonequiv 2: main recompiles the constructor-literal functions it prints (T.left ...) as inlined copies; andThen prints its select as and/or, which recompiles as TEST jumps",
-   "deinline_returned_cell": "m2b D5 uniform cell, nonequiv 1: main recompiles the constructor-literal functions it prints (M.play ...) as inlined copies, by construction",
-   "deinline_value_moves_into_its_reader": "m2b D5 collapse, nonequiv 1: main recompiles the constructor-literal functions it prints (M.check ...) as inlined copies, by construction",
-   "loop_breaking_at_once_after_a_swap": "m2b structuring fix (fuzz seed 164201), nonequiv 1: main recompiles the loops it prints from -O2 inlined copies of generic/numeric (constant-folded LOADK 1/7), by construction",
-   "deinline_helper_kept_beside_its_named_store": "m2c D7 binder kept beside its named store, nonequiv 1: main recompiles the constructor-literal functions it prints (read, copy ...) as inlined copies, by construction",
-   "deinline_constant_parameter_still_captured": "m2c miscompile fix (constant inferred for a parameter a literal still captures), nonequiv 3: main keeps its copies of show/play inline (hosted in print arguments), whose literals recompile as 2 extra protos, by construction",
-   "deinline_specialized_copies": "m2c D7 specialization variants, nonequiv 1: main recompiles the constructor-literal functions it prints (sync, setup) and the one shared literal of its share() copies (closure identity kept), by construction",
-   "deinline_tuple_returns": "m2c D7 straight and last-slot tuple returns, nonequiv 1: main recompiles the constructor-literal functions it prints (dir, sel, cone, flag, tick, words) as inlined copies, by construction",
-   "deinline_orphan_function": "m2c D7 orphan helper, nonequiv 4: the unused function literals shift and folded stay out as before (2 missing protos); main keeps its constant-folded copies of writeb, which recompile folded further, by construction",
-   "deinline_value_sites_without_prefix_limit": "m2c D2 value sites without a prefix limit, nonequiv 6: main recompiles the constructor-literal functions it prints as inlined copies; makeNode and getParent print their stores as table literals; firsts and health keep a value-less declaration and health its continuation cloned into the early exit (the lp_a shape, not rebuilt), by construction",
-   "deinline_earlier_body_and_extents": "m2c D7 dual-version patterns and extents, nonequiv 1: main prints rng's method as a constructor field (`next = function`), by construction",
-   "deinline_fresh_closure_capturing_a_constant": "m2-integrate fresh_closures: nonequiv 2 by construction (main, make): the copy of bind left inline keeps the constant its fresh literal captures in a local declared then assigned (LOADNIL + CAPTURE ref) where the bytecode captured a LOADK temp by value; only the helper call spells that capture, and folded the literal would be shared (DUPCLOSURE); the copy in the name loop captures a private copy of `name` (LOADNIL + CAPTURE ref) where the bytecode captured `name` by value, as the DUPCLOSURE literal beside it still does, and so does the copy of nest (m2fix finding 3); nonequiv 3 with the api.latest shape (m2verify): the copy in the titled loop captures its private copy of `title` (LOADNIL + CAPTURE ref), and the output spells `function api.latest` inside the table constructor, whose calls Luau -O2 then inlines (an extra prototype)",
-   "deinline_written_parameter_live_outside": "m2fix finding 1 (written parameter live outside its block), nonequiv 2 by construction: cut prints its default store as the else arm of a value-less declaration (an extra LOADNIL); drainParts' loop, unrolled by -O2, prints its first store into a table literal sized 1 where the bytecode reserved 3",
-   "deinline_absorb_keeps_source_handles": "m2fix finding 4 (D4 handles kept out of absorbed arguments), nonequiv 0",
-   "deinline_error_level_reads_the_caller": "m2fix finding 5 (error with a caller's level is a frame read), nonequiv 0",
-   "closure_capturing_a_loop_local_function": "m2verify N2 (a loop-body local is no loop write for the C6 snapshot), nonequiv 2 by construction: -O2 unrolls the tick loop into two NEWCLOSUREs of one prototype, printed as two literals (an extra prototype); the two-table local statement prints as two declarations, each NEWTABLE sized for its later stores",
-   "deinline_line_evidence_admits_small_helpers": "m3-e1 line evidence (2026-10-10): nonequiv by construction: the test driver in main differs from the source (the module table prints as a constructor whose functions main calls through locals), and in the evidence fixture `tick` merges its two copies of `running()` into one `or` and the `conn` literal folds its constant name; baselined from the introducing commit output.",
-   "deinline_specialization_outside_copies": "m3-e1 line evidence (2026-10-10): nonequiv by construction: the test driver in main differs from the source (the module table prints as a constructor whose functions main calls through locals), and in the evidence fixture `tick` merges its two copies of `running()` into one `or` and the `conn` literal folds its constant name; baselined from the introducing commit output.",
-   "deinline_line_evidence_expression_helpers": "m3-e1 line evidence, expression helpers (2026-10-10): nonequiv 4 by construction: the test driver in main differs from the source; build's sorts are written into one constructor and its `Compare` literals print once per copy as calls of `sorter`, whose recompiled literal Luau compiles inside `sorter` (an outlined body and a missing copy prototype); baselined from the introducing commit output.",
-   "deinline_arithmetic_select_beside_its_evidence_twin": "m3-e1 regression fixture (2026-10-10): an arithmetic helper's evidence twin never ties with the helper in the select form; nonequiv 2 by construction (the helper prints `local result` without the explicit nil Luau loads, LOADNIL lost in the helper and in run's copy); baselined from the fixing commit output.",
-   "deinline_constant_folded_helper_copies": "m3-e2 constant ledger: main nonequiv by construction (the test driver; mixed, byHand and later inline into it)",
-   "deinline_constant_fold_equations": "m3-e2 fold equations: main, 9 (main) and 1 (part's method) nonequiv by construction (the test parts: a method defined in a table template); m3-e1 gives 5",
-   "deinline_left_out_argument_after_spreading_call": "m3-e2 left-out arguments after a spreading call",
-   "deinline_trailing_false_flag_left_out": "m3-e2 trailing false flag left out",
-   "closure_capturing_a_folded_constant": "m3-closure N1 (a capture whose reads Luau folded reads its local again; only -g2 bytecode has such captures), nonequiv 6 at the oracle's -O2 -g1, the same as the parent commit's output: -O2 unrolls make's loop into two NEWCLOSUREs, printed as a table of two literals; `record.Name = \"x\"` folds into its constructor, after which Luau folds `record[key]` to `\"x\"` and named's literal no longer captures record, which shifts the pairing of the closures after it",
-   "closure_capturing_a_folded_constant_in_a_chunk_loop": "m3-closure N1 (a folded capture marks the chunk as -O1 code), nonequiv 1 by construction at -O2 -g1: -O2 unrolls the loop into two NEWCLOSUREs, printed as a table of two literals (SETLIST)",
-   "closure_constant_cached_by_another_copy": "m3-closure N3 (a copy of a shared closure constant whose cache another copy fills with other values is made anew), nonequiv 7 by construction at -O2 -g1: the copies in the two repeat loops and in make's second loop capture a private copy of their `h` (LOADNIL + CAPTURE ref) where the bytecode captured `h` by value into the one constant, and every copy prints as a literal of its own (proto-count: the first loop's two copies become one local function, -O2's unrolled gather copies one)",
-   "deinline_tuple_result_shared_closure": "m3-integrate regression fixture (2026-10-11): a tuple helper's results are never private closures; nonequiv 2 by construction (main recompiles split's rebuilt calls as calls where the bytecode inlined them, outlined; run prints its two copies of mk's shared literal as one local function plus the hand literal, which Luau compiles with one prototype fewer); baselined from the fixing commit output.",
-   "captured_parameter_classes_interfere": "Regression fixture of the V2.6 final review fixes (fr-fix, 2026-10-11); baselined from the fixing commit output.",
-   "conditional_write_of_a_captured_local": "Regression fixture of the V2.6 final review fixes (fr-fix, 2026-10-11); baselined from the fixing commit output.",
-   "copied_tail_keeps_cell_per_iteration": "Regression fixture of the V2.6 final review fixes (fr-fix, 2026-10-11); baselined from the fixing commit output.",
-   "deinline_error_level_helper_rebuilt": "Regression fixture of the V2.6 final review fixes (fr-fix, 2026-10-11); baselined from the fixing commit output.",
-   "fresh_closure_capture_read_global": "Regression fixture of the V2.6 final review fixes (fr-fix, 2026-10-11); baselined from the fixing commit output.",
-   "loop_carried_cell_declared_before_loop": "Regression fixture of the V2.6 final review fixes (fr-fix, 2026-10-11); baselined from the fixing commit output.",
-   "loop_exit_after_continue_and_break": "Regression fixture of the V2.6 final review fixes (fr-fix, 2026-10-11); baselined from the fixing commit output.",
-   "rebuilt_call_keeps_literal_sharing": "Regression fixture of the V2.6 final review fixes (fr-fix, 2026-10-11); baselined from the fixing commit output.",
-   "table_layout_keeps_pairs_order": "Regression fixture of the V2.6 final review fixes (fr-fix, 2026-10-11); baselined from the fixing commit output.",
-   "loop_shared_return": "V2.6.1 shared terminal return regression (2026-10-12): generic and numeric loop functions recompile with one additional empty RETURN each, classified accept by the oracle; 8/10 prototypes are exact or equivalent. Baselined from the fixing release output with the pinned compiler after O0/O1/O2 runtime round-trips and independent review.",
-   "generic_loop_global_generator": "fix/generic-loop-generator: generic loop over a GETGLOBAL generator",
-   "live_self_updates": "V2.7 S2: live self-updates as one variable"
-  }
- },
  "summary": {
-  "inputs": 15,
-  "protos": 74,
-  "exact": 36,
-  "equiv": 22,
-  "differ": 13,
-  "missing": 2,
-  "extra": 1,
-  "equiv_ratio": 0.78378
+  "inputs": 237,
+  "protos": 1535,
+  "exact": 1105,
+  "equiv": 135,
+  "differ": 241,
+  "missing": 38,
+  "extra": 16,
+  "equiv_ratio": 0.80782
  },
  "files": [
-  {
-   "file": "deinline_merged_result_branches",
-   "status": "ok",
-   "nonequiv": 0,
-   "protos": 10
-  },
-  {
-   "file": "late_control_flow_shapes",
-   "status": "ok",
-   "nonequiv": 2,
-   "protos": 7
-  },
   {
    "file": "alias_iterators",
    "status": "ok",
@@ -314,6 +59,12 @@
    "protos": 5
   },
   {
+   "file": "call_before_capture_read",
+   "status": "ok",
+   "nonequiv": 0,
+   "protos": 6
+  },
+  {
    "file": "call_moved_past_captured_store",
    "status": "ok",
    "nonequiv": 0,
@@ -324,12 +75,6 @@
    "status": "ok",
    "nonequiv": 1,
    "protos": 4
-  },
-  {
-   "file": "call_before_capture_read",
-   "status": "ok",
-   "nonequiv": 0,
-   "protos": 6
   },
   {
    "file": "capture_coalesced_into_closure_target",
@@ -380,6 +125,12 @@
    "protos": 6
   },
   {
+   "file": "captured_parameter_classes_interfere",
+   "status": "ok",
+   "nonequiv": 5,
+   "protos": 6
+  },
+  {
    "file": "captured_result",
    "status": "ok",
    "nonequiv": 0,
@@ -388,7 +139,7 @@
   {
    "file": "captured_swap_before_generic_loop",
    "status": "ok",
-   "nonequiv": 3,
+   "nonequiv": 1,
    "protos": 10
   },
   {
@@ -548,6 +299,12 @@
    "protos": 7
   },
   {
+   "file": "conditional_write_of_a_captured_local",
+   "status": "ok",
+   "nonequiv": 2,
+   "protos": 9
+  },
+  {
    "file": "connection_stored_only_where_written",
    "status": "ok",
    "nonequiv": 1,
@@ -566,6 +323,24 @@
    "protos": 3
   },
   {
+   "file": "copied_tail_keeps_cell_per_iteration",
+   "status": "ok",
+   "nonequiv": 3,
+   "protos": 3
+  },
+  {
+   "file": "cps_copy_without_return",
+   "status": "ok",
+   "nonequiv": 2,
+   "protos": 3
+  },
+  {
+   "file": "dead_const_tables",
+   "status": "ok",
+   "nonequiv": 1,
+   "protos": 3
+  },
+  {
    "file": "debug_info_frame_at_call_site",
    "status": "ok",
    "nonequiv": 0,
@@ -578,25 +353,13 @@
    "protos": 3
   },
   {
-   "file": "declared_select_prefix",
-   "status": "ok",
-   "nonequiv": 1,
-   "protos": 3
-  },
-  {
    "file": "declared_select_helper",
    "status": "ok",
    "nonequiv": 1,
    "protos": 3
   },
   {
-   "file": "cps_copy_without_return",
-   "status": "ok",
-   "nonequiv": 2,
-   "protos": 3
-  },
-  {
-   "file": "dead_const_tables",
+   "file": "declared_select_prefix",
    "status": "ok",
    "nonequiv": 1,
    "protos": 3
@@ -628,7 +391,7 @@
   {
    "file": "deinline_constant_fold_equations",
    "status": "ok",
-   "nonequiv": 3,
+   "nonequiv": 2,
    "protos": 19
   },
   {
@@ -652,8 +415,14 @@
   {
    "file": "deinline_earlier_body_and_extents",
    "status": "ok",
-   "nonequiv": 1,
+   "nonequiv": 0,
    "protos": 11
+  },
+  {
+   "file": "deinline_error_level_helper_rebuilt",
+   "status": "ok",
+   "nonequiv": 0,
+   "protos": 12
   },
   {
    "file": "deinline_free_cell_read_late",
@@ -701,6 +470,12 @@
    "file": "deinline_line_evidence_expression_helpers",
    "status": "ok",
    "nonequiv": 4,
+   "protos": 10
+  },
+  {
+   "file": "deinline_merged_result_branches",
+   "status": "ok",
+   "nonequiv": 0,
    "protos": 10
   },
   {
@@ -788,6 +563,12 @@
    "protos": 11
   },
   {
+   "file": "deinline_vector_arguments",
+   "status": "ok",
+   "nonequiv": 1,
+   "protos": 6
+  },
+  {
    "file": "deinline_written_parameter_alias",
    "status": "ok",
    "nonequiv": 4,
@@ -852,6 +633,12 @@
    "status": "ok",
    "nonequiv": 0,
    "protos": 4
+  },
+  {
+   "file": "event_parameter_roles",
+   "status": "ok",
+   "nonequiv": 3,
+   "protos": 7
   },
   {
    "file": "exact_fraction_constants",
@@ -922,7 +709,7 @@
   {
    "file": "folded_constant_argument",
    "status": "ok",
-   "nonequiv": 2,
+   "nonequiv": 0,
    "protos": 6
   },
   {
@@ -936,6 +723,12 @@
    "status": "ok",
    "nonequiv": 0,
    "protos": 3
+  },
+  {
+   "file": "fresh_closure_capture_read_global",
+   "status": "ok",
+   "nonequiv": 1,
+   "protos": 5
   },
   {
    "file": "function_from_debug_info_writes_cell",
@@ -1025,13 +818,19 @@
    "file": "interpolated_string_in_last_position",
    "status": "ok",
    "nonequiv": 0,
-   "protos": 3
+   "protos": 5
   },
   {
    "file": "iter_metamethod_order",
    "status": "ok",
    "nonequiv": 0,
    "protos": 5
+  },
+  {
+   "file": "late_control_flow_shapes",
+   "status": "ok",
+   "nonequiv": 2,
+   "protos": 7
   },
   {
    "file": "late_register_read_captured",
@@ -1060,7 +859,7 @@
   {
    "file": "locals_past_the_limit_take_if_expressions",
    "status": "ok",
-   "nonequiv": 0,
+   "nonequiv": 1,
    "protos": 11
   },
   {
@@ -1106,6 +905,18 @@
    "protos": 7
   },
   {
+   "file": "loop_carried_cell_declared_before_loop",
+   "status": "ok",
+   "nonequiv": 1,
+   "protos": 21
+  },
+  {
+   "file": "loop_exit_after_continue_and_break",
+   "status": "ok",
+   "nonequiv": 3,
+   "protos": 9
+  },
+  {
    "file": "loop_result_exports",
    "status": "ok",
    "nonequiv": 2,
@@ -1134,6 +945,12 @@
    "status": "ok",
    "nonequiv": 2,
    "protos": 13
+  },
+  {
+   "file": "loop_shared_return",
+   "status": "ok",
+   "nonequiv": 2,
+   "protos": 10
   },
   {
    "file": "loop_swap_with_later_capture",
@@ -1316,6 +1133,18 @@
    "protos": 10
   },
   {
+   "file": "readable_if_values",
+   "status": "ok",
+   "nonequiv": 2,
+   "protos": 7
+  },
+  {
+   "file": "rebuilt_call_keeps_literal_sharing",
+   "status": "ok",
+   "nonequiv": 1,
+   "protos": 10
+  },
+  {
    "file": "rebuilt_call_result_names",
    "status": "ok",
    "nonequiv": 0,
@@ -1372,7 +1201,7 @@
   {
    "file": "returned_local_helper",
    "status": "ok",
-   "nonequiv": 1,
+   "nonequiv": 0,
    "protos": 10
   },
   {
@@ -1438,7 +1267,7 @@
   {
    "file": "snapshot_receiver_and_constructor_key",
    "status": "ok",
-   "nonequiv": 1,
+   "nonequiv": 0,
    "protos": 6
   },
   {
@@ -1490,9 +1319,15 @@
    "protos": 2
   },
   {
-   "file": "table_store_after_appended_call",
+   "file": "table_layout_keeps_pairs_order",
    "status": "ok",
    "nonequiv": 1,
+   "protos": 6
+  },
+  {
+   "file": "table_store_after_appended_call",
+   "status": "ok",
+   "nonequiv": 0,
    "protos": 4
   },
   {
@@ -1564,7 +1399,7 @@
   {
    "file": "value_capture_written_after_closure",
    "status": "ok",
-   "nonequiv": 3,
+   "nonequiv": 1,
    "protos": 8
   },
   {
@@ -1586,70 +1421,16 @@
    "protos": 2
   },
   {
+   "file": "while_inlined_condition",
+   "status": "ok",
+   "nonequiv": 0,
+   "protos": 4
+  },
+  {
    "file": "zero_trip_suffix",
    "status": "ok",
    "nonequiv": 0,
    "protos": 2
-  },
-  {
-   "file": "captured_parameter_classes_interfere",
-   "status": "ok",
-   "nonequiv": 5,
-   "protos": 6
-  },
-  {
-   "file": "conditional_write_of_a_captured_local",
-   "status": "ok",
-   "nonequiv": 2,
-   "protos": 9
-  },
-  {
-   "file": "copied_tail_keeps_cell_per_iteration",
-   "status": "ok",
-   "nonequiv": 3,
-   "protos": 3
-  },
-  {
-   "file": "deinline_error_level_helper_rebuilt",
-   "status": "ok",
-   "nonequiv": 0,
-   "protos": 12
-  },
-  {
-   "file": "fresh_closure_capture_read_global",
-   "status": "ok",
-   "nonequiv": 1,
-   "protos": 5
-  },
-  {
-   "file": "loop_carried_cell_declared_before_loop",
-   "status": "ok",
-   "nonequiv": 1,
-   "protos": 21
-  },
-  {
-   "file": "loop_exit_after_continue_and_break",
-   "status": "ok",
-   "nonequiv": 4,
-   "protos": 9
-  },
-  {
-   "file": "rebuilt_call_keeps_literal_sharing",
-   "status": "ok",
-   "nonequiv": 1,
-   "protos": 10
-  },
-  {
-   "file": "table_layout_keeps_pairs_order",
-   "status": "ok",
-   "nonequiv": 1,
-   "protos": 6
-  },
-  {
-   "file": "loop_shared_return",
-   "status": "ok",
-   "nonequiv": 2,
-   "protos": 10
   }
  ]
 }

@@ -433,15 +433,8 @@ fn is_instance_compatible_placeholder(rvalue: &RValue) -> bool {
     matches!(rvalue, RValue::Literal(Literal::Nil))
 }
 
-/// The variable name for a `Type.new(...)` / `Type.fromRGB(...)` constructor,
-/// derived from the receiver type. A type whose name ends in a digit (`Color3`,
-/// `Vector3`, `Vector2`, `UDim2`, `Region3`) is stripped of the trailing digits:
-/// the digit makes a misleading disambiguating suffix — `color3` then collides to
-/// `color32`, which reads as "color thirty-two" rather than "the 3rd color". The
-/// trimmed form chains cleanly as `color`, `color2`, `color3`. `Instance` and
-/// other digit-free types are unaffected.
 /// Whether `name`, the hint of `value`, is only the type a constructor call
-/// builds (`Vector2.new(x, y)` -> `vector`), not a name it was given
+/// builds (`Vector2.new(x, y)` -> `vector2`), not a name it was given
 /// (`Instance.new("Part")` -> `part`).
 fn is_constructor_type_name(value: &RValue, name: &str) -> bool {
     if let RValue::Call(call) | RValue::Select(Select::Call(call)) = value
@@ -454,6 +447,11 @@ fn is_constructor_type_name(value: &RValue, name: &str) -> bool {
 }
 
 fn constructor_type_name(receiver: &RValue) -> Option<String> {
+    // Vector dimensions distinguish types. Numeric stems already use `_2`
+    // for collisions, so vector3 never becomes the misleading vector32.
+    if matches!(global_name(receiver), Some("Vector2" | "Vector3")) {
+        return base_name_of(receiver);
+    }
     // `CFrame` lowercases to the conventional `cframe`, not `cFrame` (matches
     // the bytecode-type hint so the two never produce a `cFrame`/`cframe2` pair).
     if global_name(receiver) == Some("CFrame") {
@@ -2536,29 +2534,6 @@ const VALUE_TYPE_METHODS: &[&str] = &[
 /// would mislead).
 const CHILD_LOOKUP_METHODS: &[&str] = &["FindFirstChild", "WaitForChild"];
 
-/// Ordered parameter names for a Roblox event's `:Connect` callback. A `None`
-/// slot keeps the param's default name. Only conservative, well-known signatures
-/// are listed; overloaded/arbitrary ones (`Changed`, `OnClientEvent`, ...) are
-/// intentionally absent so we never invent a misleading name.
-fn event_signature(event: &str) -> Option<&'static [Option<&'static str>]> {
-    Some(match event {
-        "Heartbeat" | "RenderStepped" | "PreSimulation" | "PostSimulation" | "PreRender"
-        | "PreAnimation" => &[Some("dt")],
-        "Stepped" => &[Some("time"), Some("dt")],
-        "InputBegan" | "InputEnded" | "InputChanged" => &[Some("input"), Some("gameProcessed")],
-        "ChildAdded" | "ChildRemoved" => &[Some("child")],
-        "DescendantAdded" | "DescendantRemoving" => &[Some("descendant")],
-        "AncestryChanged" => &[None, Some("parent")],
-        "CharacterAdded" | "CharacterRemoving" | "CharacterAppearanceLoaded" => {
-            &[Some("character")]
-        }
-        "PlayerAdded" | "PlayerRemoving" => &[Some("player")],
-        "Triggered" | "PromptTriggered" => &[Some("player")],
-        "Touched" | "TouchEnded" => &[Some("otherPart")],
-        _ => return None,
-    })
-}
-
 /// Record method-call facts: receiver-side (instance/string shape) and
 /// argument-side (a bare-local argument is named after the API slot it fills).
 fn note_method_usage(method_call: &MethodCall, usage: &mut FxHashMap<usize, LocalUsage>) {
@@ -3474,7 +3449,8 @@ impl Namer {
             evidence.record(ptr, &name, score, self.evidence_rule, std::panic::Location::caller());
         }
         let replace = match self.hints.get(&ptr) {
-            Some(existing) => score > existing.score,
+            Some(existing) => (crate::NameTier::from_priority(score), score)
+                > (crate::NameTier::from_priority(existing.score), existing.score),
             None => true,
         };
         if replace {
@@ -4664,7 +4640,7 @@ impl Namer {
         let Some(event) = index_key(index) else {
             return;
         };
-        let Some(signature) = event_signature(event) else {
+        let Some(signature) = crate::naming_api::roblox_event_parameters(event) else {
             return;
         };
         let Some(RValue::Closure(closure)) = method_call.arguments.first() else {
@@ -4676,9 +4652,9 @@ impl Namer {
                 continue;
             };
             if let Some(param) = function.parameters.get(i) {
-                // p0 of a known event is high-precision; later slots are weaker
-                // synonyms (gameProcessed/parent/...), so they sit lower.
-                self.set_hint_str(param, name, if i == 0 { 46 } else { 38 });
+                // The event's positional role beats a destination field (48),
+                // which describes where the value is stored, not what it is.
+                self.set_hint_str(param, name, 50);
             }
         }
     }
@@ -4864,6 +4840,7 @@ impl Namer {
         if let Some(name) = lock.source_name().map(str::to_string) {
             let spelled = self.unique(&name, scope, policy);
             lock.set_counted_name(spelled, &name);
+            lock.4.name_tier = crate::NameTier::Source;
             return;
         }
         if let Some(name) = lock.0.clone()
@@ -4871,6 +4848,7 @@ impl Namer {
         {
             let spelled = self.unique(&name, scope, policy);
             lock.set_counted_name(spelled, &name);
+            lock.4.name_tier = crate::NameTier::Evidence;
             return;
         }
         // Late irreducible-control-flow dispatchers deliberately carry semantic
@@ -4891,6 +4869,8 @@ impl Namer {
         if !(self.rename || lock.0.is_none()) {
             return;
         }
+        lock.4.name_tier = self.hints.get(&ptr)
+            .map_or(crate::NameTier::Generated, |hint| crate::NameTier::from_priority(hint.score));
         // An unused local (its only reference is the declaration itself) is named
         // `_`, which is idiomatic and needs no uniqueness handling — UNLESS it is
         // a recovered local function (closure-bound) whose calls were inlined away
@@ -4910,7 +4890,10 @@ impl Namer {
                     let spelled = self.unique(&base, scope, policy);
                     lock.set_counted_name(spelled, &base);
                 }
-                None => lock.0 = Some("_".to_string()),
+                None => {
+                    lock.0 = Some("_".to_string());
+                    lock.4.name_tier = crate::NameTier::Generated;
+                }
             }
             return;
         }
@@ -9209,6 +9192,43 @@ mod tests {
         assert_eq!(name_of(&p), "dt");
     }
 
+    #[test]
+    fn event_parameter_role_beats_its_store_destination() {
+        for (event, expected) in [("CharacterAdded", "character"), ("PlayerAdded", "player")] {
+            let parameter = RcLocal::default();
+            let mut function = Function::default();
+            function.parameters = vec![parameter.clone()];
+            function.body = Block(vec![Assign::new(
+                vec![Index::new(global("part"), string("Parent")).into()],
+                vec![RValue::Local(parameter.clone())],
+            ).into()]);
+            let mut block = Block(vec![MethodCall::new(
+                Index::new(global("signalOwner"), string(event)).into(),
+                "Connect".into(), vec![closure_of(function)],
+            ).into()]);
+            name_locals(&mut block, true);
+            assert_eq!(name_of(&parameter), expected);
+            assert_eq!(parameter.0.lock().4.name_tier, crate::NameTier::Evidence);
+        }
+    }
+
+    #[test]
+    fn vector_dimension_is_not_a_collision_counter() {
+        let a = RcLocal::default();
+        let b = RcLocal::default();
+        let c = RcLocal::default();
+        let mut block = Block(vec![
+            declare(&a, lib_call("Vector3", "new", vec![])),
+            declare(&b, lib_call("Vector2", "new", vec![])),
+            declare(&c, lib_call("Vector3", "new", vec![])),
+            use_local(&a), use_local(&b), use_local(&c),
+        ]);
+        name_locals(&mut block, true);
+        assert_eq!(name_of(&a), "vector3");
+        assert_eq!(name_of(&b), "vector2");
+        assert_eq!(name_of(&c), "vector3_2");
+    }
+
     /// An assigned `InputBegan:Connect(function(p, p2) ...)` names the params from
     /// the signature: `input`, `gameProcessed`.
     #[test]
@@ -10895,11 +10915,13 @@ mod tests {
         let mut block = Block(declare_and_use(&typed, call));
         name_locals(&mut block, true);
         assert_eq!(name_of(&typed), "vector");
+        assert_eq!(typed.0.lock().4.name_tier, crate::NameTier::TypeFallback);
 
         let named = RcLocal::new(crate::Local::with_type_hint("vector".to_string()));
         let mut block = Block(declare_and_use(&named, lib_call("Vector3", "new", vec![])));
         name_locals(&mut block, true);
-        assert_eq!(name_of(&named), "vector");
+        assert_eq!(name_of(&named), "vector3");
+        assert_eq!(named.0.lock().4.name_tier, crate::NameTier::Evidence);
 
         let getter = RcLocal::new(crate::Local::with_type_hint("vector".to_string()));
         let mut block = Block(declare_and_use(

@@ -1,5 +1,5 @@
 import unittest
-from output_quality import analyze_tree, compare_rows
+from output_quality import analyze_tree, compare_rows, readable_conditionals
 
 
 def local(name, location):
@@ -19,6 +19,22 @@ def declaration(binding):
 
 
 class OutputQualityTests(unittest.TestCase):
+    def test_default_conditional_gate_keeps_value_arity_and_width_limits(self):
+        yes = {'type': 'AstExprConstantBool', 'value': False}
+        no = {'type': 'AstExprConstantNil'}
+        select = {'type': 'AstExprIfElse', 'location': '0,7 - 0,39',
+                  'condition': {'type': 'AstExprGlobal', 'global': 'flag'},
+                  'trueExpr': yes, 'falseExpr': no}
+        tree = block({'type': 'AstStatReturn', 'list': [select]})
+        text = 'return if flag then false else nil'
+        self.assertTrue(readable_conditionals(tree, text))
+        self.assertFalse(readable_conditionals(tree, ' ' * 50 + text))
+        self.assertFalse(readable_conditionals(block({'type': 'AstStatIf', 'condition': select}), text))
+        select['falseExpr'] = {'type': 'AstExprCall'}
+        self.assertFalse(readable_conditionals(tree, text))
+        select['falseExpr'] = dict(select)
+        self.assertFalse(readable_conditionals(tree, text))
+
     def test_compact_annotations_do_not_hide_inference_from_quality_counts(self):
         full = analyze_tree(block(), 'f() -- equivalent call inferred; original call site unknown\n')
         compact = analyze_tree(block(), 'f() -- inferred call\n-- inferred helper\n')

@@ -44,6 +44,7 @@ pub struct BindingReport {
     pub id: u64,
     pub before: String,
     pub after: String,
+    pub name_tier: crate::NameTier,
     pub kind: &'static str,
     pub scope: Option<usize>,
     pub status: &'static str,
@@ -72,6 +73,7 @@ pub struct Report {
 
 struct Node {
     local: RcLocal,
+    name_tier: crate::NameTier,
     before: String,
     kind: &'static str,
     scope: Option<usize>,
@@ -185,7 +187,8 @@ fn generated_stem(name: &str) -> Option<(usize, usize)> {
 /// for `scope:Computed(..)`, `value` for `scope:Value(..)`): strong role
 /// evidence, such as the property it is bound to, names it better.
 fn weak(node: &Node) -> bool {
-    node.kind == "local" && matches!(node.before.trim_end_matches(|c: char| c.is_ascii_digit()), "computed" | "value")
+    node.name_tier == crate::NameTier::TypeFallback
+        || node.kind == "local" && matches!(node.before.trim_end_matches(|c: char| c.is_ascii_digit()), "computed" | "value")
 }
 
 /// The name `node` carries before any counter a namer added (`part` for
@@ -196,7 +199,8 @@ fn base_name(node: &Node) -> &str {
 
 /// The lowest priority that renames `node`'s current name.
 fn rename_floor(node: &Node) -> u8 {
-    if weak(node) { 80 } else { 40 }
+    if node.name_tier == crate::NameTier::TypeFallback { 21 }
+    else if weak(node) { 80 } else { 40 }
 }
 
 fn useful(name: &str) -> bool {
@@ -456,11 +460,13 @@ impl Graph {
             let type_evidence = data.1.as_ref().filter(|_| self.options.emit_report).map(|hint| TypeEvidence {
                 representation: hint.clone(), origin: "recorded_bytecode_local_type_naming_hint",
             }).into_iter().collect();
+            let name_tier = data.4.name_tier;
             drop(data);
             self.nodes.insert(
                 id,
                 Node {
                     local: local.clone(),
+                    name_tier,
                     before,
                     kind: "external",
                     scope: None,
@@ -1225,7 +1231,11 @@ impl Graph {
                 continue;
             }
             index.insert(Cow::Owned(candidate.clone()), node);
-            node.local.0.lock().0 = Some(candidate.clone());
+            {
+                let mut local = node.local.0.lock();
+                local.0 = Some(candidate.clone());
+                local.4.name_tier = crate::NameTier::Evidence;
+            }
             if emit { statuses.insert(id, "renamed"); }
             self.report.renamed += 1;
         }
@@ -1403,6 +1413,7 @@ impl Graph {
                     id,
                     before: node.before,
                     after,
+                    name_tier: node.local.0.lock().4.name_tier,
                     kind: node.kind,
                     scope: node.scope,
                     status: statuses[&id],
@@ -2585,6 +2596,18 @@ mod tests {
         assert_eq!(receiver.to_string(), "self");
         assert_eq!(report.renamed, 0);
         assert_eq!(report.bindings[0].status, "source_protected");
+    }
+
+    #[test]
+    fn consumer_role_overrides_only_a_weak_type_name() {
+        for (tier, expected) in [(crate::NameTier::TypeFallback, "title"), (crate::NameTier::Evidence, "str")] {
+            let parameter = local("str");
+            parameter.0.lock().4.name_tier = tier;
+            let block = function(vec![parameter.clone()], vec![record("Title", &parameter)]);
+            let report = run(&block);
+            assert_eq!(parameter.to_string(), expected);
+            assert_eq!(report.bindings[0].name_tier, crate::NameTier::Evidence);
+        }
     }
 
     #[test]

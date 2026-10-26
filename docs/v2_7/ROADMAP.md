@@ -18,6 +18,16 @@ At `1aeabd8`, all checks pass:
 - 699/699 semantic round-trips;
 - local CI 35/35.
 
+## Current implementation checkpoint
+
+See [control flow, naming and proof validation](checkpoint_control_naming.md) for
+the next checkpoint after `76212c9`: while-header recovery, bounded readable
+if-expressions, naming tiers/event roles, malformed-bytecode refusals and the
+exact vector-fold prerequisite. The full decompiler goal remains in progress;
+[GOAL.md](GOAL.md) tracks remaining scope, including M6. The owner confirmed that
+the private dumps are unavailable and selected the existing structural line
+census policy (no new above-floor gate).
+
 ## Binding decisions
 
 These come from the owner. Do not reopen them.

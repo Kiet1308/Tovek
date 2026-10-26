@@ -45,6 +45,14 @@ fn singleton_if(block: &Block) -> bool {
     matches!((real.next(), real.next()), (Some(Statement::If(_)), None))
 }
 
+fn break_guard(statement: &Statement) -> bool {
+    let Statement::If(branch) = statement else { return false; };
+    let then = branch.then_block.lock();
+    let mut real = then.0.iter().filter(|statement| !trivia(statement));
+    matches!((real.next(), real.next()), (Some(Statement::Break(_)), None))
+        && branch.else_block.lock().0.iter().all(trivia)
+}
+
 fn cleanup_value(value: &mut RValue) {
     if let RValue::Closure(closure) = value {
         cleanup_block(&mut closure.function.lock().body, false);
@@ -90,6 +98,22 @@ fn cleanup_block(block: &mut Block, else_arm: bool) -> Flow {
                 let body_flow = cleanup_block(&mut node.block.lock(), false);
                 flow.unstructured |= body_flow.unstructured;
                 if matches!(node.condition, RValue::Literal(Literal::Boolean(true)))
+                    && !body_flow.unstructured
+                {
+                    let mut body = node.block.lock();
+                    if let Some(head) = body.0.iter().position(|statement| !trivia(statement))
+                        && break_guard(&body.0[head])
+                    {
+                        let Statement::If(branch) = body.0.remove(head) else { unreachable!() };
+                        node.condition = crate::flatten_guards::negate(branch.condition);
+                        // Continues reevaluate this same head test, including its effects.
+                        let comments = branch.then_block.lock().0.iter().filter(|s| trivia(s)).cloned()
+                            .chain(branch.else_block.lock().0.iter().filter(|s| trivia(s)).cloned())
+                            .collect::<Vec<_>>();
+                        body.0.splice(head..head, comments);
+                    }
+                }
+                if matches!(node.condition, RValue::Literal(Literal::Boolean(true)))
                     && !body_flow.continues && !body_flow.unstructured
                 {
                     let mut body = node.block.lock();
@@ -110,17 +134,7 @@ fn cleanup_block(block: &mut Block, else_arm: bool) -> Flow {
                             }
                             continue;
                         }
-                        let latch = match &body.0[end] {
-                            Statement::If(branch)
-                                if branch.else_block.lock().0.iter().all(trivia) =>
-                            {
-                                let then = branch.then_block.lock();
-                                let mut real = then.0.iter().filter(|statement| !trivia(statement));
-                                matches!((real.next(), real.next()), (Some(Statement::Break(_)), None))
-                            }
-                            _ => false,
-                        };
-                        if latch {
+                        if break_guard(&body.0[end]) {
                             let Statement::If(branch) = body.0.remove(end) else { unreachable!() };
                             // Preserve comments belonging to the removed latch.
                             body.0.extend(branch.then_block.lock().0.iter().filter(|s| trivia(s)).cloned());
@@ -229,6 +243,47 @@ mod tests {
             Block(vec![Continue {}.into()]), Block::default()).into(), effect(), latch()]);
         cleanup_control_flow(&mut block);
         assert!(matches!(block.0[0], Statement::While(_)), "continue must skip done()");
+    }
+
+    #[test]
+    fn recovers_head_test_even_with_continue() {
+        let mut block = loop_block(vec![latch(), effect(), Continue {}.into()]);
+        cleanup_control_flow(&mut block);
+        let Statement::While(node) = &block.0[0] else { panic!() };
+        assert_eq!(node.condition.to_string(), "not done()");
+        assert_eq!(node.block.lock().0.len(), 2);
+        assert_eq!(block.to_string().matches("done()").count(), 1);
+        let once = block.to_string();
+        cleanup_control_flow(&mut block);
+        assert_eq!(block.to_string(), once);
+    }
+
+    #[test]
+    fn head_test_does_not_flip_nan_sensitive_comparison() {
+        let condition = crate::Binary {
+            node_origin: Default::default(),
+            left: Box::new(call("left")),
+            right: Box::new(call("right")),
+            operation: crate::BinaryOperation::LessThan,
+        }.into();
+        let guard = If::new(condition, Block(vec![Break {}.into()]), Block::default());
+        let mut block = loop_block(vec![guard.into(), effect()]);
+        cleanup_control_flow(&mut block);
+        let Statement::While(node) = &block.0[0] else { panic!() };
+        assert_eq!(node.condition.to_string(), "not (left() < right())");
+    }
+
+    #[test]
+    fn keeps_effects_before_and_inside_exit_guard() {
+        let mut block = loop_block(vec![effect(), latch(), effect()]);
+        cleanup_control_flow(&mut block);
+        let Statement::While(node) = &block.0[0] else { panic!() };
+        assert_eq!(node.condition, Literal::Boolean(true).into());
+        let guard = If::new(call("done"), Block(vec![effect(), Break {}.into()]), Block::default());
+        let mut block = loop_block(vec![guard.into(), effect()]);
+        cleanup_control_flow(&mut block);
+        let Statement::While(node) = &block.0[0] else { panic!() };
+        assert_eq!(node.condition, Literal::Boolean(true).into());
     }
 
     #[test]

@@ -18,10 +18,42 @@ use triomphe::Arc;
 #[derive(Debug, Default, Clone, PartialEq, PartialOrd, Ord, Eq, Hash)]
 pub struct Local(pub Option<String>, pub Option<String>, pub Vec<SourceBinding>, pub Option<Box<BindingLineage>>, pub BindingRoles);
 
+/// Naming override order: source > evidence > type fallback > generated.
+/// Within Evidence the namer's rule priorities apply; equal priorities keep
+/// the first candidate. These tiers carry no type or ownership proof.
+#[derive(Debug, Default, Clone, Copy, PartialEq, PartialOrd, Ord, Eq, Hash)]
+pub enum NameTier {
+    #[default]
+    Generated,
+    TypeFallback,
+    Evidence,
+    Source,
+}
+
+impl NameTier {
+    pub fn from_priority(priority: u8) -> Self {
+        match priority {
+            0 => Self::Generated,
+            1..=20 => Self::TypeFallback,
+            _ => Self::Evidence,
+        }
+    }
+
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Generated => "generated",
+            Self::TypeFallback => "type_fallback",
+            Self::Evidence => "evidence",
+            Self::Source => "source",
+        }
+    }
+}
+
 /// Source presentation constraints, independent of storage ancestry and cell
 /// ownership. A conditional result is inferred, never a recovered source local.
 #[derive(Debug, Default, Clone, Copy, PartialEq, PartialOrd, Ord, Eq, Hash)]
 pub struct BindingRoles {
+    pub name_tier: NameTier,
     pub parameter: bool,
     pub conditional_result: bool,
     pub separate_from_parameter: bool,
