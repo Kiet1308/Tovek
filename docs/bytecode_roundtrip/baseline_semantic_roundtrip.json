@@ -238,7 +238,8 @@
    "rebuilt_call_keeps_literal_sharing": "Regression fixture of the V2.6 final review fixes (fr-fix, 2026-10-11); baselined from the fixing commit output.",
    "table_layout_keeps_pairs_order": "Regression fixture of the V2.6 final review fixes (fr-fix, 2026-10-11); baselined from the fixing commit output.",
    "loop_shared_return": "V2.6.1 shared terminal return regression (2026-10-12): generic and numeric loop functions recompile with one additional empty RETURN each, classified accept by the oracle; 8/10 prototypes are exact or equivalent. Baselined from the fixing release output with the pinned compiler after O0/O1/O2 runtime round-trips and independent review.",
-   "generic_loop_global_generator": "fix/generic-loop-generator: generic loop over a GETGLOBAL generator"
+   "generic_loop_global_generator": "fix/generic-loop-generator: generic loop over a GETGLOBAL generator",
+   "live_self_updates": "V2.7 S2: live self-updates as one variable"
   }
  },
  "summary": {
@@ -1043,6 +1044,12 @@
    "status": "ok",
    "nonequiv": 1,
    "protos": 3
+  },
+  {
+   "file": "live_self_updates",
+   "status": "ok",
+   "nonequiv": 3,
+   "protos": 8
   },
   {
    "file": "local_tuple_helper",

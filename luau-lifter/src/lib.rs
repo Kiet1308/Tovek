@@ -883,6 +883,22 @@ fn decompile_bytecode_internal(
                     ast::reconstruction_search::enter(lines)
                 }
             } else { ast::reconstruction_search::enter_truncated() };
+            // In-place updates print as one variable (`offset += 1`) only in a
+            // function that line info shows holds no inlined copy and that Luau
+            // inlined nowhere: a copy and its helper must keep one shape to
+            // unify. Without line info that is unknown, so nothing changes.
+            let self_updates: Vec<bool> = match &inlined_copies {
+                Some(copies) => {
+                    let mut holds = vec![false; chunk.functions.len()];
+                    for &(caller, _) in &copies.present {
+                        if let Some(slot) = holds.get_mut(caller as usize) { *slot = true; }
+                    }
+                    (0..chunk.functions.len()).map(|proto| !holds[proto] && !inlined_prototypes[proto]).collect()
+                }
+                // A lone prototype has no helper to have inlined.
+                None if chunk.functions.len() == 1 => vec![true],
+                None => vec![false; chunk.functions.len()],
+            };
             let _inlined_copies = ast::deinline::evidence::enter(inlined_copies);
             let capture_effects = capture_effects::CaptureEffects::build(&chunk);
             let globals = std::sync::Arc::new(chunk_globals(&chunk));
@@ -1005,6 +1021,7 @@ fn decompile_bytecode_internal(
                     // serial tail into a rayon region without an equivalent re-base.
                     ast::set_local_id_base(id_base + func_idx as u64 * ID_STRIDE);
                     let function_id = function.id;
+                    let live_self_updates = self_updates.get(function_id).copied().unwrap_or(false);
                     let readonly_upvalues = capture_effects.readonly.get(function_id)
                         .map(Vec::as_slice).unwrap_or(&[]);
                     let written_slots = capture_effects.refusal.is_none().then_some(capture_effects.written.as_slice());
@@ -1033,6 +1050,7 @@ fn decompile_bytecode_internal(
                             readonly_upvalues,
                             written_slots,
                             sharing,
+                            live_self_updates,
                         )
                     });
 
@@ -2403,6 +2421,8 @@ fn decompile_function(
     // (`capture_effects`); `None` when that analysis refused.
     written_slots: Option<&[Vec<bool>]>,
     sharing: ast::coalesce_locals::Sharing,
+    // In-place updates may print as one variable (`offset += 1`).
+    live_self_updates: bool,
 ) -> (
     ByAddress<Arc<Mutex<ast::Function>>>,
     Vec<ast::RcLocal>,
@@ -2539,6 +2559,7 @@ fn decompile_function(
         )
         .with_register_groups(&local_to_group)
         .with_unwritten_cells(&unwritten_cells)
+        .with_live_self_updates(live_self_updates)
         .destruct();
     }
     // Freeze the trace before speculative structuring clones the CFG. This

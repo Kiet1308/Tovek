@@ -1672,6 +1672,18 @@
       "bytes": 167,
       "lines": 14
     },
+    "semantic/live_self_updates__O0.luau": {
+      "bytes": 845,
+      "lines": 56
+    },
+    "semantic/live_self_updates__O1.luau": {
+      "bytes": 845,
+      "lines": 56
+    },
+    "semantic/live_self_updates__O2.luau": {
+      "bytes": 892,
+      "lines": 56
+    },
     "semantic/local_tuple_helper__O0.luau": {
       "bytes": 1338,
       "lines": 94

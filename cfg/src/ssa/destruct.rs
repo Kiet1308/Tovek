@@ -340,6 +340,9 @@ pub struct Destructor<'a> {
     terminal_block: Option<NodeIndex>,
     /// Bytecode register (lifter local) of each SSA version, when known.
     register_groups: Option<&'a FxHashMap<RcLocal, usize>>,
+    /// [`Self::coalesce_live_self_updates`] runs: off for a function Luau
+    /// inlined elsewhere, whose body must keep the shape of its copies.
+    live_self_updates: bool,
     /// Roots of the captured cells no closure writes.
     unwritten_cells: Option<&'a FxHashSet<RcLocal>>,
     /// Registers of the phi transports this destructor creates.
@@ -503,6 +506,7 @@ impl<'a> Destructor<'a> {
             undesirable_blocks: FxHashSet::default(),
             terminal_block,
             register_groups: None,
+            live_self_updates: false,
             unwritten_cells: None,
             transport_groups: FxHashMap::default(),
             transported: FxHashSet::default(),
@@ -518,6 +522,12 @@ impl<'a> Destructor<'a> {
     /// order. See [`Self::coalesce_copies`].
     pub fn with_register_groups(mut self, register_groups: &'a FxHashMap<RcLocal, usize>) -> Self {
         self.register_groups = Some(register_groups);
+        self
+    }
+
+    /// Lets in-place updates of a variable print as one (`offset += 1`).
+    pub fn with_live_self_updates(mut self, enabled: bool) -> Self {
+        self.live_self_updates = enabled;
         self
     }
 
@@ -680,6 +690,7 @@ impl<'a> Destructor<'a> {
         let phase = ast::telemetry::Span::new("SSA_COALESCE_COPIES");
         self.coalesce_copies();
         self.coalesce_dead_self_updates();
+        self.coalesce_live_self_updates();
         drop(phase);
         #[cfg(any(test, debug_assertions))]
         self.assert_captures_keep_their_values();
@@ -1355,6 +1366,87 @@ impl<'a> Destructor<'a> {
             }
             if !self.check_interfere(&live_class, &dead_class) {
                 self.merge_congruence_classes(&live_class, &dead_class);
+            }
+        }
+    }
+
+    /// `v2 = v + 1` where the source updated one variable in place: the new
+    /// value reuses the operand's register and the operand is not read after
+    /// it (interference), so both versions can share one local and print as
+    /// `v += 1`. Standard copy-free coalescing, kept to simple update shapes
+    /// (`v op k`, `v or e`, `math.f(v, ...)`), to a result read at least twice
+    /// from an operand that is a parameter or read elsewhere too (a temporary
+    /// stays for `inline_temps` to fold), and away from every captured value.
+    fn coalesce_live_self_updates(&mut self) {
+        if !self.live_self_updates || self.register_groups.is_none() {
+            return;
+        }
+        let mut reads: FxHashMap<RcLocal, u32> = FxHashMap::default();
+        for (_, block) in self.function.blocks() {
+            for statement in block.iter() {
+                statement.visit_local_reads(&mut |read| {
+                    *reads.entry(read.clone()).or_default() += 1;
+                    true
+                });
+            }
+        }
+        let mut self_updates = Vec::new();
+        for (_, block) in self.function.blocks() {
+            for statement in block.iter() {
+                let ast::Statement::Assign(assign) = statement else { continue };
+                if assign.parallel || assign.left.len() != 1 || assign.right.len() != 1 {
+                    continue;
+                }
+                let Some(dst) = assign.left[0].as_local() else { continue };
+                if !self.local_last_use.contains_key(dst)
+                    || self.upvalues_in.contains(dst)
+                    || self.upvalue_to_group.contains_key(dst)
+                {
+                    continue;
+                }
+                let Some(operand) = update_operand(&assign.right[0]) else { continue };
+                let Some(group) = self.register_group(operand) else { continue };
+                // The result lands in the operand's register itself, or in a
+                // temporary that a copy coalesced with a version there
+                // (`MOVE R0 R2` after a call into R2).
+                let same_register = self.register_group(dst) == Some(group)
+                    || self.congruence_classes.get(dst).is_some_and(|class| {
+                        class.borrow().values().any(|version| self.register_group(version) == Some(group))
+                    });
+                if !same_register
+                    || self.upvalues_in.contains(operand)
+                    || self.upvalue_to_group.contains_key(operand)
+                {
+                    continue;
+                }
+                // The operand is the one version of the register the update reads.
+                let single = statement.visit_local_reads(&mut |read| self.register_group(read) != Some(group) || read == operand);
+                // A value read once, or an operand only this update reads, is a
+                // temporary `inline_temps` folds (`f(p - 1)`, `local v = g() or d`).
+                let read = |local: &RcLocal| reads.get(local).copied().unwrap_or(0);
+                let parameter = self.function.parameters.contains(operand);
+                if single && read(dst) >= 2 && (parameter || read(operand) >= 2) {
+                    self_updates.push((dst.clone(), operand.clone()));
+                }
+            }
+        }
+        self_updates.sort_by_key(|(dst, _)| self.local_defs.get(dst).map(|&(order, _, index)| (order, index)));
+        for (dst, operand) in self_updates {
+            if !dst.source_bindings_compatible(&operand) {
+                continue;
+            }
+            let update_class = self.get_congruence_class(dst).clone();
+            let operand_class = self.get_congruence_class(operand).clone();
+            if Rc::ptr_eq(&update_class, &operand_class)
+                || !operand_class.borrow().bindings().compatible(update_class.borrow().bindings())
+                || share_definition_point(&update_class.borrow(), &operand_class.borrow())
+                || operand_class.borrow().values().chain(update_class.borrow().values())
+                    .any(|version| self.upvalue_to_group.contains_key(version) || self.upvalues_in.contains(version))
+            {
+                continue;
+            }
+            if !self.check_interfere(&operand_class, &update_class) {
+                self.merge_congruence_classes(&operand_class, &update_class);
             }
         }
     }
@@ -2381,5 +2473,33 @@ mod copy_sharing_regressions {
         }
         println!("REVIEW full SSA variants=40 failures={failures}");
         assert_eq!(failures, 0);
+    }
+}
+
+/// The local a simple in-place update reads: `v op k` / `k op v` for an
+/// arithmetic or concatenation operator and a literal or local `k`,
+/// `v or e`, or a `math` call taking `v` first (`math.clamp(v, 1, n)`).
+fn update_operand(value: &ast::RValue) -> Option<&RcLocal> {
+    use ast::BinaryOperation::*;
+    let simple = |value: &ast::RValue| matches!(value, ast::RValue::Literal(_) | ast::RValue::Local(_));
+    match value {
+        ast::RValue::Binary(binary) => match (binary.operation, binary.left.as_ref(), binary.right.as_ref()) {
+            (Add | Sub | Mul | Div | Mod | Pow | IDiv | Concat, ast::RValue::Local(operand), other)
+            | (Add | Mul | Concat, other, ast::RValue::Local(operand))
+                if simple(other) => Some(operand),
+            (Or, ast::RValue::Local(operand), _) => Some(operand),
+            _ => None,
+        },
+        ast::RValue::Call(call) | ast::RValue::Select(ast::Select::Call(call)) => {
+            let ast::RValue::Index(callee) = call.value.as_ref() else { return None };
+            let (ast::RValue::Global(library), ast::RValue::Literal(ast::Literal::String(_))) = (callee.left.as_ref(), callee.right.as_ref()) else {
+                return None;
+            };
+            match (library.0.as_slice(), call.arguments.first()) {
+                (b"math", Some(ast::RValue::Local(operand))) => Some(operand),
+                _ => None,
+            }
+        }
+        _ => None,
     }
 }
