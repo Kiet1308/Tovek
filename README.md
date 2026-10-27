@@ -152,6 +152,8 @@ for scope, methodology and remaining regressions.
   refusals and exact compiler-sensitive baseline profiles. New or changed
   mismatches fail even when the original source also changes across compiler
   optimization levels.
+  See [V2.8 verification and remaining limits](docs/v2_8/ACCEPTANCE.md) for
+  the tested scope and before/after recovery results.
 
 ### Performance
 
