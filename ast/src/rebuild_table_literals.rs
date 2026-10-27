@@ -508,10 +508,18 @@ struct OpenListSnapshots {
 }
 
 impl OpenListSnapshots {
+    fn can_snapshot_key(&self, key: &RValue, value: &RValue) -> bool {
+        // shortcut: refuse captured-local keys with effectful values until register/upvalue read timing is proved.
+        !matches!(key, RValue::Local(local) if self.inventory.captured.contains(&local.stable_id()))
+            || crate::is_total_pure(value)
+    }
+
     fn snapshots(&mut self, fields: &mut [(Option<RValue>, RValue)]) -> Vec<Statement> {
         let mut prefix = Vec::new();
         for (key, value) in fields {
-            for (value, name) in [(key.as_mut().unwrap(), "constructorKey"), (value, "constructorValue")] {
+            for (value, name) in key.iter_mut().map(|key| (key, "constructorKey"))
+                .chain(std::iter::once((value, "constructorValue")))
+            {
                 if matches!(value, RValue::Literal(_)) { continue; }
                 let local = crate::rehoist_constants::unique_local(name, &mut self.inventory.reserved);
                 let mut declaration = Assign::new(vec![local.clone().into()],
@@ -560,19 +568,23 @@ impl OpenListSnapshots {
             let Some(object) = table_constructor_local(&block.0[index]) else { index += 1; continue; };
             if self.inventory.captured.contains(&object.stable_id()) { index += 1; continue; }
             let original = block.0[index].as_assign().unwrap().right[0].as_table().unwrap();
-            let crate::TableShape::NewTable { hash, .. } = original.2 else { index += 1; continue; };
-            if original.0.len() > 32 || original.0.len() > hash as usize {
+            let crate::TableShape::NewTable { hash, array } = original.2 else { index += 1; continue; };
+            let positional = original.0.iter().filter(|(key, _)| key.is_none()).count();
+            let mut keyed = original.0.len() - positional;
+            if original.0.len() > 32 || keyed > hash as usize
+                || original.0.last().is_some_and(|(key, value)| key.is_none() && expands(value))
+                || original.0.iter().any(|(key, value)| key.as_ref().is_some_and(|key| !self.can_snapshot_key(key, value)))
+            {
                 index += 1; continue;
             }
             let mut can_raise = false;
-            let fields_fit = original.0.iter().all(|(key, value)| {
-                let Some(key) = key else { return false; };
+            let mut interleave_checks = false;
+            for (key, value) in &original.0 {
                 // Once a store can fail, no later expression may run early.
-                if can_raise && (!crate::is_total_pure(key) || !crate::is_total_pure(value)) { return false; }
-                can_raise |= !crate::is_total_table_key(key);
-                true
-            });
-            if !fields_fit { index += 1; continue; }
+                interleave_checks |= can_raise && (key.as_ref().is_some_and(|key| !crate::is_total_pure(key))
+                    || !crate::is_total_pure(value));
+                can_raise |= key.as_ref().is_some_and(|key| !crate::is_total_table_key(key));
+            }
             let initial_fields = original.0.len();
             let mut table = original.clone();
             let mut stores = Vec::new();
@@ -587,21 +599,45 @@ impl OpenListSnapshots {
                     .and_then(|assign| field_assignment_parts(assign, &object))
                 {
                     // These keys remain explicit beside the tail, so each consumes hash syntax.
-                    if table.0.len() >= 32 || table.0.len() >= hash as usize
+                    if table.0.len() >= 32 || keyed >= hash as usize
+                        || !self.can_snapshot_key(key, value)
                         || !crate::table_takes_another_key(&table, key)
                         || !proof.value(key, 0) || !proof.value(value, 0) { break; }
                     can_raise |= !crate::is_total_table_key(key);
                     stores.push((next, table.0.len()));
                     // Repeat the store, not its final value: nil can change collision history.
                     table.0.push((Some(key.clone()), value.clone()));
+                    keyed += 1;
                 } else if !proof.statement(&block.0[next], 0) { break; }
             }
             let Some(end) = endpoint else { index += 1; continue; };
             let list = block.0[end].as_set_list().unwrap();
+            let tail = list.tail.as_ref().unwrap();
+            // Retaining positional fields must reproduce the original static array allocation, not an earlier resize.
+            if positional > 0 && (!expands(tail) || array as usize != positional + list.values.len()
+                + usize::from(!matches!(tail, RValue::VarArg(_))))
+            { index += 1; continue; }
             table.0.extend(list.values.iter().cloned().map(|value| (None, single_value(value))));
             table.0.push((None, list.tail.clone().unwrap()));
             if table.hash_padding().is_err() { index += 1; continue; }
-            let mut prefix = self.snapshots(&mut table.0[..initial_fields]);
+            // A private key checker needs no array padding that might overwrite a checked numeric key.
+            interleave_checks |= positional > 0 && can_raise;
+            let mut prefix = if interleave_checks {
+                let mut check = block.0[index].as_assign().unwrap().clone();
+                // This private table only checks keys; the final constructor retains allocation and layout.
+                check.right[0] = Table::default().into();
+                let mut prefix = vec![check.into()];
+                for field in &mut table.0[..initial_fields] {
+                    prefix.extend(self.snapshots(std::slice::from_mut(field)));
+                    if let Some(key) = &field.0 {
+                        prefix.push(Assign::new(vec![Index::new(object.clone().into(), key.clone()).into()],
+                            vec![field.1.clone()]).into());
+                    }
+                }
+                prefix
+            } else {
+                self.snapshots(&mut table.0[..initial_fields])
+            };
             let mut replacements = Vec::new();
             for (position, field) in stores {
                 let mut prefix = self.snapshots(&mut table.0[field..field + 1]);
@@ -620,7 +656,7 @@ impl OpenListSnapshots {
             final_store.node_origin.merge(&list.node_origin);
             final_store.right[0] = table.into();
             block.0[end] = final_store.into();
-            if can_raise { prefix.push(initializer.into()); }
+            if can_raise && !interleave_checks { prefix.push(initializer.into()); }
             let inserted = prefix.len();
             for (position, replacement) in replacements.into_iter().rev() {
                 block.0.splice(position..=position, replacement);
@@ -1814,7 +1850,123 @@ mod tests {
     }
 
     #[test]
-    fn late_list_snapshots_refuse_early_key_errors_escape_and_capacity_changes() {
+    fn late_list_snapshots_refuse_captured_keys_with_effectful_values() {
+        for split in [false, true] {
+            for value in [number(9.0), Call::new(global("change"), vec![]).into(), global("lookup")] {
+                let key = local("key");
+                let object = local("object");
+                let safe = crate::is_total_pure(&value);
+                let fields = if split { vec![] } else { vec![(Some(key.clone().into()), value.clone())] };
+                let mut block = Block(vec![declare(&local("change"), closure_capturing(&key)),
+                    declare(&object, Table(fields, Default::default(),
+                        crate::TableShape::NewTable { hash: 1, array: 1 }).into())]);
+                if split { block.0.push(assign_field(&object, key.clone().into(), value)); }
+                block.0.push(Call::new(global("middle"), vec![]).into());
+                block.0.push(crate::SetList::new(object, 1, vec![],
+                    Some(Call::new(global("tail"), vec![]).into())).into());
+                let before = block.to_string();
+                assert_eq!(super::snapshot_open_list_constructors(&mut block).is_some(), safe,
+                    "split={split} safe={safe}");
+                if !safe { assert_eq!(block.to_string(), before); }
+            }
+        }
+    }
+
+    #[test]
+    fn late_list_snapshots_check_initial_keys_before_later_effects() {
+        for later in [Call::new(global("effect"), vec![]).into(), global("observable_lookup")] {
+            let object = local("object");
+            let shape = crate::TableShape::NewTable { hash: 2, array: 2 };
+            let fields = vec![(Some(Call::new(global("key"), vec![]).into()), Call::new(global("first"), vec![]).into()),
+                (Some(string("second")), later.clone())];
+            let mut block = Block(vec![declare(&object, Table(fields, Default::default(), shape).into()),
+                Call::new(global("middle"), vec![]).into(),
+                crate::SetList::new(object, 1, vec![number(1.0)], Some(Call::new(global("tail"), vec![]).into())).into()]);
+            let pass = super::snapshot_open_list_constructors(&mut block).unwrap();
+            assert_eq!(pass.introduced_locals, 3);
+            assert_eq!(pass.ledger.records.len(), 3);
+            let text = block.to_string();
+            let later = later.to_string();
+            let ordered = ["key()", "first()", "object[constructorKey] = constructorValue", &later, "middle()", "tail()"];
+            for pair in ordered.windows(2) {
+                assert!(text.find(pair[0]).unwrap() < text.find(pair[1]).unwrap(), "{text}");
+            }
+            for expression in ["key()", "first()", &later, "middle()", "tail()"] {
+                assert_eq!(text.matches(expression).count(), 1, "{text}");
+            }
+            let tables: Vec<_> = block.0.iter().filter_map(|statement| statement.as_assign())
+                .filter_map(|assign| assign.right.first().and_then(RValue::as_table)).collect();
+            assert_eq!(tables.len(), 2);
+            assert!(tables[0].0.is_empty());
+            assert_eq!(tables[1].2, shape);
+            assert!(super::reserve_unfolded_table_slots(&mut block).is_ok());
+            assert!(super::snapshot_open_list_constructors(&mut block).is_none());
+        }
+    }
+
+    #[test]
+    fn late_list_snapshots_keep_positional_prefixes_and_static_allocation() {
+        for call_tail in [false, true] {
+            for keyed_first in [false, true] {
+                for dynamic_key in [false, true] {
+                    for split in [false, true] {
+                        let object = local("object");
+                        let key = if dynamic_key { Call::new(global("key"), vec![]).into() } else { string("key") };
+                        let mut fields = vec![(None, super::single_value(Call::new(global("first"), vec![]).into())),
+                            (Some(key), Call::new(global("keyed"), vec![]).into())];
+                        if keyed_first { fields.swap(0, 1); }
+                        let shape = crate::TableShape::NewTable { hash: if split { 2 } else { 1 },
+                            array: if call_tail { 3 } else { 2 } };
+                        let mut block = Block(vec![declare(&object, Table(fields, Default::default(), shape).into())]);
+                        if split { block.0.push(assign_field(&object, string("added"), Call::new(global("split"), vec![]).into())); }
+                        block.0.push(Call::new(global("middle"), vec![]).into());
+                        let tail = if call_tail { Call::new(global("tail"), vec![]).into() } else { crate::VarArg {}.into() };
+                        block.0.push(crate::SetList::new(object, 2, vec![number(1.0)], Some(tail)).into());
+                        let pass = super::snapshot_open_list_constructors(&mut block).unwrap();
+                        assert_eq!(pass.introduced_locals, 2 + usize::from(dynamic_key) + usize::from(split));
+                        let text = block.to_string();
+                        assert_eq!(text.matches("first()").count(), 1, "{text}");
+                        assert_eq!(text.matches("keyed()").count(), 1, "{text}");
+                        assert_eq!(text.find("keyed()").unwrap() < text.find("first()").unwrap(), keyed_first, "{text}");
+                        assert!(text.find("first()").unwrap() < text.find("middle()").unwrap(), "{text}");
+                        let final_table = block.0.last().unwrap().as_assign().unwrap().right[0].as_table().unwrap();
+                        assert_eq!(final_table.2, shape);
+                        assert_eq!(final_table.0[usize::from(keyed_first)].0, None);
+                        assert_eq!(final_table.0.iter().filter(|(key, _)| key.is_some()).count(), 1 + usize::from(split));
+                        assert!(super::reserve_unfolded_table_slots(&mut block).is_ok(), "{text}");
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn late_list_snapshots_reject_positional_resize_and_open_prefixes() {
+        for hazard in 0..5 {
+            let object = local("object");
+            let mut fields = vec![(Some(string("key")), number(1.0)), (None, number(2.0))];
+            let mut array = 2;
+            let mut index = 2;
+            let mut tail = crate::VarArg {}.into();
+            match hazard {
+                0 => array = 1,
+                1 => array = 3,
+                2 => fields[1].1 = Call::new(global("many"), vec![]).into(),
+                3 => tail = number(3.0),
+                4 => index = 3,
+                _ => unreachable!(),
+            }
+            let mut block = Block(vec![declare(&object, Table(fields, Default::default(),
+                crate::TableShape::NewTable { hash: 1, array }).into()), Call::new(global("middle"), vec![]).into(),
+                crate::SetList::new(object, index, vec![number(3.0)], Some(tail)).into()]);
+            let before = block.to_string();
+            assert!(super::snapshot_open_list_constructors(&mut block).is_none(), "hazard {hazard}");
+            assert_eq!(block.to_string(), before);
+        }
+    }
+
+    #[test]
+    fn late_list_snapshots_refuse_self_reads_escape_and_capacity_changes() {
         for hazard in 0..8 {
             let object = local("object");
             let mut fields = vec![(Some(local("key").into()), number(9.0))];
@@ -1822,9 +1974,9 @@ mod tests {
             let mut tail = Call::new(global("tail"), vec![]).into();
             let mut hash = 2;
             match hazard {
-                0 => fields.push((Some(string("second")), Call::new(global("effect"), vec![]).into())),
+                0 => fields[0].0 = Some(Index::new(object.clone().into(), string("key")).into()),
                 1 => middle = Call::new(global("observe"), vec![object.clone().into()]).into(),
-                2 => fields.push((Some(string("second")), global("observable_lookup"))),
+                2 => fields.push((Some(string("second")), closure_capturing(&object))),
                 3 => hash = 0,
                 4 => tail = Call::new(global("observe"), vec![object.clone().into()]).into(),
                 5 => middle = Assign::new(vec![crate::Index::new(object.clone().into(), string("second")).into()],

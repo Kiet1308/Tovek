@@ -2956,6 +2956,18 @@
       "bytes": 304,
       "lines": 19
     },
+    "semantic/table_open_list_captured_key__O0.luau": {
+      "bytes": 446,
+      "lines": 28
+    },
+    "semantic/table_open_list_captured_key__O1.luau": {
+      "bytes": 446,
+      "lines": 28
+    },
+    "semantic/table_open_list_captured_key__O2.luau": {
+      "bytes": 763,
+      "lines": 36
+    },
     "semantic/table_open_list_growth__O0.luau": {
       "bytes": 2151,
       "lines": 153
@@ -2967,6 +2979,30 @@
     "semantic/table_open_list_growth__O2.luau": {
       "bytes": 3120,
       "lines": 181
+    },
+    "semantic/table_open_list_key_errors__O0.luau": {
+      "bytes": 1297,
+      "lines": 66
+    },
+    "semantic/table_open_list_key_errors__O1.luau": {
+      "bytes": 1303,
+      "lines": 68
+    },
+    "semantic/table_open_list_key_errors__O2.luau": {
+      "bytes": 1413,
+      "lines": 78
+    },
+    "semantic/table_open_list_positional_prefix__O0.luau": {
+      "bytes": 2117,
+      "lines": 102
+    },
+    "semantic/table_open_list_positional_prefix__O1.luau": {
+      "bytes": 2121,
+      "lines": 104
+    },
+    "semantic/table_open_list_positional_prefix__O2.luau": {
+      "bytes": 2198,
+      "lines": 105
     },
     "semantic/table_open_list_split_prefix__O0.luau": {
       "bytes": 1271,

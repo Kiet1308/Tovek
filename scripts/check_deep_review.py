@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Kiểm tra hồi quy bằng bytecode gốc và source decompile được biên dịch lại."""
 import argparse
+import collections
+import hashlib
 import json
 import pathlib
 import re
@@ -9,7 +11,14 @@ import subprocess
 import sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
+# These error probes compare the message body; source line numbers change on decompilation.
+ERROR_REPORTER = ('local function report(ok, ...) if ok then print(ok, ...) else '
+                  'local message = ...; print(ok, (message:gsub("^subject:%d+: ", ""))) end end; ')
 CASES = {
+    "table_open_list_late_key_read": ((ROOT / "docs/failure_fixtures/strict_refusals/table_open_list_late_key_read.luau").read_text(), ''),
+    "table_open_list_key_errors": ((ROOT / "docs/failure_fixtures/semantic_roundtrip/table_open_list_key_errors.luau").read_text(), ''),
+    "table_open_list_positional_prefix": ((ROOT / "docs/failure_fixtures/semantic_roundtrip/table_open_list_positional_prefix.luau").read_text(), ''),
+    "table_open_list_captured_key": ((ROOT / "docs/failure_fixtures/semantic_roundtrip/table_open_list_captured_key.luau").read_text(), ''),
     "readable_captured_choice": ((ROOT / "docs/failure_fixtures/semantic_roundtrip/readable_captured_choice.luau").read_text(), ''),
     "readable_if_final_names": ((ROOT / "docs/failure_fixtures/semantic_roundtrip/readable_if_final_names.luau").read_text(), ''),
     "table_open_list_growth": ((ROOT / "docs/failure_fixtures/semantic_roundtrip/table_open_list_growth.luau").read_text(), ''),
@@ -63,8 +72,8 @@ CASES = {
     "api_vector3": ('Vector3={new=function(x,y,z) print("new",x,y,z); return 7 end,zero=99}; print(Vector3.new(0,0,0))', ''),
     "api_vector2": ('Vector2={new=function(x,y) print("new",x,y); return 7 end,one=99}; print(Vector2.new(1,1))', ''),
     "api_cframe": ('CFrame={new=function() print("new"); return 7 end,identity=99}; print(CFrame.new())', ''),
-    "interpolation_open_call": ('local function nothing() end; return function() print(("%*"):format(nothing())) end', 'print(pcall(f))'),
-    "interpolation_open_vararg": ('return function(...) print(("%*"):format(...)) end', 'print(pcall(f)); print(pcall(f,1,2))'),
+    "interpolation_open_call": ('local function nothing() end; return function() print(("%*"):format(nothing())) end', ERROR_REPORTER + 'report(pcall(f))'),
+    "interpolation_open_vararg": ('return function(...) print(("%*"):format(...)) end', ERROR_REPORTER + 'report(pcall(f)); report(pcall(f,1,2))'),
     "interpolation_rejected_late_specifier": (
         'return function(value, count) return ("[%*]:%04d"):format(value, count) end',
         'print(f("value",7)); print(f(false,-2)); local value=setmetatable({},'
@@ -74,7 +83,7 @@ CASES = {
         'for _,value in {"x","界"} do local s=f(value); print(#s,string.byte(s,1,#s)) end'),
     "interpolation_rejected_too_few_arguments": (
         'return function(value) return ("%*:%*"):format(value) end',
-        'print(pcall(f,"value")); print(pcall(f,false)); print(pcall(f,nil))'),
+        ERROR_REPORTER + 'report(pcall(f,"value")); report(pcall(f,false)); report(pcall(f,nil))'),
     "interpolation_rejected_too_many_arguments": (
         'return function(value, extra) return ("[%*]"):format(value, extra) end',
         'local extra=setmetatable({},{__tostring=function() print("unexpected-extra-tostring"); '
@@ -140,12 +149,27 @@ VECTOR3_CASES = {
         'local value = f(); print(type(value), value)'),
 }
 
+CROSS_OPT_FIXTURES = (
+    'table_open_list_split_prefix', 'closure_identity_across_inlined_copies',
+    'deinline_closure_factories', 'closure_constant_cached_by_another_copy',
+    'value_capture_written_after_closure', 'paren_call_truncates_multret',
+    'parameter_hole_multret', 'snapshot_receiver_and_constructor_key',
+)
+CROSS_OPT_BASELINE = ROOT / 'docs/failure_fixtures/deep_review_cross_optimization_baseline.json'
+PROFILE_FIELDS = ('ca', 'input_optimization', 'output_optimization', 'debug')
+IDENTITY_FIELDS = (*PROFILE_FIELDS, 'source_sha256', 'driver_sha256', 'compiler_options',
+                   'driver_optimization', 'driver_debug')
+EXPECTED_REFUSALS = {
+    ('table_open_list_late_key_read', optimization, debug): 'an open SETLIST without a proved native constructor'
+    for optimization, debug in ((0, 0), (0, 2), (1, 0), (1, 2), (2, 2))
+}
+
 
 def run(command):
     result = subprocess.run([str(arg) for arg in command], capture_output=True, timeout=60)
     return {"exit_code": result.returncode,
-            "stdout": result.stdout.decode("utf-8", errors="replace"),
-            "stderr": result.stderr.decode("utf-8", errors="replace")}
+            "stdout": result.stdout.decode("utf-8", errors="surrogateescape"),
+            "stderr": result.stderr.decode("utf-8", errors="surrogateescape")}
 
 
 def normalize(output):
@@ -153,11 +177,15 @@ def normalize(output):
     return re.sub(r'[^\s:]+\.luau:\d+(?::\d+)?', 'FILE:N', output.replace('\r\n', '\n')).strip()
 
 
-def compile_source(args, source, destination, optimization, debug, integer=False, vector3=False):
+def compiler_options(integer=False, vector3=False):
     flags = '--fflags=false,LuauIntegerType2=true' if integer else '--fflags=false'
     library, constructor = ('Vector3', 'new') if vector3 else ('vector', 'create')
-    command = [str(args.compiler), '--binary', flags, f'-O{optimization}', f'-g{debug}',
-               f'--vector-lib={library}', f'--vector-ctor={constructor}', str(source)]
+    return [flags, f'--vector-lib={library}', f'--vector-ctor={constructor}']
+
+
+def compile_source(args, source, destination, optimization, debug, integer=False, vector3=False):
+    command = [str(args.compiler), '--binary', *compiler_options(integer, vector3),
+               f'-O{optimization}', f'-g{debug}', str(source)]
     result = subprocess.run(command, capture_output=True, timeout=60)
     destination.write_bytes(result.stdout)
     if result.returncode:
@@ -168,8 +196,53 @@ class Refused(Exception):
     """The decompiler refused the case with the reason it names."""
 
 
+def observation(result, normalized=False):
+    return {key: normalize(result[key]) if normalized and key != 'exit_code' else result[key]
+            for key in ('exit_code', 'stdout', 'stderr')}
+
+
+def fingerprint(value):
+    return hashlib.sha256(json.dumps(value, sort_keys=True, ensure_ascii=False,
+                                    separators=(',', ':')).encode('utf-8', errors='surrogateescape')).hexdigest()
+
+
+def profile_key(row):
+    return tuple(row[field] for field in PROFILE_FIELDS)
+
+
+def baseline_identity_matches(row, baseline):
+    return all(row.get(field) == baseline.get(field) for field in IDENTITY_FIELDS)
+
+
+def observation_fingerprints(row):
+    return {field: {'raw': fingerprint(observation(row[field])),
+                    'normalized': fingerprint(observation(row[field], True))}
+            for field in ('goc', 'sau_sua', 'source_at_output_optimization') if field in row}
+
+
+def classify_baseline(row, baseline):
+    if baseline is None:
+        return
+    if not baseline_identity_matches(row, baseline):
+        row.update(status='failed', ket_qua='FAIL', failure_stage='baseline_identity',
+                   loi='cross-optimization baseline source, driver or compiler options changed')
+    elif row['status'] == 'passed':
+        if observation(row['goc']) != observation(row['sau_sua']):
+            row.update(status='failed', ket_qua='FAIL', failure_stage='baseline_observation',
+                       loi='raw observations differ for a reviewed baseline profile')
+        else:
+            row['improved_from'] = baseline['status']
+    elif row['status'] == 'failed':
+        fields = ('goc', 'sau_sua', 'source_at_output_optimization')
+        if (all(field in row and row[field]['exit_code'] == 0 for field in fields)
+                and observation(row['goc'], True) != observation(row['source_at_output_optimization'], True)
+                and observation(row['sau_sua']) == observation(row['source_at_output_optimization'])
+                and observation_fingerprints(row) == baseline['observations']):
+            row.update(status='compiler_sensitive', ket_qua='COMPILER_SENSITIVE')
+
+
 def check(args, name, source, driver, optimization, debug, bytecode=None, integer=False,
-          output_optimization=None, refusal=None, vector3=False):
+          output_optimization=None, refusal=None, vector3=False, baseline=None):
     """`refusal`: a decompile failure naming this reason passes too."""
     output_optimization = optimization if output_optimization is None else output_optimization
     suffix = '' if output_optimization == optimization else f'.outO{output_optimization}'
@@ -180,37 +253,133 @@ def check(args, name, source, driver, optimization, debug, bytecode=None, intege
     driver_source = directory / 'driver.luau'
     driver_source.write_text(driver, encoding='utf-8')
     data, output_data, driver_data = [directory / filename for filename in ('input.bc', 'output.bc', 'driver.bc')]
-    evidence = {"ca": name, "toi_uu": optimization, "debug": debug}
+    evidence = {"ca": name, "toi_uu": optimization, "debug": debug,
+                'input_optimization': optimization, 'output_optimization': output_optimization,
+                'source_sha256': hashlib.sha256(source.encode()).hexdigest(),
+                'driver_sha256': hashlib.sha256(driver.encode()).hexdigest(),
+                'compiler_options': compiler_options(integer, vector3),
+                'driver_optimization': 1, 'driver_debug': 1, 'group': case_group(name), 'status': 'failed'}
+    stage = 'driver_compile'
     try:
         compile_source(args, driver_source, driver_data, 1, 1, integer, vector3)
+        stage = 'input_compile'
         if bytecode is None:
             compile_source(args, original, data, optimization, debug, integer, vector3)
         else:
             data.write_bytes(bytecode)
+            evidence['supplied_bytecode'] = True
+        stage = 'input_runtime'
         evidence['goc'] = run([args.vm, data, driver_data])
         assert evidence['goc']['exit_code'] == 0, evidence['goc']
+        stage = 'decompile'
         evidence['decompile'] = run([args.lifter, data])
         if refusal and evidence['decompile']['exit_code'] != 0:
             assert refusal in evidence['decompile']['stderr'] + evidence['decompile']['stdout'], evidence['decompile']
             evidence['ket_qua'] = 'PASS'
+            evidence['status'] = 'expected_refusal'
             evidence['tu_choi'] = refusal
             raise Refused
         assert evidence['decompile']['exit_code'] == 0, evidence['decompile']
         output_source = directory / 'output.luau'
-        output_source.write_text(evidence['decompile']['stdout'], encoding='utf-8')
+        output_source.write_text(evidence['decompile']['stdout'], encoding='utf-8', errors='surrogateescape')
+        stage = 'output_compile'
         compile_source(args, output_source, output_data, output_optimization, debug, integer, vector3)
+        stage = 'output_runtime'
         evidence['sau_sua'] = run([args.vm, output_data, driver_data])
         assert evidence['sau_sua']['exit_code'] == 0, evidence['sau_sua']
-        assert normalize(evidence['goc']['stdout']) == normalize(evidence['sau_sua']['stdout']), evidence
+        stage = 'runtime_comparison'
+        assert observation(evidence['goc']) == observation(evidence['sau_sua']), 'runtime observations differ'
         evidence['ket_qua'] = 'PASS'
+        evidence['status'] = 'passed'
     except Refused:
         pass
     except (AssertionError, RuntimeError, subprocess.TimeoutExpired) as error:
         evidence['ket_qua'] = 'FAIL'
+        evidence['failure_stage'] = stage
         evidence['loi'] = str(error)
-    (directory / 'result.json').write_text(json.dumps(evidence, ensure_ascii=False, indent=2), encoding='utf-8')
-    print(name, optimization, debug, evidence['ket_qua'], flush=True)
+    if (getattr(args, 'cross_optimization', False) and evidence['status'] == 'failed'
+            and 'sau_sua' in evidence and bytecode is None):
+        try:
+            reference = directory / 'source-at-output-opt.bc'
+            compile_source(args, original, reference, output_optimization, debug, integer, vector3)
+            evidence['source_at_output_optimization'] = run([args.vm, reference, driver_data])
+        except (RuntimeError, subprocess.TimeoutExpired) as error:
+            evidence['source_at_output_error'] = str(error)
+    classify_baseline(evidence, baseline)
+    evidence['observations'] = observation_fingerprints(evidence)
+    (directory / 'result.json').write_text(json.dumps(evidence, ensure_ascii=True, indent=2), encoding='utf-8')
+    print(name, f'O{optimization}->O{output_optimization}', f'g{debug}', evidence['status'], flush=True)
     return evidence
+
+
+def cross_optimization_cases():
+    cases = [(name, source, driver, False) for name, (source, driver) in CASES.items()]
+    cases.extend((name, source, driver, True) for name, (source, driver) in VECTOR3_CASES.items())
+    for name in CROSS_OPT_FIXTURES:
+        source = ROOT / 'docs/failure_fixtures/semantic_roundtrip' / f'{name}.luau'
+        cases.append((name, source.read_text(), '', False))
+    assert len({name for name, *_ in cases}) == len(cases), 'repeated cross-optimization case'
+    return cases
+
+
+def case_group(name):
+    for group, terms in (
+        ('table', ('table_', 'constructor_key')),
+        ('vector', ('vector',)),
+        ('closure_identity', ('closure', 'readable_captured_choice')),
+        ('capture', ('capture', 'cell_', 'snapshot_')),
+        ('multret', ('multret', 'interpolation_', 'format_')),
+        ('frames', ('debug_info_',)),
+        ('presentation', ('naming_', 'readable_', 'source_spacing', 'proven_return_')),
+    ):
+        if any(term in name for term in terms):
+            return group
+    return 'control_effects_errors'
+
+
+def load_cross_optimization_baseline(path):
+    data = json.loads(path.read_text())
+    if data['schema_version'] != 1:
+        raise ValueError('unsupported cross-optimization baseline schema')
+    profiles = {}
+    for row in data['profiles']:
+        key = profile_key(row)
+        if key in profiles or row['status'] != 'compiler_sensitive':
+            raise ValueError('invalid or repeated cross-optimization baseline profile')
+        profiles[key] = row
+    return profiles
+
+
+def run_cross_optimization(args):
+    baseline = load_cross_optimization_baseline(CROSS_OPT_BASELINE)
+    cases = cross_optimization_cases()
+    results = []
+    for name, source, driver, vector3 in cases:
+        for debug in (0, 2):
+            for optimization in (0, 1, 2):
+                for output_optimization in (0, 1, 2):
+                    key = (name, optimization, output_optimization, debug)
+                    row = check(args, name, source, driver, optimization, debug,
+                                integer=name == 'integer_literals', output_optimization=output_optimization,
+                                vector3=vector3, baseline=baseline.get(key),
+                                refusal=EXPECTED_REFUSALS.get((name, optimization, debug)))
+                    results.append(row)
+    counts = dict(collections.Counter(row['status'] for row in results))
+    missing = sorted(set(baseline) - {profile_key(row) for row in results})
+    summary = dict(schema_version=1, cases=len(cases), total=len(results), status=counts,
+                   improvements=[dict(zip(PROFILE_FIELDS, profile_key(row)), previous=row['improved_from'])
+                                 for row in results if 'improved_from' in row],
+                   unexercised_baseline_profiles=missing,
+                   groups={group: dict(collections.Counter(row['status'] for row in results if row['group'] == group))
+                           for group in sorted({row['group'] for row in results})},
+                   baseline_sha256=hashlib.sha256(CROSS_OPT_BASELINE.read_bytes()).hexdigest(),
+                   tools={name: dict(path=str(getattr(args, name)),
+                                     sha256=hashlib.sha256(getattr(args, name).read_bytes()).hexdigest())
+                          for name in ('compiler', 'vm', 'lifter')})
+    (args.work / 'results.json').write_text(json.dumps(results, ensure_ascii=True, indent=2), encoding='utf-8')
+    (args.work / 'summary.json').write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding='utf-8')
+    print(json.dumps(summary, ensure_ascii=False, indent=2))
+    return bool(counts.get('failed') or missing)
 
 
 def main():
@@ -218,24 +387,24 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     for option in ('compiler', 'vm', 'lifter', 'work'):
         parser.add_argument('--' + option, type=pathlib.Path, required=True)
+    parser.add_argument('--cross-optimization', action='store_true',
+                        help='run the O0/O1/O2 input/output matrix at g0/g2; exact reviewed limits stay distinct from passes')
     args = parser.parse_args()
     args.work.mkdir(parents=True, exist_ok=True)
+    if args.cross_optimization:
+        return run_cross_optimization(args)
     results = []
     for name, (source, driver) in CASES.items():
         for debug in (0, 2):
             for optimization in (0, 1, 2):
                 results.append(check(args, name, source, driver, optimization, debug,
-                                     integer=name == 'integer_literals'))
+                                     integer=name == 'integer_literals',
+                                     refusal=EXPECTED_REFUSALS.get((name, optimization, debug))))
     for path in sorted((ROOT / '_harness/_bugs').glob('C*.luau')):
         if '.dec.' in path.name:
             continue
         for optimization in (0, 1, 2):
             results.append(check(args, path.stem, path.read_text(encoding='utf-8-sig'), '', optimization, 1))
-    path = ROOT / 'docs/failure_fixtures/strict_refusals/table_open_list_captured_key.luau'
-    for debug in (0, 2):
-        for optimization in (0, 1, 2):
-            results.append(check(args, path.stem, path.read_text(), '', optimization, debug,
-                                 refusal='an open SETLIST without a proved native constructor'))
     for name, source, driver in [
         ('vector_environment', 'return function() return vector.create(1,2,3) end',
          'getfenv(f).vector={create=function() return "fake" end}; print(type(f()),f())'),
@@ -340,12 +509,12 @@ def main():
          struct.pack('<Q', 0x7ff8000000001234), 1, 'a NaN constant whose payload'),
         # From -O1 `type(x)` runs the builtin by id (FASTCALL); only the
         # fallback names it, so another name has no source spelling.
-        ('fastcall_renamed_builtin', 'return function(x) return type(x) end', 'print(pcall(f, 1))',
+        ('fastcall_renamed_builtin', 'return function(x) return type(x) end', ERROR_REPORTER + 'report(pcall(f, 1))',
          b'type', b'typ ', 1, 'a builtin call names another function'),
         # From -O1 `pairs(t)` prepares a loop that iterates the table itself
         # with the standard environment, whatever the generator is called.
         ('forgprep_renamed_pairs', 'return function(t) local n = 0 for _, v in pairs(t) do n += v end return n end',
-         'print(pcall(f, {1, 2}))', b'pairs', b'pai s', 1, 'a loop prepared for'),
+         ERROR_REPORTER + 'report(pcall(f, {1, 2}))', b'pairs', b'pai s', 1, 'a loop prepared for'),
     ]:
         for optimization in (0, 1, 2):
             directory = args.work / f'{name}.raw.O{optimization}'
@@ -357,9 +526,11 @@ def main():
             data = data.replace(spelled, patched)
             results.append(check(args, name, f'-- {patched!r}: bytecode patched from the source',
                                  driver, optimization, debug, data, refusal=refusal))
-    (args.work / 'results.json').write_text(json.dumps(results, ensure_ascii=False, indent=2), encoding='utf-8')
-    failed = sum(result['ket_qua'] != 'PASS' for result in results)
-    print(f'Tổng: {len(results)}; pass: {len(results)-failed}; fail: {failed}')
+    (args.work / 'results.json').write_text(json.dumps(results, ensure_ascii=True, indent=2), encoding='utf-8')
+    counts = collections.Counter(result['status'] for result in results)
+    failed = counts['failed']
+    print(f'Tổng: {len(results)}; executable pass: {counts["passed"]}; '
+          f'expected refusal: {counts["expected_refusal"]}; fail: {failed}')
     return bool(failed)
 
 

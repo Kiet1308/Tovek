@@ -143,6 +143,11 @@ jobs:
             --vm "$RUNNER_TEMP/benchmark-vm/benchmark-vm" \
             --lifter target/release/luau-lifter \
             --work "$RUNNER_TEMP/deep-review"
+          python3 scripts/check_deep_review.py \
+            --compiler "$RUNNER_TEMP/luau-build/luau-compile" \
+            --vm "$RUNNER_TEMP/benchmark-vm/benchmark-vm" \
+            --lifter target/release/luau-lifter \
+            --work "$RUNNER_TEMP/cross-optimization" --cross-optimization
 
       - name: Typed fuzz round-trips against their bytecode (fixed seeds)
         run: |
@@ -485,6 +490,8 @@ jobs:
             ${{ runner.temp }}/residual-control-*/**/*.luau
             ${{ runner.temp }}/residual-control-*.log
             ${{ runner.temp }}/semantic-roundtrip/**/*.luau
+            ${{ runner.temp }}/cross-optimization/**/*.json
+            ${{ runner.temp }}/cross-optimization/**/*.luau
             ${{ runner.temp }}/bytecode-roundtrip-*.json
             ${{ runner.temp }}/bytecode-roundtrip-*.md
             ${{ runner.temp }}/output-size.json

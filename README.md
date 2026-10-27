@@ -147,6 +147,11 @@ for scope, methodology and remaining regressions.
   parser, compiler and VM. V2 passes all 513 public parse/recompile profiles and
   the expanded suite of 246 runtime profiles. These checks cover the tested
   inputs; they do not prove equivalence for every program.
+  CI also exercises all nine input/output O0/O1/O2 combinations at g0/g2 for
+  selected semantic regressions. Reports distinguish runtime passes, expected
+  refusals and exact compiler-sensitive baseline profiles. New or changed
+  mismatches fail even when the original source also changes across compiler
+  optimization levels.
 
 ### Performance
 
@@ -242,7 +247,10 @@ need more locals or registers than Luau allows.
 
 Table reconstruction uses bounded proofs to preserve allocation and store order,
 including native bulk growth for open SETLIST; an open list store without that
-proof is refused. Empty preallocated hash tables remain a compatibility exception:
+proof is refused. Recovery covers mixed positional/keyed prefixes and preserves
+invalid-key errors before later field effects. This recovery refuses captured
+local keys beside effectful values when their read timing has not been proved.
+Empty preallocated hash tables remain a compatibility exception:
 they can still emit `{}`, and `pairs`/`next` order is not guaranteed when compiling
 at a different optimization level. This exception does not justify folding
 populated constructors or matching helpers without a layout proof.

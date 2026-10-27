@@ -1,5 +1,5 @@
 -- O2 separates the captured-key write from the constructor's open SETLIST.
--- A refusal is preferable to changing either the key snapshot or array growth.
+-- Snapshot the key before the callback while retaining native array growth.
 local function tail() return 2, 3, 4, 5, 6 end
 local function stamp() print("stamp"); return nil end
 local function build(key)

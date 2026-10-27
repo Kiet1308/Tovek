@@ -1,0 +1,1747 @@
+{
+  "schema_version": 1,
+  "compiler_commit": "c2ec0d4e5ca50796ba174a7565298f59aa572268",
+  "description": "Observed cross-optimization limits at V2.7 4a8f457; these profiles are not semantic passes. Exact source, driver, compiler options and raw/normalized observations must match. New or changed mismatches fail.",
+  "profiles": [
+    {
+      "ca": "closure_identity_across_inlined_copies",
+      "input_optimization": 0,
+      "output_optimization": 1,
+      "debug": 0,
+      "source_sha256": "821f56ab270f1d3cb80bc679e8f68af63d05aeb35380466f840961d156274fb3",
+      "driver_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "compiler_options": [
+        "--fflags=false",
+        "--vector-lib=vector",
+        "--vector-ctor=create"
+      ],
+      "driver_optimization": 1,
+      "driver_debug": 1,
+      "status": "compiler_sensitive",
+      "observations": {
+        "goc": {
+          "raw": "816934e302a8755995415baa587a9af88c00f1814b2e7a6561822568631b4394",
+          "normalized": "1d597119f29e7ced842c61f026c0500dd500a77b7f71266a586032c2ed39a69d"
+        },
+        "sau_sua": {
+          "raw": "da8bb1ea56bde32bae74f82e1a3799e1a9370500f13cae13fdc09d03245f36f7",
+          "normalized": "1094e20382fd46683cbcadfb02c2f0ea7d3fa268bdab9973dff66a1a0e411e8f"
+        },
+        "source_at_output_optimization": {
+          "raw": "da8bb1ea56bde32bae74f82e1a3799e1a9370500f13cae13fdc09d03245f36f7",
+          "normalized": "1094e20382fd46683cbcadfb02c2f0ea7d3fa268bdab9973dff66a1a0e411e8f"
+        }
+      }
+    },
+    {
+      "ca": "closure_identity_across_inlined_copies",
+      "input_optimization": 0,
+      "output_optimization": 1,
+      "debug": 2,
+      "source_sha256": "821f56ab270f1d3cb80bc679e8f68af63d05aeb35380466f840961d156274fb3",
+      "driver_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "compiler_options": [
+        "--fflags=false",
+        "--vector-lib=vector",
+        "--vector-ctor=create"
+      ],
+      "driver_optimization": 1,
+      "driver_debug": 1,
+      "status": "compiler_sensitive",
+      "observations": {
+        "goc": {
+          "raw": "816934e302a8755995415baa587a9af88c00f1814b2e7a6561822568631b4394",
+          "normalized": "1d597119f29e7ced842c61f026c0500dd500a77b7f71266a586032c2ed39a69d"
+        },
+        "sau_sua": {
+          "raw": "da8bb1ea56bde32bae74f82e1a3799e1a9370500f13cae13fdc09d03245f36f7",
+          "normalized": "1094e20382fd46683cbcadfb02c2f0ea7d3fa268bdab9973dff66a1a0e411e8f"
+        },
+        "source_at_output_optimization": {
+          "raw": "da8bb1ea56bde32bae74f82e1a3799e1a9370500f13cae13fdc09d03245f36f7",
+          "normalized": "1094e20382fd46683cbcadfb02c2f0ea7d3fa268bdab9973dff66a1a0e411e8f"
+        }
+      }
+    },
+    {
+      "ca": "closure_identity_across_inlined_copies",
+      "input_optimization": 0,
+      "output_optimization": 2,
+      "debug": 0,
+      "source_sha256": "821f56ab270f1d3cb80bc679e8f68af63d05aeb35380466f840961d156274fb3",
+      "driver_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "compiler_options": [
+        "--fflags=false",
+        "--vector-lib=vector",
+        "--vector-ctor=create"
+      ],
+      "driver_optimization": 1,
+      "driver_debug": 1,
+      "status": "compiler_sensitive",
+      "observations": {
+        "goc": {
+          "raw": "816934e302a8755995415baa587a9af88c00f1814b2e7a6561822568631b4394",
+          "normalized": "1d597119f29e7ced842c61f026c0500dd500a77b7f71266a586032c2ed39a69d"
+        },
+        "sau_sua": {
+          "raw": "da8bb1ea56bde32bae74f82e1a3799e1a9370500f13cae13fdc09d03245f36f7",
+          "normalized": "1094e20382fd46683cbcadfb02c2f0ea7d3fa268bdab9973dff66a1a0e411e8f"
+        },
+        "source_at_output_optimization": {
+          "raw": "da8bb1ea56bde32bae74f82e1a3799e1a9370500f13cae13fdc09d03245f36f7",
+          "normalized": "1094e20382fd46683cbcadfb02c2f0ea7d3fa268bdab9973dff66a1a0e411e8f"
+        }
+      }
+    },
+    {
+      "ca": "closure_identity_across_inlined_copies",
+      "input_optimization": 0,
+      "output_optimization": 2,
+      "debug": 2,
+      "source_sha256": "821f56ab270f1d3cb80bc679e8f68af63d05aeb35380466f840961d156274fb3",
+      "driver_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "compiler_options": [
+        "--fflags=false",
+        "--vector-lib=vector",
+        "--vector-ctor=create"
+      ],
+      "driver_optimization": 1,
+      "driver_debug": 1,
+      "status": "compiler_sensitive",
+      "observations": {
+        "goc": {
+          "raw": "816934e302a8755995415baa587a9af88c00f1814b2e7a6561822568631b4394",
+          "normalized": "1d597119f29e7ced842c61f026c0500dd500a77b7f71266a586032c2ed39a69d"
+        },
+        "sau_sua": {
+          "raw": "da8bb1ea56bde32bae74f82e1a3799e1a9370500f13cae13fdc09d03245f36f7",
+          "normalized": "1094e20382fd46683cbcadfb02c2f0ea7d3fa268bdab9973dff66a1a0e411e8f"
+        },
+        "source_at_output_optimization": {
+          "raw": "da8bb1ea56bde32bae74f82e1a3799e1a9370500f13cae13fdc09d03245f36f7",
+          "normalized": "1094e20382fd46683cbcadfb02c2f0ea7d3fa268bdab9973dff66a1a0e411e8f"
+        }
+      }
+    },
+    {
+      "ca": "closure_identity_across_inlined_copies",
+      "input_optimization": 1,
+      "output_optimization": 0,
+      "debug": 0,
+      "source_sha256": "821f56ab270f1d3cb80bc679e8f68af63d05aeb35380466f840961d156274fb3",
+      "driver_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "compiler_options": [
+        "--fflags=false",
+        "--vector-lib=vector",
+        "--vector-ctor=create"
+      ],
+      "driver_optimization": 1,
+      "driver_debug": 1,
+      "status": "compiler_sensitive",
+      "observations": {
+        "goc": {
+          "raw": "da8bb1ea56bde32bae74f82e1a3799e1a9370500f13cae13fdc09d03245f36f7",
+          "normalized": "1094e20382fd46683cbcadfb02c2f0ea7d3fa268bdab9973dff66a1a0e411e8f"
+        },
+        "sau_sua": {
+          "raw": "816934e302a8755995415baa587a9af88c00f1814b2e7a6561822568631b4394",
+          "normalized": "1d597119f29e7ced842c61f026c0500dd500a77b7f71266a586032c2ed39a69d"
+        },
+        "source_at_output_optimization": {
+          "raw": "816934e302a8755995415baa587a9af88c00f1814b2e7a6561822568631b4394",
+          "normalized": "1d597119f29e7ced842c61f026c0500dd500a77b7f71266a586032c2ed39a69d"
+        }
+      }
+    },
+    {
+      "ca": "closure_identity_across_inlined_copies",
+      "input_optimization": 1,
+      "output_optimization": 0,
+      "debug": 2,
+      "source_sha256": "821f56ab270f1d3cb80bc679e8f68af63d05aeb35380466f840961d156274fb3",
+      "driver_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "compiler_options": [
+        "--fflags=false",
+        "--vector-lib=vector",
+        "--vector-ctor=create"
+      ],
+      "driver_optimization": 1,
+      "driver_debug": 1,
+      "status": "compiler_sensitive",
+      "observations": {
+        "goc": {
+          "raw": "da8bb1ea56bde32bae74f82e1a3799e1a9370500f13cae13fdc09d03245f36f7",
+          "normalized": "1094e20382fd46683cbcadfb02c2f0ea7d3fa268bdab9973dff66a1a0e411e8f"
+        },
+        "sau_sua": {
+          "raw": "816934e302a8755995415baa587a9af88c00f1814b2e7a6561822568631b4394",
+          "normalized": "1d597119f29e7ced842c61f026c0500dd500a77b7f71266a586032c2ed39a69d"
+        },
+        "source_at_output_optimization": {
+          "raw": "816934e302a8755995415baa587a9af88c00f1814b2e7a6561822568631b4394",
+          "normalized": "1d597119f29e7ced842c61f026c0500dd500a77b7f71266a586032c2ed39a69d"
+        }
+      }
+    },
+    {
+      "ca": "debug_info_caller_source",
+      "input_optimization": 0,
+      "output_optimization": 2,
+      "debug": 0,
+      "source_sha256": "d8a38a41bd5b033ea650e3246b55e988bf3f92f9132773310563391639111004",
+      "driver_sha256": "182c331980f827c28e03ba54eb84e636352da974baea465401863ce57a3dbfa8",
+      "compiler_options": [
+        "--fflags=false",
+        "--vector-lib=vector",
+        "--vector-ctor=create"
+      ],
+      "driver_optimization": 1,
+      "driver_debug": 1,
+      "status": "compiler_sensitive",
+      "observations": {
+        "goc": {
+          "raw": "b6d517254a2f697adc1c234446163b5e3a56808cf6103c1a814568ab7a1f82bc",
+          "normalized": "7bb8d8cd796a0510992539bd8d6feea414a2d5ed5695fc3ba28e036051a96efc"
+        },
+        "sau_sua": {
+          "raw": "3fe61c0c164bdb6de2030fd45bc4fe14ff8df8c74f4330a1a453167385e3fcc5",
+          "normalized": "a7d45293eb40db4f9b853460e27f30a8e0c247d77a4e81db3925d5e977e50ca2"
+        },
+        "source_at_output_optimization": {
+          "raw": "3fe61c0c164bdb6de2030fd45bc4fe14ff8df8c74f4330a1a453167385e3fcc5",
+          "normalized": "a7d45293eb40db4f9b853460e27f30a8e0c247d77a4e81db3925d5e977e50ca2"
+        }
+      }
+    },
+    {
+      "ca": "debug_info_caller_source",
+      "input_optimization": 0,
+      "output_optimization": 2,
+      "debug": 2,
+      "source_sha256": "d8a38a41bd5b033ea650e3246b55e988bf3f92f9132773310563391639111004",
+      "driver_sha256": "182c331980f827c28e03ba54eb84e636352da974baea465401863ce57a3dbfa8",
+      "compiler_options": [
+        "--fflags=false",
+        "--vector-lib=vector",
+        "--vector-ctor=create"
+      ],
+      "driver_optimization": 1,
+      "driver_debug": 1,
+      "status": "compiler_sensitive",
+      "observations": {
+        "goc": {
+          "raw": "b6d517254a2f697adc1c234446163b5e3a56808cf6103c1a814568ab7a1f82bc",
+          "normalized": "7bb8d8cd796a0510992539bd8d6feea414a2d5ed5695fc3ba28e036051a96efc"
+        },
+        "sau_sua": {
+          "raw": "3fe61c0c164bdb6de2030fd45bc4fe14ff8df8c74f4330a1a453167385e3fcc5",
+          "normalized": "a7d45293eb40db4f9b853460e27f30a8e0c247d77a4e81db3925d5e977e50ca2"
+        },
+        "source_at_output_optimization": {
+          "raw": "3fe61c0c164bdb6de2030fd45bc4fe14ff8df8c74f4330a1a453167385e3fcc5",
+          "normalized": "a7d45293eb40db4f9b853460e27f30a8e0c247d77a4e81db3925d5e977e50ca2"
+        }
+      }
+    },
+    {
+      "ca": "debug_info_caller_source",
+      "input_optimization": 1,
+      "output_optimization": 2,
+      "debug": 0,
+      "source_sha256": "d8a38a41bd5b033ea650e3246b55e988bf3f92f9132773310563391639111004",
+      "driver_sha256": "182c331980f827c28e03ba54eb84e636352da974baea465401863ce57a3dbfa8",
+      "compiler_options": [
+        "--fflags=false",
+        "--vector-lib=vector",
+        "--vector-ctor=create"
+      ],
+      "driver_optimization": 1,
+      "driver_debug": 1,
+      "status": "compiler_sensitive",
+      "observations": {
+        "goc": {
+          "raw": "b6d517254a2f697adc1c234446163b5e3a56808cf6103c1a814568ab7a1f82bc",
+          "normalized": "7bb8d8cd796a0510992539bd8d6feea414a2d5ed5695fc3ba28e036051a96efc"
+        },
+        "sau_sua": {
+          "raw": "3fe61c0c164bdb6de2030fd45bc4fe14ff8df8c74f4330a1a453167385e3fcc5",
+          "normalized": "a7d45293eb40db4f9b853460e27f30a8e0c247d77a4e81db3925d5e977e50ca2"
+        },
+        "source_at_output_optimization": {
+          "raw": "3fe61c0c164bdb6de2030fd45bc4fe14ff8df8c74f4330a1a453167385e3fcc5",
+          "normalized": "a7d45293eb40db4f9b853460e27f30a8e0c247d77a4e81db3925d5e977e50ca2"
+        }
+      }
+    },
+    {
+      "ca": "debug_info_caller_source",
+      "input_optimization": 1,
+      "output_optimization": 2,
+      "debug": 2,
+      "source_sha256": "d8a38a41bd5b033ea650e3246b55e988bf3f92f9132773310563391639111004",
+      "driver_sha256": "182c331980f827c28e03ba54eb84e636352da974baea465401863ce57a3dbfa8",
+      "compiler_options": [
+        "--fflags=false",
+        "--vector-lib=vector",
+        "--vector-ctor=create"
+      ],
+      "driver_optimization": 1,
+      "driver_debug": 1,
+      "status": "compiler_sensitive",
+      "observations": {
+        "goc": {
+          "raw": "b6d517254a2f697adc1c234446163b5e3a56808cf6103c1a814568ab7a1f82bc",
+          "normalized": "7bb8d8cd796a0510992539bd8d6feea414a2d5ed5695fc3ba28e036051a96efc"
+        },
+        "sau_sua": {
+          "raw": "3fe61c0c164bdb6de2030fd45bc4fe14ff8df8c74f4330a1a453167385e3fcc5",
+          "normalized": "a7d45293eb40db4f9b853460e27f30a8e0c247d77a4e81db3925d5e977e50ca2"
+        },
+        "source_at_output_optimization": {
+          "raw": "3fe61c0c164bdb6de2030fd45bc4fe14ff8df8c74f4330a1a453167385e3fcc5",
+          "normalized": "a7d45293eb40db4f9b853460e27f30a8e0c247d77a4e81db3925d5e977e50ca2"
+        }
+      }
+    },
+    {
+      "ca": "deinline_closure_factories",
+      "input_optimization": 0,
+      "output_optimization": 1,
+      "debug": 0,
+      "source_sha256": "30cb526039e3f5d57e4ab095811b79c57ed215462f8b359e9df338546ab9825b",
+      "driver_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "compiler_options": [
+        "--fflags=false",
+        "--vector-lib=vector",
+        "--vector-ctor=create"
+      ],
+      "driver_optimization": 1,
+      "driver_debug": 1,
+      "status": "compiler_sensitive",
+      "observations": {
+        "goc": {
+          "raw": "16d55390df7727c130da2d378fae941e5a35208469b6d930be5809a686ce4c48",
+          "normalized": "82377a7c257e94cfeb8e0485b37d4baa4b3f381a17a7a62b876fdfd436187641"
+        },
+        "sau_sua": {
+          "raw": "460e8da4276051d0f1c553b4d6547f1fa9c4266a33691fe649409b6bd238dc11",
+          "normalized": "d881620829f675eb1758560748ab5c1842dc7f4e069e18ae65a5220e0dbace45"
+        },
+        "source_at_output_optimization": {
+          "raw": "460e8da4276051d0f1c553b4d6547f1fa9c4266a33691fe649409b6bd238dc11",
+          "normalized": "d881620829f675eb1758560748ab5c1842dc7f4e069e18ae65a5220e0dbace45"
+        }
+      }
+    },
+    {
+      "ca": "deinline_closure_factories",
+      "input_optimization": 0,
+      "output_optimization": 1,
+      "debug": 2,
+      "source_sha256": "30cb526039e3f5d57e4ab095811b79c57ed215462f8b359e9df338546ab9825b",
+      "driver_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "compiler_options": [
+        "--fflags=false",
+        "--vector-lib=vector",
+        "--vector-ctor=create"
+      ],
+      "driver_optimization": 1,
+      "driver_debug": 1,
+      "status": "compiler_sensitive",
+      "observations": {
+        "goc": {
+          "raw": "16d55390df7727c130da2d378fae941e5a35208469b6d930be5809a686ce4c48",
+          "normalized": "82377a7c257e94cfeb8e0485b37d4baa4b3f381a17a7a62b876fdfd436187641"
+        },
+        "sau_sua": {
+          "raw": "460e8da4276051d0f1c553b4d6547f1fa9c4266a33691fe649409b6bd238dc11",
+          "normalized": "d881620829f675eb1758560748ab5c1842dc7f4e069e18ae65a5220e0dbace45"
+        },
+        "source_at_output_optimization": {
+          "raw": "460e8da4276051d0f1c553b4d6547f1fa9c4266a33691fe649409b6bd238dc11",
+          "normalized": "d881620829f675eb1758560748ab5c1842dc7f4e069e18ae65a5220e0dbace45"
+        }
+      }
+    },
+    {
+      "ca": "deinline_closure_factories",
+      "input_optimization": 0,
+      "output_optimization": 2,
+      "debug": 0,
+      "source_sha256": "30cb526039e3f5d57e4ab095811b79c57ed215462f8b359e9df338546ab9825b",
+      "driver_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "compiler_options": [
+        "--fflags=false",
+        "--vector-lib=vector",
+        "--vector-ctor=create"
+      ],
+      "driver_optimization": 1,
+      "driver_debug": 1,
+      "status": "compiler_sensitive",
+      "observations": {
+        "goc": {
+          "raw": "16d55390df7727c130da2d378fae941e5a35208469b6d930be5809a686ce4c48",
+          "normalized": "82377a7c257e94cfeb8e0485b37d4baa4b3f381a17a7a62b876fdfd436187641"
+        },
+        "sau_sua": {
+          "raw": "460e8da4276051d0f1c553b4d6547f1fa9c4266a33691fe649409b6bd238dc11",
+          "normalized": "d881620829f675eb1758560748ab5c1842dc7f4e069e18ae65a5220e0dbace45"
+        },
+        "source_at_output_optimization": {
+          "raw": "460e8da4276051d0f1c553b4d6547f1fa9c4266a33691fe649409b6bd238dc11",
+          "normalized": "d881620829f675eb1758560748ab5c1842dc7f4e069e18ae65a5220e0dbace45"
+        }
+      }
+    },
+    {
+      "ca": "deinline_closure_factories",
+      "input_optimization": 0,
+      "output_optimization": 2,
+      "debug": 2,
+      "source_sha256": "30cb526039e3f5d57e4ab095811b79c57ed215462f8b359e9df338546ab9825b",
+      "driver_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "compiler_options": [
+        "--fflags=false",
+        "--vector-lib=vector",
+        "--vector-ctor=create"
+      ],
+      "driver_optimization": 1,
+      "driver_debug": 1,
+      "status": "compiler_sensitive",
+      "observations": {
+        "goc": {
+          "raw": "16d55390df7727c130da2d378fae941e5a35208469b6d930be5809a686ce4c48",
+          "normalized": "82377a7c257e94cfeb8e0485b37d4baa4b3f381a17a7a62b876fdfd436187641"
+        },
+        "sau_sua": {
+          "raw": "460e8da4276051d0f1c553b4d6547f1fa9c4266a33691fe649409b6bd238dc11",
+          "normalized": "d881620829f675eb1758560748ab5c1842dc7f4e069e18ae65a5220e0dbace45"
+        },
+        "source_at_output_optimization": {
+          "raw": "460e8da4276051d0f1c553b4d6547f1fa9c4266a33691fe649409b6bd238dc11",
+          "normalized": "d881620829f675eb1758560748ab5c1842dc7f4e069e18ae65a5220e0dbace45"
+        }
+      }
+    },
+    {
+      "ca": "deinline_closure_factories",
+      "input_optimization": 1,
+      "output_optimization": 0,
+      "debug": 0,
+      "source_sha256": "30cb526039e3f5d57e4ab095811b79c57ed215462f8b359e9df338546ab9825b",
+      "driver_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "compiler_options": [
+        "--fflags=false",
+        "--vector-lib=vector",
+        "--vector-ctor=create"
+      ],
+      "driver_optimization": 1,
+      "driver_debug": 1,
+      "status": "compiler_sensitive",
+      "observations": {
+        "goc": {
+          "raw": "460e8da4276051d0f1c553b4d6547f1fa9c4266a33691fe649409b6bd238dc11",
+          "normalized": "d881620829f675eb1758560748ab5c1842dc7f4e069e18ae65a5220e0dbace45"
+        },
+        "sau_sua": {
+          "raw": "16d55390df7727c130da2d378fae941e5a35208469b6d930be5809a686ce4c48",
+          "normalized": "82377a7c257e94cfeb8e0485b37d4baa4b3f381a17a7a62b876fdfd436187641"
+        },
+        "source_at_output_optimization": {
+          "raw": "16d55390df7727c130da2d378fae941e5a35208469b6d930be5809a686ce4c48",
+          "normalized": "82377a7c257e94cfeb8e0485b37d4baa4b3f381a17a7a62b876fdfd436187641"
+        }
+      }
+    },
+    {
+      "ca": "deinline_closure_factories",
+      "input_optimization": 1,
+      "output_optimization": 0,
+      "debug": 2,
+      "source_sha256": "30cb526039e3f5d57e4ab095811b79c57ed215462f8b359e9df338546ab9825b",
+      "driver_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "compiler_options": [
+        "--fflags=false",
+        "--vector-lib=vector",
+        "--vector-ctor=create"
+      ],
+      "driver_optimization": 1,
+      "driver_debug": 1,
+      "status": "compiler_sensitive",
+      "observations": {
+        "goc": {
+          "raw": "460e8da4276051d0f1c553b4d6547f1fa9c4266a33691fe649409b6bd238dc11",
+          "normalized": "d881620829f675eb1758560748ab5c1842dc7f4e069e18ae65a5220e0dbace45"
+        },
+        "sau_sua": {
+          "raw": "16d55390df7727c130da2d378fae941e5a35208469b6d930be5809a686ce4c48",
+          "normalized": "82377a7c257e94cfeb8e0485b37d4baa4b3f381a17a7a62b876fdfd436187641"
+        },
+        "source_at_output_optimization": {
+          "raw": "16d55390df7727c130da2d378fae941e5a35208469b6d930be5809a686ce4c48",
+          "normalized": "82377a7c257e94cfeb8e0485b37d4baa4b3f381a17a7a62b876fdfd436187641"
+        }
+      }
+    },
+    {
+      "ca": "deinline_closure_factories",
+      "input_optimization": 2,
+      "output_optimization": 0,
+      "debug": 0,
+      "source_sha256": "30cb526039e3f5d57e4ab095811b79c57ed215462f8b359e9df338546ab9825b",
+      "driver_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "compiler_options": [
+        "--fflags=false",
+        "--vector-lib=vector",
+        "--vector-ctor=create"
+      ],
+      "driver_optimization": 1,
+      "driver_debug": 1,
+      "status": "compiler_sensitive",
+      "observations": {
+        "goc": {
+          "raw": "460e8da4276051d0f1c553b4d6547f1fa9c4266a33691fe649409b6bd238dc11",
+          "normalized": "d881620829f675eb1758560748ab5c1842dc7f4e069e18ae65a5220e0dbace45"
+        },
+        "sau_sua": {
+          "raw": "16d55390df7727c130da2d378fae941e5a35208469b6d930be5809a686ce4c48",
+          "normalized": "82377a7c257e94cfeb8e0485b37d4baa4b3f381a17a7a62b876fdfd436187641"
+        },
+        "source_at_output_optimization": {
+          "raw": "16d55390df7727c130da2d378fae941e5a35208469b6d930be5809a686ce4c48",
+          "normalized": "82377a7c257e94cfeb8e0485b37d4baa4b3f381a17a7a62b876fdfd436187641"
+        }
+      }
+    },
+    {
+      "ca": "deinline_closure_factories",
+      "input_optimization": 2,
+      "output_optimization": 0,
+      "debug": 2,
+      "source_sha256": "30cb526039e3f5d57e4ab095811b79c57ed215462f8b359e9df338546ab9825b",
+      "driver_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "compiler_options": [
+        "--fflags=false",
+        "--vector-lib=vector",
+        "--vector-ctor=create"
+      ],
+      "driver_optimization": 1,
+      "driver_debug": 1,
+      "status": "compiler_sensitive",
+      "observations": {
+        "goc": {
+          "raw": "460e8da4276051d0f1c553b4d6547f1fa9c4266a33691fe649409b6bd238dc11",
+          "normalized": "d881620829f675eb1758560748ab5c1842dc7f4e069e18ae65a5220e0dbace45"
+        },
+        "sau_sua": {
+          "raw": "16d55390df7727c130da2d378fae941e5a35208469b6d930be5809a686ce4c48",
+          "normalized": "82377a7c257e94cfeb8e0485b37d4baa4b3f381a17a7a62b876fdfd436187641"
+        },
+        "source_at_output_optimization": {
+          "raw": "16d55390df7727c130da2d378fae941e5a35208469b6d930be5809a686ce4c48",
+          "normalized": "82377a7c257e94cfeb8e0485b37d4baa4b3f381a17a7a62b876fdfd436187641"
+        }
+      }
+    },
+    {
+      "ca": "readable_captured_choice",
+      "input_optimization": 0,
+      "output_optimization": 1,
+      "debug": 0,
+      "source_sha256": "255661927a3e04e9ee0c8685963ada28c4f5bd5fb92a55e7e84e9a1ced87b181",
+      "driver_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "compiler_options": [
+        "--fflags=false",
+        "--vector-lib=vector",
+        "--vector-ctor=create"
+      ],
+      "driver_optimization": 1,
+      "driver_debug": 1,
+      "status": "compiler_sensitive",
+      "observations": {
+        "goc": {
+          "raw": "4259fb51773575fba845cd090948c83cc068d04f51b380438d374705f28726a6",
+          "normalized": "8351517bb83f00f23829d0bef8da3a63e4b28605c4e38d6d871610095ba1d064"
+        },
+        "sau_sua": {
+          "raw": "79d3785d3759927de74a8cff2de4b416a9919b621a72bdb9df38b84a77e451a7",
+          "normalized": "d3d9a9b33384a375fbb7b042668839c534964fbb0f39ee2d2e736915ac20fe93"
+        },
+        "source_at_output_optimization": {
+          "raw": "79d3785d3759927de74a8cff2de4b416a9919b621a72bdb9df38b84a77e451a7",
+          "normalized": "d3d9a9b33384a375fbb7b042668839c534964fbb0f39ee2d2e736915ac20fe93"
+        }
+      }
+    },
+    {
+      "ca": "readable_captured_choice",
+      "input_optimization": 0,
+      "output_optimization": 1,
+      "debug": 2,
+      "source_sha256": "255661927a3e04e9ee0c8685963ada28c4f5bd5fb92a55e7e84e9a1ced87b181",
+      "driver_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "compiler_options": [
+        "--fflags=false",
+        "--vector-lib=vector",
+        "--vector-ctor=create"
+      ],
+      "driver_optimization": 1,
+      "driver_debug": 1,
+      "status": "compiler_sensitive",
+      "observations": {
+        "goc": {
+          "raw": "4259fb51773575fba845cd090948c83cc068d04f51b380438d374705f28726a6",
+          "normalized": "8351517bb83f00f23829d0bef8da3a63e4b28605c4e38d6d871610095ba1d064"
+        },
+        "sau_sua": {
+          "raw": "79d3785d3759927de74a8cff2de4b416a9919b621a72bdb9df38b84a77e451a7",
+          "normalized": "d3d9a9b33384a375fbb7b042668839c534964fbb0f39ee2d2e736915ac20fe93"
+        },
+        "source_at_output_optimization": {
+          "raw": "79d3785d3759927de74a8cff2de4b416a9919b621a72bdb9df38b84a77e451a7",
+          "normalized": "d3d9a9b33384a375fbb7b042668839c534964fbb0f39ee2d2e736915ac20fe93"
+        }
+      }
+    },
+    {
+      "ca": "readable_captured_choice",
+      "input_optimization": 0,
+      "output_optimization": 2,
+      "debug": 0,
+      "source_sha256": "255661927a3e04e9ee0c8685963ada28c4f5bd5fb92a55e7e84e9a1ced87b181",
+      "driver_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "compiler_options": [
+        "--fflags=false",
+        "--vector-lib=vector",
+        "--vector-ctor=create"
+      ],
+      "driver_optimization": 1,
+      "driver_debug": 1,
+      "status": "compiler_sensitive",
+      "observations": {
+        "goc": {
+          "raw": "4259fb51773575fba845cd090948c83cc068d04f51b380438d374705f28726a6",
+          "normalized": "8351517bb83f00f23829d0bef8da3a63e4b28605c4e38d6d871610095ba1d064"
+        },
+        "sau_sua": {
+          "raw": "79d3785d3759927de74a8cff2de4b416a9919b621a72bdb9df38b84a77e451a7",
+          "normalized": "d3d9a9b33384a375fbb7b042668839c534964fbb0f39ee2d2e736915ac20fe93"
+        },
+        "source_at_output_optimization": {
+          "raw": "79d3785d3759927de74a8cff2de4b416a9919b621a72bdb9df38b84a77e451a7",
+          "normalized": "d3d9a9b33384a375fbb7b042668839c534964fbb0f39ee2d2e736915ac20fe93"
+        }
+      }
+    },
+    {
+      "ca": "readable_captured_choice",
+      "input_optimization": 0,
+      "output_optimization": 2,
+      "debug": 2,
+      "source_sha256": "255661927a3e04e9ee0c8685963ada28c4f5bd5fb92a55e7e84e9a1ced87b181",
+      "driver_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "compiler_options": [
+        "--fflags=false",
+        "--vector-lib=vector",
+        "--vector-ctor=create"
+      ],
+      "driver_optimization": 1,
+      "driver_debug": 1,
+      "status": "compiler_sensitive",
+      "observations": {
+        "goc": {
+          "raw": "4259fb51773575fba845cd090948c83cc068d04f51b380438d374705f28726a6",
+          "normalized": "8351517bb83f00f23829d0bef8da3a63e4b28605c4e38d6d871610095ba1d064"
+        },
+        "sau_sua": {
+          "raw": "79d3785d3759927de74a8cff2de4b416a9919b621a72bdb9df38b84a77e451a7",
+          "normalized": "d3d9a9b33384a375fbb7b042668839c534964fbb0f39ee2d2e736915ac20fe93"
+        },
+        "source_at_output_optimization": {
+          "raw": "79d3785d3759927de74a8cff2de4b416a9919b621a72bdb9df38b84a77e451a7",
+          "normalized": "d3d9a9b33384a375fbb7b042668839c534964fbb0f39ee2d2e736915ac20fe93"
+        }
+      }
+    },
+    {
+      "ca": "readable_captured_choice",
+      "input_optimization": 1,
+      "output_optimization": 0,
+      "debug": 0,
+      "source_sha256": "255661927a3e04e9ee0c8685963ada28c4f5bd5fb92a55e7e84e9a1ced87b181",
+      "driver_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "compiler_options": [
+        "--fflags=false",
+        "--vector-lib=vector",
+        "--vector-ctor=create"
+      ],
+      "driver_optimization": 1,
+      "driver_debug": 1,
+      "status": "compiler_sensitive",
+      "observations": {
+        "goc": {
+          "raw": "79d3785d3759927de74a8cff2de4b416a9919b621a72bdb9df38b84a77e451a7",
+          "normalized": "d3d9a9b33384a375fbb7b042668839c534964fbb0f39ee2d2e736915ac20fe93"
+        },
+        "sau_sua": {
+          "raw": "4259fb51773575fba845cd090948c83cc068d04f51b380438d374705f28726a6",
+          "normalized": "8351517bb83f00f23829d0bef8da3a63e4b28605c4e38d6d871610095ba1d064"
+        },
+        "source_at_output_optimization": {
+          "raw": "4259fb51773575fba845cd090948c83cc068d04f51b380438d374705f28726a6",
+          "normalized": "8351517bb83f00f23829d0bef8da3a63e4b28605c4e38d6d871610095ba1d064"
+        }
+      }
+    },
+    {
+      "ca": "readable_captured_choice",
+      "input_optimization": 1,
+      "output_optimization": 0,
+      "debug": 2,
+      "source_sha256": "255661927a3e04e9ee0c8685963ada28c4f5bd5fb92a55e7e84e9a1ced87b181",
+      "driver_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "compiler_options": [
+        "--fflags=false",
+        "--vector-lib=vector",
+        "--vector-ctor=create"
+      ],
+      "driver_optimization": 1,
+      "driver_debug": 1,
+      "status": "compiler_sensitive",
+      "observations": {
+        "goc": {
+          "raw": "79d3785d3759927de74a8cff2de4b416a9919b621a72bdb9df38b84a77e451a7",
+          "normalized": "d3d9a9b33384a375fbb7b042668839c534964fbb0f39ee2d2e736915ac20fe93"
+        },
+        "sau_sua": {
+          "raw": "4259fb51773575fba845cd090948c83cc068d04f51b380438d374705f28726a6",
+          "normalized": "8351517bb83f00f23829d0bef8da3a63e4b28605c4e38d6d871610095ba1d064"
+        },
+        "source_at_output_optimization": {
+          "raw": "4259fb51773575fba845cd090948c83cc068d04f51b380438d374705f28726a6",
+          "normalized": "8351517bb83f00f23829d0bef8da3a63e4b28605c4e38d6d871610095ba1d064"
+        }
+      }
+    },
+    {
+      "ca": "readable_captured_choice",
+      "input_optimization": 2,
+      "output_optimization": 0,
+      "debug": 0,
+      "source_sha256": "255661927a3e04e9ee0c8685963ada28c4f5bd5fb92a55e7e84e9a1ced87b181",
+      "driver_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "compiler_options": [
+        "--fflags=false",
+        "--vector-lib=vector",
+        "--vector-ctor=create"
+      ],
+      "driver_optimization": 1,
+      "driver_debug": 1,
+      "status": "compiler_sensitive",
+      "observations": {
+        "goc": {
+          "raw": "79d3785d3759927de74a8cff2de4b416a9919b621a72bdb9df38b84a77e451a7",
+          "normalized": "d3d9a9b33384a375fbb7b042668839c534964fbb0f39ee2d2e736915ac20fe93"
+        },
+        "sau_sua": {
+          "raw": "4259fb51773575fba845cd090948c83cc068d04f51b380438d374705f28726a6",
+          "normalized": "8351517bb83f00f23829d0bef8da3a63e4b28605c4e38d6d871610095ba1d064"
+        },
+        "source_at_output_optimization": {
+          "raw": "4259fb51773575fba845cd090948c83cc068d04f51b380438d374705f28726a6",
+          "normalized": "8351517bb83f00f23829d0bef8da3a63e4b28605c4e38d6d871610095ba1d064"
+        }
+      }
+    },
+    {
+      "ca": "readable_captured_choice",
+      "input_optimization": 2,
+      "output_optimization": 0,
+      "debug": 2,
+      "source_sha256": "255661927a3e04e9ee0c8685963ada28c4f5bd5fb92a55e7e84e9a1ced87b181",
+      "driver_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "compiler_options": [
+        "--fflags=false",
+        "--vector-lib=vector",
+        "--vector-ctor=create"
+      ],
+      "driver_optimization": 1,
+      "driver_debug": 1,
+      "status": "compiler_sensitive",
+      "observations": {
+        "goc": {
+          "raw": "79d3785d3759927de74a8cff2de4b416a9919b621a72bdb9df38b84a77e451a7",
+          "normalized": "d3d9a9b33384a375fbb7b042668839c534964fbb0f39ee2d2e736915ac20fe93"
+        },
+        "sau_sua": {
+          "raw": "4259fb51773575fba845cd090948c83cc068d04f51b380438d374705f28726a6",
+          "normalized": "8351517bb83f00f23829d0bef8da3a63e4b28605c4e38d6d871610095ba1d064"
+        },
+        "source_at_output_optimization": {
+          "raw": "4259fb51773575fba845cd090948c83cc068d04f51b380438d374705f28726a6",
+          "normalized": "8351517bb83f00f23829d0bef8da3a63e4b28605c4e38d6d871610095ba1d064"
+        }
+      }
+    },
+    {
+      "ca": "table_array_mixed_keys",
+      "input_optimization": 0,
+      "output_optimization": 1,
+      "debug": 0,
+      "source_sha256": "8f4555c078e4471c4d6c52892c325ae330a142368bd1af8df294a2639696cbc5",
+      "driver_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "compiler_options": [
+        "--fflags=false",
+        "--vector-lib=vector",
+        "--vector-ctor=create"
+      ],
+      "driver_optimization": 1,
+      "driver_debug": 1,
+      "status": "compiler_sensitive",
+      "observations": {
+        "goc": {
+          "raw": "81e018527cf9d4703dc91be183fdd83327f519ab906a376e58e120f84f2c014b",
+          "normalized": "c48c1ac7370d107ab028cff5d2ba2282cde062d7e2830a0d7226263390a8d0ff"
+        },
+        "sau_sua": {
+          "raw": "6d824a78d02917eb57416e699c9569a31e0db3b5181dc1ac656cbe356c553481",
+          "normalized": "0307d36a247dc90df67ec95f98767f817408ed573803b2ebdab9361d2fa54d68"
+        },
+        "source_at_output_optimization": {
+          "raw": "6d824a78d02917eb57416e699c9569a31e0db3b5181dc1ac656cbe356c553481",
+          "normalized": "0307d36a247dc90df67ec95f98767f817408ed573803b2ebdab9361d2fa54d68"
+        }
+      }
+    },
+    {
+      "ca": "table_array_mixed_keys",
+      "input_optimization": 0,
+      "output_optimization": 1,
+      "debug": 2,
+      "source_sha256": "8f4555c078e4471c4d6c52892c325ae330a142368bd1af8df294a2639696cbc5",
+      "driver_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "compiler_options": [
+        "--fflags=false",
+        "--vector-lib=vector",
+        "--vector-ctor=create"
+      ],
+      "driver_optimization": 1,
+      "driver_debug": 1,
+      "status": "compiler_sensitive",
+      "observations": {
+        "goc": {
+          "raw": "81e018527cf9d4703dc91be183fdd83327f519ab906a376e58e120f84f2c014b",
+          "normalized": "c48c1ac7370d107ab028cff5d2ba2282cde062d7e2830a0d7226263390a8d0ff"
+        },
+        "sau_sua": {
+          "raw": "6d824a78d02917eb57416e699c9569a31e0db3b5181dc1ac656cbe356c553481",
+          "normalized": "0307d36a247dc90df67ec95f98767f817408ed573803b2ebdab9361d2fa54d68"
+        },
+        "source_at_output_optimization": {
+          "raw": "6d824a78d02917eb57416e699c9569a31e0db3b5181dc1ac656cbe356c553481",
+          "normalized": "0307d36a247dc90df67ec95f98767f817408ed573803b2ebdab9361d2fa54d68"
+        }
+      }
+    },
+    {
+      "ca": "table_array_mixed_keys",
+      "input_optimization": 0,
+      "output_optimization": 2,
+      "debug": 0,
+      "source_sha256": "8f4555c078e4471c4d6c52892c325ae330a142368bd1af8df294a2639696cbc5",
+      "driver_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "compiler_options": [
+        "--fflags=false",
+        "--vector-lib=vector",
+        "--vector-ctor=create"
+      ],
+      "driver_optimization": 1,
+      "driver_debug": 1,
+      "status": "compiler_sensitive",
+      "observations": {
+        "goc": {
+          "raw": "81e018527cf9d4703dc91be183fdd83327f519ab906a376e58e120f84f2c014b",
+          "normalized": "c48c1ac7370d107ab028cff5d2ba2282cde062d7e2830a0d7226263390a8d0ff"
+        },
+        "sau_sua": {
+          "raw": "6d824a78d02917eb57416e699c9569a31e0db3b5181dc1ac656cbe356c553481",
+          "normalized": "0307d36a247dc90df67ec95f98767f817408ed573803b2ebdab9361d2fa54d68"
+        },
+        "source_at_output_optimization": {
+          "raw": "6d824a78d02917eb57416e699c9569a31e0db3b5181dc1ac656cbe356c553481",
+          "normalized": "0307d36a247dc90df67ec95f98767f817408ed573803b2ebdab9361d2fa54d68"
+        }
+      }
+    },
+    {
+      "ca": "table_array_mixed_keys",
+      "input_optimization": 0,
+      "output_optimization": 2,
+      "debug": 2,
+      "source_sha256": "8f4555c078e4471c4d6c52892c325ae330a142368bd1af8df294a2639696cbc5",
+      "driver_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "compiler_options": [
+        "--fflags=false",
+        "--vector-lib=vector",
+        "--vector-ctor=create"
+      ],
+      "driver_optimization": 1,
+      "driver_debug": 1,
+      "status": "compiler_sensitive",
+      "observations": {
+        "goc": {
+          "raw": "81e018527cf9d4703dc91be183fdd83327f519ab906a376e58e120f84f2c014b",
+          "normalized": "c48c1ac7370d107ab028cff5d2ba2282cde062d7e2830a0d7226263390a8d0ff"
+        },
+        "sau_sua": {
+          "raw": "6d824a78d02917eb57416e699c9569a31e0db3b5181dc1ac656cbe356c553481",
+          "normalized": "0307d36a247dc90df67ec95f98767f817408ed573803b2ebdab9361d2fa54d68"
+        },
+        "source_at_output_optimization": {
+          "raw": "6d824a78d02917eb57416e699c9569a31e0db3b5181dc1ac656cbe356c553481",
+          "normalized": "0307d36a247dc90df67ec95f98767f817408ed573803b2ebdab9361d2fa54d68"
+        }
+      }
+    },
+    {
+      "ca": "table_empty_growth",
+      "input_optimization": 0,
+      "output_optimization": 1,
+      "debug": 0,
+      "source_sha256": "51ee34d24be1d0f81f121917beb529e047b5ca2c59a66973b9fbb4c08d5c8aa4",
+      "driver_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "compiler_options": [
+        "--fflags=false",
+        "--vector-lib=vector",
+        "--vector-ctor=create"
+      ],
+      "driver_optimization": 1,
+      "driver_debug": 1,
+      "status": "compiler_sensitive",
+      "observations": {
+        "goc": {
+          "raw": "e477fc9c85c4d989d1cd01176922d446b7fa576fed798e7c3dfbb27232991968",
+          "normalized": "d80fae2f2f48976d5a23ed4534148c06ea5abe92e313c7436bc1ae02f3d071ec"
+        },
+        "sau_sua": {
+          "raw": "88d5b4736d8bc491b46b8c78c5f70f6f3afb6cf203071a73474d391f6c857ee9",
+          "normalized": "a7d5362922bb2afd09f6619565095bf23bffc8c56588e9a6a62805d6f493eb3f"
+        },
+        "source_at_output_optimization": {
+          "raw": "88d5b4736d8bc491b46b8c78c5f70f6f3afb6cf203071a73474d391f6c857ee9",
+          "normalized": "a7d5362922bb2afd09f6619565095bf23bffc8c56588e9a6a62805d6f493eb3f"
+        }
+      }
+    },
+    {
+      "ca": "table_empty_growth",
+      "input_optimization": 0,
+      "output_optimization": 1,
+      "debug": 2,
+      "source_sha256": "51ee34d24be1d0f81f121917beb529e047b5ca2c59a66973b9fbb4c08d5c8aa4",
+      "driver_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "compiler_options": [
+        "--fflags=false",
+        "--vector-lib=vector",
+        "--vector-ctor=create"
+      ],
+      "driver_optimization": 1,
+      "driver_debug": 1,
+      "status": "compiler_sensitive",
+      "observations": {
+        "goc": {
+          "raw": "e477fc9c85c4d989d1cd01176922d446b7fa576fed798e7c3dfbb27232991968",
+          "normalized": "d80fae2f2f48976d5a23ed4534148c06ea5abe92e313c7436bc1ae02f3d071ec"
+        },
+        "sau_sua": {
+          "raw": "88d5b4736d8bc491b46b8c78c5f70f6f3afb6cf203071a73474d391f6c857ee9",
+          "normalized": "a7d5362922bb2afd09f6619565095bf23bffc8c56588e9a6a62805d6f493eb3f"
+        },
+        "source_at_output_optimization": {
+          "raw": "88d5b4736d8bc491b46b8c78c5f70f6f3afb6cf203071a73474d391f6c857ee9",
+          "normalized": "a7d5362922bb2afd09f6619565095bf23bffc8c56588e9a6a62805d6f493eb3f"
+        }
+      }
+    },
+    {
+      "ca": "table_empty_growth",
+      "input_optimization": 0,
+      "output_optimization": 2,
+      "debug": 0,
+      "source_sha256": "51ee34d24be1d0f81f121917beb529e047b5ca2c59a66973b9fbb4c08d5c8aa4",
+      "driver_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "compiler_options": [
+        "--fflags=false",
+        "--vector-lib=vector",
+        "--vector-ctor=create"
+      ],
+      "driver_optimization": 1,
+      "driver_debug": 1,
+      "status": "compiler_sensitive",
+      "observations": {
+        "goc": {
+          "raw": "e477fc9c85c4d989d1cd01176922d446b7fa576fed798e7c3dfbb27232991968",
+          "normalized": "d80fae2f2f48976d5a23ed4534148c06ea5abe92e313c7436bc1ae02f3d071ec"
+        },
+        "sau_sua": {
+          "raw": "88d5b4736d8bc491b46b8c78c5f70f6f3afb6cf203071a73474d391f6c857ee9",
+          "normalized": "a7d5362922bb2afd09f6619565095bf23bffc8c56588e9a6a62805d6f493eb3f"
+        },
+        "source_at_output_optimization": {
+          "raw": "88d5b4736d8bc491b46b8c78c5f70f6f3afb6cf203071a73474d391f6c857ee9",
+          "normalized": "a7d5362922bb2afd09f6619565095bf23bffc8c56588e9a6a62805d6f493eb3f"
+        }
+      }
+    },
+    {
+      "ca": "table_empty_growth",
+      "input_optimization": 0,
+      "output_optimization": 2,
+      "debug": 2,
+      "source_sha256": "51ee34d24be1d0f81f121917beb529e047b5ca2c59a66973b9fbb4c08d5c8aa4",
+      "driver_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "compiler_options": [
+        "--fflags=false",
+        "--vector-lib=vector",
+        "--vector-ctor=create"
+      ],
+      "driver_optimization": 1,
+      "driver_debug": 1,
+      "status": "compiler_sensitive",
+      "observations": {
+        "goc": {
+          "raw": "e477fc9c85c4d989d1cd01176922d446b7fa576fed798e7c3dfbb27232991968",
+          "normalized": "d80fae2f2f48976d5a23ed4534148c06ea5abe92e313c7436bc1ae02f3d071ec"
+        },
+        "sau_sua": {
+          "raw": "88d5b4736d8bc491b46b8c78c5f70f6f3afb6cf203071a73474d391f6c857ee9",
+          "normalized": "a7d5362922bb2afd09f6619565095bf23bffc8c56588e9a6a62805d6f493eb3f"
+        },
+        "source_at_output_optimization": {
+          "raw": "88d5b4736d8bc491b46b8c78c5f70f6f3afb6cf203071a73474d391f6c857ee9",
+          "normalized": "a7d5362922bb2afd09f6619565095bf23bffc8c56588e9a6a62805d6f493eb3f"
+        }
+      }
+    },
+    {
+      "ca": "table_large_allocation",
+      "input_optimization": 0,
+      "output_optimization": 1,
+      "debug": 0,
+      "source_sha256": "050773a27d8c7c41f682822a0829aa72af0454a7657bda36ea583589cc18bb8e",
+      "driver_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "compiler_options": [
+        "--fflags=false",
+        "--vector-lib=vector",
+        "--vector-ctor=create"
+      ],
+      "driver_optimization": 1,
+      "driver_debug": 1,
+      "status": "compiler_sensitive",
+      "observations": {
+        "goc": {
+          "raw": "19d9730e85f7c53722d9074c9a994a6f1c42369436f7a08fcd92887cb9706eab",
+          "normalized": "3ab3f23c19fe0d3a07c1ed08dcb846bbdf49844fc0a569c202a1ab628631a804"
+        },
+        "sau_sua": {
+          "raw": "40126bf5628d918243a9a28ff22e30225766d17166f0ff794872438b5c2b3fa8",
+          "normalized": "e7d3b1483ac8b30883da39712181a3bce714b70dec9f2070bfa7949e158994b1"
+        },
+        "source_at_output_optimization": {
+          "raw": "40126bf5628d918243a9a28ff22e30225766d17166f0ff794872438b5c2b3fa8",
+          "normalized": "e7d3b1483ac8b30883da39712181a3bce714b70dec9f2070bfa7949e158994b1"
+        }
+      }
+    },
+    {
+      "ca": "table_large_allocation",
+      "input_optimization": 0,
+      "output_optimization": 1,
+      "debug": 2,
+      "source_sha256": "050773a27d8c7c41f682822a0829aa72af0454a7657bda36ea583589cc18bb8e",
+      "driver_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "compiler_options": [
+        "--fflags=false",
+        "--vector-lib=vector",
+        "--vector-ctor=create"
+      ],
+      "driver_optimization": 1,
+      "driver_debug": 1,
+      "status": "compiler_sensitive",
+      "observations": {
+        "goc": {
+          "raw": "19d9730e85f7c53722d9074c9a994a6f1c42369436f7a08fcd92887cb9706eab",
+          "normalized": "3ab3f23c19fe0d3a07c1ed08dcb846bbdf49844fc0a569c202a1ab628631a804"
+        },
+        "sau_sua": {
+          "raw": "40126bf5628d918243a9a28ff22e30225766d17166f0ff794872438b5c2b3fa8",
+          "normalized": "e7d3b1483ac8b30883da39712181a3bce714b70dec9f2070bfa7949e158994b1"
+        },
+        "source_at_output_optimization": {
+          "raw": "40126bf5628d918243a9a28ff22e30225766d17166f0ff794872438b5c2b3fa8",
+          "normalized": "e7d3b1483ac8b30883da39712181a3bce714b70dec9f2070bfa7949e158994b1"
+        }
+      }
+    },
+    {
+      "ca": "table_large_allocation",
+      "input_optimization": 0,
+      "output_optimization": 2,
+      "debug": 0,
+      "source_sha256": "050773a27d8c7c41f682822a0829aa72af0454a7657bda36ea583589cc18bb8e",
+      "driver_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "compiler_options": [
+        "--fflags=false",
+        "--vector-lib=vector",
+        "--vector-ctor=create"
+      ],
+      "driver_optimization": 1,
+      "driver_debug": 1,
+      "status": "compiler_sensitive",
+      "observations": {
+        "goc": {
+          "raw": "19d9730e85f7c53722d9074c9a994a6f1c42369436f7a08fcd92887cb9706eab",
+          "normalized": "3ab3f23c19fe0d3a07c1ed08dcb846bbdf49844fc0a569c202a1ab628631a804"
+        },
+        "sau_sua": {
+          "raw": "40126bf5628d918243a9a28ff22e30225766d17166f0ff794872438b5c2b3fa8",
+          "normalized": "e7d3b1483ac8b30883da39712181a3bce714b70dec9f2070bfa7949e158994b1"
+        },
+        "source_at_output_optimization": {
+          "raw": "40126bf5628d918243a9a28ff22e30225766d17166f0ff794872438b5c2b3fa8",
+          "normalized": "e7d3b1483ac8b30883da39712181a3bce714b70dec9f2070bfa7949e158994b1"
+        }
+      }
+    },
+    {
+      "ca": "table_large_allocation",
+      "input_optimization": 0,
+      "output_optimization": 2,
+      "debug": 2,
+      "source_sha256": "050773a27d8c7c41f682822a0829aa72af0454a7657bda36ea583589cc18bb8e",
+      "driver_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "compiler_options": [
+        "--fflags=false",
+        "--vector-lib=vector",
+        "--vector-ctor=create"
+      ],
+      "driver_optimization": 1,
+      "driver_debug": 1,
+      "status": "compiler_sensitive",
+      "observations": {
+        "goc": {
+          "raw": "19d9730e85f7c53722d9074c9a994a6f1c42369436f7a08fcd92887cb9706eab",
+          "normalized": "3ab3f23c19fe0d3a07c1ed08dcb846bbdf49844fc0a569c202a1ab628631a804"
+        },
+        "sau_sua": {
+          "raw": "40126bf5628d918243a9a28ff22e30225766d17166f0ff794872438b5c2b3fa8",
+          "normalized": "e7d3b1483ac8b30883da39712181a3bce714b70dec9f2070bfa7949e158994b1"
+        },
+        "source_at_output_optimization": {
+          "raw": "40126bf5628d918243a9a28ff22e30225766d17166f0ff794872438b5c2b3fa8",
+          "normalized": "e7d3b1483ac8b30883da39712181a3bce714b70dec9f2070bfa7949e158994b1"
+        }
+      }
+    },
+    {
+      "ca": "table_numeric_hash_layout",
+      "input_optimization": 0,
+      "output_optimization": 1,
+      "debug": 0,
+      "source_sha256": "11fed9dc5b6b756dde0a2ffe7a5f22b6fd786575990210557460fc1323b653f0",
+      "driver_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "compiler_options": [
+        "--fflags=false",
+        "--vector-lib=vector",
+        "--vector-ctor=create"
+      ],
+      "driver_optimization": 1,
+      "driver_debug": 1,
+      "status": "compiler_sensitive",
+      "observations": {
+        "goc": {
+          "raw": "0512f2c5492c61cdd16a2f071c676e968de1a15e83eff0af486fdfe92b6a03fd",
+          "normalized": "b677d9fe9ea182a698a7a6fe2fa62f63b81c09df8edb6f9da44b46bc791a6ed5"
+        },
+        "sau_sua": {
+          "raw": "df75920621f3508c96beb0eddd1ba4a78749552a3250d963a5e3f6582c4832b5",
+          "normalized": "40bbf8d403c37712ede979085dd67e63bd77a39a7ad7447f62312ad33ca8ece1"
+        },
+        "source_at_output_optimization": {
+          "raw": "df75920621f3508c96beb0eddd1ba4a78749552a3250d963a5e3f6582c4832b5",
+          "normalized": "40bbf8d403c37712ede979085dd67e63bd77a39a7ad7447f62312ad33ca8ece1"
+        }
+      }
+    },
+    {
+      "ca": "table_numeric_hash_layout",
+      "input_optimization": 0,
+      "output_optimization": 1,
+      "debug": 2,
+      "source_sha256": "11fed9dc5b6b756dde0a2ffe7a5f22b6fd786575990210557460fc1323b653f0",
+      "driver_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "compiler_options": [
+        "--fflags=false",
+        "--vector-lib=vector",
+        "--vector-ctor=create"
+      ],
+      "driver_optimization": 1,
+      "driver_debug": 1,
+      "status": "compiler_sensitive",
+      "observations": {
+        "goc": {
+          "raw": "0512f2c5492c61cdd16a2f071c676e968de1a15e83eff0af486fdfe92b6a03fd",
+          "normalized": "b677d9fe9ea182a698a7a6fe2fa62f63b81c09df8edb6f9da44b46bc791a6ed5"
+        },
+        "sau_sua": {
+          "raw": "df75920621f3508c96beb0eddd1ba4a78749552a3250d963a5e3f6582c4832b5",
+          "normalized": "40bbf8d403c37712ede979085dd67e63bd77a39a7ad7447f62312ad33ca8ece1"
+        },
+        "source_at_output_optimization": {
+          "raw": "df75920621f3508c96beb0eddd1ba4a78749552a3250d963a5e3f6582c4832b5",
+          "normalized": "40bbf8d403c37712ede979085dd67e63bd77a39a7ad7447f62312ad33ca8ece1"
+        }
+      }
+    },
+    {
+      "ca": "table_numeric_hash_layout",
+      "input_optimization": 0,
+      "output_optimization": 2,
+      "debug": 0,
+      "source_sha256": "11fed9dc5b6b756dde0a2ffe7a5f22b6fd786575990210557460fc1323b653f0",
+      "driver_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "compiler_options": [
+        "--fflags=false",
+        "--vector-lib=vector",
+        "--vector-ctor=create"
+      ],
+      "driver_optimization": 1,
+      "driver_debug": 1,
+      "status": "compiler_sensitive",
+      "observations": {
+        "goc": {
+          "raw": "0512f2c5492c61cdd16a2f071c676e968de1a15e83eff0af486fdfe92b6a03fd",
+          "normalized": "b677d9fe9ea182a698a7a6fe2fa62f63b81c09df8edb6f9da44b46bc791a6ed5"
+        },
+        "sau_sua": {
+          "raw": "df75920621f3508c96beb0eddd1ba4a78749552a3250d963a5e3f6582c4832b5",
+          "normalized": "40bbf8d403c37712ede979085dd67e63bd77a39a7ad7447f62312ad33ca8ece1"
+        },
+        "source_at_output_optimization": {
+          "raw": "df75920621f3508c96beb0eddd1ba4a78749552a3250d963a5e3f6582c4832b5",
+          "normalized": "40bbf8d403c37712ede979085dd67e63bd77a39a7ad7447f62312ad33ca8ece1"
+        }
+      }
+    },
+    {
+      "ca": "table_numeric_hash_layout",
+      "input_optimization": 0,
+      "output_optimization": 2,
+      "debug": 2,
+      "source_sha256": "11fed9dc5b6b756dde0a2ffe7a5f22b6fd786575990210557460fc1323b653f0",
+      "driver_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "compiler_options": [
+        "--fflags=false",
+        "--vector-lib=vector",
+        "--vector-ctor=create"
+      ],
+      "driver_optimization": 1,
+      "driver_debug": 1,
+      "status": "compiler_sensitive",
+      "observations": {
+        "goc": {
+          "raw": "0512f2c5492c61cdd16a2f071c676e968de1a15e83eff0af486fdfe92b6a03fd",
+          "normalized": "b677d9fe9ea182a698a7a6fe2fa62f63b81c09df8edb6f9da44b46bc791a6ed5"
+        },
+        "sau_sua": {
+          "raw": "df75920621f3508c96beb0eddd1ba4a78749552a3250d963a5e3f6582c4832b5",
+          "normalized": "40bbf8d403c37712ede979085dd67e63bd77a39a7ad7447f62312ad33ca8ece1"
+        },
+        "source_at_output_optimization": {
+          "raw": "df75920621f3508c96beb0eddd1ba4a78749552a3250d963a5e3f6582c4832b5",
+          "normalized": "40bbf8d403c37712ede979085dd67e63bd77a39a7ad7447f62312ad33ca8ece1"
+        }
+      }
+    },
+    {
+      "ca": "vector3_alias_write",
+      "input_optimization": 0,
+      "output_optimization": 1,
+      "debug": 0,
+      "source_sha256": "38ca74e5f78c55514e30b387562b570c4d99d694481ca7ec40479f03f140f737",
+      "driver_sha256": "4cd5089f2da53b263aaa404851785b83af0bf08c25cf14a1a25c4f8477b7a332",
+      "compiler_options": [
+        "--fflags=false",
+        "--vector-lib=Vector3",
+        "--vector-ctor=new"
+      ],
+      "driver_optimization": 1,
+      "driver_debug": 1,
+      "status": "compiler_sensitive",
+      "observations": {
+        "goc": {
+          "raw": "3aba36cdb8fb55f2b647840fbd0e498a2b911e99a280746eaf316ef0b730df76",
+          "normalized": "90b54eb69d219c9e7bcc8724486f69ac9f23bddf2b5cde04fe3df11807b14e1f"
+        },
+        "sau_sua": {
+          "raw": "d1d3714d6bf500c39d3bd3158de8268f5837d31f35d8910af5bb25f073e15e9b",
+          "normalized": "c181c27bcf0f33fa9f751636349f0b944bd4d0a50377e614a2d7de45dd707cfd"
+        },
+        "source_at_output_optimization": {
+          "raw": "d1d3714d6bf500c39d3bd3158de8268f5837d31f35d8910af5bb25f073e15e9b",
+          "normalized": "c181c27bcf0f33fa9f751636349f0b944bd4d0a50377e614a2d7de45dd707cfd"
+        }
+      }
+    },
+    {
+      "ca": "vector3_alias_write",
+      "input_optimization": 0,
+      "output_optimization": 1,
+      "debug": 2,
+      "source_sha256": "38ca74e5f78c55514e30b387562b570c4d99d694481ca7ec40479f03f140f737",
+      "driver_sha256": "4cd5089f2da53b263aaa404851785b83af0bf08c25cf14a1a25c4f8477b7a332",
+      "compiler_options": [
+        "--fflags=false",
+        "--vector-lib=Vector3",
+        "--vector-ctor=new"
+      ],
+      "driver_optimization": 1,
+      "driver_debug": 1,
+      "status": "compiler_sensitive",
+      "observations": {
+        "goc": {
+          "raw": "3aba36cdb8fb55f2b647840fbd0e498a2b911e99a280746eaf316ef0b730df76",
+          "normalized": "90b54eb69d219c9e7bcc8724486f69ac9f23bddf2b5cde04fe3df11807b14e1f"
+        },
+        "sau_sua": {
+          "raw": "d1d3714d6bf500c39d3bd3158de8268f5837d31f35d8910af5bb25f073e15e9b",
+          "normalized": "c181c27bcf0f33fa9f751636349f0b944bd4d0a50377e614a2d7de45dd707cfd"
+        },
+        "source_at_output_optimization": {
+          "raw": "d1d3714d6bf500c39d3bd3158de8268f5837d31f35d8910af5bb25f073e15e9b",
+          "normalized": "c181c27bcf0f33fa9f751636349f0b944bd4d0a50377e614a2d7de45dd707cfd"
+        }
+      }
+    },
+    {
+      "ca": "vector3_alias_write",
+      "input_optimization": 0,
+      "output_optimization": 2,
+      "debug": 0,
+      "source_sha256": "38ca74e5f78c55514e30b387562b570c4d99d694481ca7ec40479f03f140f737",
+      "driver_sha256": "4cd5089f2da53b263aaa404851785b83af0bf08c25cf14a1a25c4f8477b7a332",
+      "compiler_options": [
+        "--fflags=false",
+        "--vector-lib=Vector3",
+        "--vector-ctor=new"
+      ],
+      "driver_optimization": 1,
+      "driver_debug": 1,
+      "status": "compiler_sensitive",
+      "observations": {
+        "goc": {
+          "raw": "3aba36cdb8fb55f2b647840fbd0e498a2b911e99a280746eaf316ef0b730df76",
+          "normalized": "90b54eb69d219c9e7bcc8724486f69ac9f23bddf2b5cde04fe3df11807b14e1f"
+        },
+        "sau_sua": {
+          "raw": "d1d3714d6bf500c39d3bd3158de8268f5837d31f35d8910af5bb25f073e15e9b",
+          "normalized": "c181c27bcf0f33fa9f751636349f0b944bd4d0a50377e614a2d7de45dd707cfd"
+        },
+        "source_at_output_optimization": {
+          "raw": "d1d3714d6bf500c39d3bd3158de8268f5837d31f35d8910af5bb25f073e15e9b",
+          "normalized": "c181c27bcf0f33fa9f751636349f0b944bd4d0a50377e614a2d7de45dd707cfd"
+        }
+      }
+    },
+    {
+      "ca": "vector3_alias_write",
+      "input_optimization": 0,
+      "output_optimization": 2,
+      "debug": 2,
+      "source_sha256": "38ca74e5f78c55514e30b387562b570c4d99d694481ca7ec40479f03f140f737",
+      "driver_sha256": "4cd5089f2da53b263aaa404851785b83af0bf08c25cf14a1a25c4f8477b7a332",
+      "compiler_options": [
+        "--fflags=false",
+        "--vector-lib=Vector3",
+        "--vector-ctor=new"
+      ],
+      "driver_optimization": 1,
+      "driver_debug": 1,
+      "status": "compiler_sensitive",
+      "observations": {
+        "goc": {
+          "raw": "3aba36cdb8fb55f2b647840fbd0e498a2b911e99a280746eaf316ef0b730df76",
+          "normalized": "90b54eb69d219c9e7bcc8724486f69ac9f23bddf2b5cde04fe3df11807b14e1f"
+        },
+        "sau_sua": {
+          "raw": "d1d3714d6bf500c39d3bd3158de8268f5837d31f35d8910af5bb25f073e15e9b",
+          "normalized": "c181c27bcf0f33fa9f751636349f0b944bd4d0a50377e614a2d7de45dd707cfd"
+        },
+        "source_at_output_optimization": {
+          "raw": "d1d3714d6bf500c39d3bd3158de8268f5837d31f35d8910af5bb25f073e15e9b",
+          "normalized": "c181c27bcf0f33fa9f751636349f0b944bd4d0a50377e614a2d7de45dd707cfd"
+        }
+      }
+    },
+    {
+      "ca": "vector3_alias_write",
+      "input_optimization": 1,
+      "output_optimization": 0,
+      "debug": 0,
+      "source_sha256": "38ca74e5f78c55514e30b387562b570c4d99d694481ca7ec40479f03f140f737",
+      "driver_sha256": "4cd5089f2da53b263aaa404851785b83af0bf08c25cf14a1a25c4f8477b7a332",
+      "compiler_options": [
+        "--fflags=false",
+        "--vector-lib=Vector3",
+        "--vector-ctor=new"
+      ],
+      "driver_optimization": 1,
+      "driver_debug": 1,
+      "status": "compiler_sensitive",
+      "observations": {
+        "goc": {
+          "raw": "d1d3714d6bf500c39d3bd3158de8268f5837d31f35d8910af5bb25f073e15e9b",
+          "normalized": "c181c27bcf0f33fa9f751636349f0b944bd4d0a50377e614a2d7de45dd707cfd"
+        },
+        "sau_sua": {
+          "raw": "3aba36cdb8fb55f2b647840fbd0e498a2b911e99a280746eaf316ef0b730df76",
+          "normalized": "90b54eb69d219c9e7bcc8724486f69ac9f23bddf2b5cde04fe3df11807b14e1f"
+        },
+        "source_at_output_optimization": {
+          "raw": "3aba36cdb8fb55f2b647840fbd0e498a2b911e99a280746eaf316ef0b730df76",
+          "normalized": "90b54eb69d219c9e7bcc8724486f69ac9f23bddf2b5cde04fe3df11807b14e1f"
+        }
+      }
+    },
+    {
+      "ca": "vector3_alias_write",
+      "input_optimization": 1,
+      "output_optimization": 0,
+      "debug": 2,
+      "source_sha256": "38ca74e5f78c55514e30b387562b570c4d99d694481ca7ec40479f03f140f737",
+      "driver_sha256": "4cd5089f2da53b263aaa404851785b83af0bf08c25cf14a1a25c4f8477b7a332",
+      "compiler_options": [
+        "--fflags=false",
+        "--vector-lib=Vector3",
+        "--vector-ctor=new"
+      ],
+      "driver_optimization": 1,
+      "driver_debug": 1,
+      "status": "compiler_sensitive",
+      "observations": {
+        "goc": {
+          "raw": "d1d3714d6bf500c39d3bd3158de8268f5837d31f35d8910af5bb25f073e15e9b",
+          "normalized": "c181c27bcf0f33fa9f751636349f0b944bd4d0a50377e614a2d7de45dd707cfd"
+        },
+        "sau_sua": {
+          "raw": "3aba36cdb8fb55f2b647840fbd0e498a2b911e99a280746eaf316ef0b730df76",
+          "normalized": "90b54eb69d219c9e7bcc8724486f69ac9f23bddf2b5cde04fe3df11807b14e1f"
+        },
+        "source_at_output_optimization": {
+          "raw": "3aba36cdb8fb55f2b647840fbd0e498a2b911e99a280746eaf316ef0b730df76",
+          "normalized": "90b54eb69d219c9e7bcc8724486f69ac9f23bddf2b5cde04fe3df11807b14e1f"
+        }
+      }
+    },
+    {
+      "ca": "vector3_environment",
+      "input_optimization": 0,
+      "output_optimization": 2,
+      "debug": 0,
+      "source_sha256": "a88bf19ad482f353113d9ca8af8a89f34fbb8fac91dce98ba500f6d2bd4573cf",
+      "driver_sha256": "2ea93463dc2d91a71cc3e6ea5377c6291d9724ff0e8ee7f1f79a0a81b231aaff",
+      "compiler_options": [
+        "--fflags=false",
+        "--vector-lib=Vector3",
+        "--vector-ctor=new"
+      ],
+      "driver_optimization": 1,
+      "driver_debug": 1,
+      "status": "compiler_sensitive",
+      "observations": {
+        "goc": {
+          "raw": "c4f55d3460847595b531721713959d3ae962852c921efeefb7db0aed88f3cabe",
+          "normalized": "f7ee7156396020b6e148442b0d0e9a661df8a09b5a55dddb98707919cf67b519"
+        },
+        "sau_sua": {
+          "raw": "d1d3714d6bf500c39d3bd3158de8268f5837d31f35d8910af5bb25f073e15e9b",
+          "normalized": "c181c27bcf0f33fa9f751636349f0b944bd4d0a50377e614a2d7de45dd707cfd"
+        },
+        "source_at_output_optimization": {
+          "raw": "d1d3714d6bf500c39d3bd3158de8268f5837d31f35d8910af5bb25f073e15e9b",
+          "normalized": "c181c27bcf0f33fa9f751636349f0b944bd4d0a50377e614a2d7de45dd707cfd"
+        }
+      }
+    },
+    {
+      "ca": "vector3_environment",
+      "input_optimization": 0,
+      "output_optimization": 2,
+      "debug": 2,
+      "source_sha256": "a88bf19ad482f353113d9ca8af8a89f34fbb8fac91dce98ba500f6d2bd4573cf",
+      "driver_sha256": "2ea93463dc2d91a71cc3e6ea5377c6291d9724ff0e8ee7f1f79a0a81b231aaff",
+      "compiler_options": [
+        "--fflags=false",
+        "--vector-lib=Vector3",
+        "--vector-ctor=new"
+      ],
+      "driver_optimization": 1,
+      "driver_debug": 1,
+      "status": "compiler_sensitive",
+      "observations": {
+        "goc": {
+          "raw": "c4f55d3460847595b531721713959d3ae962852c921efeefb7db0aed88f3cabe",
+          "normalized": "f7ee7156396020b6e148442b0d0e9a661df8a09b5a55dddb98707919cf67b519"
+        },
+        "sau_sua": {
+          "raw": "d1d3714d6bf500c39d3bd3158de8268f5837d31f35d8910af5bb25f073e15e9b",
+          "normalized": "c181c27bcf0f33fa9f751636349f0b944bd4d0a50377e614a2d7de45dd707cfd"
+        },
+        "source_at_output_optimization": {
+          "raw": "d1d3714d6bf500c39d3bd3158de8268f5837d31f35d8910af5bb25f073e15e9b",
+          "normalized": "c181c27bcf0f33fa9f751636349f0b944bd4d0a50377e614a2d7de45dd707cfd"
+        }
+      }
+    },
+    {
+      "ca": "vector3_environment",
+      "input_optimization": 1,
+      "output_optimization": 2,
+      "debug": 0,
+      "source_sha256": "a88bf19ad482f353113d9ca8af8a89f34fbb8fac91dce98ba500f6d2bd4573cf",
+      "driver_sha256": "2ea93463dc2d91a71cc3e6ea5377c6291d9724ff0e8ee7f1f79a0a81b231aaff",
+      "compiler_options": [
+        "--fflags=false",
+        "--vector-lib=Vector3",
+        "--vector-ctor=new"
+      ],
+      "driver_optimization": 1,
+      "driver_debug": 1,
+      "status": "compiler_sensitive",
+      "observations": {
+        "goc": {
+          "raw": "c4f55d3460847595b531721713959d3ae962852c921efeefb7db0aed88f3cabe",
+          "normalized": "f7ee7156396020b6e148442b0d0e9a661df8a09b5a55dddb98707919cf67b519"
+        },
+        "sau_sua": {
+          "raw": "d1d3714d6bf500c39d3bd3158de8268f5837d31f35d8910af5bb25f073e15e9b",
+          "normalized": "c181c27bcf0f33fa9f751636349f0b944bd4d0a50377e614a2d7de45dd707cfd"
+        },
+        "source_at_output_optimization": {
+          "raw": "d1d3714d6bf500c39d3bd3158de8268f5837d31f35d8910af5bb25f073e15e9b",
+          "normalized": "c181c27bcf0f33fa9f751636349f0b944bd4d0a50377e614a2d7de45dd707cfd"
+        }
+      }
+    },
+    {
+      "ca": "vector3_environment",
+      "input_optimization": 1,
+      "output_optimization": 2,
+      "debug": 2,
+      "source_sha256": "a88bf19ad482f353113d9ca8af8a89f34fbb8fac91dce98ba500f6d2bd4573cf",
+      "driver_sha256": "2ea93463dc2d91a71cc3e6ea5377c6291d9724ff0e8ee7f1f79a0a81b231aaff",
+      "compiler_options": [
+        "--fflags=false",
+        "--vector-lib=Vector3",
+        "--vector-ctor=new"
+      ],
+      "driver_optimization": 1,
+      "driver_debug": 1,
+      "status": "compiler_sensitive",
+      "observations": {
+        "goc": {
+          "raw": "c4f55d3460847595b531721713959d3ae962852c921efeefb7db0aed88f3cabe",
+          "normalized": "f7ee7156396020b6e148442b0d0e9a661df8a09b5a55dddb98707919cf67b519"
+        },
+        "sau_sua": {
+          "raw": "d1d3714d6bf500c39d3bd3158de8268f5837d31f35d8910af5bb25f073e15e9b",
+          "normalized": "c181c27bcf0f33fa9f751636349f0b944bd4d0a50377e614a2d7de45dd707cfd"
+        },
+        "source_at_output_optimization": {
+          "raw": "d1d3714d6bf500c39d3bd3158de8268f5837d31f35d8910af5bb25f073e15e9b",
+          "normalized": "c181c27bcf0f33fa9f751636349f0b944bd4d0a50377e614a2d7de45dd707cfd"
+        }
+      }
+    },
+    {
+      "ca": "vector3_member_write",
+      "input_optimization": 0,
+      "output_optimization": 1,
+      "debug": 0,
+      "source_sha256": "f52ae4007e369e2da30df7a9b3cc09150eab63f30a136e851ace5d4f32ff2048",
+      "driver_sha256": "4cd5089f2da53b263aaa404851785b83af0bf08c25cf14a1a25c4f8477b7a332",
+      "compiler_options": [
+        "--fflags=false",
+        "--vector-lib=Vector3",
+        "--vector-ctor=new"
+      ],
+      "driver_optimization": 1,
+      "driver_debug": 1,
+      "status": "compiler_sensitive",
+      "observations": {
+        "goc": {
+          "raw": "3aba36cdb8fb55f2b647840fbd0e498a2b911e99a280746eaf316ef0b730df76",
+          "normalized": "90b54eb69d219c9e7bcc8724486f69ac9f23bddf2b5cde04fe3df11807b14e1f"
+        },
+        "sau_sua": {
+          "raw": "d1d3714d6bf500c39d3bd3158de8268f5837d31f35d8910af5bb25f073e15e9b",
+          "normalized": "c181c27bcf0f33fa9f751636349f0b944bd4d0a50377e614a2d7de45dd707cfd"
+        },
+        "source_at_output_optimization": {
+          "raw": "d1d3714d6bf500c39d3bd3158de8268f5837d31f35d8910af5bb25f073e15e9b",
+          "normalized": "c181c27bcf0f33fa9f751636349f0b944bd4d0a50377e614a2d7de45dd707cfd"
+        }
+      }
+    },
+    {
+      "ca": "vector3_member_write",
+      "input_optimization": 0,
+      "output_optimization": 1,
+      "debug": 2,
+      "source_sha256": "f52ae4007e369e2da30df7a9b3cc09150eab63f30a136e851ace5d4f32ff2048",
+      "driver_sha256": "4cd5089f2da53b263aaa404851785b83af0bf08c25cf14a1a25c4f8477b7a332",
+      "compiler_options": [
+        "--fflags=false",
+        "--vector-lib=Vector3",
+        "--vector-ctor=new"
+      ],
+      "driver_optimization": 1,
+      "driver_debug": 1,
+      "status": "compiler_sensitive",
+      "observations": {
+        "goc": {
+          "raw": "3aba36cdb8fb55f2b647840fbd0e498a2b911e99a280746eaf316ef0b730df76",
+          "normalized": "90b54eb69d219c9e7bcc8724486f69ac9f23bddf2b5cde04fe3df11807b14e1f"
+        },
+        "sau_sua": {
+          "raw": "d1d3714d6bf500c39d3bd3158de8268f5837d31f35d8910af5bb25f073e15e9b",
+          "normalized": "c181c27bcf0f33fa9f751636349f0b944bd4d0a50377e614a2d7de45dd707cfd"
+        },
+        "source_at_output_optimization": {
+          "raw": "d1d3714d6bf500c39d3bd3158de8268f5837d31f35d8910af5bb25f073e15e9b",
+          "normalized": "c181c27bcf0f33fa9f751636349f0b944bd4d0a50377e614a2d7de45dd707cfd"
+        }
+      }
+    },
+    {
+      "ca": "vector3_member_write",
+      "input_optimization": 0,
+      "output_optimization": 2,
+      "debug": 0,
+      "source_sha256": "f52ae4007e369e2da30df7a9b3cc09150eab63f30a136e851ace5d4f32ff2048",
+      "driver_sha256": "4cd5089f2da53b263aaa404851785b83af0bf08c25cf14a1a25c4f8477b7a332",
+      "compiler_options": [
+        "--fflags=false",
+        "--vector-lib=Vector3",
+        "--vector-ctor=new"
+      ],
+      "driver_optimization": 1,
+      "driver_debug": 1,
+      "status": "compiler_sensitive",
+      "observations": {
+        "goc": {
+          "raw": "3aba36cdb8fb55f2b647840fbd0e498a2b911e99a280746eaf316ef0b730df76",
+          "normalized": "90b54eb69d219c9e7bcc8724486f69ac9f23bddf2b5cde04fe3df11807b14e1f"
+        },
+        "sau_sua": {
+          "raw": "d1d3714d6bf500c39d3bd3158de8268f5837d31f35d8910af5bb25f073e15e9b",
+          "normalized": "c181c27bcf0f33fa9f751636349f0b944bd4d0a50377e614a2d7de45dd707cfd"
+        },
+        "source_at_output_optimization": {
+          "raw": "d1d3714d6bf500c39d3bd3158de8268f5837d31f35d8910af5bb25f073e15e9b",
+          "normalized": "c181c27bcf0f33fa9f751636349f0b944bd4d0a50377e614a2d7de45dd707cfd"
+        }
+      }
+    },
+    {
+      "ca": "vector3_member_write",
+      "input_optimization": 0,
+      "output_optimization": 2,
+      "debug": 2,
+      "source_sha256": "f52ae4007e369e2da30df7a9b3cc09150eab63f30a136e851ace5d4f32ff2048",
+      "driver_sha256": "4cd5089f2da53b263aaa404851785b83af0bf08c25cf14a1a25c4f8477b7a332",
+      "compiler_options": [
+        "--fflags=false",
+        "--vector-lib=Vector3",
+        "--vector-ctor=new"
+      ],
+      "driver_optimization": 1,
+      "driver_debug": 1,
+      "status": "compiler_sensitive",
+      "observations": {
+        "goc": {
+          "raw": "3aba36cdb8fb55f2b647840fbd0e498a2b911e99a280746eaf316ef0b730df76",
+          "normalized": "90b54eb69d219c9e7bcc8724486f69ac9f23bddf2b5cde04fe3df11807b14e1f"
+        },
+        "sau_sua": {
+          "raw": "d1d3714d6bf500c39d3bd3158de8268f5837d31f35d8910af5bb25f073e15e9b",
+          "normalized": "c181c27bcf0f33fa9f751636349f0b944bd4d0a50377e614a2d7de45dd707cfd"
+        },
+        "source_at_output_optimization": {
+          "raw": "d1d3714d6bf500c39d3bd3158de8268f5837d31f35d8910af5bb25f073e15e9b",
+          "normalized": "c181c27bcf0f33fa9f751636349f0b944bd4d0a50377e614a2d7de45dd707cfd"
+        }
+      }
+    },
+    {
+      "ca": "vector3_member_write",
+      "input_optimization": 1,
+      "output_optimization": 0,
+      "debug": 0,
+      "source_sha256": "f52ae4007e369e2da30df7a9b3cc09150eab63f30a136e851ace5d4f32ff2048",
+      "driver_sha256": "4cd5089f2da53b263aaa404851785b83af0bf08c25cf14a1a25c4f8477b7a332",
+      "compiler_options": [
+        "--fflags=false",
+        "--vector-lib=Vector3",
+        "--vector-ctor=new"
+      ],
+      "driver_optimization": 1,
+      "driver_debug": 1,
+      "status": "compiler_sensitive",
+      "observations": {
+        "goc": {
+          "raw": "d1d3714d6bf500c39d3bd3158de8268f5837d31f35d8910af5bb25f073e15e9b",
+          "normalized": "c181c27bcf0f33fa9f751636349f0b944bd4d0a50377e614a2d7de45dd707cfd"
+        },
+        "sau_sua": {
+          "raw": "3aba36cdb8fb55f2b647840fbd0e498a2b911e99a280746eaf316ef0b730df76",
+          "normalized": "90b54eb69d219c9e7bcc8724486f69ac9f23bddf2b5cde04fe3df11807b14e1f"
+        },
+        "source_at_output_optimization": {
+          "raw": "3aba36cdb8fb55f2b647840fbd0e498a2b911e99a280746eaf316ef0b730df76",
+          "normalized": "90b54eb69d219c9e7bcc8724486f69ac9f23bddf2b5cde04fe3df11807b14e1f"
+        }
+      }
+    },
+    {
+      "ca": "vector3_member_write",
+      "input_optimization": 1,
+      "output_optimization": 0,
+      "debug": 2,
+      "source_sha256": "f52ae4007e369e2da30df7a9b3cc09150eab63f30a136e851ace5d4f32ff2048",
+      "driver_sha256": "4cd5089f2da53b263aaa404851785b83af0bf08c25cf14a1a25c4f8477b7a332",
+      "compiler_options": [
+        "--fflags=false",
+        "--vector-lib=Vector3",
+        "--vector-ctor=new"
+      ],
+      "driver_optimization": 1,
+      "driver_debug": 1,
+      "status": "compiler_sensitive",
+      "observations": {
+        "goc": {
+          "raw": "d1d3714d6bf500c39d3bd3158de8268f5837d31f35d8910af5bb25f073e15e9b",
+          "normalized": "c181c27bcf0f33fa9f751636349f0b944bd4d0a50377e614a2d7de45dd707cfd"
+        },
+        "sau_sua": {
+          "raw": "3aba36cdb8fb55f2b647840fbd0e498a2b911e99a280746eaf316ef0b730df76",
+          "normalized": "90b54eb69d219c9e7bcc8724486f69ac9f23bddf2b5cde04fe3df11807b14e1f"
+        },
+        "source_at_output_optimization": {
+          "raw": "3aba36cdb8fb55f2b647840fbd0e498a2b911e99a280746eaf316ef0b730df76",
+          "normalized": "90b54eb69d219c9e7bcc8724486f69ac9f23bddf2b5cde04fe3df11807b14e1f"
+        }
+      }
+    }
+  ]
+}
