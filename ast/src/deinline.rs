@@ -8994,9 +8994,9 @@ fn helper_targets(
     };
     match entry.analysis {
         HelperAnalysis::Refused(reason) => deinline_reject!(reason, f_local, g.name.as_deref().unwrap_or("<anon>")),
-        // Its code runs a call frame deeper inside the helper, where reading
-        // frames gives another answer.
-        _ if captures.reads_frames(&g.body.0) => {
+        // A copied upvalue keeps its creation-time value; a reconstructed
+        // call also adds a frame. Both proofs read the current module census.
+        _ if !captures.copies_unchanged(Arc::as_ptr(func) as usize) || captures.reads_frames(&g.body.0) => {
             deinline_reject!(RejectReason::UnsafeBody, f_local, g.name.as_deref().unwrap_or("<anon>"))
         }
         HelperAnalysis::RefusedLater(reason) => deinline_reject!(reason, f_local, g.name.as_deref().unwrap_or("<anon>")),
@@ -9024,7 +9024,7 @@ fn helper_targets(
 /// function within it, drops it ([`HelperCache::forget_rewritten`]). The
 /// analysis reads nothing else that changes: the write-once census and the
 /// single-valued helpers are read once, and the capture facts only by the
-/// frame gate and lazily by the targets, both read anew. The targets of the
+/// capture/frame gates and lazily by the targets, all read anew. The targets of the
 /// last collection come back for reuse rather than as copies.
 #[derive(Default)]
 struct HelperCache {
@@ -9142,7 +9142,7 @@ fn analyze_helper(
     if g.is_variadic {
         return Err(HelperAnalysis::Refused(RejectReason::Variadic));
     }
-    // The frame gate is [`helper_targets`]'.
+    // The capture/frame gates are [`helper_targets`]'.
     if body_unsafe(&g.body.0) {
         return Err(HelperAnalysis::Refused(RejectReason::UnsafeBody));
     }

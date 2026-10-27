@@ -20,6 +20,8 @@ pub(crate) struct CaptureSafety {
     frames: FrameReads,
     /// The locals each function reads as upvalues, by its identity.
     upvalues: FxHashMap<usize, FxHashSet<u64>>,
+    /// Value captures read a snapshot, not a later value of the same SSA-coalesced local.
+    copied_upvalues: FxHashMap<usize, FxHashSet<u64>>,
     /// Who may run a function that assigns a cell (see [`Self::private_writers`]).
     calls: CallGraph,
     visited: FxHashSet<usize>,
@@ -202,6 +204,14 @@ impl CaptureSafety {
         !self.exhausted && !self.rebound.contains(&local.stable_id())
     }
 
+    /// The helper's by-value captures still agree with reads at a call site.
+    /// shortcut: reject a rebound copy even before its write; refine only with
+    /// a proof covering every path from closure creation to the matched site.
+    pub(crate) fn copies_unchanged(&self, function: usize) -> bool {
+        !self.exhausted && self.copied_upvalues.get(&function)
+            .is_none_or(|locals| locals.is_disjoint(&self.rebound))
+    }
+
     pub(crate) fn uncaptured(&self, local: &crate::RcLocal) -> bool {
         !self.exhausted && !self.captured.contains(&local.stable_id())
     }
@@ -360,6 +370,10 @@ impl CaptureSafety {
             if width > 200_000usize.saturating_sub(self.nodes) { self.exhausted = true; return; }
             if FACTS >= FULL {
                 match statement {
+                    Statement::NumericFor(node) => { self.rebound.insert(node.counter.stable_id()); }
+                    Statement::GenericFor(node) => {
+                        self.rebound.extend(node.res_locals.iter().map(crate::RcLocal::stable_id));
+                    }
                     Statement::Call(call) => self.call(call, owner),
                     // `local function f` / `local f = function`: the closure's name.
                     Statement::Assign(assign) if assign.prefix => {
@@ -505,6 +519,9 @@ impl CaptureSafety {
                     let (Upvalue::Ref(local) | Upvalue::Copy(local)) = capture;
                     self.captured.insert(local.stable_id());
                     if let Upvalue::Ref(local) = capture { self.references.insert(local.stable_id()); }
+                }
+                if FACTS >= FULL && let Upvalue::Copy(local) = capture {
+                    self.copied_upvalues.entry(identity).or_default().insert(local.stable_id());
                 }
             }
             if self.visited.insert(identity) {
@@ -738,6 +755,32 @@ impl SearchBudget {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn copied_upvalues_need_the_original_value_even_with_shared_closures() {
+        let cell = crate::RcLocal::default();
+        let function = by_address::ByAddress(triomphe::Arc::new(parking_lot::Mutex::new(crate::Function::default())));
+        let identity = triomphe::Arc::as_ptr(&function.0) as usize;
+        let capture = |copy| crate::Return::new(vec![crate::Closure {
+            node_origin: Default::default(), function: function.clone(),
+            upvalues: vec![if copy { Upvalue::Copy(cell.clone()) } else { Upvalue::Ref(cell.clone()) }],
+        }.into()]).into();
+        let write = crate::Assign::new(vec![cell.clone().into()], vec![Literal::Number(2.0).into()]);
+        assert!(CaptureSafety::new(&Block(vec![capture(true)])).copies_unchanged(identity));
+        assert!(CaptureSafety::new(&Block(vec![capture(false), write.clone().into()])).copies_unchanged(identity));
+        for copies_first in [true, false] {
+            let body = Block(vec![capture(copies_first), capture(!copies_first), write.clone().into()]);
+            assert!(!CaptureSafety::new(&body).copies_unchanged(identity));
+        }
+        let loop_body = Block(vec![capture(true)]);
+        let numeric = crate::NumericFor::new(Literal::Number(1.0).into(), Literal::Number(3.0).into(),
+            Literal::Number(1.0).into(), cell.clone(), loop_body.clone());
+        let generic = crate::GenericFor::new(vec![cell], vec![crate::Global::from("iterator").into()], loop_body);
+        for node in [Statement::from(numeric), Statement::from(generic)] {
+            assert!(!CaptureSafety::new(&Block(vec![node])).copies_unchanged(identity));
+        }
+        assert!(!CaptureSafety::exhausted_for_tests().copies_unchanged(identity));
+    }
+
     #[test]
     fn helper_shape_budget_matches_full_census_at_boundaries_and_shared_closures() {
         let check = |body: &Block| {

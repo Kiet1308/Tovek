@@ -409,8 +409,8 @@
       "lines": 54
     },
     "semantic/cell_written_in_loop_read_after__O2.luau": {
-      "bytes": 613,
-      "lines": 52
+      "bytes": 573,
+      "lines": 55
     },
     "semantic/closure_capturing_a_folded_constant__O0.luau": {
       "bytes": 1224,
@@ -819,6 +819,18 @@
     "semantic/deinline_constant_parameter_still_captured__O2.luau": {
       "bytes": 614,
       "lines": 41
+    },
+    "semantic/deinline_copy_capture_rebound__O0.luau": {
+      "bytes": 465,
+      "lines": 39
+    },
+    "semantic/deinline_copy_capture_rebound__O1.luau": {
+      "bytes": 465,
+      "lines": 39
+    },
+    "semantic/deinline_copy_capture_rebound__O2.luau": {
+      "bytes": 472,
+      "lines": 42
     },
     "semantic/deinline_discarded_result__O0.luau": {
       "bytes": 1021,
@@ -2809,7 +2821,7 @@
       "lines": 55
     },
     "semantic/value_capture_written_after_closure__O2.luau": {
-      "bytes": 1168,
+      "bytes": 1107,
       "lines": 90
     },
     "semantic/vector_constant_full_upvalues__O0.luau": {

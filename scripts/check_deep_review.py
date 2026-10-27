@@ -11,6 +11,7 @@ import sys
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 CASES = {
     "deinline_vector_arguments": ((ROOT / "docs/failure_fixtures/semantic_roundtrip/deinline_vector_arguments.luau").read_text(), ''),
+    "deinline_copy_capture_rebound": ((ROOT / "docs/failure_fixtures/semantic_roundtrip/deinline_copy_capture_rebound.luau").read_text(), ''),
     "math_shadow": ('local math={huge=5,pi=7}; print(math.huge,1/0,math.pi,3.141592653589793)', ''),
     "math_parameter": ('local function f(math) return 1/0,math end; print(f(42))', ''),
     "math_global": ('math={huge=5,pi=7}; print(1/0,3.141592653589793)', ''),

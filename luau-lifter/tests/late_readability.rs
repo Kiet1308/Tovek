@@ -8,6 +8,17 @@ const CONTROL: &[u8] = include_bytes!("fixtures/late_control_flow_shapes.luaubc"
 const WHILE: &[u8] = include_bytes!("fixtures/while_inlined_condition.luaubc");
 const EVENT: &[u8] = include_bytes!("fixtures/event_parameter_roles.luaubc");
 const VECTOR: &[u8] = include_bytes!("fixtures/deinline_vector_arguments.luaubc");
+const COPY_CAPTURE: &[u8] = include_bytes!("fixtures/deinline_copy_capture_rebound.luaubc");
+
+#[test]
+fn a_value_capture_is_not_the_current_value_after_register_reuse() {
+    let source = luau_lifter::try_decompile_bytecode_with_options(
+        COPY_CAPTURE, 1, None, Default::default(),
+    ).expect("copied capture regression decompiles");
+    // The helper returns the creation-time snapshot. The later inlined region
+    // returns the phi-selected input, even though SSA coalesced their locals.
+    assert_eq!(source.matches("captured()").count(), 1, "{source}");
+}
 
 #[test]
 fn vector_constant_arguments_rebuild_reflect_without_folding_library_calls() {

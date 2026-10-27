@@ -1,13 +1,13 @@
 {
  "summary": {
-  "inputs": 237,
-  "protos": 1535,
-  "exact": 1105,
-  "equiv": 135,
+  "inputs": 238,
+  "protos": 1540,
+  "exact": 1109,
+  "equiv": 136,
   "differ": 241,
   "missing": 38,
   "extra": 16,
-  "equiv_ratio": 0.80782
+  "equiv_ratio": 0.80844
  },
  "files": [
   {
@@ -405,6 +405,12 @@
    "status": "ok",
    "nonequiv": 3,
    "protos": 6
+  },
+  {
+   "file": "deinline_copy_capture_rebound",
+   "status": "ok",
+   "nonequiv": 0,
+   "protos": 5
   },
   {
    "file": "deinline_discarded_result",

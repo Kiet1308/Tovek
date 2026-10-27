@@ -579,6 +579,7 @@ fn collect_expr_targets(body: &Block, arithmetic_only: bool, copies: Option<&cra
         // decl), and one whose expression reads call frames, which runs a
         // frame deeper inside the helper.
         if write_counts.get(&candidate.f_local).copied().unwrap_or(0) != 1
+            || !captures.copies_unchanged(candidate.func_ptr as usize)
             || captures.value_reads_frames(&candidate.expr)
         {
             continue;
@@ -1367,6 +1368,23 @@ mod tests {
         match s {
             Statement::Assign(a) => &a.right[0],
             _ => panic!("expected assign"),
+        }
+    }
+
+    #[test]
+    fn expression_helpers_do_not_confuse_copied_and_current_upvalues() {
+        let cell = local("cell");
+        let helper = local("helper");
+        for (copy, reassign) in [(true, false), (true, true), (false, true)] {
+            let mut declaration = helper_decl(&helper, "helper", vec![],
+                vec![Return::new(vec![num_positive(&lv(&cell))]).into()]);
+            let Statement::Assign(assign) = &mut declaration else { unreachable!() };
+            let RValue::Closure(closure) = &mut assign.right[0] else { unreachable!() };
+            closure.upvalues.push(if copy { crate::Upvalue::Copy(cell.clone()) } else { crate::Upvalue::Ref(cell.clone()) });
+            let mut statements = vec![local_decl(&cell, number(1.0)), declaration];
+            if reassign { statements.push(Assign::new(vec![cell.clone().into()], vec![number(2.0)]).into()); }
+            let targets = collect_expr_targets(&Block(statements), false, None);
+            assert_eq!(targets.len(), usize::from(!copy || !reassign));
         }
     }
 

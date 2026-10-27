@@ -33,6 +33,11 @@ restores both reflect calls using the shared exact fold proof. It passes 1,655
 workspace tests and the full audit, with byte-identical public outputs against
 `927885c`. Other remaining work below is still open.
 
+The [copy-capture checkpoint](checkpoint_copy_capture.md) fixes a pre-existing
+fuzz miscompile when SSA reuses a snapshotted local. Its full audit passes and
+public outputs remain byte-identical; the report records two conservative
+semantic-fixture call refusals. The complete goal remains open.
+
 ## Binding decisions
 
 These come from the owner. Do not reopen them.

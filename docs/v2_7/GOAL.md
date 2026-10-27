@@ -153,3 +153,7 @@ Xem [báo cáo kiểm chứng](checkpoint_control_naming.md). Mốc này có 1.6
 ## Checkpoint vector arguments
 
 [Proof và kết quả](checkpoint_vector_arguments.md): hai call `reflect` từ vector constants đã khôi phục; workspace 1.655 passed, audit đủ 33 bước, public outputs byte-identical với `927885c`. Các mục khác của goal vẫn mở.
+
+## Checkpoint copy captures
+
+[Regression seed 7388 và kết quả kiểm chứng](checkpoint_copy_capture.md): sửa call nhầm snapshot khi SSA tái dùng local. Workspace 1.658 passed, 714 semantic cases, 301 deep-review cases và đủ 33 audit steps; 513 public outputs byte-identical với `0007889`. Proof bảo thủ giữ inline hai site cũ thay vì dựng call; diff được ghi rõ trong báo cáo. M6 và các mục mở khác tiếp tục.
