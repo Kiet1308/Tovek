@@ -75,6 +75,12 @@ Thử một cấp census chỉ thu globals/environment cho `fold_import_callees`
 
 Từ CPU profile tại `d3e64a2`, thử kiểm tra destination có thuộc eligibility snapshot của consumer trước các proof depth/capture/handle. Không bỏ statement barriers, iterator-pack path hoặc đổi thứ tự producer. 39 inliner tests đạt, gồm differential từng sweep/origins/events và controls với 32 producer không liên quan, callback barriers, pack 2/3 slots. Mọi 513 output public giữ từng byte. Thăm dò 7 samples: 1t -1,1%, 4t +3,9%. Xác nhận 51 samples xen kẽ ghim CPU: median 1t 0,776666 → 0,780553 s (+0,50%), 4t 0,218285 → 0,218774 s (+0,22%); paired medians 0,99907/0,99761, thắng 26/51 và 27/51. Loại vì không có lợi ích end-to-end; không chạy full 33 gates cho code bị loại. Evidence tại `/workspace/work/v27/ssa-relevance-*`, binary SHA256 `58d2d8328f4ed092074abc91673ade5a12e1227f5a6ca2777a7c31695d602ea6`; source khôi phục byte-for-byte về `d3e64a2`. Không có private/Windows timing claim.
 
+### Public V2.7, 28/10/2026: bỏ alias scan khi captured-cell map rỗng
+
+Thử chuẩn hóa `Some(empty)` thành `None` tại shared `remove_unnecessary_params`, tránh duyệt/resolving mọi incoming alias chỉ để hỏi một map rỗng. 16 construct tests đạt, trong đó differential mới mở rộng thành 45 tổ hợp no-map/empty/grouped captures, duplicate/raw aliases/self edges; schema failure boundary và local-map order giữ nguyên. Mọi 513 public outputs byte-identical.
+
+So với `b798e5b`, thăm dò 7 samples: 1t +5,8%, 4t -0,7%. Xác nhận 51 samples xen kẽ ghim CPU: median 1t 0,725481 → 0,718761 (-0,9%), 4t 0,220796 → 0,220015 (-0,4%); paired medians 1,00183/0,99576, thắng 24/51 và 28/51. [CPU-time diagnostic](../v2_7/checkpoint_cpu_time.md), thêm 25 samples cùng binary, cho paired CPU ratios 1,00640/0,99280, thắng 11/25 và 17/25; intervals vẫn chứa 1. Loại vì không xác nhận lợi ích end-to-end, nhất là mục tiêu một worker; không lấy bỏ một lượt quét làm speedup. Không chạy full 33 gates cho code bị loại. Patch, binary `73145408e16e1e2c17bdbb059217927827f7bccca05d491b0ab47debfbcb58cf`, logs và raw samples tại `/workspace/work/v27/empty-cells-*`, cùng `ssa-cpu-*`. Source khôi phục byte-for-byte và binary thông thường phục hồi về `b798e5b`; không có private/Windows timing claim.
+
 ## 3. Build và toolchain
 
 | Hướng | Kết quả đo | Nguồn |

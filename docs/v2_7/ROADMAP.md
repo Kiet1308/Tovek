@@ -169,6 +169,8 @@ At `b798e5b`, median 1/4-worker time is 15.5%/15.4% above V2.5.1 and
 3.3%/4.2% above V2.6.1; paired ratios and substantial noise are included in
 the report. Cross-run changes are not estimates of a code change's effect.
 [CPU call stacks](checkpoint_cpu_profile.md) provide separate diagnostics.
+[Additional process CPU time](checkpoint_cpu_time.md) does not establish a
+single-worker gain from singleton phi; the empty-cell-map candidate was rejected.
 G1 remains unmet; the older owner measurements above are a separate workload
 and machine.
 

@@ -224,3 +224,5 @@ Xem [báo cáo kiểm chứng](checkpoint_control_naming.md). Mốc này có 1.6
 ## Benchmark tại checkpoint singleton phi
 
 [Bốn version tại `b798e5b`](benchmark_phi_singleton.md): 25 samples mỗi version/worker count; median hiện tại chậm hơn V2.5.1 15,5%/15,4% ở 1/4 workers, so V2.6.1 là 3,3%/4,2%. Nhiễu lớn, đặc biệt một worker; paired ratios và toàn bộ samples được giữ. Không suy hiệu quả một thay đổi từ chênh lệch giữa hai lần đo. G1 chưa đạt; chưa có quyết định thay tiêu chí.
+
+[CPU time bổ sung](checkpoint_cpu_time.md) không xác nhận speedup một worker của singleton phi. Candidate bỏ scan map rỗng đã bị loại sau ordinary A/B và CPU-time diagnostic; source khôi phục đúng checkpoint đã audit. G1, đặc tả case (c) và original review reproducers vẫn chưa được giải quyết.
