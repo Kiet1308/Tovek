@@ -107,12 +107,12 @@ Backlog hiệu năng sau goal này, vẫn chưa được triển khai/nghiệm t
 ### G6 Nghiệm thu toàn bộ decompiler
 
 - [x] Các mục còn trong phạm vi đã triển khai/kiểm chứng; G1 và ba review cases được chủ repo chuyển riêng sang backlog ngày 28/10/2026. Không ghi các mục chuyển tiếp thành đã sửa.
-- [x] Code hiện tại `b798e5b` đã qua 1.698 workspace tests, đủ 33 bước Fixture and Luau audit và các check tương thích; các commit sau chỉ là tài liệu. Evidence và binary được ghim tại [checkpoint](checkpoint_phi_singleton.md).
+- [x] Code hiện tại `4880984` đã qua 1.704 workspace tests, 213 Python tests, đủ 33 bước Fixture and Luau audit và các check tương thích; các commit sau chỉ là tài liệu. Bốn findings từ Ponytail review cùng các lỗi capture/width liên quan đã sửa và có regression controls; evidence và binary ghim tại [checkpoint](checkpoint_review_fixes.md).
 - [x] Hai open cases đã thành regression fixtures: while header và event parameter, gồm pinned bytecode assertions trong `late_readability.rs`, semantic O0/O1/O2 và [before/after](checkpoint_control_naming.md).
 - [x] Các runtime edge cases đã sửa có semantic fixtures và oracle/output-size baselines trong cùng commit code; các tối ưu byte-identical có differential tests, không sửa baseline.
-- [x] Nghiệm thu trên phạm vi public đã chốt do bốn dumps không khả dụng: đọc và ghi delta từng checkpoint; mọi thay đổi baseline có giải thích. Tại code cuối, 801 semantic, 513 public và 7 residual outputs giữ từng byte so với checkpoint correctness trước. Không tuyên bố đã đọc/kiểm chứng 9.987 private inputs.
+- [x] Nghiệm thu trên phạm vi public đã chốt do bốn dumps không khả dụng: đọc và ghi delta từng checkpoint; mọi thay đổi baseline có giải thích. Sau sửa review, 801 semantic, 7 residual và 510/513 public outputs cũ giữ từng byte so với `b798e5b`; ba public outputs giữ captured writes, tăng tổng 21 dòng, không mất rebuilt call. Không tuyên bố đã đọc/kiểm chứng 9.987 private inputs.
 - [x] Benchmark ordinary release tại `b798e5b` so V2.6.1, V2.5.1 và điểm xuất phát V2.7 đã có cho 1/4 workers trên public corpus; không có private/Windows timing. Regression đã được chủ repo chấp nhận chuyển sang backlog.
-- [x] Bàn giao source `b798e5b`, fixtures, baselines, [báo cáo nghiệm thu](ACCEPTANCE.md), benchmark và backlog có điều kiện mở lại. Hai bộ review probes cuối trên đúng binary nghiệm thu đạt 1.024/1.024, output byte-identical. Phạm vi kết thúc ở decompiler; release, website và merge main nằm ngoài yêu cầu.
+- [x] Bàn giao source `4880984`, fixtures, baselines, [báo cáo nghiệm thu](ACCEPTANCE.md), benchmark lịch sử và backlog có điều kiện mở lại. Binary sửa review đạt 807 semantic / 499 deep-review / 513 public cases; hai bộ probes 1.024/1.024 thuộc checkpoint `b798e5b` trước đó. Phạm vi kết thúc ở decompiler; release, website và merge main nằm ngoài yêu cầu.
 
 ## Quy trình kiểm chứng
 
@@ -238,3 +238,7 @@ Xem [báo cáo kiểm chứng](checkpoint_control_naming.md). Mốc này có 1.6
 ## Chốt phạm vi và nghiệm thu ngày 28/10/2026
 
 Chủ repo đã đưa ra hai quyết định riêng: chấp nhận số đo hiện tại và chuyển G1 sang việc tiếp theo; chuyển [ba review cases thiếu dữ liệu](remaining_review_cases.md) sang backlog chờ dữ liệu. Các checkpoint phía trên giữ nguyên trạng thái tại thời điểm ghi. Goal hiện tại hoàn tất theo phạm vi mới, với [báo cáo nghiệm thu](ACCEPTANCE.md); các mục backlog vẫn chưa được sửa/nghiệm thu về kỹ thuật.
+
+## Sửa sau Ponytail review toàn bộ thay đổi
+
+[Checkpoint review fixes](checkpoint_review_fixes.md), code `4880984`: sửa bốn findings và lỗi captured writes/closure freshness phát hiện khi kiểm chứng. 1.704 workspace tests, 213 Python tests, đủ 33 audit steps, 807 semantic, 499 deep-review và 513 public cases đạt. Baseline chỉ thêm fixtures mới; không đổi entry cũ. Public có ba output mở rộng branches, giữ số rebuilt calls; mọi semantic/residual output cũ giữ từng byte. G1 và backlog thiếu dữ liệu giữ nguyên; không gán benchmark/broad stress lịch sử cho binary mới.

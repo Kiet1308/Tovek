@@ -25,7 +25,19 @@ At `1aeabd8`, all checks pass:
 
 ## Current implementation checkpoint
 
-Latest: [singleton phi inputs without per-phi sets](checkpoint_phi_singleton.md)
+Latest: [verified Ponytail review fixes](checkpoint_review_fixes.md), code
+`4880984`, corrects generic vector constructor proof, numeric style checks,
+readable conditional width after final naming and PromptTriggered roles.
+The late readable pass also preserves captured writes and accounts for
+expression indentation/shared AST bodies. It passes 1,704 workspace tests,
+213 Python tests, all 33 audit steps, 807 semantic, 499 deep-review and 513
+public cases. All old semantic/residual outputs and 510/513 public outputs
+remain byte-identical; three public profiles retain captured writes, adding
+21 lines without losing rebuilt calls. Baselines only gain new fixtures.
+No fresh four-version benchmark or 135,000-profile stress claim is made for
+this binary; the owner-approved G1/private-input deferrals remain unchanged.
+
+The preceding [singleton phi inputs without per-phi sets](checkpoint_phi_singleton.md)
 keeps the raw-alias, captured-cell and malformed-schema rules while reducing
 allocation. It passes 1,698 workspace tests, all 33 audit steps, 801 semantic,
 469 deep-review and 513 public cases. All semantic/public/residual outputs
@@ -44,7 +56,7 @@ checkpoint](checkpoint_vector_producer.md) retains and validates emitted vector
 bindings. [Broad stress on that split-prefix binary](stress_split_prefix.md) is complete:
 133,906 passed / 1,094 invalid / zero failed or refused across 135,000 profiles;
 mutation has 7,695 passed / 904 typed refusals / 401 invalid / zero failed.
-Both 512-case structuring probe sets also pass on the accepted `b798e5b`
+Both 512-case structuring probe sets also passed on the earlier `b798e5b`
 binary, with byte-identical outputs against the split-prefix checkpoint.
 The [three review cases lacking specifications/reproducers](remaining_review_cases.md)
 remain unresolved and were separately deferred by the owner; broad coverage
