@@ -163,10 +163,11 @@ These come from the owner. Do not reopen them.
 | S_EXPR_DEINLINE / S_DEINLINE | +50 / +42 ms | |
 | S_COND_EXPRS, S_SYNTH_HELPERS | fixed in `125d12a` | |
 
-**Current cloud measurement.** [Checkpoint benchmark](benchmark_split_prefix.md)
+**Current cloud measurement.** [Checkpoint benchmark](benchmark_phi_singleton.md)
 uses 25 interleaved ordinary-release samples per version on 513 public inputs.
-At `d3e64a2`, median 1/4-worker time is 10.0%/11.1% above V2.5.1 and
-0.3%/0.2% above V2.6.1; paired ratios and noise are included in the report.
+At `b798e5b`, median 1/4-worker time is 15.5%/15.4% above V2.5.1 and
+3.3%/4.2% above V2.6.1; paired ratios and substantial noise are included in
+the report. Cross-run changes are not estimates of a code change's effect.
 [CPU call stacks](checkpoint_cpu_profile.md) provide separate diagnostics.
 G1 remains unmet; the older owner measurements above are a separate workload
 and machine.

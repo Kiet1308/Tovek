@@ -220,3 +220,7 @@ Xem [báo cáo kiểm chứng](checkpoint_control_naming.md). Mốc này có 1.6
 ## Checkpoint singleton phi inputs
 
 [Bỏ allocation cho kiểm tra phi một giá trị](checkpoint_phi_singleton.md): 1.698 workspace tests, 801 semantic, 469 deep-review và đủ 33 audit steps đạt. Mọi output semantic/public/residual giữ từng byte và không đổi baseline. Hai lượt 51 mẫu có median 1t thấp hơn 1,9%/1,6%, 4t thấp hơn 1,3%/0,5%; paired ratios và lượt thăm dò trái chiều được ghi đầy đủ. Chưa xác nhận speedup một luồng; G1 vẫn mở. Broad stress 135.000 profiles là evidence của checkpoint trước, không gán cho binary mới.
+
+## Benchmark tại checkpoint singleton phi
+
+[Bốn version tại `b798e5b`](benchmark_phi_singleton.md): 25 samples mỗi version/worker count; median hiện tại chậm hơn V2.5.1 15,5%/15,4% ở 1/4 workers, so V2.6.1 là 3,3%/4,2%. Nhiễu lớn, đặc biệt một worker; paired ratios và toàn bộ samples được giữ. Không suy hiệu quả một thay đổi từ chênh lệch giữa hai lần đo. G1 chưa đạt; chưa có quyết định thay tiêu chí.
