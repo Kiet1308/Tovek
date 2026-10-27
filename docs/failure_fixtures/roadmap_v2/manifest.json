@@ -360,6 +360,14 @@
       "driver": "open_list_prefix_recovery.driver.luau",
       "runtime_compile_inline": true,
       "expected_stdout": "keyed\ttrue\nvalue\nsecond\nyes\nresult\t3\t5\tnil\t7\tnil\t1\t2\nkeyed\tfalse\nvalue\nsecond\nno\nresult\t4\t5\tnil\t7\tnil\tnil\t2\nkeyed\ttrue\nvalue\nerror\ttable index is nil\nkeyed\tfalse\nvalue\nerror\ttable index is NaN\npositional\ttrue\narray\nvalue\nsecond\nyes\nresult\t10\t3\t5\tnil\t7\t1\t2\npositional\tfalse\narray\nvalue\nsecond\nno\nresult\t10\t4\t5\tnil\t7\tnil\t2\npositional\ttrue\narray\nvalue\nerror\ttable index is nil\npositional\tfalse\narray\nvalue\nerror\ttable index is NaN\n"
+    },
+    {
+      "name": "captured_key_store_order",
+      "group": "constructor-prefix-recovery",
+      "source": "captured_key_store_order.luau",
+      "driver": "captured_key_store_order.driver.luau",
+      "runtime_compile_inline": true,
+      "expected_stdout": "change\nstamp\nstamp\nok\ttrue\nnil\t9\tnil\tnil\t2\tnil\t3\nchange\nstamp\nchange\nok\ttrue\nnil\t9\tnil\t9\t2\tnil\t3\nchange\nstamp\nstamp\nok\ttrue\nnil\t9\tnil\tnil\t2\tnil\t3\nchange\nok\tfalse\ntable index is nil\nchange\nok\tfalse\ntable index is NaN\nchange\nstamp\nchange\nok\ttrue\nnil\tnil\t9\t9\t2\tnil\t3\n"
     }
   ],
   "negative_controls": [

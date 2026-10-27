@@ -2992,6 +2992,30 @@
       "bytes": 1413,
       "lines": 78
     },
+    "semantic/table_open_list_late_key_read__O0.luau": {
+      "bytes": 641,
+      "lines": 38
+    },
+    "semantic/table_open_list_late_key_read__O1.luau": {
+      "bytes": 641,
+      "lines": 38
+    },
+    "semantic/table_open_list_late_key_read__O2.luau": {
+      "bytes": 849,
+      "lines": 38
+    },
+    "semantic/table_open_list_owned_key_timing__O0.luau": {
+      "bytes": 3644,
+      "lines": 183
+    },
+    "semantic/table_open_list_owned_key_timing__O1.luau": {
+      "bytes": 3648,
+      "lines": 183
+    },
+    "semantic/table_open_list_owned_key_timing__O2.luau": {
+      "bytes": 3648,
+      "lines": 183
+    },
     "semantic/table_open_list_positional_prefix__O0.luau": {
       "bytes": 2117,
       "lines": 102

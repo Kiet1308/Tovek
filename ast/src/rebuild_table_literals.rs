@@ -493,14 +493,16 @@ pub fn snapshot_open_list_constructors(block: &mut Block) -> Option<crate::local
     let inventory = crate::lower_conditionals::prepare_local_rewrite(block, |block|
         block.0.iter().any(|statement| matches!(statement, Statement::SetList(list) if list.tail.is_some()))
     ).ok()??;
-    let mut state = OpenListSnapshots { inventory, visited: Default::default(), regions: 0,
+    let mut state = OpenListSnapshots { safety: crate::deinline_safety::CaptureSafety::captures(block),
+        inventory, visited: Default::default(), regions: 0,
         pass: crate::local_producers::Pass { pass: "table_open_list_snapshots",
             rewrite_model: "private-prefix-snapshots-v1", introduced_locals: 0, ledger: Default::default() } };
-    state.block(block);
+    state.block(block, None);
     (state.regions > 0).then_some(state.pass)
 }
 
 struct OpenListSnapshots {
+    safety: crate::deinline_safety::CaptureSafety,
     inventory: crate::lower_conditionals::RewriteInventory,
     visited: rustc_hash::FxHashSet<usize>,
     regions: usize,
@@ -508,18 +510,23 @@ struct OpenListSnapshots {
 }
 
 impl OpenListSnapshots {
-    fn can_snapshot_key(&self, key: &RValue, value: &RValue) -> bool {
-        // shortcut: refuse captured-local keys with effectful values until register/upvalue read timing is proved.
-        !matches!(key, RValue::Local(local) if self.inventory.captured.contains(&local.stable_id()))
-            || crate::is_total_pure(value)
+    fn can_snapshot_key(&self, key: &RValue, value: &RValue, function: Option<usize>) -> bool {
+        // shortcut: incoming or ambiguous captured keys stay refused until their eager-read recovery is verified.
+        !matches!(key, RValue::Local(local) if self.inventory.captured.contains(&local.stable_id())
+            && !crate::is_total_pure(value) && !self.safety.register_of(local, function))
     }
 
-    fn snapshots(&mut self, fields: &mut [(Option<RValue>, RValue)]) -> Vec<Statement> {
+    fn snapshots(&mut self, fields: &mut [(Option<RValue>, RValue)], function: Option<usize>) -> Vec<Statement> {
         let mut prefix = Vec::new();
         for (key, value) in fields {
-            for (value, name) in key.iter_mut().map(|key| (key, "constructorKey"))
-                .chain(std::iter::once((value, "constructorValue")))
-            {
+            // An owning register key is read by SETTABLE after the value callback.
+            let key_last = matches!(key, Some(RValue::Local(local))
+                if self.inventory.captured.contains(&local.stable_id())
+                    && !crate::is_total_pure(value) && self.safety.register_of(local, function));
+            let mut values = [(key.as_mut(), "constructorKey"), (Some(value), "constructorValue")];
+            if key_last { values.swap(0, 1); }
+            for (value, name) in values {
+                let Some(value) = value else { continue; };
                 if matches!(value, RValue::Literal(_)) { continue; }
                 let local = crate::rehoist_constants::unique_local(name, &mut self.inventory.reserved);
                 let mut declaration = Assign::new(vec![local.clone().into()],
@@ -535,15 +542,16 @@ impl OpenListSnapshots {
 
     fn value(&mut self, value: &mut RValue) {
         if let RValue::Closure(closure) = value {
-            if self.visited.insert((&*closure.function.0 as *const _) as usize) {
-                self.block(&mut closure.function.lock().body);
+            let function = (&*closure.function.0 as *const _) as usize;
+            if self.visited.insert(function) {
+                self.block(&mut closure.function.lock().body, Some(function));
             }
         } else {
             value.visit_rvalues_mut(&mut |child| { self.value(child); true });
         }
     }
 
-    fn block(&mut self, block: &mut Block) {
+    fn block(&mut self, block: &mut Block, function: Option<usize>) {
         for statement in &mut block.0 {
             if let Statement::Assign(assign) = statement {
                 for left in &mut assign.left {
@@ -555,11 +563,11 @@ impl OpenListSnapshots {
             }
             statement.visit_rvalues_mut(&mut |value| { self.value(value); true });
             match statement {
-                Statement::If(node) => { self.block(&mut node.then_block.lock()); self.block(&mut node.else_block.lock()); }
-                Statement::While(node) => self.block(&mut node.block.lock()),
-                Statement::Repeat(node) => self.block(&mut node.block.lock()),
-                Statement::NumericFor(node) => self.block(&mut node.block.lock()),
-                Statement::GenericFor(node) => self.block(&mut node.block.lock()),
+                Statement::If(node) => { self.block(&mut node.then_block.lock(), function); self.block(&mut node.else_block.lock(), function); }
+                Statement::While(node) => self.block(&mut node.block.lock(), function),
+                Statement::Repeat(node) => self.block(&mut node.block.lock(), function),
+                Statement::NumericFor(node) => self.block(&mut node.block.lock(), function),
+                Statement::GenericFor(node) => self.block(&mut node.block.lock(), function),
                 _ => {}
             }
         }
@@ -573,7 +581,7 @@ impl OpenListSnapshots {
             let mut keyed = original.0.len() - positional;
             if original.0.len() > 32 || keyed > hash as usize
                 || original.0.last().is_some_and(|(key, value)| key.is_none() && expands(value))
-                || original.0.iter().any(|(key, value)| key.as_ref().is_some_and(|key| !self.can_snapshot_key(key, value)))
+                || original.0.iter().any(|(key, value)| key.as_ref().is_some_and(|key| !self.can_snapshot_key(key, value, function)))
             {
                 index += 1; continue;
             }
@@ -600,7 +608,7 @@ impl OpenListSnapshots {
                 {
                     // These keys remain explicit beside the tail, so each consumes hash syntax.
                     if table.0.len() >= 32 || keyed >= hash as usize
-                        || !self.can_snapshot_key(key, value)
+                        || !self.can_snapshot_key(key, value, function)
                         || !crate::table_takes_another_key(&table, key)
                         || !proof.value(key, 0) || !proof.value(value, 0) { break; }
                     can_raise |= !crate::is_total_table_key(key);
@@ -628,7 +636,7 @@ impl OpenListSnapshots {
                 check.right[0] = Table::default().into();
                 let mut prefix = vec![check.into()];
                 for field in &mut table.0[..initial_fields] {
-                    prefix.extend(self.snapshots(std::slice::from_mut(field)));
+                    prefix.extend(self.snapshots(std::slice::from_mut(field), function));
                     if let Some(key) = &field.0 {
                         prefix.push(Assign::new(vec![Index::new(object.clone().into(), key.clone()).into()],
                             vec![field.1.clone()]).into());
@@ -636,11 +644,11 @@ impl OpenListSnapshots {
                 }
                 prefix
             } else {
-                self.snapshots(&mut table.0[..initial_fields])
+                self.snapshots(&mut table.0[..initial_fields], function)
             };
             let mut replacements = Vec::new();
             for (position, field) in stores {
-                let mut prefix = self.snapshots(&mut table.0[field..field + 1]);
+                let mut prefix = self.snapshots(&mut table.0[field..field + 1], function);
                 if can_raise {
                     let mut store = block.0[position].as_assign().unwrap().clone();
                     store.left[0].as_index_mut().unwrap().right = Box::new(table.0[field].0.clone().unwrap());
@@ -1850,24 +1858,75 @@ mod tests {
     }
 
     #[test]
-    fn late_list_snapshots_refuse_captured_keys_with_effectful_values() {
-        for split in [false, true] {
-            for value in [number(9.0), Call::new(global("change"), vec![]).into(), global("lookup")] {
-                let key = local("key");
-                let object = local("object");
-                let safe = crate::is_total_pure(&value);
-                let fields = if split { vec![] } else { vec![(Some(key.clone().into()), value.clone())] };
-                let mut block = Block(vec![declare(&local("change"), closure_capturing(&key)),
-                    declare(&object, Table(fields, Default::default(),
+    fn late_list_snapshots_read_owned_captured_keys_after_effectful_values() {
+        for nested in [false, true] {
+            for split in [false, true] {
+                for value in [number(9.0), local("unchanged").into(),
+                    Call::new(global("change"), vec![]).into(), global("lookup")]
+                {
+                    let key = local("key");
+                    let object = local("object");
+                    let pure = crate::is_total_pure(&value);
+                    let literal = matches!(value, RValue::Literal(_));
+                    let fields = if split { vec![] } else { vec![(Some(key.clone().into()), value.clone())] };
+                    let mut block = Block(vec![declare(&local("change"), closure_capturing(&key)),
+                        declare(&object, Table(fields, Default::default(),
+                            crate::TableShape::NewTable { hash: 1, array: 1 }).into())]);
+                    if split { block.0.push(assign_field(&object, key.clone().into(), value)); }
+                    block.0.push(Call::new(global("middle"), vec![]).into());
+                    block.0.push(crate::SetList::new(object, 1, vec![],
+                        Some(Call::new(global("tail"), vec![]).into())).into());
+                    if nested {
+                        block = Block(vec![declare(&local("build"), Closure {
+                            node_origin: Default::default(),
+                            function: ByAddress(Arc::new(Mutex::new(Function {
+                                parameters: vec![key], body: block, ..Default::default()
+                            }))), upvalues: vec![],
+                        }.into())]);
+                    }
+                    let pass = super::snapshot_open_list_constructors(&mut block).unwrap();
+                    assert_eq!(pass.introduced_locals, if literal { 1 } else { 2 });
+                    assert_eq!(pass.ledger.records.len(), pass.introduced_locals);
+                    let text = block.to_string();
+                    if !literal {
+                        assert_eq!(text.find("local constructorKey = key").unwrap()
+                            < text.find("local constructorValue = ").unwrap(), pure, "{text}");
+                    }
+                    assert!(super::reserve_unfolded_table_slots(&mut block).is_ok(), "{text}");
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn late_list_snapshots_refuse_incoming_and_ambiguous_captured_keys() {
+        for shared in [false, true] {
+            for split in [false, true] {
+                for value in [Call::new(global("change"), vec![]).into(), global("lookup")] {
+                    let key = local("key");
+                    let object = local("object");
+                    let fields = if split { vec![] } else { vec![(Some(key.clone().into()), value.clone())] };
+                    let mut body = Block(vec![declare(&object, Table(fields, Default::default(),
                         crate::TableShape::NewTable { hash: 1, array: 1 }).into())]);
-                if split { block.0.push(assign_field(&object, key.clone().into(), value)); }
-                block.0.push(Call::new(global("middle"), vec![]).into());
-                block.0.push(crate::SetList::new(object, 1, vec![],
-                    Some(Call::new(global("tail"), vec![]).into())).into());
-                let before = block.to_string();
-                assert_eq!(super::snapshot_open_list_constructors(&mut block).is_some(), safe,
-                    "split={split} safe={safe}");
-                if !safe { assert_eq!(block.to_string(), before); }
+                    if split { body.0.push(assign_field(&object, key.clone().into(), value)); }
+                    body.0.push(Call::new(global("middle"), vec![]).into());
+                    body.0.push(crate::SetList::new(object, 1, vec![],
+                        Some(Call::new(global("tail"), vec![]).into())).into());
+                    let function = ByAddress(Arc::new(Mutex::new(Function { body, ..Default::default() })));
+                    let closure = Closure { node_origin: Default::default(), function,
+                        upvalues: vec![Upvalue::Ref(key)] };
+                    let mut block = Block::default();
+                    if shared {
+                        // A later occurrence supplies captures absent from the first visited body.
+                        let mut first = closure.clone();
+                        first.upvalues.clear();
+                        block.0.push(declare(&local("first"), first.into()));
+                    }
+                    block.0.push(declare(&local("build"), closure.into()));
+                    let before = block.to_string();
+                    assert!(super::snapshot_open_list_constructors(&mut block).is_none());
+                    assert_eq!(block.to_string(), before);
+                }
             }
         }
     }

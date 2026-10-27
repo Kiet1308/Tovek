@@ -250,8 +250,10 @@ need more locals or registers than Luau allows.
 Table reconstruction uses bounded proofs to preserve allocation and store order,
 including native bulk growth for open SETLIST; an open list store without that
 proof is refused. Recovery covers mixed positional/keyed prefixes and preserves
-invalid-key errors before later field effects. This recovery refuses captured
-local keys beside effectful values when their read timing has not been proved.
+invalid-key errors before later field effects. A captured register key is
+snapshotted after its field value, preserving mutations made by a callback.
+This recovery still refuses incoming captured keys beside effectful values
+when their read timing has not been proved.
 Empty preallocated hash tables remain a compatibility exception:
 they can still emit `{}`, and `pairs`/`next` order is not guaranteed when compiling
 at a different optimization level. This exception does not justify folding

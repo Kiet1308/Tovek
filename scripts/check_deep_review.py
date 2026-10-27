@@ -15,7 +15,9 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 ERROR_REPORTER = ('local function report(ok, ...) if ok then print(ok, ...) else '
                   'local message = ...; print(ok, (message:gsub("^subject:%d+: ", ""))) end end; ')
 CASES = {
-    "table_open_list_late_key_read": ((ROOT / "docs/failure_fixtures/strict_refusals/table_open_list_late_key_read.luau").read_text(), ''),
+    "table_open_list_owned_key_timing": ((ROOT / "docs/failure_fixtures/semantic_roundtrip/table_open_list_owned_key_timing.luau").read_text(), ''),
+    "table_open_list_incoming_key_timing": ((ROOT / "docs/failure_fixtures/strict_refusals/table_open_list_incoming_key_timing.luau").read_text(), ''),
+    "table_open_list_late_key_read": ((ROOT / "docs/failure_fixtures/semantic_roundtrip/table_open_list_late_key_read.luau").read_text(), ''),
     "table_open_list_key_errors": ((ROOT / "docs/failure_fixtures/semantic_roundtrip/table_open_list_key_errors.luau").read_text(), ''),
     "table_open_list_positional_prefix": ((ROOT / "docs/failure_fixtures/semantic_roundtrip/table_open_list_positional_prefix.luau").read_text(), ''),
     "table_open_list_captured_key": ((ROOT / "docs/failure_fixtures/semantic_roundtrip/table_open_list_captured_key.luau").read_text(), ''),
@@ -160,8 +162,8 @@ PROFILE_FIELDS = ('ca', 'input_optimization', 'output_optimization', 'debug')
 IDENTITY_FIELDS = (*PROFILE_FIELDS, 'source_sha256', 'driver_sha256', 'compiler_options',
                    'driver_optimization', 'driver_debug')
 EXPECTED_REFUSALS = {
-    ('table_open_list_late_key_read', optimization, debug): 'an open SETLIST without a proved native constructor'
-    for optimization, debug in ((0, 0), (0, 2), (1, 0), (1, 2), (2, 2))
+    ('table_open_list_incoming_key_timing', optimization, debug): 'an open SETLIST without a proved native constructor'
+    for optimization, debug in ((0, 0), (0, 2), (1, 0), (1, 2), (2, 0), (2, 2))
 }
 
 
