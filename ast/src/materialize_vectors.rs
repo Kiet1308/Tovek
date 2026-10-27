@@ -24,10 +24,8 @@ pub enum VectorSpelling {
     /// bytecode's constant ignores that.
     #[default]
     Snapshot,
-    /// `Vector3.new(x, y, z)`: the compiler ran with Roblox's vector
-    /// constructor (a Roblox client's bytecode, or a FASTCALL of the vector
-    /// builtin falling back to `Vector3.new`), which folds such a call into
-    /// the same constant, whatever the environment holds.
+    /// `Vector3.new(x, y, z)` for Roblox client bytecode under its readonly
+    /// standard constructor. Generic compiler configuration is not this proof.
     Vector3New,
 }
 

@@ -527,41 +527,13 @@ fn capture_may_print_shared(
     }
 }
 
-/// How the chunk's vector constants print ([`ast::materialize_vectors::VectorSpelling`]):
-/// `Vector3.new` when the chunk never assigns `Vector3` and the compiler is
-/// known to have run with Roblox's vector constructor: the bytecode is a Roblox
-/// client's (its opcodes encoded with key 203; Roblox always compiles with
-/// `Vector3.new` as the vector constructor), or a FASTCALL of the vector builtin
-/// (54) falls back to `Vector3.new`. Otherwise, and in a chunk that may change
-/// its environment, the snapshot.
-fn vector_spelling(chunk: &deserializer::chunk::Chunk, globals: &ast::ChunkGlobals, roblox_client: bool) -> ast::materialize_vectors::VectorSpelling {
+/// Roblox's readonly constructor can spell constants directly. A generic
+/// FASTCALL proves compiler configuration, not an immutable runtime binding.
+fn vector_spelling(globals: &ast::ChunkGlobals, roblox_client: bool) -> ast::materialize_vectors::VectorSpelling {
     use ast::materialize_vectors::VectorSpelling;
-    use crate::{instruction::Instruction, op_code::OpCode};
-    use deserializer::constant::Constant;
-    if globals.dynamic_environment || globals.unspellable {
-        return VectorSpelling::Snapshot;
-    }
-    const VECTOR_BUILTIN: u8 = 54;
-    let roblox_constructor = !globals.written.contains(b"Vector3".as_slice())
-        && (roblox_client || chunk.functions.iter().any(|function| {
-            let string = |constant: u32| match function.constants.get(constant as usize) {
-                Some(Constant::String(index)) => index.checked_sub(1).and_then(|index| chunk.string_table.get(index)).copied(),
-                _ => None,
-            };
-            function.instructions.iter().enumerate().any(|(pc, instruction)| match *instruction {
-                Instruction::BC {
-                    op_code: OpCode::LOP_FASTCALL | OpCode::LOP_FASTCALL1 | OpCode::LOP_FASTCALL2
-                        | OpCode::LOP_FASTCALL2K | OpCode::LOP_FASTCALL3,
-                    a: VECTOR_BUILTIN,
-                    c,
-                    ..
-                } => fallback_import(&function.instructions, pc, usize::from(c))
-                    .and_then(|aux| import_names(aux, &string))
-                    .is_some_and(|(names, count)| names_path(&names[..count], "Vector3.new")),
-                _ => false,
-            })
-        }));
-    if roblox_constructor { VectorSpelling::Vector3New } else { VectorSpelling::Snapshot }
+    if roblox_client && !globals.dynamic_environment && !globals.unspellable
+        && !globals.written.contains(b"Vector3".as_slice())
+    { VectorSpelling::Vector3New } else { VectorSpelling::Snapshot }
 }
 
 fn pristine_libraries(globals: &ast::ChunkGlobals) -> ast::library_constants::Libraries {
@@ -902,7 +874,7 @@ fn decompile_bytecode_internal(
             let _inlined_copies = ast::deinline::evidence::enter(inlined_copies);
             let capture_effects = capture_effects::CaptureEffects::build(&chunk);
             let globals = std::sync::Arc::new(chunk_globals(&chunk));
-            let vector_spelling = vector_spelling(&chunk, &globals, encode_key == 203);
+            let vector_spelling = vector_spelling(&globals, encode_key == 203);
             // A global no identifier spells is written `getfenv(1)["name"]`,
             // which needs the standard `getfenv` reading the environment the
             // global is read from: code naming getfenv or setfenv may
@@ -1502,9 +1474,6 @@ fn decompile_bytecode_internal(
             if options.compact_style {
                 let _span = ast::telemetry::Span::new("S_COMPACT_CONDITIONALS");
                 ast::compact_conditionals::compact_conditionals(&mut body);
-            } else {
-                let _span = ast::telemetry::Span::new("S_READABLE_CONDITIONALS");
-                ast::compact_conditionals::readable_conditionals(&mut body);
             }
             // A closure the bytecode makes anew stays new where the output
             // would share it (`fresh_closures`).
@@ -1540,6 +1509,20 @@ fn decompile_bytecode_internal(
                 }
             }
             drop(late_timer);
+            let name_inference = {
+                ptime!(S_REFINE_NAMES);
+                ast::refine_names::refine_final_names(&body, ast::refine_names::Options {
+                    dont_reuse_var: options.dont_reuse_var,
+                    emit_report: emit_upvalue_analysis,
+                    ..Default::default()
+                })
+            };
+            // Width uses final names; this pass preserves captured writes and
+            // introduces no bindings after the naming graph has been dropped.
+            if !options.compact_style {
+                let _span = ast::telemetry::Span::new("S_READABLE_CONDITIONALS");
+                ast::compact_conditionals::readable_conditionals(&mut body);
+            }
             // Temporaries left apart for the folding passes may, where some
             // did not fold, push a huge function past the local or register
             // limit, as may source locals of `do` blocks the output flattens:
@@ -1576,14 +1559,6 @@ fn decompile_bytecode_internal(
                 let _span = ast::telemetry::Span::new("S_RETURN_TYPES");
                 ast::return_types::annotate(&mut body);
             }
-            let name_inference = {
-                ptime!(S_REFINE_NAMES);
-                ast::refine_names::refine_final_names(&body, ast::refine_names::Options {
-                    dont_reuse_var: options.dont_reuse_var,
-                    emit_report: emit_upvalue_analysis,
-                    ..Default::default()
-                })
-            };
             let (out, source_occurrences, emission_map) = {
                 ptime!(S_FORMAT);
                 if emit_upvalue_analysis {

@@ -9386,21 +9386,26 @@ mod tests {
 
     #[test]
     fn event_parameter_role_beats_its_store_destination() {
-        for (event, expected) in [("CharacterAdded", "character"), ("PlayerAdded", "player")] {
-            let parameter = RcLocal::default();
+        for (event, expected) in [
+            ("CharacterAdded", &["character"][..]), ("PlayerAdded", &["player"][..]),
+            ("Triggered", &["player"][..]), ("PromptTriggered", &["prompt", "player"][..]),
+        ] {
+            let parameters: Vec<_> = expected.iter().map(|_| RcLocal::default()).collect();
             let mut function = Function::default();
-            function.parameters = vec![parameter.clone()];
-            function.body = Block(vec![Assign::new(
+            function.parameters = parameters.clone();
+            function.body = Block(parameters.iter().map(|parameter| Assign::new(
                 vec![Index::new(global("part"), string("Parent")).into()],
                 vec![RValue::Local(parameter.clone())],
-            ).into()]);
+            ).into()).collect());
             let mut block = Block(vec![MethodCall::new(
                 Index::new(global("signalOwner"), string(event)).into(),
                 "Connect".into(), vec![closure_of(function)],
             ).into()]);
             name_locals(&mut block, true);
-            assert_eq!(name_of(&parameter), expected);
-            assert_eq!(parameter.0.lock().4.name_tier, crate::NameTier::Evidence);
+            for (parameter, expected) in parameters.iter().zip(expected) {
+                assert_eq!(name_of(parameter), *expected, "{event}");
+                assert_eq!(parameter.0.lock().4.name_tier, crate::NameTier::Evidence);
+            }
         }
     }
 

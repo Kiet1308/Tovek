@@ -33,3 +33,17 @@ fn available_lines_keep_gaps_and_stripped_lines_use_the_existing_fallback() {
     assert!(located.contains("print(\"nested-first\")\n\n\t\tprint(\"nested-separated\")"), "{located}");
     assert!(stripped.contains("print(\"adjacent\")\n\tprint(\"separated\")"), "{stripped}");
 }
+
+#[test]
+fn readable_conditionals_use_final_names_for_the_width_limit() {
+    for bytes in [include_bytes!("fixtures/readable_if_final_names_O0g1.luaubc").as_slice(),
+        include_bytes!("fixtures/readable_if_final_names_O2g1.luaubc").as_slice()] {
+        let source = decompile(bytes);
+        assert!(source.contains("selectedCharacterTransparencyOverrideValue"), "{source}");
+        assert!(source.contains("\n\tif "), "long final name must retain branches: {source}");
+        for line in source.lines().filter(|line| line.contains("= if ") || line.contains("return if ")) {
+            let columns = line.chars().map(|ch| if ch == '\t' { 4 } else { 1 }).sum::<usize>();
+            assert!(columns <= 72, "{columns} columns: {line}");
+        }
+    }
+}

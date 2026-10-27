@@ -10,6 +10,8 @@ import sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 CASES = {
+    "readable_captured_choice": ((ROOT / "docs/failure_fixtures/semantic_roundtrip/readable_captured_choice.luau").read_text(), ''),
+    "readable_if_final_names": ((ROOT / "docs/failure_fixtures/semantic_roundtrip/readable_if_final_names.luau").read_text(), ''),
     "table_open_list_growth": ((ROOT / "docs/failure_fixtures/semantic_roundtrip/table_open_list_growth.luau").read_text(), ''),
     "table_partial_array_keys": ((ROOT / "docs/failure_fixtures/semantic_roundtrip/table_partial_array_keys.luau").read_text(), ''),
     "table_mixed_allocation_growth": ((ROOT / "docs/failure_fixtures/semantic_roundtrip/table_mixed_allocation_growth.luau").read_text(), ''),
@@ -118,6 +120,26 @@ CASES = {
     "integer_literals": ('return {42i,9007199254740993i,-0x8000000000000000i,9223372036854775807i,-42i,0i,{n=9007199254740993i}}', 'for i=1,6 do local v=f[i]; print(type(v),tostring(v),v==42) end; print(type(f[7].n),tostring(f[7].n))'),
 }
 
+# The configured constructor is supplied by the driver before the returned
+# function runs. A FASTCALL fallback alone does not make that member immutable.
+VECTOR3_CASES = {
+    'vector3_member_write': (
+        'return function() local function offset(x) return Vector3.new(x, 1, 2) end '
+        'Vector3.new = function() return 99 end '
+        'local value = Vector3.new(4, 1, 2) print(type(value), value) return offset end',
+        'Vector3 = {new = vector.create}; f()'),
+    'vector3_alias_write': (
+        'return function() local function offset(x) return Vector3.new(x, 1, 2) end '
+        'local alias = Vector3; alias.new = function() return 99 end '
+        'local value = Vector3.new(4, 1, 2) print(type(value), value) return offset end',
+        'Vector3 = {new = vector.create}; f()'),
+    'vector3_environment': (
+        'local function offset(x) return Vector3.new(x, 1, 2) end '
+        'return function() return Vector3.new(4, 1, 2), offset end',
+        'getfenv(f).Vector3 = {new = function() return "fake" end}; '
+        'local value = f(); print(type(value), value)'),
+}
+
 
 def run(command):
     result = subprocess.run([str(arg) for arg in command], capture_output=True, timeout=60)
@@ -131,10 +153,11 @@ def normalize(output):
     return re.sub(r'[^\s:]+\.luau:\d+(?::\d+)?', 'FILE:N', output.replace('\r\n', '\n')).strip()
 
 
-def compile_source(args, source, destination, optimization, debug, integer=False):
+def compile_source(args, source, destination, optimization, debug, integer=False, vector3=False):
     flags = '--fflags=false,LuauIntegerType2=true' if integer else '--fflags=false'
+    library, constructor = ('Vector3', 'new') if vector3 else ('vector', 'create')
     command = [str(args.compiler), '--binary', flags, f'-O{optimization}', f'-g{debug}',
-               '--vector-lib=vector', '--vector-ctor=create', str(source)]
+               f'--vector-lib={library}', f'--vector-ctor={constructor}', str(source)]
     result = subprocess.run(command, capture_output=True, timeout=60)
     destination.write_bytes(result.stdout)
     if result.returncode:
@@ -146,7 +169,7 @@ class Refused(Exception):
 
 
 def check(args, name, source, driver, optimization, debug, bytecode=None, integer=False,
-          output_optimization=None, refusal=None):
+          output_optimization=None, refusal=None, vector3=False):
     """`refusal`: a decompile failure naming this reason passes too."""
     output_optimization = optimization if output_optimization is None else output_optimization
     suffix = '' if output_optimization == optimization else f'.outO{output_optimization}'
@@ -159,9 +182,9 @@ def check(args, name, source, driver, optimization, debug, bytecode=None, intege
     data, output_data, driver_data = [directory / filename for filename in ('input.bc', 'output.bc', 'driver.bc')]
     evidence = {"ca": name, "toi_uu": optimization, "debug": debug}
     try:
-        compile_source(args, driver_source, driver_data, 1, 1, integer)
+        compile_source(args, driver_source, driver_data, 1, 1, integer, vector3)
         if bytecode is None:
-            compile_source(args, original, data, optimization, debug, integer)
+            compile_source(args, original, data, optimization, debug, integer, vector3)
         else:
             data.write_bytes(bytecode)
         evidence['goc'] = run([args.vm, data, driver_data])
@@ -175,7 +198,7 @@ def check(args, name, source, driver, optimization, debug, bytecode=None, intege
         assert evidence['decompile']['exit_code'] == 0, evidence['decompile']
         output_source = directory / 'output.luau'
         output_source.write_text(evidence['decompile']['stdout'], encoding='utf-8')
-        compile_source(args, output_source, output_data, output_optimization, debug, integer)
+        compile_source(args, output_source, output_data, output_optimization, debug, integer, vector3)
         evidence['sau_sua'] = run([args.vm, output_data, driver_data])
         assert evidence['sau_sua']['exit_code'] == 0, evidence['sau_sua']
         assert normalize(evidence['goc']['stdout']) == normalize(evidence['sau_sua']['stdout']), evidence
@@ -222,6 +245,11 @@ def main():
         for output_optimization in (0, 1, 2):
             results.append(check(args, name, source, driver, 2, 2,
                                  output_optimization=output_optimization))
+    for name, (source, driver) in VECTOR3_CASES.items():
+        for debug in (0, 2):
+            for output_optimization in (0, 1, 2):
+                results.append(check(args, name, source, driver, 2, debug,
+                                     output_optimization=output_optimization, vector3=True))
     # A closure with no upvalue left for the constructor, in a script that
     # replaces `vector` through `_G.getfenv`: the folded constant has no
     # spelling that ignores the environment.

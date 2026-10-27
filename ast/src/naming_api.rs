@@ -46,7 +46,8 @@ pub fn roblox_event_parameters(event: &str) -> Option<&'static [Option<&'static 
             &[Some("character")]
         }
         "PlayerAdded" | "PlayerRemoving" => &[Some("player")],
-        "Triggered" | "PromptTriggered" => &[Some("player")],
+        "Triggered" => &[Some("player")],
+        "PromptTriggered" => &[Some("prompt"), Some("player")],
         "Touched" | "TouchEnded" => &[Some("otherPart")],
         _ => return None,
     })

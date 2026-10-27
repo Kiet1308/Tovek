@@ -16,6 +16,22 @@
   "split": "development",
   "cases": [
     {
+      "name": "readable_nested_callbacks",
+      "group": "readability",
+      "source": "readable_nested_callbacks.luau",
+      "driver": "readable_nested_callbacks.driver.luau",
+      "runtime_compile_inline": true,
+      "expected_stdout": "nil\tnil\nfalse\tfalse\n"
+    },
+    {
+      "name": "readable_numeric_literals",
+      "group": "readability",
+      "source": "readable_numeric_literals.luau",
+      "driver": "readable_numeric_literals.driver.luau",
+      "runtime_compile_inline": true,
+      "expected_stdout": "false\t2\t4\t-inf\ttrue\ttrue\t-inf\ntrue\t-1\t3\tinf\ttrue\ttrue\tinf\n"
+    },
+    {
       "name": "branch_constructor_order",
       "group": "UI",
       "source": "branch_constructor_order.luau",

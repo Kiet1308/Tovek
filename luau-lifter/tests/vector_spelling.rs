@@ -2,7 +2,8 @@
 //! `--binary -O2 -g1`:
 //!
 //! vector_spelling_proof (`--vector-lib=Vector3 --vector-ctor=new`): the
-//! FASTCALL of the vector builtin in `offset` falls back to `Vector3.new`.
+//! FASTCALL of the vector builtin in `offset` falls back to `Vector3.new`,
+//! which proves the compiler configuration, not an immutable runtime member.
 //!     local function offset(x) return Vector3.new(x, 1, 2) end
 //!     local base = Vector3.new(4, 1, 2)
 //!     local down = -Vector3.new(0, 10, 0)
@@ -34,12 +35,12 @@ fn decompile(bytecode: &[u8], key: u8) -> String {
 }
 
 #[test]
-fn a_vector3_new_fallback_spells_constants_as_vector3_new() {
+fn a_vector3_new_fallback_keeps_the_constructor_snapshot() {
     let source = decompile(PROOF, 1);
-    assert!(source.contains("Vector3.new(4, 1, 2)"), "{source}");
-    // (-0, -10, -0) is the negation the compiler folded.
-    assert!(source.contains("-Vector3.new(0, 10, 0)"), "{source}");
-    assert!(!source.contains("createVector") && !source.contains("vector.create"), "{source}");
+    assert!(source.starts_with("local createVector = vector.create"), "{source}");
+    assert!(source.contains("createVector(4, 1, 2)"), "{source}");
+    assert!(source.contains("createVector(-0, -10, -0)"), "{source}");
+    assert!(!source.contains("Vector3.new(4, 1, 2)"), "{source}");
 }
 
 #[test]

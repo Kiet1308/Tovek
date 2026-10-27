@@ -2332,6 +2332,30 @@
       "bytes": 1392,
       "lines": 64
     },
+    "semantic/readable_captured_choice__O0.luau": {
+      "bytes": 408,
+      "lines": 29
+    },
+    "semantic/readable_captured_choice__O1.luau": {
+      "bytes": 408,
+      "lines": 29
+    },
+    "semantic/readable_captured_choice__O2.luau": {
+      "bytes": 408,
+      "lines": 29
+    },
+    "semantic/readable_if_final_names__O0.luau": {
+      "bytes": 606,
+      "lines": 19
+    },
+    "semantic/readable_if_final_names__O1.luau": {
+      "bytes": 606,
+      "lines": 19
+    },
+    "semantic/readable_if_final_names__O2.luau": {
+      "bytes": 1037,
+      "lines": 26
+    },
     "semantic/readable_if_values__O0.luau": {
       "bytes": 798,
       "lines": 42

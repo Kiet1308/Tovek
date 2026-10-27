@@ -35,6 +35,33 @@ class OutputQualityTests(unittest.TestCase):
         select['falseExpr'] = dict(select)
         self.assertFalse(readable_conditionals(tree, text))
 
+    def test_default_conditional_gate_accepts_only_literal_numeric_spellings(self):
+        number = lambda value: {'type': 'AstExprConstantNumber', 'value': value}
+        integer = lambda value: {'type': 'AstExprConstantInteger', 'value': value}
+        minus = lambda value: {'type': 'AstExprUnary', 'op': 'Minus', 'expr': value}
+        group = lambda value: {'type': 'AstExprGroup', 'expr': value}
+        binary = lambda op, left, right: {'type': 'AstExprBinary', 'op': op, 'left': left, 'right': right}
+        nan = group(binary('Div', number(0), number(0)))
+        call = {'type': 'AstExprCall'}
+        name = {'type': 'AstExprGlobal', 'global': 'value'}
+        accepted = [number(1), minus(number(1)), minus(number(0)), number(float('inf')),
+                    minus(number(float('inf'))), nan, minus(nan), integer(1), minus(integer(1)),
+                    integer(-(2 ** 63))]
+        rejected = [binary('Add', number(1), number(2)), binary('Div', number(1), number(0)),
+                    binary('Div', integer(0), integer(0)), binary('Div', call, number(0)),
+                    minus(name), minus(minus(number(1))), group(call), group(binary('Mul', number(0), number(0)))]
+        for expected, values in [(True, accepted), (False, rejected)]:
+            for value in values:
+                for arm in [group(value), {'type': 'AstExprIndexExpr', 'expr': name, 'index': group(value)}]:
+                    with self.subTest(arm=arm):
+                        select = {'type': 'AstExprIfElse', 'location': '0,7 - 0,40',
+                                  'condition': name, 'trueExpr': arm, 'falseExpr': number(2)}
+                        tree = block({'type': 'AstStatReturn', 'list': [select]})
+                        self.assertEqual(readable_conditionals(tree, 'return if flag then value else 2'), expected)
+        for key in [name, read(local('value', '0,0'))]:
+            select['trueExpr'] = {'type': 'AstExprIndexExpr', 'expr': name, 'index': key}
+            self.assertFalse(readable_conditionals(tree, 'return if flag then value else 2'))
+
     def test_compact_annotations_do_not_hide_inference_from_quality_counts(self):
         full = analyze_tree(block(), 'f() -- equivalent call inferred; original call site unknown\n')
         compact = analyze_tree(block(), 'f() -- inferred call\n-- inferred helper\n')

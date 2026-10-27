@@ -132,8 +132,11 @@ for scope, methodology and remaining regressions.
   [v12 validation and limits](https://kiet1308.github.io/Tovek/changelog/v2/#bytecode-v12).
 - **Literal and runtime fidelity.** Integer constants retain their signed 64-bit value
   and `i` suffix; recompilation requires Luau's `LuauIntegerType2` feature. Vector
-  constants capture the standard `vector.create` function at chunk entry, preserving
-  their behavior across later environment changes and O0/O1/O2 recompilation. A
+  constants in generic Luau bytecode capture the standard `vector.create` function
+  at chunk entry, preserving their behavior across later environment changes and
+  O0/O1/O2 recompilation. Roblox client bytecode can spell constants as `Vector3.new`
+  under Roblox's readonly standard constructor; a generic FASTCALL fallback proves
+  only compiler configuration and keeps the snapshot. A
   chunk with no room for that binding (no free register, or a closure already holding
   200 upvalues) spells the constant `vector.create(...)` in place instead, under the
   environment assumption below. The

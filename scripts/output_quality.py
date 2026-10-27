@@ -28,15 +28,28 @@ def unwrap(node):
 
 def readable_conditionals(tree, text):
     """Default V2.7 style: atomic arms in assignment/return values, <=72 columns."""
+    def literal(node):
+        node = unwrap(node)
+        if node.get('type', '').startswith('AstExprConstant'):
+            return True
+        if node.get('type') == 'AstExprUnary' and node.get('op') == 'Minus':
+            node = unwrap(node['expr'])
+            if node.get('type') in ('AstExprConstantNumber', 'AstExprConstantInteger'):
+                return True
+        # Numeric literals print as -n, +/-1e999 or +/-(0 / 0), never general arithmetic.
+        return node.get('type') == 'AstExprBinary' and node.get('op') == 'Div' and all(
+            node[side].get('type') == 'AstExprConstantNumber' and node[side].get('value') == 0
+            for side in ('left', 'right'))
+
     def atomic(node):
         node = unwrap(node)
         kind = node.get('type')
-        if kind in ATOMS:
+        if kind in ATOMS or literal(node):
             return True
         if kind == 'AstExprIndexName':
             return atomic(node['expr'])
         if kind == 'AstExprIndexExpr':
-            return atomic(node['expr']) and node['index'].get('type', '').startswith('AstExprConstant')
+            return atomic(node['expr']) and literal(node['index'])
         return False
 
     lines = text.splitlines()
