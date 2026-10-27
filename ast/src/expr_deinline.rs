@@ -141,12 +141,12 @@ struct ExprTarget {
 }
 
 impl ExprTarget {
-    fn ctx(&self) -> MatchCtx<'_> {
+    fn ctx<'a>(&'a self, fold: &'a crate::deinline::fold::PureHelpers) -> MatchCtx<'a> {
         MatchCtx {
             params: &self.params,
             locals: &self.locals,
             captures: None,
-            fold: None,
+            fold: Some(fold),
         }
     }
 }
@@ -1082,14 +1082,24 @@ fn is_register(arg: &RValue, upvalues: &FunctionUpvalues, current_func: Option<F
 }
 
 fn try_match(t: &ExprTarget, rv: &RValue, current_func: Option<FnPtr>) -> Option<(Vec<RValue>, Hoist)> {
+    let fold = crate::deinline::fold::PureHelpers::default();
     let mut b = Bindings::default();
     let matched = if t.arithmetic.is_some() {
-        arithmetic::unify(&t.ctx(), &t.expr, rv, &mut b)
+        arithmetic::unify(&t.ctx(&fold), &t.expr, rv, &mut b)
     } else {
-        unify_rvalue(&t.ctx(), &t.expr, rv, &mut b).is_ok()
+        unify_rvalue(&t.ctx(&fold), &t.expr, rv, &mut b).is_ok()
     };
     if !matched {
         return None;
+    }
+    // Only forward proof of arguments already bound by the structural match;
+    // no inverse guesses or evaluation of mutable library calls.
+    for (pattern, literal) in &b.equations {
+        let value = crate::deinline::fold::evaluate(pattern, &|param| {
+            let RValue::Literal(literal) = b.params.get(param)? else { return None; };
+            crate::deinline::fold::Value::of(literal)
+        }, &fold)?;
+        if !value.same(&crate::deinline::fold::Value::of(literal)?) { return None; }
     }
     // Every parameter must have bound to an argument (an unread parameter cannot be
     // reconstructed) — refuse otherwise.
@@ -1904,6 +1914,38 @@ mod tests {
                 bias,
             ),
         )
+    }
+
+    #[test]
+    fn folded_vector_components_require_exact_bound_arguments() {
+        use BinaryOperation::{Add, Mul, Sub};
+        let f = local("reflect");
+        let value = local("value");
+        let normal = local("normal");
+        let input = local("input");
+        let output = local("output");
+        let component = |value: RValue, axis| Index::new(value, string(axis)).into();
+        let reflected = |value: RValue, normal: RValue, xyz: [RValue; 3]| {
+            let dot = bin(bin(bin(component(value.clone(), "X"), Mul, xyz[0].clone()), Add,
+                bin(component(value.clone(), "Y"), Mul, xyz[1].clone())), Add,
+                bin(component(value.clone(), "Z"), Mul, xyz[2].clone()));
+            bin(value, Sub, bin(normal, Mul, bin(number(2.0), Mul, dot)))
+        };
+        let body = reflected(lv(&value), lv(&normal),
+            ["X", "Y", "Z"].map(|axis| component(lv(&normal), axis)));
+        for (normal_arg, y, expected) in [
+            (Literal::Vector(0.0, 1.0, 0.0).into(), 1.0, true),
+            (Literal::Vector(0.0, 1.0, 0.0).into(), 2.0, false),
+            (Literal::Vector(0.0, -0.0, 0.0).into(), 0.0, false),
+            (lv(&normal), 1.0, false),
+            (call(global("makeNormal"), vec![]), 1.0, false),
+        ] {
+            let mut block = Block(vec![helper_decl(&f, "reflect", vec![value.clone(), normal.clone()],
+                vec![Return::new(vec![body.clone()]).into()]),
+                local_decl(&output, reflected(lv(&input), normal_arg, [number(0.0), number(y), number(0.0)]))]);
+            expr_deinline(&mut block);
+            assert_eq!(is_call_to(rhs_of(&block.0[1]), &f), expected, "{block}");
+        }
     }
 
     #[test]

@@ -7,6 +7,19 @@ const MERGED: &[u8] = include_bytes!("fixtures/deinline_merged_result_branches.l
 const CONTROL: &[u8] = include_bytes!("fixtures/late_control_flow_shapes.luaubc");
 const WHILE: &[u8] = include_bytes!("fixtures/while_inlined_condition.luaubc");
 const EVENT: &[u8] = include_bytes!("fixtures/event_parameter_roles.luaubc");
+const VECTOR: &[u8] = include_bytes!("fixtures/deinline_vector_arguments.luaubc");
+
+#[test]
+fn vector_constant_arguments_rebuild_reflect_without_folding_library_calls() {
+    let source = luau_lifter::try_decompile_bytecode_with_options(
+        VECTOR, 1, None, Default::default(),
+    ).expect("vector argument regression decompiles");
+    let reflected = source.split("local function reflected(").nth(1).unwrap()
+        .split("\nend").next().unwrap();
+    assert_eq!(reflected.matches("reflect(").count(), 2, "{source}");
+    assert!(reflected.contains("-- inferred equivalent call"), "{source}");
+    assert!(source.contains("scaled(p.create(1, 2, 3))"), "mutable lookup must stay a call: {source}");
+}
 
 #[test]
 fn rebuilt_head_test_recovers_while_and_keeps_its_call_comment() {

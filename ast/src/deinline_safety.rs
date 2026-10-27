@@ -303,6 +303,9 @@ impl CaptureSafety {
             RValue::Literal(crate::Literal::Nil | crate::Literal::Boolean(_) | crate::Literal::String(_)) => true,
             RValue::Literal(crate::Literal::Number(n)) => n.is_finite()
                 && n.abs().to_bits() != std::f64::consts::PI.to_bits(),
+            // Bytecode vector constants are values, not constructor lookups.
+            RValue::Literal(crate::Literal::Vector(x, y, z)) => [x, y, z].iter().all(|n| n.is_finite()),
+            RValue::Literal(crate::Literal::VectorD(x, y, z)) => [x, y, z].iter().all(|n| n.is_finite()),
             // A cell shared by reference changes only through an assignment
             // after its declaration. One a nested closure re-captures from
             // its parent (`LCT_UPVAL`) is a reference to a cell that, written
@@ -864,6 +867,16 @@ mod tests {
         let safety = CaptureSafety::new(&Block(statements));
         let may_change = safety.may_change(&total);
         assert!(may_change(&field));
+    }
+
+    #[test]
+    fn vector_constants_are_stable_but_constructors_are_not() {
+        let safety = CaptureSafety::default();
+        assert!(safety.stable(&crate::Literal::Vector(0.0, -0.0, 1.0).into()));
+        assert!(safety.stable(&crate::Literal::VectorD(0.0, -0.0, 1.0).into()));
+        assert!(!safety.stable(&crate::Literal::Vector(f32::NAN, 0.0, 1.0).into()));
+        assert!(!safety.stable(&crate::Call::new(member(global("vector"), "create"),
+            vec![crate::Literal::Number(1.0).into()]).into()));
     }
 
     /// A reference capture changes a cell only if something assigns it after

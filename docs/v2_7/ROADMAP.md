@@ -28,6 +28,11 @@ exact vector-fold prerequisite. The full decompiler goal remains in progress;
 the private dumps are unavailable and selected the existing structural line
 census policy (no new above-floor gate).
 
+The follow-up [vector argument checkpoint](checkpoint_vector_arguments.md) now
+restores both reflect calls using the shared exact fold proof. It passes 1,655
+workspace tests and the full audit, with byte-identical public outputs against
+`927885c`. Other remaining work below is still open.
+
 ## Binding decisions
 
 These come from the owner. Do not reopen them.

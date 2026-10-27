@@ -1141,8 +1141,8 @@
       "lines": 32
     },
     "semantic/deinline_vector_arguments__O2.luau": {
-      "bytes": 1006,
-      "lines": 36
+      "bytes": 1000,
+      "lines": 34
     },
     "semantic/deinline_written_parameter_alias__O0.luau": {
       "bytes": 1231,

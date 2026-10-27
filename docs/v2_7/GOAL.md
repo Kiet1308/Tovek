@@ -83,7 +83,7 @@ Roadmap ghi nhận tại `1aeabd8`: 1.636 workspace tests, 699/699 semantic roun
 - [ ] Nested inlined calls trong generic `for` ở O2/g2: tìm reproducer cho lỗi fuzz, sửa debug-local boundary/phi hoặc edge-copy placement trong SSA; không che lỗi ở formatter.
 - [ ] Chuyển panic do malformed bytecode thành typed refusal tại `bytecode_validate`: `unreachable LOP_BREAK`, `unwrap(None)`, “not implemented”, FORGPREP thiếu partner. Giữ catch_unwind làm lớp bảo vệ cuối.
 - [ ] Mô hình NEWTABLE: size hint khác stores được fold; record value nil tại runtime. Kiểm tra thứ tự duyệt/khả năng quan sát; không tự bracket hàng loạt constructor khi chưa đo tác động.
-- [ ] Xây exact vector fold model trước khi mở E2 (`ast/src/deinline/fold.rs`) cho helper nhận vector constants, như `reflect(v, Vector3.new(...))`; không dùng giả định thư viện chuẩn bất biến.
+- [x] Xây exact vector fold model trước khi mở E2 (`ast/src/deinline/fold.rs`) cho helper nhận vector constants, như `reflect(v, Vector3.new(...))`; không dùng giả định thư viện chuẩn bất biến.
 - [x] Chủ repo chọn giữ chính sách line census hiện tại cho structural rebuild trên size floor. Không thêm gate làm mất rebuilt calls.
 
 ### G5 M6
@@ -149,3 +149,7 @@ Chỉ chạy `--apply` khi cần và sau khi dừng build. Nếu cần dọn vù
 ## Checkpoint control flow / naming
 
 Xem [báo cáo kiểm chứng](checkpoint_control_naming.md). Mốc này có 1.652 workspace tests passed, 711/711 semantic cases và toàn bộ Fixture and Luau audit. Exact vector fold đã có; reflect expression matching và các mục còn mở chưa được đóng. Chủ repo yêu cầu commit/push từng mốc đã kiểm chứng lên `v2.7-dev`.
+
+## Checkpoint vector arguments
+
+[Proof và kết quả](checkpoint_vector_arguments.md): hai call `reflect` từ vector constants đã khôi phục; workspace 1.655 passed, audit đủ 33 bước, public outputs byte-identical với `927885c`. Các mục khác của goal vẫn mở.
