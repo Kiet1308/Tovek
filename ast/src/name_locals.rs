@@ -1588,6 +1588,14 @@ fn iterator_names(right: &[RValue]) -> Option<Vec<&'static str>> {
     None
 }
 
+const IRREGULAR_PLURALS: &[(&str, &str)] = &[
+    ("children", "child"), ("people", "person"), ("indices", "index"),
+    ("vertices", "vertex"), ("matrices", "matrix"), ("analyses", "analysis"),
+    ("crises", "crisis"), ("theses", "thesis"), ("diagnoses", "diagnosis"),
+    ("hypotheses", "hypothesis"), ("parentheses", "parenthesis"),
+    ("feet", "foot"), ("teeth", "tooth"), ("mice", "mouse"), ("geese", "goose"),
+];
+
 /// Singular form of a (presumed) plural collection identifier, used to name a
 /// generic-for element variable after the collection it iterates
 /// (`crops` -> `crop`, `MAIL_BODY_KEYS`/`keys` -> `key`). Returns `None` when the
@@ -1600,6 +1608,9 @@ fn singularize(name: &str) -> Option<String> {
         return None;
     }
     let lower = name.to_ascii_lowercase();
+    if let Some((_, singular)) = IRREGULAR_PLURALS.iter().find(|(plural, _)| *plural == lower) {
+        return Some((*singular).to_string());
+    }
     // Words that LOOK plural (end in `s`) but aren't, or whose singular our rules
     // would mangle into a non-word (Latin irregulars, `consonant+ie+s`). Refusing
     // them falls back to the default iterator name rather than inventing junk.
@@ -1637,18 +1648,9 @@ fn singularize(name: &str) -> Option<String> {
         "index",
         "this",
         "kudos",
-        // Latin/irregular plurals our drop-`s`/`-es` rules would mangle
-        "indices",
-        "vertices",
-        "matrices",
-        "analyses",
+        // Ambiguous: axes can mean axe or axis; bases can mean base or basis.
         "axes",
-        "crises",
         "bases",
-        "theses",
-        "diagnoses",
-        "hypotheses",
-        "parentheses",
         // singular ends in `ie`, so `ies`->`y` is wrong (movie -> "movy")
         "movies",
         "cookies",
@@ -1722,11 +1724,8 @@ fn pluralize(name: &str) -> Option<String> {
     if let Some(stem) = name.strip_suffix("Entry") {
         return Some(format!("{stem}Entries"));
     }
-    if name == "child" {
-        return Some("children".to_string());
-    }
-    if name == "person" {
-        return Some("people".to_string());
+    if let Some((plural, _)) = IRREGULAR_PLURALS.iter().find(|(_, singular)| *singular == name) {
+        return Some((*plural).to_string());
     }
     let bytes = name.as_bytes();
     if name.ends_with('y')
@@ -1832,8 +1831,8 @@ fn uses_create_element(block: &Block, aliases: &FxHashSet<usize>) -> bool {
     })
 }
 
-/// Locals carrying an OOP "class" signal: the receiver of a `X.__index = ...`
-/// assignment, the 2nd argument of `setmetatable(_, X)`, or the receiver of a
+/// Locals carrying an OOP "class" signal: the 2nd argument of
+/// `setmetatable(_, X)`, or the receiver of a
 /// colon method-call `X:method(...)`. The `collect` table-arm combines this with
 /// an empty-table declaration `local X = {}` to name the class table `class`.
 ///
@@ -1856,19 +1855,6 @@ fn collect_class_signals(block: &mut Block, out: &mut FxHashSet<usize>) {
     }
 
     for statement in &mut block.0 {
-        // `X.__index = ...` — any assignment whose LHS indexes a local with the
-        // key "__index" marks that local as a metatable/class.
-        if let Statement::Assign(assign) = &*statement {
-            for lvalue in &assign.left {
-                if let LValue::Index(index) = lvalue
-                    && let RValue::Local(base) = &*index.left
-                    && index_key(index) == Some("__index")
-                {
-                    out.insert(local_ptr(base));
-                }
-            }
-        }
-
         // Nested rvalues: `setmetatable(_, X)` calls and colon-calls `X:m()`.
         let mut functions = Vec::new();
         statement.post_traverse_values(&mut |value| -> Option<()> {
@@ -3230,12 +3216,6 @@ impl NamingPreparation {
                         }
                     }
                 }
-                for left in &assign.left {
-                    if let LValue::Index(index) = left && let RValue::Local(base) = &*index.left
-                        && index_key(index) == Some("__index") {
-                        self.class_signal_locals.insert(local_ptr(base));
-                    }
-                }
             }
             match statement {
                 Statement::Call(call) => self.call(call),
@@ -3384,8 +3364,8 @@ struct Namer {
     /// Chunk-root aliases of a handle's PascalCase member: the name the member
     /// derives and its source spelling (see `root_alias_spelling`).
     root_spellings: FxHashMap<usize, (String, String)>,
-    /// Locals carrying an OOP "class" signal (`X.__index = ..`,
-    /// `setmetatable(_, X)`, or a colon-call `X:m()`). Combined with an empty-
+    /// Locals carrying an OOP "class" signal (`setmetatable(_, X)`
+    /// or a colon-call `X:m()`). Combined with an empty-
     /// table declaration `local X = {}` to name the class table `class`.
     /// See `collect_class_signals`.
     class_signal_locals: FxHashSet<usize>,
@@ -5053,7 +5033,7 @@ impl Namer {
                                     self.set_hint(local, hint, 90);
                                 }
                                 // An EMPTY table later used as a metatable
-                                // (`X.__index = X` / `setmetatable(_, X)`) or colon-
+                                // (`setmetatable(_, X)`) or colon-
                                 // invoked (`X:method()`) is an OOP class table; name
                                 // it `class`. The empty-table gate is what makes the
                                 // (otherwise broad) class signals sound — a bare `{}`
@@ -8212,10 +8192,9 @@ mod tests {
         assert_eq!(name_of(&v), "v");
     }
 
-    /// A Latin irregular plural (`indices`) must not become a non-word (`indice`);
-    /// the element variable falls back to the default.
+    /// A known irregular collection supplies the element's singular name.
     #[test]
-    fn iterator_element_refuses_latin_irregular() {
+    fn iterator_element_uses_irregular_plural() {
         let indices = RcLocal::default();
         let (k, v) = (RcLocal::default(), RcLocal::default());
         let for_body = Block(vec![use_local(&k), use_local(&v)]);
@@ -8233,7 +8212,20 @@ mod tests {
         ]);
         name_locals(&mut block, true);
         assert_eq!(name_of(&indices), "indices");
-        assert_eq!(name_of(&v), "v");
+        assert_eq!(name_of(&v), "index");
+    }
+
+    #[test]
+    fn irregular_plural_names_roundtrip_without_guessing_ambiguous_words() {
+        for &(plural, singular) in super::IRREGULAR_PLURALS {
+            assert_eq!(super::singularize(plural).as_deref(), Some(singular));
+            assert_eq!(super::singularize(&plural.to_ascii_uppercase()).as_deref(), Some(singular));
+            assert_eq!(super::pluralize(singular).as_deref(), Some(plural));
+            assert_eq!(super::pluralize(plural).as_deref(), Some(plural));
+        }
+        for word in ["axes", "bases", "status", "species", "series", "data", "đứa trẻ"] {
+            assert_eq!(super::singularize(word), None, "{word}");
+        }
     }
 
     /// A config/props table that merely holds ONE nested element among scalar
@@ -9696,9 +9688,9 @@ mod tests {
 
     // ---- OOP class-table naming ----
 
-    /// An empty table with a metatable signal (`t.__index = t`) is named `class`.
+    /// An `__index` assignment alone does not establish a class role.
     #[test]
-    fn empty_table_with_index_signal_named_class() {
+    fn empty_table_with_only_index_signal_is_not_named_class() {
         let t = RcLocal::default();
         let index_assign: Statement = Assign::new(
             vec![LValue::Index(Index::new(
@@ -9714,7 +9706,7 @@ mod tests {
             use_local(&t),
         ]);
         name_locals(&mut block, true);
-        assert_eq!(name_of(&t), "class");
+        assert_ne!(name_of(&t), "class");
     }
 
     /// An empty table that is colon-invoked (`t:method()`) is a class even without

@@ -50,6 +50,13 @@ comments are unchanged. Capacity mismatches and the rest of the goal remain open
 
 ## Binding decisions
 
+The [naming/placeholder checkpoint](checkpoint_naming_placeholder.md) removes
+`__index`-only class hints, adds irregular collection names, proves private
+placeholder stores and accepts two larger allocation cases. All 33 audit
+steps pass; old per-file line/call counts are unchanged. The [implementation
+audit](audit_existing_m4_m6.md) records existing S1 gates and the shared L4
+engine/cache. First-branch RHS naming, L3 and the performance goal remain open.
+
 These come from the owner. Do not reopen them.
 
 - **D1: never assume the standard library is untouched.** Scripts can hook or replace `math`, `type` and the rest.

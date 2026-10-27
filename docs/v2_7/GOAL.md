@@ -60,12 +60,13 @@ Roadmap ghi nhận tại `1aeabd8`: 1.636 workspace tests, 699/699 semantic roun
 
 ### G2 M4 Structure
 
-- [ ] S1: guard-continue gate; giới hạn tail duplication; terminal if/else theo weight; kiểm tra scope của `factor_common_tails`.
-- [ ] S1: `negate_exact` và guard split không đảo toán tử quan hệ khi có NaN; truthiness collapse; chuỗi and/or chỉ dùng truthiness của literal và constructor theo D1.
-- [ ] S1: comparison orientation ở SSA inliner; snapshot-noise refinement; colon precision; index tuple và swap folds.
-- [ ] S1: statement residue từ chối khi `if` nằm trong vòng lặp không chứa declaration; handle splits loại case (c), sau khi xác định được đặc tả của case này.
+- [x] S1: guard-continue gate; giới hạn tail duplication; terminal if/else theo weight; kiểm tra scope của `factor_common_tails`. Xem [audit implementation hiện hữu](audit_existing_m4_m6.md).
+- [x] S1: `negate_exact` và guard split không đảo toán tử quan hệ khi có NaN; truthiness collapse; chuỗi and/or chỉ dùng truthiness của literal và constructor theo D1.
+- [x] S1: comparison orientation ở SSA inliner; snapshot-noise refinement; colon precision; index tuple và swap folds.
+- [x] S1: statement residue từ chối khi `if` nằm trong vòng lặp không chứa declaration; audit ghi rõ enclosing-loop liveness.
+- [ ] S1: handle splits loại case (c), sau khi xác định được đặc tả của case này; đã hỏi chủ repo, không tự suy ra từ D4.
 - [x] S4: if-expression với hai atomic arms, tối đa 72 cột, chỉ ở vị trí giá trị.
-- [ ] S4: placeholder `0` chỉ đổi thành `nil` khi không thể đọc table trước lần store đầu vào key đó.
+- [x] S4: placeholder `0` chỉ đổi thành `nil` khi không thể đọc table trước lần store đầu vào key đó; [proof và giới hạn](checkpoint_naming_placeholder.md).
 - [x] Khôi phục header `while isAlive(h) do` từ rebuilt call; dùng `open_cases/while_inlined_condition.luau`, bảo toàn số lần và thứ tự đánh giá điều kiện, break/continue và scope.
 - [ ] L3: đo golden diff của EQ-jump polarity/branch order trước khi chọn triển khai. Nếu không nhận thay đổi, ghi quyết định dựa trên diff và semantic/readability evidence, đúng tính chất đánh giá của mục này.
 
@@ -92,8 +93,8 @@ Roadmap ghi nhận tại `1aeabd8`: 1.636 workspace tests, 699/699 semantic roun
 
 - [x] L1: blank lines theo source lines; `SourceLines` không tham gia `PartialEq`.
 - [x] L2: return types trên final AST, chỉ những type đã chứng minh; không đưa annotation từ bảng tên API Roblox vào output.
-- [ ] L4: hợp nhất deinline engine, expression mode thay legacy family và incremental helper cache. Di chuyển proof/capture/effect/arity/frame guards đầy đủ; giữ candidate order, ambiguity và budget; dùng differential reference trước khi bỏ đường cũ.
-- [ ] Giữ output byte-identical cho phần cache/refactor thuần hiệu năng; tách thay đổi presentation có chủ đích để review và baseline riêng.
+- [x] L4: engine và helper cache hiện hữu đã có shared proof, invalidation và differential reference; [audit chi tiết](audit_existing_m4_m6.md). Legacy chỉ còn trong test.
+- [x] L4 đã được kiểm chứng bằng differential reference cho target order, AST/source, origins/events/owners và capture proof; presentation L1/L2 có checkpoint và baseline riêng. Mục hiệu năng G1 vẫn mở.
 
 ### G6 Nghiệm thu toàn bộ decompiler
 
@@ -171,3 +172,7 @@ Xem [báo cáo kiểm chứng](checkpoint_control_naming.md). Mốc này có 1.6
 ## Checkpoint table allocation và matching
 
 [Proof, policy và output review](checkpoint_table_layout.md): workspace 1.679 passed, 771 semantic cases, 415 deep-review cases, 1.476 table probes và đủ 33 audit steps. Public giữ đủ 513 outputs và 72 rebuilt calls; padding tăng dòng và một semantic call giữ inline đã được ghi rõ. Chính sách empty hash giữ tương thích theo quyết định của chủ repo. Các mục naming, S4, L3 và hiệu năng còn mở tiếp tục.
+
+## Checkpoint naming và placeholder
+
+[Proof và kiểm chứng](checkpoint_naming_placeholder.md): workspace 1.682 passed, 780 semantic cases, 433 deep-review cases, đủ 33 audit steps. Bỏ class hint chỉ từ `__index`, thêm 15 irregular plurals, làm S4 placeholder và mở rộng bounded allocation padding cho hai ca lớn trước đây bị từ chối. Số dòng và rebuilt calls trên mọi output cũ không đổi. N1/N3 còn lỗi tên chọn theo nhánh đầu (`Head`/`Tail`), đang xử lý tiếp; L3 và hiệu năng vẫn mở.

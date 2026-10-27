@@ -10,6 +10,9 @@ import sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 CASES = {
+    "table_large_allocation": ((ROOT / "docs/failure_fixtures/semantic_roundtrip/table_large_allocation.luau").read_text(), ''),
+    "table_unobserved_placeholder": ((ROOT / "docs/failure_fixtures/semantic_roundtrip/table_unobserved_placeholder.luau").read_text(), ''),
+    "naming_irregular_collections": ((ROOT / "docs/failure_fixtures/semantic_roundtrip/naming_irregular_collections.luau").read_text(), ''),
     "table_empty_observers": ((ROOT / "docs/failure_fixtures/semantic_roundtrip/table_empty_observers.luau").read_text(), ''),
     "table_duplicate_numeric_capacity": ((ROOT / "docs/failure_fixtures/semantic_roundtrip/table_duplicate_numeric_capacity.luau").read_text(), ''),
     "table_array_dynamic_key": ((ROOT / "docs/failure_fixtures/semantic_roundtrip/table_array_dynamic_key.luau").read_text(), ''),

@@ -949,7 +949,7 @@
       "lines": 118
     },
     "semantic/deinline_line_evidence_admits_small_helpers__O2.luau": {
-      "bytes": 3385,
+      "bytes": 3387,
       "lines": 147
     },
     "semantic/deinline_line_evidence_expression_helpers__O0.luau": {
@@ -1996,6 +1996,18 @@
       "bytes": 777,
       "lines": 47
     },
+    "semantic/naming_irregular_collections__O0.luau": {
+      "bytes": 463,
+      "lines": 29
+    },
+    "semantic/naming_irregular_collections__O1.luau": {
+      "bytes": 463,
+      "lines": 29
+    },
+    "semantic/naming_irregular_collections__O2.luau": {
+      "bytes": 463,
+      "lines": 29
+    },
     "semantic/naming_mixed_screaming_and_builtin_plurals__O0.luau": {
       "bytes": 778,
       "lines": 35
@@ -2800,6 +2812,18 @@
       "bytes": 1417,
       "lines": 46
     },
+    "semantic/table_large_allocation__O0.luau": {
+      "bytes": 11842,
+      "lines": 616
+    },
+    "semantic/table_large_allocation__O1.luau": {
+      "bytes": 16714,
+      "lines": 1173
+    },
+    "semantic/table_large_allocation__O2.luau": {
+      "bytes": 20321,
+      "lines": 2376
+    },
     "semantic/table_layout_keeps_pairs_order__O0.luau": {
       "bytes": 844,
       "lines": 46
@@ -2908,16 +2932,28 @@
       "bytes": 958,
       "lines": 39
     },
+    "semantic/table_unobserved_placeholder__O0.luau": {
+      "bytes": 1295,
+      "lines": 87
+    },
+    "semantic/table_unobserved_placeholder__O1.luau": {
+      "bytes": 1317,
+      "lines": 87
+    },
+    "semantic/table_unobserved_placeholder__O2.luau": {
+      "bytes": 1888,
+      "lines": 97
+    },
     "semantic/template_repeated_key__O0.luau": {
-      "bytes": 537,
+      "bytes": 543,
       "lines": 31
     },
     "semantic/template_repeated_key__O1.luau": {
-      "bytes": 572,
+      "bytes": 578,
       "lines": 31
     },
     "semantic/template_repeated_key__O2.luau": {
-      "bytes": 718,
+      "bytes": 726,
       "lines": 35
     },
     "semantic/tuple_store_targets__O0.luau": {

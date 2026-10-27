@@ -4,6 +4,9 @@ use crate::{
 
 use std::{fmt, iter};
 
+// shortcut: bound extra allocation syntax to 4096 entries; extend with large-allocation controls.
+pub(crate) const MAX_ALLOCATION_PADDING: usize = 4096;
+
 #[derive(Clone, PartialEq, Default)]
 pub struct Table(pub Vec<(Option<RValue>, RValue)>, pub crate::node_origins::Origin, pub TableShape);
 
@@ -31,7 +34,7 @@ impl Table {
         }
         let padding = (hash as usize / 2 + 1).saturating_sub(listed);
         if padding == 0 { return Ok((0, None)); }
-        if padding <= 255 {
+        if padding <= MAX_ALLOCATION_PADDING {
             if array > 0 { return Ok((padding, None)); }
             if let Some((Some(key), _)) = self.0.first()
                 && (matches!(key, RValue::Literal(Literal::String(_) | Literal::Boolean(_)))

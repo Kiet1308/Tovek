@@ -26,7 +26,70 @@ pub(crate) fn rebuild_with_captured(
     let sunk_changed = sink_total_table_declarations(block, captured);
     let regions_changed = sink_private_constructor_regions(block, captured);
     let drained_changed = extract_drained_constructor_fields(block);
-    rebuild_current_block(block, captured, single_write) | sunk_changed | regions_changed | drained_changed | nested_changed
+    let folded = rebuild_current_block(block, captured, single_write);
+    nil_unread_placeholders(block, captured) | folded | sunk_changed | regions_changed | drained_changed | nested_changed
+}
+
+/// A template's loader value need not appear in source when every path fills
+/// the slot before the private table can be observed or its keys can rehash.
+fn nil_unread_placeholders(block: &mut Block, captured: &rustc_hash::FxHashSet<RcLocal>) -> bool {
+    let mut changed = false;
+    for index in 0..block.0.len() {
+        let Some(object) = table_constructor_local(&block.0[index]) else { continue; };
+        if captured.contains(&object) { continue; }
+        let (prefix, rest) = block.0.split_at_mut(index + 1);
+        let table = prefix[index].as_assign_mut().unwrap().right[0].as_table_mut().unwrap();
+        // Keep a DUPTABLE on recompilation: NEWTABLE nil nodes can be reused
+        // by the later constructor fields before the proved store is reached.
+        if !matches!(table.2, crate::TableShape::Template { .. }) || table.0.len() > 32
+            || !table.0.iter().all(|(key, _)| matches!(key,
+                Some(RValue::Literal(crate::Literal::String(name))) if crate::formatter::Formatter::<String>::is_valid_name(name)))
+        { continue; }
+        for field in 0..table.0.len() {
+            if matches!(table.0[field].1, RValue::Literal(crate::Literal::Number(0.0)))
+                && first_private_store(rest, &object, table.0[field].0.as_ref().unwrap(), table, &mut 256, 0) == Ok(true)
+            {
+                table.0[field].1 = crate::Literal::Nil.into();
+                changed = true;
+            }
+        }
+    }
+    changed
+}
+
+fn first_private_store(
+    statements: &[Statement], object: &RcLocal, key: &RValue, table: &Table,
+    budget: &mut usize, depth: usize,
+) -> Result<bool, ()> {
+    if depth > 16 { return Err(()); }
+    for statement in statements {
+        if *budget == 0 { return Err(()); }
+        *budget -= 1;
+        if let Statement::If(branch) = statement {
+            if branch.condition.any_local_read(&mut |read| read == object) { return Err(()); }
+            let yes = first_private_store(&branch.then_block.lock(), object, key, table, budget, depth + 1)?;
+            let no = first_private_store(&branch.else_block.lock(), object, key, table, budget, depth + 1)?;
+            if yes && no { return Ok(true); }
+            continue;
+        }
+        if let Some((written_key, value)) = statement.as_assign()
+            .and_then(|assign| field_assignment_parts(assign, object))
+        {
+            if value.any_local_read(&mut |read| read == object) { return Err(()); }
+            if crate::same_table_key(written_key, key) { return Ok(true); }
+            // Only an existing template key can change without a possible rehash.
+            if !table.0.iter().any(|(listed, _)| listed.as_ref().is_some_and(|listed| crate::same_table_key(listed, written_key))) {
+                return Err(());
+            }
+        } else if !matches!(statement, Statement::Assign(_) | Statement::Call(_) | Statement::MethodCall(_)
+                | Statement::Comment(_) | Statement::Empty(_))
+            || statement.any_local_read(&mut |read| read == object)
+            || statement.any_local_write(&mut |written| written == object)
+        {
+            return Err(());
+        }
+    }
+    Ok(false)
 }
 
 /// Merge repeated string or boolean keys when their layout permits it
@@ -439,7 +502,7 @@ fn reserve_allocation_slots(table: &mut Table) -> Result<(), &'static str> {
     let slots = lower_array_keys(table)?;
     let missing = (array as usize).saturating_sub(slots);
     if missing > 0 {
-        if missing > MAX_LIST_GAP || table.0.last().is_some_and(|(key, value)| key.is_none() && expands(value)) {
+        if missing > crate::table::MAX_ALLOCATION_PADDING || table.0.last().is_some_and(|(key, value)| key.is_none() && expands(value)) {
             return Err("a NEWTABLE array allocation without enough reproducible constructor items");
         }
         pad_array_slots(table, slots, array as usize)?;
@@ -1370,6 +1433,49 @@ mod tests {
     }
 
     #[test]
+    fn template_placeholder_becomes_nil_only_after_both_paths_fill_it() {
+        let object = local("object");
+        let table = Table(vec![(Some(string("Selected")), number(0.0)),
+            (Some(string("Other")), number(0.0))], Default::default(), crate::TableShape::Template { keys: 2 });
+        let mut block = Block(vec![declare(&object, table.into()),
+            If::new(global("condition"),
+                Block(vec![assign_field(&object, string("Selected"), number(1.0))]),
+                Block(vec![assign_field(&object, string("Selected"), number(2.0))])).into(),
+            print(local_value(&object))]);
+        assert!(super::nil_unread_placeholders(&mut block, &Default::default()));
+        let table = block.0[0].as_assign().unwrap().right[0].as_table().unwrap();
+        assert_eq!(table.0[0].1, nil());
+        assert_eq!(table.0[1].1, number(0.0));
+        assert!(!super::nil_unread_placeholders(&mut block, &Default::default()));
+    }
+
+    #[test]
+    fn template_placeholder_keeps_zero_before_observation_or_possible_rehash() {
+        let object = local("object");
+        let table = Table(vec![(Some(string("Selected")), number(0.0))],
+            Default::default(), crate::TableShape::Template { keys: 1 });
+        for kind in 0..8 {
+            let write = assign_field(&object, string("Selected"), number(1.0));
+            let hazard = match kind {
+                0 => print(local_value(&object)),
+                1 => assign_field(&object, string("Added"), number(2.0)),
+                2 => assign_field(&object, global("key"), number(2.0)),
+                3 => print(closure_capturing(&object)),
+                4 => If::new(global("condition"), Block(vec![write.clone()]), Block::default()).into(),
+                5 => Return::new(vec![local_value(&object)]).into(),
+                6 => crate::While::new(global("condition"), Block(vec![write.clone()])).into(),
+                _ => assign_field(&object, string("Selected"), Index::new(local_value(&object), string("Selected")).into()),
+            };
+            let mut block = Block(vec![declare(&object, table.clone().into()), hazard]);
+            if kind != 4 { block.0.push(write); }
+            assert!(!super::nil_unread_placeholders(&mut block, &Default::default()), "hazard {kind}");
+        }
+        let mut block = Block(vec![declare(&object, table.into()),
+            assign_field(&object, string("Selected"), number(1.0))]);
+        assert!(!super::nil_unread_placeholders(&mut block, &[object].into_iter().collect()));
+    }
+
+    #[test]
     fn hash_padding_repeats_only_the_first_key_and_is_bounded() {
         let mut table = Table(vec![(Some(string("first")), number(1.0)),
             (Some(string("second")), nil())], Default::default(), crate::TableShape::NewTable { hash: 8, array: 0 });
@@ -1385,6 +1491,8 @@ mod tests {
             assert!(super::reserve_allocation_slots(&mut table).is_err());
         }
         table.2 = crate::TableShape::NewTable { hash: 1 << 30, array: 0 };
+        assert!(super::reserve_allocation_slots(&mut table).is_err());
+        table.2 = crate::TableShape::NewTable { hash: 0, array: (crate::table::MAX_ALLOCATION_PADDING + 1) as u32 };
         assert!(super::reserve_allocation_slots(&mut table).is_err());
     }
 
