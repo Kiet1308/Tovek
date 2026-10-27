@@ -20,14 +20,22 @@ At `1aeabd8`, all checks pass:
 
 ## Current implementation checkpoint
 
-Latest: [split prefix stores before open SETLIST](checkpoint_split_prefix.md)
+Latest: [singleton phi inputs without per-phi sets](checkpoint_phi_singleton.md)
+keeps the raw-alias, captured-cell and malformed-schema rules while reducing
+allocation. It passes 1,698 workspace tests, all 33 audit steps, 801 semantic,
+469 deep-review and 513 public cases. All semantic/public/residual outputs
+remain byte-identical. Two longer A/B runs favor four workers; single-worker
+speedup remains uncertain, and G1 is open. The report retains the contrary
+short run and all samples.
+
+The preceding [split prefix stores before open SETLIST](checkpoint_split_prefix.md)
 restores private repeated/separated prefix stores while retaining native bulk
 growth, key-error timing and allocation guards. It passes 1,697 workspace tests,
 801 semantic and 469 deep-review cases, all 33 audit steps, 1,476 table probes,
 108 VM comparisons and 288 targeted fuzz profiles. Every old semantic/public/
 residual output remains byte-identical. The preceding [vector producer
 checkpoint](checkpoint_vector_producer.md) retains and validates emitted vector
-bindings. [Broad stress on this binary](stress_split_prefix.md) is complete:
+bindings. [Broad stress on that split-prefix binary](stress_split_prefix.md) is complete:
 133,906 passed / 1,094 invalid / zero failed or refused across 135,000 profiles;
 mutation has 7,695 passed / 904 typed refusals / 401 invalid / zero failed.
 Both 512-case structuring probe sets pass. Performance and missing review

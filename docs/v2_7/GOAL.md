@@ -216,3 +216,7 @@ Xem [báo cáo kiểm chứng](checkpoint_control_naming.md). Mốc này có 1.6
 ## Broad stress tại checkpoint split prefix
 
 [Stress trên binary đã audit](stress_split_prefix.md): 135.000 profiles có 133.906 passed, 1.094 invalid, không failed/refused; mutation có 7.695 passed, 904 typed refusals, 401 invalid, không failed. Khôi phục đúng 103/5 refusal của hai lượt trước, mọi trạng thái khác giữ nguyên. Hai bộ structuring probes đều 512/512 passed. README đã ghi rõ giới hạn empty hash compatibility theo quyết định chủ repo. G1 và các review cases thiếu đặc tả/reproducer vẫn mở; không dùng broad coverage để đóng các ca chưa nhận diện.
+
+## Checkpoint singleton phi inputs
+
+[Bỏ allocation cho kiểm tra phi một giá trị](checkpoint_phi_singleton.md): 1.698 workspace tests, 801 semantic, 469 deep-review và đủ 33 audit steps đạt. Mọi output semantic/public/residual giữ từng byte và không đổi baseline. Hai lượt 51 mẫu có median 1t thấp hơn 1,9%/1,6%, 4t thấp hơn 1,3%/0,5%; paired ratios và lượt thăm dò trái chiều được ghi đầy đủ. Chưa xác nhận speedup một luồng; G1 vẫn mở. Broad stress 135.000 profiles là evidence của checkpoint trước, không gán cho binary mới.

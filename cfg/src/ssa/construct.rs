@@ -574,19 +574,13 @@ pub fn remove_unnecessary_params(
             let params = edges[0].weight().arguments.iter().map(|(p, _)| p);
             let args_in_by_block = edges
                 .iter()
-                .map(|e| {
-                    e.weight()
-                        .arguments
-                        .iter()
-                        .map(|(_, a)| a)
-                        .collect::<Vec<_>>()
-                })
+                .map(|edge| edge.weight().arguments.as_slice())
                 .collect::<Vec<_>>();
             let mut params_to_remove = FxHashSet::default();
             for (index, mut param) in params.enumerate() {
                 if args_in_by_block
                     .iter()
-                    .map(|a| a[index])
+                    .map(|a| &a[index].1)
                     .any(|r| r.as_local().is_none())
                 {
                     continue;
@@ -601,7 +595,7 @@ pub fn remove_unnecessary_params(
                 let is_upvalue_cell = upvalue_to_group.is_some_and(|group| {
                     args_in_by_block
                         .iter()
-                        .map(|a| a[index])
+                        .map(|a| &a[index].1)
                         .filter_map(|r| r.as_local())
                         .any(|a| {
                             let mut ra = a;
@@ -622,22 +616,23 @@ pub fn remove_unnecessary_params(
                         resolved_param = param_to;
                     }
                     let resolved_param = resolved_param.clone();
-                    let mut arg_set: FxHashSet<&RcLocal> = FxHashSet::default();
-                    for a in args_in_by_block
+                    let mut arguments = args_in_by_block
                         .iter()
-                        .map(|a| a[index])
+                        .map(|a| &a[index].1)
                         .filter_map(|r| r.as_local())
-                    {
-                        let mut ra = a;
-                        while let Some(t) = local_map.get(ra) {
-                            ra = t;
-                        }
-                        if *ra != resolved_param {
-                            arg_set.insert(a);
-                        }
+                        .filter(|&argument| {
+                            let mut resolved = argument;
+                            while let Some(next) = local_map.get(resolved) {
+                                resolved = next;
+                            }
+                            *resolved != resolved_param
+                        });
+                    let first = arguments.next();
+                    // Distinct raw aliases stay distinct, even when they resolve alike.
+                    if !arguments.all(|argument| Some(argument) == first) {
+                        continue;
                     }
-                    if arg_set.len() == 1 {
-                        let mut arg = arg_set.into_iter().next().unwrap();
+                    if let Some(mut arg) = first {
                         while let Some(arg_to) = local_map.get(arg) {
                             arg = arg_to;
                         }
@@ -661,25 +656,23 @@ pub fn remove_unnecessary_params(
                             remove_trivial_dependency(&mut dependency_graph, &mut deferred_trivial, &resolved_param);
                         }
                         params_to_remove.insert(resolved_param.clone());
-                    } else if arg_set.is_empty() {
+                    } else {
                         // all-self phi `p = phi(p, p)` — the original code removed it
                         // as trivial; reproduce that (preserves byte-identity).
                         remove_trivial_dependency(&mut dependency_graph, &mut deferred_trivial, &resolved_param);
                         params_to_remove.insert(resolved_param.clone());
                     }
                 } else {
-                    // ORIGINAL behavior, verbatim (non-upvalue params).
-                    // TODO: should we really be doing this by index?
-                    let arg_set = args_in_by_block
+                    let mut arguments = args_in_by_block
                         .iter()
-                        .map(|a| a[index])
-                        .filter_map(|r| r.as_local())
-                        .collect::<FxHashSet<_>>();
-                    if arg_set.len() == 1 {
+                        .map(|a| &a[index].1)
+                        .filter_map(|r| r.as_local());
+                    if let Some(mut arg) = arguments.next()
+                        && arguments.all(|argument| argument == arg)
+                    {
                         while let Some(param_to) = local_map.get(param) {
                             param = param_to;
                         }
-                        let mut arg = arg_set.into_iter().next().unwrap();
                         while let Some(arg_to) = local_map.get(arg) {
                             arg = arg_to;
                         }
@@ -2018,6 +2011,54 @@ mod tests {
         assert!(expected.is_err());
         assert_eq!(actual, expected);
         assert_constructed_functions_equal(&function, &expected_function);
+    }
+
+    #[test]
+    fn singleton_phi_inputs_match_sets_with_duplicates_aliases_and_self_edges() {
+        for captured in [false, true] {
+            for count in [1, 2, 17] {
+                for kind in 0..5 {
+                    let mut function = Function::new(0);
+                    let entry = function.new_block();
+                    let join = function.new_block();
+                    function.set_entry(entry);
+                    let [param, first, second, root] = std::array::from_fn(|_| RcLocal::default());
+                    function.parameters = vec![first.clone(), second.clone(), root.clone()];
+                    for index in 0..count {
+                        let argument = match kind {
+                            0 => &first,
+                            1 | 2 if index % 2 != 0 => &second,
+                            1 | 2 => &first,
+                            3 => &param,
+                            _ if index % 2 != 0 => &param,
+                            _ => &first,
+                        };
+                        function.graph_mut().add_edge(entry, join, BlockEdge {
+                            arguments: vec![(param.clone(), argument.clone().into())], ..Default::default()
+                        });
+                    }
+                    let groups = captured.then(|| IndexMap::from_iter(
+                        [&param, &first, &second, &root].into_iter().cloned()
+                            .map(|local| (local, root.clone()))));
+                    let mut map = FxHashMap::default();
+                    if kind == 2 {
+                        map.insert(first.clone(), root.clone());
+                        map.insert(second.clone(), root.clone());
+                    }
+                    let mut expected_function = function.clone();
+                    let mut expected_map = map.clone();
+                    let expected = params_reference::remove_unnecessary_params(
+                        &mut expected_function, &mut expected_map, groups.as_ref());
+                    let actual = remove_unnecessary_params(&mut function, &mut map, groups.as_ref(), None);
+                    assert_eq!(actual, expected, "captured={captured}, count={count}, kind={kind}");
+                    assert_eq!(map.iter().collect::<Vec<_>>(), expected_map.iter().collect::<Vec<_>>());
+                    assert_constructed_functions_equal(&function, &expected_function);
+                    if !captured && kind == 2 && count > 1 {
+                        assert!(!actual, "raw aliases are distinct even when they resolve alike");
+                    }
+                }
+            }
+        }
     }
 
     fn local_metadata(function: &Function) -> std::collections::BTreeMap<u64, ast::Local> {
