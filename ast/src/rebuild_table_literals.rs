@@ -390,7 +390,7 @@ fn rebuild_current_block(block: &mut Block, captured: &rustc_hash::FxHashSet<RcL
                 None => placement(table, initial_len, key,
                     listed.get_or_insert_with(|| crate::ListedKeys::new(table)), appended_slot_keys),
             };
-            let placement = match placement {
+            let mut placement = match placement {
                 Some(placement) => placement,
                 // Luau emits SETLIST for a constructor's list items only: a
                 // store before one was an entry of the constructor itself,
@@ -402,7 +402,11 @@ fn rebuild_current_block(block: &mut Block, captured: &rustc_hash::FxHashSet<RcL
                 None => break,
             };
             if !keeps_template_layout(table, placement, key, value) {
-                break;
+                // A constructor may repeat a nil key: retain the later store
+                // when replacing the earlier one would change collision history.
+                if !set_list_follows(rest, &object_local) || !crate::table_takes_another_key(table, key) { break; }
+                appended_slot_keys = true;
+                placement = Placement::Append;
             }
 
             let field_assign = std::mem::replace(statement, crate::Empty {}.into()).into_assign().unwrap();
@@ -476,11 +480,19 @@ pub fn reserve_unfolded_table_slots(block: &mut Block) -> Result<(), &'static st
 }
 
 fn lower_array_keys(table: &mut Table) -> Result<usize, &'static str> {
-    let crate::TableShape::NewTable { array, .. } = table.2 else { return Ok(0); };
+    let crate::TableShape::NewTable { hash, array } = table.2 else { return Ok(0); };
     let positional = table.0.iter().filter(|(key, _)| key.is_none()).count();
     // Positional fields have their own numbering: converting `[2]` in
     // `{1, [2] = nil, 3}` would shift the final store from index 2 to 3.
     if positional > 0 { return Ok(positional); }
+    let sequential = table.0.iter().filter_map(|(key, _)| key.as_ref().and_then(|key| table.array_index(key)))
+        .enumerate().all(|(slot, index)| index == slot + 1);
+    if !sequential {
+        // Pad the array before these stores, retaining their explicit keys and
+        // order. Their keyed syntax must still fit the original hash allocation.
+        return if table.0.len() <= hash as usize { Ok(0) }
+            else { Err("nonsequential constructor stores into a preallocated array") };
+    }
     let mut slots = 0;
     for (key, value) in &mut table.0 {
         if let Some(RValue::Literal(crate::Literal::Number(index))) = key
@@ -1525,6 +1537,24 @@ mod tests {
         mixed.0.pop();
         mixed.0[1].1 = number(9.0);
         assert!(super::reserve_allocation_slots(&mut mixed).is_err());
+    }
+
+    #[test]
+    fn nonsequential_array_stores_keep_keys_after_initial_nil_reservation() {
+        for keys in [vec![2.0], vec![1.0, 3.0], vec![3.0, 1.0]] {
+            let fields: Vec<_> = keys.into_iter().map(|key| (Some(number(key)), number(key * 10.0))).collect();
+            let mut table = Table(fields.clone(), Default::default(), crate::TableShape::NewTable { hash: 4, array: 3 });
+            super::reserve_allocation_slots(&mut table).unwrap();
+            assert_eq!(&table.0[..3], &[(None, nil()), (None, nil()), (None, nil())]);
+            assert_eq!(&table.0[3..], &fields);
+            let padded = table.clone();
+            super::reserve_allocation_slots(&mut table).unwrap();
+            assert_eq!(table, padded);
+        }
+        let fields = vec![(Some(number(1.0)), number(1.0)), (Some(number(3.0)), number(3.0))];
+        let mut table = Table(fields.clone(), Default::default(), crate::TableShape::NewTable { hash: 1, array: 3 });
+        assert!(super::reserve_allocation_slots(&mut table).is_err());
+        assert_eq!(table.0, fields);
     }
 
     #[test]

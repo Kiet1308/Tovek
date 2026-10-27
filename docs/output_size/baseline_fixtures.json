@@ -2453,16 +2453,16 @@
       "lines": 142
     },
     "semantic/reserved_list_slots_keep_keyed_entries__O0.luau": {
-      "bytes": 685,
-      "lines": 35
+      "bytes": 575,
+      "lines": 37
     },
     "semantic/reserved_list_slots_keep_keyed_entries__O1.luau": {
-      "bytes": 645,
-      "lines": 33
+      "bytes": 535,
+      "lines": 35
     },
     "semantic/reserved_list_slots_keep_keyed_entries__O2.luau": {
-      "bytes": 731,
-      "lines": 35
+      "bytes": 716,
+      "lines": 38
     },
     "semantic/returned_local_helper__O0.luau": {
       "bytes": 846,
@@ -2757,12 +2757,12 @@
       "lines": 24
     },
     "semantic/table_duplicate_nil_capacity__O1.luau": {
-      "bytes": 377,
-      "lines": 25
+      "bytes": 342,
+      "lines": 22
     },
     "semantic/table_duplicate_nil_capacity__O2.luau": {
-      "bytes": 377,
-      "lines": 25
+      "bytes": 342,
+      "lines": 22
     },
     "semantic/table_duplicate_numeric_capacity__O0.luau": {
       "bytes": 344,
@@ -2931,6 +2931,18 @@
     "semantic/table_numeric_hash_layout__O2.luau": {
       "bytes": 304,
       "lines": 19
+    },
+    "semantic/table_partial_array_keys__O0.luau": {
+      "bytes": 519,
+      "lines": 39
+    },
+    "semantic/table_partial_array_keys__O1.luau": {
+      "bytes": 519,
+      "lines": 39
+    },
+    "semantic/table_partial_array_keys__O2.luau": {
+      "bytes": 519,
+      "lines": 39
     },
     "semantic/table_runtime_nil_layout__O0.luau": {
       "bytes": 1216,

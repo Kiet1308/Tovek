@@ -84,8 +84,10 @@ pub fn table_takes_another_key(table: &Table, key: &RValue) -> bool {
             if let Some(index) = table.array_index(key) {
                 let slots = table.0.iter().filter(|(key, _)| key.as_ref().is_none_or(|key| table.array_index(key).is_some())).count();
                 let has_list = table.0.iter().any(|(key, _)| key.is_none());
-                return index == slots + 1 && (!has_list
-                    || table.0.iter().filter(|(key, _)| key.is_some()).count() < hash as usize);
+                if index == slots + 1 && !has_list { return true; }
+                // A nonsequential array key stays explicit and consumes hash syntax.
+                return (!has_list || index == slots + 1)
+                    && table.0.iter().filter(|(key, _)| key.is_some()).count() < hash as usize;
             }
             hash
         }
@@ -165,7 +167,9 @@ mod tests {
     fn array_slots_are_separate_from_hash_capacity() {
         let mut t = table(TableShape::NewTable { hash: 2, array: 3 }, vec![number()]);
         assert!(table_takes_another_key(&t, &number()));
-        assert!(!table_takes_another_key(&t, &Literal::Number(2.0).into()));
+        assert!(table_takes_another_key(&t, &Literal::Number(2.0).into()));
+        let full = table(TableShape::NewTable { hash: 1, array: 3 }, vec![number()]);
+        assert!(!table_takes_another_key(&full, &Literal::Number(2.0).into()));
         assert!(table_takes_another_key(&t, &RcLocal::default().into()));
         t.0.push((Some(number()), Literal::Nil.into()));
         assert!(table_takes_another_key(&t, &Literal::Number(2.0).into()));

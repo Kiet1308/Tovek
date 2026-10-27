@@ -20,6 +20,13 @@ At `1aeabd8`, all checks pass:
 
 ## Current implementation checkpoint
 
+Latest: [partial array keys and native SETLIST](checkpoint_native_table_lists.md)
+fixes seed 8472 and preserves bulk array growth for the recovered constructors.
+It passes 1,690 workspace tests, 792 semantic and 457 deep-review cases plus all
+33 audit steps; public outputs remain byte-identical. The report records a
+remaining open-tail SETLIST fallback miscompile with a concrete reproducer.
+This is still active work, alongside the remaining goal items below.
+
 See [control flow, naming and proof validation](checkpoint_control_naming.md) for
 the next checkpoint after `76212c9`: while-header recovery, bounded readable
 if-expressions, naming tiers/event roles, malformed-bytecode refusals and the

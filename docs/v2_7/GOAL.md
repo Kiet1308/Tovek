@@ -188,3 +188,7 @@ Xem [báo cáo kiểm chứng](checkpoint_control_naming.md). Mốc này có 1.6
 ## Checkpoint mixed table growth
 
 [Shared fold census và ca fuzz mới](checkpoint_mixed_table_growth.md): 1.689 workspace tests, 789 semantic, 451 deep-review, đủ 33 audit steps, 1.476 table probes và 512 structuring probes đạt. Sửa mixed constructor bị từ chối khi gộp thêm field; chạy lại 51 seeds từng lỗi × 9 profiles, 459/459 đạt. Mọi semantic/public/residual output cũ giữ từng byte. Broad fuzz toàn dải và benchmark cuối tiếp tục; không dùng checkpoint này để đóng G1 hoặc các private review cases chưa có reproducer.
+
+## Checkpoint native list constructors
+
+[Partial array keys và native SETLIST](checkpoint_native_table_lists.md): 1.690 workspace tests, 792 semantic, 457 deep-review và đủ 33 audit steps. Seed 8472 qua cả 9 profiles; 18 growth probes giữ length/iteration đúng. Public/residual outputs giống từng byte, semantic cũ +1 dòng và không mất call. Còn lỗi open-tail SETLIST fallback ở constructor chưa khôi phục được; có reproducer cụ thể và tiếp tục xử lý trước nghiệm thu cuối.
