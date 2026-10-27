@@ -9,7 +9,7 @@
       "lines": 73
     },
     "residual/ReplicatedStorage/Part_Icles/Emit.luau": {
-      "bytes": 26775,
+      "bytes": 26779,
       "lines": 920
     },
     "residual/ReplicatedStorage/Shared/Information/Abilities.luau": {
@@ -893,15 +893,15 @@
       "lines": 104
     },
     "semantic/deinline_helper_kept_beside_its_named_store__O0.luau": {
-      "bytes": 1157,
+      "bytes": 1161,
       "lines": 69
     },
     "semantic/deinline_helper_kept_beside_its_named_store__O1.luau": {
-      "bytes": 1157,
+      "bytes": 1161,
       "lines": 69
     },
     "semantic/deinline_helper_kept_beside_its_named_store__O2.luau": {
-      "bytes": 1355,
+      "bytes": 1359,
       "lines": 68
     },
     "semantic/deinline_hosted_values__O0.luau": {
@@ -953,11 +953,11 @@
       "lines": 147
     },
     "semantic/deinline_line_evidence_expression_helpers__O0.luau": {
-      "bytes": 1033,
+      "bytes": 1037,
       "lines": 50
     },
     "semantic/deinline_line_evidence_expression_helpers__O1.luau": {
-      "bytes": 1033,
+      "bytes": 1037,
       "lines": 50
     },
     "semantic/deinline_line_evidence_expression_helpers__O2.luau": {
@@ -1133,15 +1133,15 @@
       "lines": 39
     },
     "semantic/deinline_value_sites_without_prefix_limit__O0.luau": {
-      "bytes": 2050,
+      "bytes": 2054,
       "lines": 116
     },
     "semantic/deinline_value_sites_without_prefix_limit__O1.luau": {
-      "bytes": 2035,
+      "bytes": 2039,
       "lines": 115
     },
     "semantic/deinline_value_sites_without_prefix_limit__O2.luau": {
-      "bytes": 2787,
+      "bytes": 2791,
       "lines": 131
     },
     "semantic/deinline_vector_arguments__O0.luau": {
@@ -2691,6 +2691,18 @@
     "semantic/table_layout_keeps_pairs_order__O2.luau": {
       "bytes": 981,
       "lines": 54
+    },
+    "semantic/table_runtime_nil_layout__O0.luau": {
+      "bytes": 1216,
+      "lines": 43
+    },
+    "semantic/table_runtime_nil_layout__O1.luau": {
+      "bytes": 1216,
+      "lines": 43
+    },
+    "semantic/table_runtime_nil_layout__O2.luau": {
+      "bytes": 1620,
+      "lines": 44
     },
     "semantic/table_store_after_appended_call__O0.luau": {
       "bytes": 310,

@@ -1,13 +1,13 @@
 {
  "summary": {
-  "inputs": 240,
-  "protos": 1558,
-  "exact": 1122,
-  "equiv": 136,
-  "differ": 244,
+  "inputs": 241,
+  "protos": 1562,
+  "exact": 1127,
+  "equiv": 137,
+  "differ": 242,
   "missing": 40,
   "extra": 16,
-  "equiv_ratio": 0.80745
+  "equiv_ratio": 0.80922
  },
  "files": [
   {
@@ -565,7 +565,7 @@
   {
    "file": "deinline_value_sites_without_prefix_limit",
    "status": "ok",
-   "nonequiv": 6,
+   "nonequiv": 4,
    "protos": 11
   },
   {
@@ -1341,6 +1341,12 @@
    "status": "ok",
    "nonequiv": 1,
    "protos": 6
+  },
+  {
+   "file": "table_runtime_nil_layout",
+   "status": "ok",
+   "nonequiv": 0,
+   "protos": 4
   },
   {
    "file": "table_store_after_appended_call",

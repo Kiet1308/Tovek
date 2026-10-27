@@ -1567,6 +1567,30 @@ end");
     }
 
     #[test]
+    fn new_table_preserves_runtime_nil_but_proven_values_keep_record_spelling() {
+        let table = |value| Table(
+            vec![(Some(string("first")), number(1.0)), (Some(string("second")), value),
+                (Some(string("last")), number(3.0))],
+            Default::default(), crate::TableShape::NewTable { hash: 4 },
+        );
+        for value in [local_value(&local("value")), Call::new(global("get"), vec![]).into(),
+            Binary::new(global("left"), global("right"), BinaryOperation::Add).into(), Literal::Nil.into()] {
+            assert!(table(value).to_string().contains("[\"second\"] ="));
+        }
+        for value in [boolean(false), number(0.0), string(""), Table::default().into(),
+            Binary::new(global("left"), global("right"), BinaryOperation::LessThan).into(),
+            Binary::new(number(1.0), number(2.0), BinaryOperation::Add).into()] {
+            assert!(!table(value).to_string().contains("[\"second\"] ="));
+        }
+        let mut template = table(local_value(&local("value")));
+        template.2 = crate::TableShape::Template { keys: 2 };
+        assert!(!template.to_string().contains("[\"second\"] ="));
+        let mut last_only = table(local_value(&local("value")));
+        last_only.0.pop();
+        assert!(!last_only.to_string().contains("[\"second\"] ="));
+    }
+
+    #[test]
     fn generic_for_keeps_final_select_call_multret() {
         // The lifter represents a fixed multi-result call feeding the
         // generic-for protocol as Select::Call.  In the final iterator
@@ -2306,14 +2330,12 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
     /// table the bytecode built with NEWTABLE and stores compiles that way
     /// again. Printed with record fields only (at most 32), Luau compiles it
     /// as a DUPTABLE template, whose keys all exist before any store: a key
-    /// stored `nil`, which a NEWTABLE never gets, keeps its node, and `pairs`
+    /// stored `nil` can have its node reused during NEWTABLE stores, and `pairs`
     /// visits the other keys in another order (fr-t1110 F1: `Parent =
     /// visible and "p" or nil`). A bracketed key keeps the constructor a
-    /// NEWTABLE of the same size, filled in the same order. Only for a value
-    /// spelling `nil` (a `nil` literal, an `and`/`or`/`if` with a `nil`
-    /// arm): any local or call may hold `nil` too, but bracketing every such
-    /// table (most of an older compiler's constructors are NEWTABLE) would
-    /// cost more than the order of a key `pairs` skips.
+    /// NEWTABLE of the same size, filled in the same order. Locals, calls and
+    /// metamethod results can be nil too; only proven non-nil values may use
+    /// a template's pre-existing nodes without changing collision placement.
     fn keeps_new_table_at(table: &Table) -> Option<usize> {
         if !matches!(table.2, crate::TableShape::NewTable { .. }) || table.0.is_empty() || table.0.len() > 32 {
             return None;
@@ -2324,17 +2346,8 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
         if !records {
             return None;
         }
-        fn spells_nil(value: &RValue) -> bool {
-            match value {
-                RValue::Literal(Literal::Nil) => true,
-                RValue::Binary(binary) if matches!(binary.operation, crate::BinaryOperation::And | crate::BinaryOperation::Or) => {
-                    spells_nil(&binary.left) || spells_nil(&binary.right)
-                }
-                RValue::IfExpression(node) => spells_nil(&node.then_value) || spells_nil(&node.else_value),
-                _ => false,
-            }
-        }
-        table.0.iter().position(|(_, value)| spells_nil(value))
+        // With non-nil earlier values, the last key gets the template's layout.
+        table.0[..table.0.len() - 1].iter().position(|(_, value)| !crate::return_types::is_proven_non_nil(value))
     }
 
     /// `should_format`: one entry per line.

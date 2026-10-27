@@ -1,7 +1,7 @@
 # Các hướng tối ưu hiệu năng đã thử nhưng không đáng làm
 
 Danh sách gộp mọi hướng tối ưu đã **đo** và bị loại, từ 2026-06 đến 2026-10-04, kèm con số
-và nguồn. Mục đích là không đề xuất và đo lại cùng một ý tưởng ở các vòng sau.
+và nguồn; bổ sung thí nghiệm cloud ngày 2026-10-27. Mục đích là không đề xuất và đo lại cùng một ý tưởng ở các vòng sau.
 
 Quy tắc:
 
@@ -52,6 +52,10 @@ Quy tắc:
 | Index theo key cho việc gộp field vào constructor ở tầng SSA (`cfg/src/ssa/inline.rs`) | Không đo được lợi ích: template DUPTABLE tối đa 32 key, các workload table chạy cả pipeline không đổi; lại trùng logic với `PlaceholderEntries` | review PR #6, 2026-10-04 |
 | Deinline, lượt vào pha gán: bỏ qua matcher thường ở mọi chỗ mà lượt trước (không đổi gì) đã thử và không thấy site | Sai output (2 file, `HitboxFunctions`): trong cùng lượt, một store được dựng lại ở khối con làm đổi cửa sổ của khối cha, nên matcher thường của cha lại khớp. Chỉ bỏ qua được khi chưa có splice nào trong khối hay khối con của nó, và pattern không chứa closure (`Rescan`) | m2a-perf, 2026-10-09 |
 | Deinline: gác cửa sổ của target có thể specialize bằng câu đầu của pattern thường | Không hợp lệ, không đo: specialization thay tham số rồi `reduce()` gập biểu thức (`x = p + 1` với `p = 2` thành `x = 3`), nên câu đầu không unify với pattern thường vẫn có thể khớp. Gác câu đầu (`head_refused`) chỉ dùng cho target không specialize được | m2a-perf, 2026-10-09 |
+
+### Public V2.7, 27/10/2026: chia sẻ thêm một lượt decode source lines
+
+Thử truyền Vec source lines từ prototype setup sang Lifter để tránh decode hai lần cho M6. Output byte-identical trên 513 input public. Release A/B cùng nightly-2026-06-15, ghim CPU, cache artifact tắt; benchmark_v2.py dùng output directory ấm, 25 sample xen kẽ mỗi bên: 1 worker median 0,669725 → 0,682328 s (+1,88%), 4 workers 0,199420 → 0,197583 s (-0,92%). Lượt thăm dò 7 sample cũng không có lợi ở một luồng. Không giữ thay đổi vì không cải thiện mục tiêu một luồng; không dùng việc giảm số lần decode làm bằng chứng speedup. Raw reports, source patch và binary ở `/workspace/work/v27/lines-repeat-t{1,4}.json`, `lines-rejected.patch`, `luau-lifter-lines`; không có private dump/Windows timing claim.
 
 ## 3. Build và toolchain
 

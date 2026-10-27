@@ -43,6 +43,11 @@ and final-AST return proofs. Its full audit passes; per-file rebuilt-call
 comments are unchanged. The report records intentional line-count changes and
 the measured public memory/runtime cost. L4 and the remaining goal stay open.
 
+The [runtime-nil table checkpoint](checkpoint_table_nil.md) preserves NEWTABLE
+collision placement when record values can become nil at runtime. Its full
+audit passes; public and existing semantic line counts and per-file call
+comments are unchanged. Capacity mismatches and the rest of the goal remain open.
+
 ## Binding decisions
 
 These come from the owner. Do not reopen them.
@@ -161,9 +166,9 @@ These come from the owner. Do not reopen them.
    - `unwrap` on `None`;
    - "not implemented";
    - a FORGPREP without its partner.
-4. **Table layouts not modelled yet.**
+4. **Table layouts: partial implementation.**
    - A NEWTABLE whose size hint differs from the stores folded into it.
-   - A value that is nil at run time inside a NEWTABLE record constructor. Bracketing every such constructor would touch 478 dump files.
+   - Runtime-nil NEWTABLE record values are handled by [the formatter proof](checkpoint_table_nil.md); 18/513 public outputs change key spelling with no line/call regression. The older estimate of 478 private dump files cannot be checked here.
 5. **Helpers called with vector constant arguments are not rebuilt.** Example: a `reflect(v, Vector3.new(...))` helper. E2 (`ast/src/deinline/fold.rs`) refuses vectors by design. A rebuild needs an exact vector fold model first.
 6. **Policy question for the owner.** Structural rebuilds above the size floor do not consult the line census. Gating them would lose 38 calls in 51 dump files at -O2, and every rebuilt call at -O1.
 

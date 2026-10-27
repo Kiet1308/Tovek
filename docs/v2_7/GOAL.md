@@ -82,7 +82,8 @@ Roadmap ghi nhận tại `1aeabd8`: 1.636 workspace tests, 699/699 semantic roun
 - [ ] `repeat` có `return` trong `if` ở O2: path walker sao chép terminal block nhỏ đúng scope/capture; chuyển refusal thành output đúng cho các ca được chứng minh.
 - [ ] Nested inlined calls trong generic `for` ở O2/g2: tìm reproducer cho lỗi fuzz, sửa debug-local boundary/phi hoặc edge-copy placement trong SSA; không che lỗi ở formatter.
 - [ ] Chuyển panic do malformed bytecode thành typed refusal tại `bytecode_validate`: `unreachable LOP_BREAK`, `unwrap(None)`, “not implemented”, FORGPREP thiếu partner. Giữ catch_unwind làm lớp bảo vệ cuối.
-- [ ] Mô hình NEWTABLE: size hint khác stores được fold; record value nil tại runtime. Kiểm tra thứ tự duyệt/khả năng quan sát; không tự bracket hàng loạt constructor khi chưa đo tác động.
+- [x] NEWTABLE record value nil tại runtime: giữ đúng kiểu constructor khi cần, đo tác động public và kiểm tra pairs/next; xem checkpoint table nil.
+- [ ] Mô hình NEWTABLE: size hint khác stores được fold và proof layout trong fold/match. Kiểm tra thứ tự duyệt/khả năng quan sát.
 - [x] Xây exact vector fold model trước khi mở E2 (`ast/src/deinline/fold.rs`) cho helper nhận vector constants, như `reflect(v, Vector3.new(...))`; không dùng giả định thư viện chuẩn bất biến.
 - [x] Chủ repo chọn giữ chính sách line census hiện tại cho structural rebuild trên size floor. Không thêm gate làm mất rebuilt calls.
 
@@ -161,3 +162,7 @@ Xem [báo cáo kiểm chứng](checkpoint_control_naming.md). Mốc này có 1.6
 ## Checkpoint M6 L1/L2
 
 [Source spacing, return proof và đo chi phí](checkpoint_final_ast.md): workspace 1.665 passed, 720 semantic cases, 313 deep-review cases và đủ 33 audit steps. Call annotations giữ nguyên ở từng file. Public có thêm dòng trống theo source metadata và ba output wrap dài hơn; báo cáo nêu rõ tăng dòng/RAM và A/B release. L4 và các mục goal còn mở tiếp tục.
+
+## Checkpoint table nil
+
+[Proof runtime nil và output review](checkpoint_table_nil.md): workspace 1.666 passed, 723 semantic cases, 319 deep-review cases và đủ 33 audit steps. 18 public và 11 semantic outputs cũ thay record-key spelling, giữ nguyên số dòng và mọi call annotation. Size-hint/layout folding vẫn mở, đã có public counterexamples để xử lý tiếp.

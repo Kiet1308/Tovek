@@ -36,6 +36,15 @@ fn value_type(value: &RValue) -> Option<u8> {
     }
 }
 
+/// A successful evaluation cannot yield nil, without trusting calls or hints.
+pub(crate) fn is_proven_non_nil(value: &RValue) -> bool {
+    match value {
+        RValue::Literal(literal) => !matches!(literal, Literal::Nil),
+        RValue::Table(_) | RValue::Closure(_) => true,
+        _ => value_type(value).is_some_and(|ty| ty & NIL == 0),
+    }
+}
+
 fn merge(pack: &mut Option<Vec<u8>>, next: Vec<u8>) -> Option<()> {
     if let Some(previous) = pack {
         if previous.len() != next.len() { return None; }

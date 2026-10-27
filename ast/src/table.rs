@@ -14,8 +14,8 @@ impl Table {
 /// How the bytecode built a table, which decides the order `next` and
 /// `pairs` visit its keys in: the size of its hash part, and whether a store
 /// of `nil` leaves a key in it. A DUPTABLE copies a template whose keys all
-/// exist before any store, so a key stored `nil` keeps its node; a NEWTABLE
-/// of hash size `hash` gets a key only when a store of a value creates it.
+/// exist before any store; in a NEWTABLE of hash size `hash`, a node whose
+/// value was stored `nil` can be reused by a later colliding insertion.
 /// A table grown past its hash part rehashes, which moves its keys. Layout
 /// only: never part of AST equality.
 #[derive(Clone, Copy, Debug, Default)]

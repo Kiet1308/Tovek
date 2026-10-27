@@ -10,6 +10,7 @@ import sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 CASES = {
+    "table_runtime_nil_layout": ((ROOT / "docs/failure_fixtures/semantic_roundtrip/table_runtime_nil_layout.luau").read_text(), ''),
     "deinline_vector_arguments": ((ROOT / "docs/failure_fixtures/semantic_roundtrip/deinline_vector_arguments.luau").read_text(), ''),
     "deinline_copy_capture_rebound": ((ROOT / "docs/failure_fixtures/semantic_roundtrip/deinline_copy_capture_rebound.luau").read_text(), ''),
     "proven_return_types": ((ROOT / "docs/failure_fixtures/semantic_roundtrip/proven_return_types.luau").read_text(), ''),
