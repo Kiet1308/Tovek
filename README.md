@@ -237,8 +237,15 @@ a NaN constant with a payload `0 / 0` does not make, a global
 that is no identifier in a script naming getfenv or setfenv, and output that would
 need more locals or registers than Luau allows.
 
+Table reconstruction uses bounded proofs to preserve allocation and store order,
+including native bulk growth for open SETLIST; an open list store without that
+proof is refused. Empty preallocated hash tables remain a compatibility exception:
+they can still emit `{}`, and `pairs`/`next` order is not guaranteed when compiling
+at a different optimization level. This exception does not justify folding
+populated constructors or matching helpers without a layout proof.
+
 A table keeps its keys and values, and list items stay list items, but not always
-its internal layout: a constructor that takes later stores sizes the table
+its internal layout: a constructor that takes later stores can size the table
 differently. What depends only on the layout can differ, as the language leaves
 it open: the order `pairs` and `next` visit keys, `#` of a table with `nil` holes
 (any border), and the sign a zero key keeps when a store spelled with the other

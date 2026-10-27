@@ -27,8 +27,12 @@ growth, key-error timing and allocation guards. It passes 1,697 workspace tests,
 108 VM comparisons and 288 targeted fuzz profiles. Every old semantic/public/
 residual output remains byte-identical. The preceding [vector producer
 checkpoint](checkpoint_vector_producer.md) retains and validates emitted vector
-bindings. Final broad stress, performance and missing review specifications
-remain active work.
+bindings. [Broad stress on this binary](stress_split_prefix.md) is complete:
+133,906 passed / 1,094 invalid / zero failed or refused across 135,000 profiles;
+mutation has 7,695 passed / 904 typed refusals / 401 invalid / zero failed.
+Both 512-case structuring probe sets pass. Performance and missing review
+specifications remain active work; broad coverage does not identify the
+original missing review inputs.
 
 The checkpoint paragraphs below retain the status at each checkpoint; the
 current scope/status section is the active backlog.

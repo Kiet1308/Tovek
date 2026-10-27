@@ -212,3 +212,7 @@ Xem [báo cáo kiểm chứng](checkpoint_control_naming.md). Mốc này có 1.6
 ## Benchmark tại checkpoint split prefix
 
 [Đo lại bốn version](benchmark_split_prefix.md): 25 samples mỗi version trên 513 input public, source `d3e64a2`. Median chậm hơn V2.5.1 10,0%/11,1% ở 1/4 workers; so V2.6.1 là 0,3%/0,2%. Hai candidate census và SSA relevance không có lợi ích ổn định qua 51 samples, đã hoàn nguyên và ghi [dead ends](../performance/dead_ends.md). G1 vẫn mở; chưa có quyết định thay tiêu chí nghiệm thu.
+
+## Broad stress tại checkpoint split prefix
+
+[Stress trên binary đã audit](stress_split_prefix.md): 135.000 profiles có 133.906 passed, 1.094 invalid, không failed/refused; mutation có 7.695 passed, 904 typed refusals, 401 invalid, không failed. Khôi phục đúng 103/5 refusal của hai lượt trước, mọi trạng thái khác giữ nguyên. Hai bộ structuring probes đều 512/512 passed. README đã ghi rõ giới hạn empty hash compatibility theo quyết định chủ repo. G1 và các review cases thiếu đặc tả/reproducer vẫn mở; không dùng broad coverage để đóng các ca chưa nhận diện.
