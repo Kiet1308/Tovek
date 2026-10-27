@@ -1507,13 +1507,13 @@ fn decompile_bytecode_internal(
             ast::compound_bases::fold_compound_bases(&mut body);
             ast::fold_import_callees::fold_import_callees(&mut body);
             ast::untruncate_arguments::untruncate_arguments(&mut body);
-            // List stores come from SETLIST alone (an AUX word reading as one
-            // only costs the walk).
+            // Preserve unfinished array stores and the original hash allocation.
+            // An AUX word reading as an allocation only costs the walk.
             if chunk.functions.iter().any(|function| function.instructions.iter().any(|instruction| {
-                matches!(instruction, instruction::Instruction::BC { op_code: op_code::OpCode::LOP_SETLIST, .. })
+                matches!(instruction, instruction::Instruction::BC { op_code: op_code::OpCode::LOP_SETLIST | op_code::OpCode::LOP_NEWTABLE, .. })
             })) {
-                let _span = ast::telemetry::Span::new("S_RESERVE_LIST_SLOTS");
-                ast::rebuild_table_literals::reserve_unfolded_list_slots(&mut body)
+                let _span = ast::telemetry::Span::new("S_RESERVE_TABLE_SLOTS");
+                ast::rebuild_table_literals::reserve_unfolded_table_slots(&mut body)
                     .map_err(DecompileFailure::message)?;
             }
             drop(late_timer);

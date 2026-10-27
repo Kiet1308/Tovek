@@ -58,6 +58,7 @@ These come from the owner. Do not reopen them.
 - **D2: every rebuilt call keeps its comment.** Wording may get shorter, but no site loses its comment.
 - **D3: readability first for if-expressions.** Use an if-expression where it reads clearest: two short arms in a value position. Otherwise keep statements.
 - **D4: keep handle preservation.** `GetService` and `require` handles stay as named locals. Fold only duplicate `GetService` paths and constructor/template slots.
+- **Empty hash allocations (owner decision, 2026-10-27):** preserve legacy empty-constructor output instead of refusing public inputs. Exact `pairs`/`next` order across different recompilation optimization levels remains unproven here; populated constructors and fold/match proofs keep their layout checks.
 - **`error(msg, level)`:** a different line position in the message never blocks a helper rebuild.
 - **Naming:**
   - Evidence names come first.
@@ -166,8 +167,8 @@ These come from the owner. Do not reopen them.
    - `unwrap` on `None`;
    - "not implemented";
    - a FORGPREP without its partner.
-4. **Table layouts: partial implementation.**
-   - A NEWTABLE whose size hint differs from the stores folded into it.
+4. **Table layouts: bounded allocation/fold/match model implemented.**
+   - [Allocation checkpoint](checkpoint_table_layout.md): 1,679 workspace tests, 771 semantic cases, 415 deep-review cases, 1,476 table probes and all 33 audit steps. Preserve both hash/array hints; shared layout proofs guard folding and helper matching. Empty hash constructors retain the owner-selected compatibility policy; output growth, one conservative semantic call refusal and encoding limits are documented.
    - Runtime-nil NEWTABLE record values are handled by [the formatter proof](checkpoint_table_nil.md); 18/513 public outputs change key spelling with no line/call regression. The older estimate of 478 private dump files cannot be checked here.
 5. **Helpers called with vector constant arguments are not rebuilt.** Example: a `reflect(v, Vector3.new(...))` helper. E2 (`ast/src/deinline/fold.rs`) refuses vectors by design. A rebuild needs an exact vector fold model first.
 6. **Policy question for the owner.** Structural rebuilds above the size floor do not consult the line census. Gating them would lose 38 calls in 51 dump files at -O2, and every rebuilt call at -O1.

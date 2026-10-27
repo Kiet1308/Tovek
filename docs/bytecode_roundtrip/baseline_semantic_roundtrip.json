@@ -1,13 +1,13 @@
 {
  "summary": {
-  "inputs": 241,
-  "protos": 1562,
-  "exact": 1127,
-  "equiv": 137,
-  "differ": 242,
+  "inputs": 257,
+  "protos": 1606,
+  "exact": 1158,
+  "equiv": 142,
+  "differ": 250,
   "missing": 40,
   "extra": 16,
-  "equiv_ratio": 0.80922
+  "equiv_ratio": 0.80946
  },
  "files": [
   {
@@ -409,7 +409,7 @@
   {
    "file": "deinline_copy_capture_rebound",
    "status": "ok",
-   "nonequiv": 0,
+   "nonequiv": 1,
    "protos": 5
   },
   {
@@ -583,13 +583,13 @@
   {
    "file": "deinline_written_parameter_live_outside",
    "status": "ok",
-   "nonequiv": 2,
+   "nonequiv": 3,
    "protos": 9
   },
   {
    "file": "drained_field_positional_slot",
    "status": "ok",
-   "nonequiv": 0,
+   "nonequiv": 1,
    "protos": 2
   },
   {
@@ -961,7 +961,7 @@
   {
    "file": "loop_swap_with_later_capture",
    "status": "ok",
-   "nonequiv": 1,
+   "nonequiv": 2,
    "protos": 4
   },
   {
@@ -1249,13 +1249,13 @@
   {
    "file": "signed_zero_key_after_nil_slot",
    "status": "ok",
-   "nonequiv": 2,
+   "nonequiv": 0,
    "protos": 8
   },
   {
    "file": "signed_zero_key_kept_by_moved_entry",
    "status": "ok",
-   "nonequiv": 2,
+   "nonequiv": 1,
    "protos": 3
   },
   {
@@ -1331,16 +1331,106 @@
    "protos": 11
   },
   {
+   "file": "table_array_call_truncation",
+   "status": "ok",
+   "nonequiv": 1,
+   "protos": 3
+  },
+  {
+   "file": "table_array_dynamic_key",
+   "status": "ok",
+   "nonequiv": 2,
+   "protos": 6
+  },
+  {
+   "file": "table_array_mixed_keys",
+   "status": "ok",
+   "nonequiv": 1,
+   "protos": 2
+  },
+  {
    "file": "table_constructor_snapshot_before_call",
    "status": "ok",
    "nonequiv": 1,
    "protos": 2
   },
   {
-   "file": "table_layout_keeps_pairs_order",
+   "file": "table_duplicate_nil_capacity",
    "status": "ok",
    "nonequiv": 1,
+   "protos": 2
+  },
+  {
+   "file": "table_duplicate_numeric_capacity",
+   "status": "ok",
+   "nonequiv": 1,
+   "protos": 2
+  },
+  {
+   "file": "table_duplicate_value_capacity",
+   "status": "ok",
+   "nonequiv": 1,
+   "protos": 2
+  },
+  {
+   "file": "table_empty_growth",
+   "status": "ok",
+   "nonequiv": 0,
+   "protos": 2
+  },
+  {
+   "file": "table_empty_observers",
+   "status": "ok",
+   "nonequiv": 0,
+   "protos": 4
+  },
+  {
+   "file": "table_helper_new_template",
+   "status": "ok",
+   "nonequiv": 0,
+   "protos": 4
+  },
+  {
+   "file": "table_helper_template_new",
+   "status": "ok",
+   "nonequiv": 0,
+   "protos": 4
+  },
+  {
+   "file": "table_layout_keeps_pairs_order",
+   "status": "ok",
+   "nonequiv": 0,
    "protos": 6
+  },
+  {
+   "file": "table_newtable_growth",
+   "status": "ok",
+   "nonequiv": 0,
+   "protos": 2
+  },
+  {
+   "file": "table_newtable_move_nil",
+   "status": "ok",
+   "nonequiv": 0,
+   "protos": 2
+  },
+  {
+   "file": "table_newtable_replace_nil",
+   "status": "ok",
+   "nonequiv": 0,
+   "protos": 2
+  },
+  {
+   "file": "table_newtable_replace_with_nil",
+   "status": "ok",
+   "nonequiv": 0,
+   "protos": 2
+  },
+  {
+   "file": "table_numeric_hash_layout",
+   "status": "ok",
+   "nonequiv": 1,
+   "protos": 2
   },
   {
    "file": "table_runtime_nil_layout",
@@ -1353,6 +1443,12 @@
    "status": "ok",
    "nonequiv": 0,
    "protos": 4
+  },
+  {
+   "file": "table_template_runtime_nil_growth",
+   "status": "ok",
+   "nonequiv": 0,
+   "protos": 3
   },
   {
    "file": "template_repeated_key",

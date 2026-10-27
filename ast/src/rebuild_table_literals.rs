@@ -29,7 +29,7 @@ pub(crate) fn rebuild_with_captured(
     rebuild_current_block(block, captured, single_write) | sunk_changed | regions_changed | drained_changed | nested_changed
 }
 
-/// Every constructor under `block` lists a string or boolean key once
+/// Merge repeated string or boolean keys when their layout permits it
 /// ([`mergeable_key`]). A later entry for a key already listed takes the
 /// first entry's place when that entry is a literal and nothing between them
 /// could observe the move: a DUPTABLE
@@ -126,6 +126,7 @@ fn merge_repeated_keys_indexed(
         let barrier = if reads_only { last_nonread } else { last_nonliteral };
         let movable = first.is_some_and(|first| {
             matches!(table.0[first].1, RValue::Literal(_))
+                && crate::table_replaces_entry(table, first, &table.0[later].1)
                 && barrier.is_none_or(|barrier| barrier <= first)
         });
         let position = if let (Some(first), true) = (first, movable) {
@@ -167,6 +168,7 @@ fn merge_repeated_keys_scanning(table: &mut Table) -> bool {
         let moved_reads_only = matches!(table.0[later].1, RValue::Local(_) | RValue::Literal(_));
         let movable = first.is_some_and(|first| {
             matches!(table.0[first].1, RValue::Literal(_))
+                && crate::table_replaces_entry(table, first, &table.0[later].1)
                 && table.0[first + 1..later].iter().all(|(key, value)| {
                     key.as_ref().is_none_or(|key| matches!(key, RValue::Literal(_)) && crate::is_total_table_key(key))
                         && (matches!(value, RValue::Literal(_)) || (moved_reads_only && matches!(value, RValue::Local(_))))
@@ -336,7 +338,7 @@ fn rebuild_current_block(block: &mut Block, captured: &rustc_hash::FxHashSet<RcL
                 }
                 None => break,
             };
-            if !keeps_template_layout(table, placement) {
+            if !keeps_template_layout(table, placement, key, value) {
                 break;
             }
 
@@ -370,40 +372,79 @@ const MAX_LIST_GAP: usize = 255;
 /// it (a branch or a call came first): Luau sizes the array part from the
 /// list items, and list items keep their place in it, first under `next`.
 /// `nil` items hold the slots until the list's own stores fill them. Runs
-/// once, on the finished tree, every closure included. Refuses
+/// once, on the finished tree, every closure included. Also preserves an
+/// underfilled hash allocation. Refuses an unrepresentable allocation or
 /// ([`LIST_INDEX_GAP`]) a store that skips past the slots the stores fill.
-pub fn reserve_unfolded_list_slots(block: &mut Block) -> Result<(), &'static str> {
+pub fn reserve_unfolded_table_slots(block: &mut Block) -> Result<(), &'static str> {
     for index in 0..block.0.len() {
         let (head, rest) = block.0.split_at_mut(index + 1);
         if let Some(object) = table_constructor_local(&head[index])
             && let Statement::Assign(assign) = &mut head[index]
             && let RValue::Table(table) = &mut assign.right[0]
         {
+            reserve_allocation_slots(table)?;
             reserve_list_slots(table, rest, &object)?;
         }
         let statement = &mut block.0[index];
         let mut nested = Ok(());
         statement.traverse_rvalues(&mut |value| {
-            if let RValue::Closure(closure) = value
-                && nested.is_ok()
-            {
-                nested = reserve_unfolded_list_slots(&mut closure.function.lock().body);
+            if nested.is_ok() {
+                nested = match value {
+                    RValue::Closure(closure) => reserve_unfolded_table_slots(&mut closure.function.lock().body),
+                    RValue::Table(table) => reserve_allocation_slots(table),
+                    _ => Ok(()),
+                };
             }
         });
         nested?;
         match statement {
             Statement::If(node) => {
-                reserve_unfolded_list_slots(&mut node.then_block.lock())?;
-                reserve_unfolded_list_slots(&mut node.else_block.lock())?;
+                reserve_unfolded_table_slots(&mut node.then_block.lock())?;
+                reserve_unfolded_table_slots(&mut node.else_block.lock())?;
             }
-            Statement::While(node) => reserve_unfolded_list_slots(&mut node.block.lock())?,
-            Statement::Repeat(node) => reserve_unfolded_list_slots(&mut node.block.lock())?,
-            Statement::NumericFor(node) => reserve_unfolded_list_slots(&mut node.block.lock())?,
-            Statement::GenericFor(node) => reserve_unfolded_list_slots(&mut node.block.lock())?,
+            Statement::While(node) => reserve_unfolded_table_slots(&mut node.block.lock())?,
+            Statement::Repeat(node) => reserve_unfolded_table_slots(&mut node.block.lock())?,
+            Statement::NumericFor(node) => reserve_unfolded_table_slots(&mut node.block.lock())?,
+            Statement::GenericFor(node) => reserve_unfolded_table_slots(&mut node.block.lock())?,
             _ => {}
         }
     }
     Ok(())
+}
+
+fn lower_array_keys(table: &mut Table) -> Result<usize, &'static str> {
+    let crate::TableShape::NewTable { array, .. } = table.2 else { return Ok(0); };
+    let positional = table.0.iter().filter(|(key, _)| key.is_none()).count();
+    // Positional fields have their own numbering: converting `[2]` in
+    // `{1, [2] = nil, 3}` would shift the final store from index 2 to 3.
+    if positional > 0 { return Ok(positional); }
+    let mut slots = 0;
+    for (key, value) in &mut table.0 {
+        if let Some(RValue::Literal(crate::Literal::Number(index))) = key
+            && *index >= 1.0 && *index <= f64::from(array) && index.fract() == 0.0
+        {
+            if *index != (slots + 1) as f64 {
+                return Err("nonsequential constructor stores into a preallocated array");
+            }
+            *key = None;
+            *value = single_value(std::mem::replace(value, crate::Literal::Nil.into()));
+        }
+        slots += usize::from(key.is_none());
+    }
+    Ok(slots)
+}
+
+fn reserve_allocation_slots(table: &mut Table) -> Result<(), &'static str> {
+    let crate::TableShape::NewTable { array, .. } = table.2 else { return Ok(()); };
+    let slots = lower_array_keys(table)?;
+    let missing = (array as usize).saturating_sub(slots);
+    if missing > 0 {
+        if missing > MAX_LIST_GAP || table.0.last().is_some_and(|(key, value)| key.is_none() && expands(value)) {
+            return Err("a NEWTABLE array allocation without enough reproducible constructor items");
+        }
+        pad_array_slots(table, slots, array as usize)?;
+    }
+    table.hash_padding().map(|_| ())
 }
 
 fn reserve_list_slots(table: &mut Table, statements: &[Statement], object: &RcLocal) -> Result<bool, &'static str> {
@@ -453,8 +494,29 @@ fn reserve_list_slots(table: &mut Table, statements: &[Statement], object: &RcLo
     if slots - listed > stored.saturating_add(MAX_LIST_GAP) {
         return Err(LIST_INDEX_GAP);
     }
-    table.0.extend(std::iter::repeat_with(|| (None, RValue::Literal(crate::Literal::Nil))).take(slots - listed));
+    pad_array_slots(table, listed, slots)?;
     Ok(true)
+}
+
+fn pad_array_slots(table: &mut Table, listed: usize, slots: usize) -> Result<(), &'static str> {
+    // With no positional fields, reserve before keyed stores: a computed key
+    // may address the array. Luau flushes these nil items before the first key.
+    let position = if listed == 0 { 0 } else { table.0.len() };
+    // An explicit key could already hold a value in a slot that padding clears.
+    if table.0[..position].iter().any(|(key, value)| {
+        let aliases = match key {
+            Some(RValue::Literal(crate::Literal::Number(index))) => {
+                index.fract() == 0.0 && *index > listed as f64 && *index <= slots as f64
+            }
+            None | Some(RValue::Literal(_)) => false,
+            Some(_) => true,
+        };
+        aliases && !matches!(value, RValue::Literal(crate::Literal::Nil))
+    }) {
+        return Err("array allocation padding that could overwrite an explicit key");
+    }
+    table.0.splice(position..position, std::iter::repeat_n((None, crate::Literal::Nil.into()), slots - listed));
+    Ok(())
 }
 
 /// Whether `statement`, its nested blocks included, assigns `local`.
@@ -625,7 +687,7 @@ fn sink_total_table_declarations(
             || !block.0[field_index]
                 .as_assign()
                 .and_then(|assign| field_assignment_parts(assign, &object))
-                .is_some_and(|(key, _)| absorbs_store(table, key))
+                .is_some_and(|(key, value)| absorbs_store(table, key, value))
         {
             index += 1;
             continue;
@@ -747,7 +809,7 @@ fn sink_private_constructor_regions(
                     // property layout; motion must improve the output tree.
                     .is_some_and(|(key, value)| !matches!(value, RValue::Closure(_))
                         && can_fold_table_field_assignment(key, value, &object)
-                        && absorbs_store(table, key)),
+                        && absorbs_store(table, key, value)),
                 Statement::SetList(list) => can_append_set_list(table, list, &object),
                 _ => false,
             };
@@ -1103,23 +1165,25 @@ fn placement(
 /// b = 2, c = 3}` under `pairs` (fr-t1110 F2). A template's keys all exist
 /// before its stores, so moving one to the end (a `nil` slot) changes the
 /// order of insertion too.
-fn keeps_template_layout(table: &Table, placement: Placement) -> bool {
+fn keeps_template_layout(table: &Table, placement: Placement, key: &RValue, value: &RValue) -> bool {
     match placement {
-        Placement::Replace(_) => true,
-        Placement::MoveToEnd(_) => !crate::is_template_copy(table),
-        Placement::Append => crate::template_takes_another_key(table),
+        Placement::Replace(position) => crate::table_replaces_entry(table, position, value),
+        Placement::MoveToEnd(position) => crate::table_moves_entry_to_end(table, position),
+        Placement::Append => crate::table_takes_another_key(table, key),
     }
 }
 
 /// Whether the constructor could take a store to `key` right now. Sinking a
 /// declaration toward a store it cannot absorb only moves the table.
-fn absorbs_store(table: &Table, key: &RValue) -> bool {
+fn absorbs_store(table: &Table, key: &RValue, value: &RValue) -> bool {
     match last_entry_for(&table.0, key) {
-        None => true,
+        None => crate::table_takes_another_key(table, key),
         Some(position) => keeps_listed_key(table, position, key)
-            && (inert_suffix(table, position, table.0.len())
+            && ((inert_suffix(table, position, table.0.len())
+                    && crate::table_replaces_entry(table, position, value))
                 || (matches!(&table.0[position].1, RValue::Literal(crate::Literal::Nil))
-                    && crate::is_total_table_key(key))),
+                    && crate::is_total_table_key(key)
+                    && crate::table_moves_entry_to_end(table, position))),
     }
 }
 
@@ -1303,6 +1367,95 @@ mod tests {
 
     fn print(value: RValue) -> crate::Statement {
         Call::new(global("print"), vec![value]).into()
+    }
+
+    #[test]
+    fn hash_padding_repeats_only_the_first_key_and_is_bounded() {
+        let mut table = Table(vec![(Some(string("first")), number(1.0)),
+            (Some(string("second")), nil())], Default::default(), crate::TableShape::NewTable { hash: 8, array: 0 });
+        let original = table.0.clone();
+        super::reserve_allocation_slots(&mut table).unwrap();
+        assert_eq!(table.0, original);
+        assert_eq!(table.to_string().matches("[\"first\"] = nil").count(), 3);
+        let padded = table.clone();
+        super::reserve_allocation_slots(&mut table).unwrap();
+        assert_eq!(table, padded);
+        for fields in [vec![(None, number(1.0))], vec![(Some(global("key")), number(1.0))]] {
+            let mut table = Table(fields, Default::default(), crate::TableShape::NewTable { hash: 8, array: 0 });
+            assert!(super::reserve_allocation_slots(&mut table).is_err());
+        }
+        table.2 = crate::TableShape::NewTable { hash: 1 << 30, array: 0 };
+        assert!(super::reserve_allocation_slots(&mut table).is_err());
+    }
+
+    #[test]
+    fn preallocated_array_keys_keep_positions_capacity_and_single_values() {
+        let mut table = Table(vec![(Some(number(1.0)), nil()),
+            (Some(number(2.0)), Call::new(global("many"), vec![]).into())],
+            Default::default(), crate::TableShape::NewTable { hash: 0, array: 2 });
+        super::reserve_allocation_slots(&mut table).unwrap();
+        assert_eq!(table.to_string(), "{ nil, (many()) }");
+        table.2 = crate::TableShape::NewTable { hash: 0, array: 3 };
+        super::reserve_allocation_slots(&mut table).unwrap();
+        assert_eq!(table.0.len(), 3);
+        assert_eq!(table.0[2], (None, nil()));
+        table.2 = crate::TableShape::NewTable { hash: 1, array: 3 };
+        let fields = table.0.clone();
+        for _ in 0..2 {
+            super::reserve_allocation_slots(&mut table).unwrap();
+            assert!(table.to_string().contains("[1] = nil"));
+            assert_eq!(table.0, fields);
+        }
+        let mut gap = Table(vec![(Some(number(2.0)), number(1.0))],
+            Default::default(), crate::TableShape::NewTable { hash: 0, array: 3 });
+        assert!(super::reserve_allocation_slots(&mut gap).is_err());
+        let mut mixed = Table(vec![(None, number(1.0)), (Some(number(2.0)), nil()), (None, number(3.0))],
+            Default::default(), crate::TableShape::NewTable { hash: 1, array: 2 });
+        super::reserve_allocation_slots(&mut mixed).unwrap();
+        assert!(mixed.to_string().contains("[2] = nil"));
+        assert_eq!(mixed.0.len(), 3);
+        mixed.0.pop();
+        mixed.0[1].1 = number(9.0);
+        assert!(super::reserve_allocation_slots(&mut mixed).is_err());
+    }
+
+    #[test]
+    fn array_reservation_precedes_computed_keys_that_can_address_it() {
+        let original = vec![(Some(global("key")), number(9.0))];
+        let mut table = Table(original.clone(), Default::default(),
+            crate::TableShape::NewTable { hash: 1, array: 2 });
+        let object = local("object");
+        let mut block = Block(vec![declare(&object, table.clone().into()),
+            crate::SetList::new(object.clone(), 1, vec![number(1.0)],
+                Some(Call::new(global("tail"), vec![]).into())).into()]);
+        super::reserve_allocation_slots(&mut table).unwrap();
+        assert_eq!(table.0[..2], [(None, nil()), (None, nil())]);
+        assert_eq!(table.0[2..], original);
+        let reserved = table.clone();
+        super::reserve_allocation_slots(&mut table).unwrap();
+        assert_eq!(table, reserved);
+        // Reserve the original allocation before the later SETLIST's partial
+        // reservation; its tail may return no values at all.
+        super::reserve_unfolded_table_slots(&mut block).unwrap();
+        assert_eq!(block.0[0].as_assign().unwrap().right[0].as_table(), Some(&reserved));
+    }
+
+    #[test]
+    fn repeated_keys_preserve_newtable_nil_history_in_both_paths() {
+        for first_value in [nil(), number(0.0)] {
+            let original = Table(vec![(Some(string("first")), first_value.clone()),
+                (Some(string("second")), number(2.0)), (Some(string("first")), number(1.0))],
+                Default::default(), crate::TableShape::NewTable { hash: 4, array: 0 });
+            let mut indexed = original.clone();
+            let mut scanning = original.clone();
+            let changed = super::merge_repeated_keys_indexed(&mut indexed, super::literal_fingerprint);
+            assert_eq!(changed, super::merge_repeated_keys_scanning(&mut scanning));
+            assert_eq!(indexed, scanning);
+            assert_eq!(changed, first_value != nil());
+            if !changed { assert_eq!(indexed, original); }
+            super::reserve_allocation_slots(&mut indexed).unwrap();
+            assert_eq!(indexed.0.len() + indexed.hash_padding().unwrap().0, 3);
+        }
     }
 
     #[test]

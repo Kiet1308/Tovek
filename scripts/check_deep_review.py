@@ -10,6 +10,22 @@ import sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 CASES = {
+    "table_empty_observers": ((ROOT / "docs/failure_fixtures/semantic_roundtrip/table_empty_observers.luau").read_text(), ''),
+    "table_duplicate_numeric_capacity": ((ROOT / "docs/failure_fixtures/semantic_roundtrip/table_duplicate_numeric_capacity.luau").read_text(), ''),
+    "table_array_dynamic_key": ((ROOT / "docs/failure_fixtures/semantic_roundtrip/table_array_dynamic_key.luau").read_text(), ''),
+    "table_array_call_truncation": ((ROOT / "docs/failure_fixtures/semantic_roundtrip/table_array_call_truncation.luau").read_text(), ''),
+    "table_array_mixed_keys": ((ROOT / "docs/failure_fixtures/semantic_roundtrip/table_array_mixed_keys.luau").read_text(), ''),
+    "table_numeric_hash_layout": ((ROOT / "docs/failure_fixtures/semantic_roundtrip/table_numeric_hash_layout.luau").read_text(), ''),
+    "table_newtable_growth": ((ROOT / "docs/failure_fixtures/semantic_roundtrip/table_newtable_growth.luau").read_text(), ''),
+    "table_empty_growth": ((ROOT / "docs/failure_fixtures/semantic_roundtrip/table_empty_growth.luau").read_text(), ''),
+    "table_template_runtime_nil_growth": ((ROOT / "docs/failure_fixtures/semantic_roundtrip/table_template_runtime_nil_growth.luau").read_text(), ''),
+    "table_helper_new_template": ((ROOT / "docs/failure_fixtures/semantic_roundtrip/table_helper_new_template.luau").read_text(), ''),
+    "table_helper_template_new": ((ROOT / "docs/failure_fixtures/semantic_roundtrip/table_helper_template_new.luau").read_text(), ''),
+    "table_newtable_replace_nil": ((ROOT / "docs/failure_fixtures/semantic_roundtrip/table_newtable_replace_nil.luau").read_text(), ''),
+    "table_newtable_replace_with_nil": ((ROOT / "docs/failure_fixtures/semantic_roundtrip/table_newtable_replace_with_nil.luau").read_text(), ''),
+    "table_newtable_move_nil": ((ROOT / "docs/failure_fixtures/semantic_roundtrip/table_newtable_move_nil.luau").read_text(), ''),
+    "table_duplicate_nil_capacity": ((ROOT / "docs/failure_fixtures/semantic_roundtrip/table_duplicate_nil_capacity.luau").read_text(), ''),
+    "table_duplicate_value_capacity": ((ROOT / "docs/failure_fixtures/semantic_roundtrip/table_duplicate_value_capacity.luau").read_text(), ''),
     "table_runtime_nil_layout": ((ROOT / "docs/failure_fixtures/semantic_roundtrip/table_runtime_nil_layout.luau").read_text(), ''),
     "deinline_vector_arguments": ((ROOT / "docs/failure_fixtures/semantic_roundtrip/deinline_vector_arguments.luau").read_text(), ''),
     "deinline_copy_capture_rebound": ((ROOT / "docs/failure_fixtures/semantic_roundtrip/deinline_copy_capture_rebound.luau").read_text(), ''),

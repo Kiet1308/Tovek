@@ -183,7 +183,7 @@ impl<W: fmt::Write> Formatter<'_, W> {
     /// elements (at most 8), keys and values atomic.
     fn short_table_shape(table: &Table, sequential_keys: bool) -> bool {
         let limit = if sequential_keys { SHORT_ARRAY_ENTRIES } else { SHORT_KEYED_ENTRIES };
-        table.0.len() <= limit
+        table.0.len() + table.hash_padding().map_or(0, |(count, _)| count) <= limit
             && table.0.iter().all(|(key, value)| {
                 Self::atomic(value)
                     && match key {

@@ -405,6 +405,9 @@ impl<'a> Model<'a> {
         let items = table.0.iter().filter(|(key, _)| key.is_none()).count();
         let run = items.min(16);
         let mut peak = run;
+        if let Ok((count, key)) = table.hash_padding() && count > 0 {
+            peak = peak.max(run + pair(key.map_or(1, |key| self.operand(key)), 1));
+        }
         let mut item = 0;
         for (key, value) in &table.0 {
             match key {
@@ -512,6 +515,13 @@ mod tests {
         let doubled = Binary::new(local.clone().into(), local.clone().into(), BinaryOperation::Add);
         assert_eq!(block_registers(&[declare(doubled.clone().into())], 0, &[]), 1);
         assert_eq!(block_registers(&[declare(doubled.into())], 0, &[local]), 3);
+    }
+
+    #[test]
+    fn hash_padding_reserves_its_key_and_nil_value_registers() {
+        let table = crate::Table(vec![(None, Literal::Number(1.0).into())],
+            Default::default(), crate::TableShape::NewTable { hash: 1, array: 1 });
+        assert_eq!(block_registers(&[declare(table.into())], 0, &[]), 4);
     }
 
     /// A generic loop holds its generator, state and control, and room for

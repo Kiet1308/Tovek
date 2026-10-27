@@ -677,7 +677,7 @@ impl<'a> Lifter<'a> {
                         // (0: none), which decides the order `pairs` visits
                         // keys in (`ast::TableShape`).
                         let mut table = ast::Table::default();
-                        table.2 = ast::TableShape::NewTable { hash: if b == 0 { 0 } else { 1u32 << (u32::from(b) - 1).min(30) } };
+                        table.2 = ast::TableShape::NewTable { hash: if b == 0 { 0 } else { 1u32 << (u32::from(b) - 1).min(30) }, array: aux };
                         statements.push(
                             ast::Assign::new(vec![self.register(a as _).into()], vec![table.into()]).into(),
                         );
@@ -2154,18 +2154,32 @@ mod tests {
                     (actual, expected) => assert_eq!(actual, expected),
                 }
             }
-            let plain = ast::Table::new(vec![
+            let plain = ast::Table(vec![
                 (Some(L::String(b"value".to_vec()).into()), L::Number(0.0).into()),
-            ]);
+            ], Default::default(), ast::TableShape::Template { keys: 1 });
             assert_eq!(loaded[11], &ast::RValue::from(plain.clone()));
-            assert_eq!(loaded[12], &ast::RValue::from(ast::Table::new(vec![
+            assert_eq!(loaded[12], &ast::RValue::from(ast::Table(vec![
                 (Some(L::String(b"value".to_vec()).into()), L::Number(nan).into()),
                 (Some(L::String(vec![]).into()), L::Number(0.0).into()),
                 (Some(L::Boolean(true).into()), L::Nil.into()),
                 (Some(L::Vector(1.0, 2.0, 3.0).into()), L::Nil.into()),
                 (Some(L::Number(-0.0).into()), L::Nil.into()),
-            ])));
+            ], Default::default(), ast::TableShape::Template { keys: 5 })));
         }
+    }
+
+    #[test]
+    fn newtable_keeps_both_initial_allocations() {
+        let proto = prototype(0, vec![
+            Instruction::BC { op_code: OpCode::LOP_NEWTABLE, a: 0, b: 3, c: 0, aux: 7 },
+            instruction(OpCode::LOP_NOP, 0, 0, 0),
+            instruction(OpCode::LOP_RETURN, 0, 2, 0),
+        ]);
+        let (function, _, _) = Lifter::lift(&vec![proto], &[], 9, 0, None, &[], false);
+        let table = function.graph().node_weights().flat_map(|block| block.iter())
+            .filter_map(|statement| statement.as_assign())
+            .find_map(|assign| assign.right[0].as_table()).unwrap();
+        assert_eq!(table.2, ast::TableShape::NewTable { hash: 4, array: 7 });
     }
 
     /// Every copy of a template shares a table or closure baked into it, and

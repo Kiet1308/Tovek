@@ -1571,7 +1571,7 @@ end");
         let table = |value| Table(
             vec![(Some(string("first")), number(1.0)), (Some(string("second")), value),
                 (Some(string("last")), number(3.0))],
-            Default::default(), crate::TableShape::NewTable { hash: 4 },
+            Default::default(), crate::TableShape::NewTable { hash: 4, array: 0 },
         );
         for value in [local_value(&local("value")), Call::new(global("get"), vec![]).into(),
             Binary::new(global("left"), global("right"), BinaryOperation::Add).into(), Literal::Nil.into()] {
@@ -1588,6 +1588,22 @@ end");
         let mut last_only = table(local_value(&local("value")));
         last_only.0.pop();
         assert!(!last_only.to_string().contains("[\"second\"] ="));
+    }
+
+    #[test]
+    fn new_table_duplicate_record_keys_keep_the_original_allocation() {
+        let table = Table(vec![(Some(string("a")), number(1.0)),
+            (Some(string("b")), number(2.0)), (Some(string("a")), number(3.0))],
+            Default::default(), crate::TableShape::NewTable { hash: 4, array: 0 });
+        assert_eq!(table.to_string(), "{ [\"a\"] = 1, b = 2, a = 3 }");
+    }
+
+    #[test]
+    fn new_table_numeric_hash_fields_do_not_become_an_array() {
+        let table = Table(vec![(Some(number(1.0)), Literal::Nil.into()),
+            (Some(number(2.0)), number(2.0)), (Some(number(3.0)), number(3.0))],
+            Default::default(), crate::TableShape::NewTable { hash: 4, array: 0 });
+        assert_eq!(table.to_string(), "{ [1] = nil, [2] = 2, [3] = 3 }");
     }
 
     #[test]
@@ -2299,6 +2315,11 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
         if table.0.iter().any(|(k, _)| k.is_none()) {
             return false; // mixed positional + keyed — must render keys
         }
+        // Explicit numeric stores into a hash part can visit 3 before 2;
+        // positional syntax allocates an array and visits its indices in order.
+        if matches!(table.2, crate::TableShape::NewTable { .. }) {
+            return false;
+        }
         // all entries keyed: require keys to be exactly 1..n, integral, in order
         table.0.iter().enumerate().all(|(i, (k, _))| {
             matches!(k, Some(RValue::Literal(Literal::Number(x)))
@@ -2346,13 +2367,18 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
         if !records {
             return None;
         }
+        // DUPTABLE deduplicates record keys, which can shrink the hash part.
+        if table.0.iter().enumerate().any(|(index, (key, _))| table.0[..index].iter().any(|(earlier, _)| earlier == key)) {
+            return Some(0);
+        }
         // With non-nil earlier values, the last key gets the template's layout.
         table.0[..table.0.len() - 1].iter().position(|(_, value)| !crate::return_types::is_proven_non_nil(value))
     }
 
     /// `should_format`: one entry per line.
     fn format_table_as(&mut self, table: &Table, sequential_keys: bool, should_format: bool) -> fmt::Result {
-        let bracketed = if sequential_keys { None } else { Self::keeps_new_table_at(table) };
+        let (padding, padding_key) = table.hash_padding().map_err(|_| fmt::Error)?;
+        let bracketed = if sequential_keys || padding > 0 { None } else { Self::keeps_new_table_at(table) };
         let should_space = !table.0.is_empty();
         write!(self.output, "{{")?;
         if should_format {
@@ -2361,6 +2387,15 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
             write!(self.output, " ")?;
         }
         self.indentation_level += 1;
+        // Repeating the first hash key (or an allocated array slot) changes
+        // capacity without introducing a different key into collision chains.
+        for _ in 0..padding {
+            if should_format { self.indent()?; }
+            if let Some(key) = padding_key { self.format_bracketed_key(key)?; }
+            else { write!(self.output, "[1]")?; }
+            write!(self.output, " = nil,")?;
+            if should_format { self.line_break()?; } else { write!(self.output, " ")?; }
+        }
         for (index, (key, value)) in table.0.iter().enumerate() {
             if should_format {
                 self.indent()?;

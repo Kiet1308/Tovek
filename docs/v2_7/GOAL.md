@@ -34,6 +34,7 @@ Roadmap ghi nhận tại `1aeabd8`: 1.636 workspace tests, 699/699 semantic roun
 - Evidence naming ưu tiên hơn type fallback. Suffix theo scope; không dùng bộ đếm toàn file, tên gây shadow, tên lớp suy từ `__index`, AI hoặc ML naming.
 - Tối ưu hiệu năng phải giữ output byte-identical với baseline ngay trước bước tối ưu. Không tắt quality pass, giảm proof budget hay đổi quyết định tìm kiếm để làm benchmark nhanh hơn.
 - Giữ capture/closure identity, evaluation order, multret, NaN, signed zero, metamethod, CLOSE/iteration cells, lỗi và khả năng quan sát table layout.
+- Quyết định bổ sung 27/10/2026: giữ cách xuất cũ cho constructor rỗng có hash được cấp sẵn, tránh mất output public; ghi rõ chưa bảo đảm `pairs`/`next` khi biên dịch lại ở mức tối ưu khác. Không mở ngoại lệ này cho constructor có field hoặc proof fold/match.
 - Đọc `docs/performance/dead_ends.md` trước thí nghiệm engine; ghi số đo và lý do của hướng bị loại.
 - Áp dụng Ponytail `full`: đọc đủ luồng dữ liệu, tái sử dụng cơ chế sẵn có, sửa nhỏ nhưng hoàn chỉnh, không rút bớt validation hoặc proof để giảm code.
 
@@ -83,7 +84,7 @@ Roadmap ghi nhận tại `1aeabd8`: 1.636 workspace tests, 699/699 semantic roun
 - [ ] Nested inlined calls trong generic `for` ở O2/g2: tìm reproducer cho lỗi fuzz, sửa debug-local boundary/phi hoặc edge-copy placement trong SSA; không che lỗi ở formatter.
 - [ ] Chuyển panic do malformed bytecode thành typed refusal tại `bytecode_validate`: `unreachable LOP_BREAK`, `unwrap(None)`, “not implemented”, FORGPREP thiếu partner. Giữ catch_unwind làm lớp bảo vệ cuối.
 - [x] NEWTABLE record value nil tại runtime: giữ đúng kiểu constructor khi cần, đo tác động public và kiểm tra pairs/next; xem checkpoint table nil.
-- [ ] Mô hình NEWTABLE: size hint khác stores được fold và proof layout trong fold/match. Kiểm tra thứ tự duyệt/khả năng quan sát.
+- [x] Mô hình NEWTABLE: size hint khác stores được fold và proof layout trong fold/match; [checkpoint table layout](checkpoint_table_layout.md) ghi rõ bounded encoding và ngoại lệ empty hash đã chốt.
 - [x] Xây exact vector fold model trước khi mở E2 (`ast/src/deinline/fold.rs`) cho helper nhận vector constants, như `reflect(v, Vector3.new(...))`; không dùng giả định thư viện chuẩn bất biến.
 - [x] Chủ repo chọn giữ chính sách line census hiện tại cho structural rebuild trên size floor. Không thêm gate làm mất rebuilt calls.
 
@@ -166,3 +167,7 @@ Xem [báo cáo kiểm chứng](checkpoint_control_naming.md). Mốc này có 1.6
 ## Checkpoint table nil
 
 [Proof runtime nil và output review](checkpoint_table_nil.md): workspace 1.666 passed, 723 semantic cases, 319 deep-review cases và đủ 33 audit steps. 18 public và 11 semantic outputs cũ thay record-key spelling, giữ nguyên số dòng và mọi call annotation. Size-hint/layout folding vẫn mở, đã có public counterexamples để xử lý tiếp.
+
+## Checkpoint table allocation và matching
+
+[Proof, policy và output review](checkpoint_table_layout.md): workspace 1.679 passed, 771 semantic cases, 415 deep-review cases, 1.476 table probes và đủ 33 audit steps. Public giữ đủ 513 outputs và 72 rebuilt calls; padding tăng dòng và một semantic call giữ inline đã được ghi rõ. Chính sách empty hash giữ tương thích theo quyết định của chủ repo. Các mục naming, S4, L3 và hiệu năng còn mở tiếp tục.

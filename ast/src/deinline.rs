@@ -3385,7 +3385,7 @@ fn unify_table(ctx: &MatchCtx, a: &Table, d: &Table, b: &mut Bindings) -> Result
         }
         unify_rvalue(ctx, av, dv, b)?;
     }
-    Ok(())
+    crate::compatible_table_layouts(a, d).then_some(()).ok_or(())
 }
 
 fn unify_select(ctx: &MatchCtx, a: &Select, d: &Select, b: &mut Bindings) -> Result<(), ()> {
@@ -3454,7 +3454,7 @@ pub(crate) fn rvalue_exact_eq(a: &RValue, b: &RValue) -> bool {
             x.method == y.method && call_exact_eq(&x.value, &x.arguments, &y.value, &y.arguments)
         }
         (RValue::Table(x), RValue::Table(y)) => {
-            x.0.len() == y.0.len()
+            crate::compatible_table_layouts(x, y) && x.0.len() == y.0.len()
                 && x.0.iter().zip(&y.0).all(|((kx, vx), (ky, vy))| {
                     (match (kx, ky) {
                         (Some(kx), Some(ky)) => rvalue_exact_eq(kx, ky),
