@@ -992,9 +992,9 @@ fn movable_table_declaration(
     block: &ast::Block,
     set_list_index: usize,
     object_local: &ast::RcLocal,
-    cell: impl Fn(&ast::RcLocal) -> bool,
+    cell: impl Fn(&ast::RcLocal) -> Option<u64>,
 ) -> Option<usize> {
-    let mut written_between: Vec<ast::RcLocal> = Vec::new();
+    let mut written_between: Vec<u64> = Vec::new();
     let mut runs_code_between = false;
     for j in (0..set_list_index).rev() {
         let statement = &block[j];
@@ -1003,10 +1003,13 @@ fn movable_table_declaration(
         {
             let table = assign.right[0].as_table().unwrap();
             let entries_movable = table.0.iter().all(|(key, value)| {
-                key.iter().chain(std::iter::once(value)).all(|rvalue| {
+                key.as_ref().is_none_or(ast::is_total_table_key)
+                    && key.iter().chain(std::iter::once(value)).all(|rvalue| {
                     ast::is_total_pure(rvalue)
                         && !rvalue.any_local_read(&mut |local| {
-                            written_between.contains(local) || (runs_code_between && cell(local))
+                            let group = cell(local);
+                            written_between.contains(&group.unwrap_or_else(|| local.stable_id()))
+                                || (runs_code_between && group.is_some())
                         })
                 })
             });
@@ -1018,7 +1021,10 @@ fn movable_table_declaration(
             return None;
         }
         runs_code_between |= ast::statement_is_observable(statement);
-        statement.visit_local_writes(&mut |local| { written_between.push(local.clone()); true });
+        // Distinct SSA versions of a captured cell coalesce to the same storage.
+        statement.visit_local_writes(&mut |local| {
+            written_between.push(cell(local).unwrap_or_else(|| local.stable_id())); true
+        });
     }
     None
 }
@@ -1377,7 +1383,9 @@ pub fn inline_with_readonly_captures(
                         .as_assign()
                         .is_none_or(|assign| assign.left != [object_local.clone().into()])
                         && let Some(decl_index) = movable_table_declaration(block, i, &object_local, |local| {
-                            upvalue_to_group.contains_key(local) && !readonly_capture_ids.contains(&local.stable_id())
+                            upvalue_to_group.get(local)
+                                .filter(|_| !readonly_capture_ids.contains(&local.stable_id()))
+                                .map(ast::RcLocal::stable_id)
                         })
                     {
                         let decl = block.remove(decl_index);
@@ -2365,7 +2373,7 @@ mod set_list_fold_through_tests {
             call_assign(&y, "g", vec![RValue::Local(x.clone())]),
             set_list(&t, vec![RValue::Local(x.clone()), RValue::Local(y.clone())], None),
         ]);
-        assert_eq!(movable_table_declaration(&block, 3, &t, |_| false), Some(0));
+        assert_eq!(movable_table_declaration(&block, 3, &t, |_| None), Some(0));
     }
 
     #[test]
@@ -2377,7 +2385,7 @@ mod set_list_fold_through_tests {
             call_assign(&x, "f", vec![RValue::Local(t.clone())]),
             set_list(&t, vec![RValue::Local(x.clone())], None),
         ]);
-        assert_eq!(movable_table_declaration(&block, 2, &t, |_| false), None);
+        assert_eq!(movable_table_declaration(&block, 2, &t, |_| None), None);
     }
 
     #[test]
@@ -2395,7 +2403,7 @@ mod set_list_fold_through_tests {
             call_assign(&x, "f", Vec::new()),
             set_list(&t, vec![RValue::Local(x.clone())], None),
         ]);
-        assert_eq!(movable_table_declaration(&block, 2, &t, |_| false), None);
+        assert_eq!(movable_table_declaration(&block, 2, &t, |_| None), None);
     }
 
     #[test]
@@ -2413,7 +2421,38 @@ mod set_list_fold_through_tests {
             call_assign(&x, "f", Vec::new()),
             set_list(&t, vec![RValue::Local(x.clone())], Some(Call::new(RValue::Global(Global::from("g")), Vec::new()).into())),
         ]);
-        assert_eq!(movable_table_declaration(&block, 2, &t, |_| false), Some(0));
+        assert_eq!(movable_table_declaration(&block, 2, &t, |_| None), Some(0));
+    }
+
+    #[test]
+    fn declaration_keeps_dynamic_key_errors_before_calls() {
+        let t = local("t");
+        let key = local("key");
+        let x = local("x");
+        let block = Block(vec![
+            table_decl(&t, vec![(Some(key.into()), Literal::Number(9.0).into())]),
+            call_assign(&x, "observe", Vec::new()),
+            set_list(&t, vec![x.into()], None),
+        ]);
+        assert_eq!(movable_table_declaration(&block, 2, &t, |_| None), None);
+    }
+
+    #[test]
+    fn declaration_compares_capture_groups_across_ssa_versions() {
+        let t = local("t");
+        let before = local("before");
+        let after = local("after");
+        let block = Block(vec![
+            table_decl(&t, vec![(Some(Literal::String(b"Value".to_vec()).into()), before.clone().into())]),
+            Assign::new(vec![after.clone().into()], vec![Literal::Number(99.0).into()]).into(),
+            set_list(&t, vec![Literal::Number(1.0).into()], None),
+        ]);
+        for same_cell in [false, true] {
+            let group = |local: &RcLocal| if local == &before { Some(before.stable_id()) }
+                else if local == &after { Some(if same_cell { before.stable_id() } else { after.stable_id() }) }
+                else { None };
+            assert_eq!(movable_table_declaration(&block, 2, &t, group), (!same_cell).then_some(0));
+        }
     }
 
     #[test]

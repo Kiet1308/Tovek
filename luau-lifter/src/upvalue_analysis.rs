@@ -297,6 +297,9 @@ pub struct ScriptUpvalueAnalysis {
     /// Private property diamonds reconstructed with explicit selected-value locals.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub branch_constructors: Option<serde_json::Value>,
+    /// Private prefix values retained across a delayed native list constructor.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub table_open_list_snapshots: Option<serde_json::Value>,
 }
 
 pub(crate) fn reconcile_bindings(
@@ -642,6 +645,7 @@ pub(crate) fn reconcile_bindings(
         capture_effects: None,
         conditional_lowering: None,
         branch_constructors: None,
+        table_open_list_snapshots: None,
     }
 }
 

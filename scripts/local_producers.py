@@ -8,6 +8,7 @@ PASSES = {
                             {'constructor_property_value', 'constructor_initializer_snapshot'}),
     'conditional_lowering': ('luau-v9-scalar-select-statements-v1',
                              {'scalar_select_result', 'short_circuit_result', 'evaluation_snapshot'}),
+    'table_open_list_snapshots': ('private-prefix-snapshots-v1', {'constructor_initializer_snapshot'}),
 }
 
 

@@ -192,3 +192,7 @@ Xem [báo cáo kiểm chứng](checkpoint_control_naming.md). Mốc này có 1.6
 ## Checkpoint native list constructors
 
 [Partial array keys và native SETLIST](checkpoint_native_table_lists.md): 1.690 workspace tests, 792 semantic, 457 deep-review và đủ 33 audit steps. Seed 8472 qua cả 9 profiles; 18 growth probes giữ length/iteration đúng. Public/residual outputs giống từng byte, semantic cũ +1 dòng và không mất call. Còn lỗi open-tail SETLIST fallback ở constructor chưa khôi phục được; có reproducer cụ thể và tiếp tục xử lý trước nghiệm thu cuối.
+
+## Checkpoint open table lists
+
+[Native growth và prefix snapshots](checkpoint_open_table_lists.md): 1.694 workspace tests, 795 semantic, 469 deep-review, đủ 33 audit steps, 1.476 table probes và 90 VM comparisons đạt. Sửa lỗi length/next của open SETLIST và captured-cell motion; những open tails chưa có proof bị typed refusal. Public/residual giữ từng byte; semantic cũ +15 dòng và không mất rebuilt call. Broad fuzz cuối, performance và vector producer metadata tiếp tục; chưa đóng goal.

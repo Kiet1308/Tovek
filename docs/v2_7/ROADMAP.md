@@ -20,12 +20,13 @@ At `1aeabd8`, all checks pass:
 
 ## Current implementation checkpoint
 
-Latest: [partial array keys and native SETLIST](checkpoint_native_table_lists.md)
-fixes seed 8472 and preserves bulk array growth for the recovered constructors.
-It passes 1,690 workspace tests, 792 semantic and 457 deep-review cases plus all
-33 audit steps; public outputs remain byte-identical. The report records a
-remaining open-tail SETLIST fallback miscompile with a concrete reproducer.
-This is still active work, alongside the remaining goal items below.
+Latest: [open SETLIST and prefix snapshots](checkpoint_open_table_lists.md)
+preserves native bulk array growth, captured-cell values and dynamic-key error
+order. It passes 1,694 workspace tests, 795 semantic and 469 deep-review cases,
+all 33 audit steps, 1,476 table probes and 90 additional VM comparisons.
+Public/residual outputs remain byte-identical; unsupported open tails now fail
+with a typed reason. Broad fuzz, performance, missing review specifications and
+a separately reproduced vector producer-metadata issue remain active work.
 
 See [control flow, naming and proof validation](checkpoint_control_naming.md) for
 the next checkpoint after `76212c9`: while-header recovery, bounded readable

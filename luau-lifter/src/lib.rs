@@ -1509,12 +1509,27 @@ fn decompile_bytecode_internal(
             ast::untruncate_arguments::untruncate_arguments(&mut body);
             // Preserve unfinished array stores and the original hash allocation.
             // An AUX word reading as an allocation only costs the walk.
+            let mut table_open_list_snapshots = None;
             if chunk.functions.iter().any(|function| function.instructions.iter().any(|instruction| {
                 matches!(instruction, instruction::Instruction::BC { op_code: op_code::OpCode::LOP_SETLIST | op_code::OpCode::LOP_NEWTABLE, .. })
             })) {
                 let _span = ast::telemetry::Span::new("S_RESERVE_TABLE_SLOTS");
-                ast::rebuild_table_literals::reserve_unfolded_table_slots(&mut body)
-                    .map_err(DecompileFailure::message)?;
+                let reservation = ast::rebuild_table_literals::reserve_unfolded_table_slots(&mut body);
+                if reservation == Err(ast::rebuild_table_literals::OPEN_LIST_TAIL) {
+                    if let Some(pass) = ast::rebuild_table_literals::snapshot_open_list_constructors(&mut body) {
+                        if emit_upvalue_analysis {
+                            table_open_list_snapshots = Some(serde_json::json!({
+                                "model": pass.rewrite_model, "introduced_locals": pass.introduced_locals,
+                                "introduced_bindings": pass.ledger,
+                            }));
+                        }
+                        if options.emit_binding_provenance { local_producers.push(pass); }
+                    }
+                    ast::rebuild_table_literals::reserve_unfolded_table_slots(&mut body)
+                        .map_err(DecompileFailure::message)?;
+                } else {
+                    reservation.map_err(DecompileFailure::message)?;
+                }
             }
             drop(late_timer);
             // Temporaries left apart for the folding passes may, where some
@@ -1584,6 +1599,7 @@ fn decompile_bytecode_internal(
                 analysis.name_inference = Some(source_recovery::naming_report(name_inference, legacy_naming));
                 analysis.capture_effects = Some(capture_effects.report());
                 analysis.conditional_lowering = conditional_lowering;
+                analysis.table_open_list_snapshots = table_open_list_snapshots;
                 if options.emit_binding_provenance {
                     analysis.binding_provenance = Some(source_recovery::provenance_report(function_traces, &mut body, emission_map, local_producers, call_origins.take_report()));
                 }

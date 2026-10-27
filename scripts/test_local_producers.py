@@ -21,6 +21,23 @@ def fixture(size=1, omitted=0):
 
 
 class LocalProducerTests(unittest.TestCase):
+    def test_open_list_snapshots_require_matching_report_and_snapshot_role(self):
+        trace, metadata = fixture()
+        name = 'table_open_list_snapshots'
+        report = metadata.pop('branch_constructors')
+        metadata[name] = report
+        report['model'] = PASSES[name][0]
+        group = trace['local_producers']['passes'][0]
+        group.update({'pass': name, 'rewrite_model': report['model']})
+        group['records'][0]['role'] = 'constructor_initializer_snapshot'
+        trace['final_bindings'][0]['emitter_introduction']['pass'] = name
+        self.assertEqual(validate_local_producers(trace, metadata), [])
+        group['records'][0]['role'] = 'constructor_property_value'
+        self.assertTrue(validate_local_producers(trace, metadata))
+        group['records'][0]['role'] = 'constructor_initializer_snapshot'
+        metadata.pop(name)
+        self.assertTrue(validate_local_producers(trace, metadata))
+
     def test_explicit_record_only_does_not_promote_unattributed_binding(self):
         trace, metadata = fixture()
         self.assertEqual(validate_local_producers(trace, metadata), [])

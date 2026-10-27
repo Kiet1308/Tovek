@@ -35,7 +35,8 @@ def main():
         print(json.dumps(result['summary']))
         return 0
     pass_name = group['pass']
-    foreign_role = sorted(role for other, (_, roles) in PASSES.items() if other != pass_name for role in roles)[0]
+    foreign_role = sorted(role for _, roles in PASSES.values() for role in roles
+                          if role not in PASSES[pass_name][1])[0]
     source_path = (args.root / metadata['source_path']).resolve(strict=True)
     if not source_path.is_relative_to(args.root):
         raise ValueError('source path outside root')

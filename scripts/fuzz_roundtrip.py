@@ -189,7 +189,7 @@ REFUSALS = ("headroom for the vector constructor", "a method name no identifier 
             "a NaN constant whose payload", "a global name no identifier spells",
             "more locals at once than Luau allows", "more registers than Luau allows",
             "no faithful source", "a builtin call names another function", "a loop prepared for",
-            "a SETLIST index far past the array", ": DUPTABLE ")
+            "a SETLIST index far past the array", "an open SETLIST without a proved native constructor", ": DUPTABLE ")
 
 # `describe` prints every function as `fn`: only `closure-identity` observes
 # closure identity (with `==`), which DUPCLOSURE shares only from -O1, and its

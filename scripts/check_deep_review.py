@@ -10,6 +10,7 @@ import sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 CASES = {
+    "table_open_list_growth": ((ROOT / "docs/failure_fixtures/semantic_roundtrip/table_open_list_growth.luau").read_text(), ''),
     "table_partial_array_keys": ((ROOT / "docs/failure_fixtures/semantic_roundtrip/table_partial_array_keys.luau").read_text(), ''),
     "table_mixed_allocation_growth": ((ROOT / "docs/failure_fixtures/semantic_roundtrip/table_mixed_allocation_growth.luau").read_text(), ''),
     "naming_literal_object_name": ((ROOT / "docs/failure_fixtures/semantic_roundtrip/naming_literal_object_name.luau").read_text(), ''),
@@ -207,6 +208,11 @@ def main():
             continue
         for optimization in (0, 1, 2):
             results.append(check(args, path.stem, path.read_text(encoding='utf-8-sig'), '', optimization, 1))
+    path = ROOT / 'docs/failure_fixtures/strict_refusals/table_open_list_captured_key.luau'
+    for debug in (0, 2):
+        for optimization in (0, 1, 2):
+            results.append(check(args, path.stem, path.read_text(), '', optimization, debug,
+                                 refusal='an open SETLIST without a proved native constructor'))
     for name, source, driver in [
         ('vector_environment', 'return function() return vector.create(1,2,3) end',
          'getfenv(f).vector={create=function() return "fake" end}; print(type(f()),f())'),
