@@ -88,8 +88,8 @@ Roadmap ghi nhận tại `1aeabd8`: 1.636 workspace tests, 699/699 semantic roun
 
 ### G5 M6
 
-- [ ] L1: blank lines theo source lines; `SourceLines` không tham gia `PartialEq`.
-- [ ] L2: return types trên final AST, chỉ những type đã chứng minh; không đưa annotation từ bảng tên API Roblox vào output.
+- [x] L1: blank lines theo source lines; `SourceLines` không tham gia `PartialEq`.
+- [x] L2: return types trên final AST, chỉ những type đã chứng minh; không đưa annotation từ bảng tên API Roblox vào output.
 - [ ] L4: hợp nhất deinline engine, expression mode thay legacy family và incremental helper cache. Di chuyển proof/capture/effect/arity/frame guards đầy đủ; giữ candidate order, ambiguity và budget; dùng differential reference trước khi bỏ đường cũ.
 - [ ] Giữ output byte-identical cho phần cache/refactor thuần hiệu năng; tách thay đổi presentation có chủ đích để review và baseline riêng.
 
@@ -157,3 +157,7 @@ Xem [báo cáo kiểm chứng](checkpoint_control_naming.md). Mốc này có 1.6
 ## Checkpoint copy captures
 
 [Regression seed 7388 và kết quả kiểm chứng](checkpoint_copy_capture.md): sửa call nhầm snapshot khi SSA tái dùng local. Workspace 1.658 passed, 714 semantic cases, 301 deep-review cases và đủ 33 audit steps; 513 public outputs byte-identical với `0007889`. Proof bảo thủ giữ inline hai site cũ thay vì dựng call; diff được ghi rõ trong báo cáo. M6 và các mục mở khác tiếp tục.
+
+## Checkpoint M6 L1/L2
+
+[Source spacing, return proof và đo chi phí](checkpoint_final_ast.md): workspace 1.665 passed, 720 semantic cases, 313 deep-review cases và đủ 33 audit steps. Call annotations giữ nguyên ở từng file. Public có thêm dòng trống theo source metadata và ba output wrap dài hơn; báo cáo nêu rõ tăng dòng/RAM và A/B release. L4 và các mục goal còn mở tiếp tục.

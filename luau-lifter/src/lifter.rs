@@ -107,13 +107,13 @@ impl<'a> Lifter<'a> {
             for_origins_by_step: FxHashMap::default(),
             current_node: None,
             upvalues: Vec::new(),
-            source_lines: Vec::new(),
+            source_lines: crate::upvalue_analysis::decode_source_lines(&f_list[function_id]),
         };
 
         if let (true, Some(identity)) = (trace_provenance, &context.static_function_id) {
             context.function.provenance = Some(Box::new(cfg::provenance::FunctionTrace::new(function_id, identity.clone())));
             context.function.provenance.as_mut().unwrap().instruction_count = f_list[function_id].instructions.len();
-            context.source_lines = crate::upvalue_analysis::decode_source_lines(&f_list[function_id]);
+
         }
 
         context.debug_bindings = f_list[function_id].debug_locals.iter()
@@ -1823,6 +1823,16 @@ impl<'a> Lifter<'a> {
                     }
                 },
                 _ => unimplemented!("{:?}", instruction),
+            }
+            if !self.source_lines.is_empty() {
+                let next_pc = iter.clone().next().map_or(block_end + 1, |(index, _)| block_start + index);
+                let lines = ast::source_lines::SourceLines::of(self.source_lines[pc..next_pc].iter().copied().flatten());
+                for statement in &mut statements[lifted_before..] {
+                    ast::source_lines::seed_statement(statement, lines);
+                }
+                if set_pending && let Some((value, _)) = &mut top {
+                    ast::source_lines::seed_value(value, lines);
+                }
             }
             if track_statement_pcs {
                 statement_pcs.resize(statements.len(), pc);

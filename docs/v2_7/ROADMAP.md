@@ -38,6 +38,11 @@ fuzz miscompile when SSA reuses a snapshotted local. Its full audit passes and
 public outputs remain byte-identical; the report records two conservative
 semantic-fixture call refusals. The complete goal remains open.
 
+The [M6 L1/L2 checkpoint](checkpoint_final_ast.md) adds source-informed spacing
+and final-AST return proofs. Its full audit passes; per-file rebuilt-call
+comments are unchanged. The report records intentional line-count changes and
+the measured public memory/runtime cost. L4 and the remaining goal stay open.
+
 ## Binding decisions
 
 These come from the owner. Do not reopen them.

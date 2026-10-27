@@ -210,6 +210,8 @@ fn synthesize_scope(stmts: &mut Vec<Statement>, safety: &CaptureSafety) -> usize
                 name: function_name,
                 parameters: Vec::new(),
                 parameter_annotations: Vec::new(),
+                return_annotation: None,
+                source_lines: Default::default(),
                 parameter_name_hints: Vec::new(),
                 is_variadic: false,
                 body: Block(helper_body),

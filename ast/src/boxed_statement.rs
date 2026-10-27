@@ -90,7 +90,8 @@ mod tests {
     fn compact_layout_and_boxed_dispatch_preserve_payload_selectors() {
         assert!(std::mem::size_of::<Statement>() < std::mem::size_of::<NumForInit>());
         #[cfg(target_pointer_width = "64")]
-        assert_eq!(std::mem::size_of::<Statement>(), 128);
+        // Source line spans stay inline, without per-node allocations.
+        assert_eq!(std::mem::size_of::<Statement>(), 144);
         let a = RcLocal::default(); let b = RcLocal::default(); let c = RcLocal::default();
         let statements: Vec<Statement> = vec![
             NumForInit::new(a.clone(), b.clone(), c.clone()).into(),

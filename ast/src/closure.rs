@@ -70,6 +70,9 @@ pub struct Function {
     /// `parameters`, `self` included), rendered from the compiler's bytecode
     /// type information.  `None` when the bytecode records no exact type.
     pub parameter_annotations: Vec<Option<String>>,
+    /// Return pack proven from the final body; never inferred from API names.
+    pub return_annotation: Option<String>,
+    pub source_lines: crate::source_lines::SourceLines,
     /// Naming hint per parameter derived from its bytecode type (for example
     /// `cframe` for a tagged `CFrame`), consulted only when usage-based naming
     /// found nothing better.

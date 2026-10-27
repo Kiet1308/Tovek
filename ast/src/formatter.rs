@@ -2059,7 +2059,10 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
             return false;
         }
         let next = block.0[index..].iter().find(|s| !matches!(s, Statement::Comment(_)));
-        next.is_some_and(|next| Self::is_block_statement(prev) || Self::is_block_statement(next))
+        next.is_some_and(|next| {
+            crate::source_lines::statement(next).gap_after(crate::source_lines::statement(prev))
+                .unwrap_or_else(|| Self::is_block_statement(prev) || Self::is_block_statement(next))
+        })
     }
 
     fn format_block_no_indent(&mut self, block: &Block) -> fmt::Result {
@@ -2483,6 +2486,14 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
         self.format_closure_parameters_from(closure, 0)
     }
 
+    fn format_closure_parameter_end(&mut self, closure: &Closure) -> fmt::Result {
+        write!(self.output, ")")?;
+        if let Some(annotation) = &closure.function.lock().return_annotation {
+            write!(self.output, ": {annotation}")?;
+        }
+        Ok(())
+    }
+
     fn format_closure_body(&mut self, closure: &Closure) -> fmt::Result {
         let function = closure.function.lock();
         if !function.body.is_empty() {
@@ -2528,7 +2539,7 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
         }
         write!(self.output, "function(")?;
         self.format_closure_parameters(closure)?;
-        write!(self.output, ")")?;
+        self.format_closure_parameter_end(closure)?;
         self.format_closure_body(closure)?;
         write!(self.output, "end")?;
         self.record_closure(closure, start, syntax_kind, display_name);
@@ -2564,7 +2575,7 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
                 self.format_rvalue(receiver)?;
                 write!(self.output, ":{}(", method)?;
                 self.format_closure_parameters_from(closure, 1)?;
-                write!(self.output, ")")?;
+                self.format_closure_parameter_end(closure)?;
                 self.format_closure_body(closure)?;
                 write!(self.output, "end")?;
                 return Ok((ClosureSyntaxKind::MethodFunction, display_name));
@@ -2582,7 +2593,7 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
         }
         write!(self.output, "(")?;
         self.format_closure_parameters(closure)?;
-        write!(self.output, ")")?;
+        self.format_closure_parameter_end(closure)?;
         // The count ends the header line, or the line of an empty body's `end`.
         let empty = closure.function.lock().body.is_empty();
         if let Some(text) = definition_comment.as_ref().filter(|_| !empty) {

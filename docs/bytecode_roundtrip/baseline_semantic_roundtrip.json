@@ -1,13 +1,13 @@
 {
  "summary": {
-  "inputs": 238,
-  "protos": 1540,
-  "exact": 1109,
+  "inputs": 240,
+  "protos": 1558,
+  "exact": 1122,
   "equiv": 136,
-  "differ": 241,
-  "missing": 38,
+  "differ": 244,
+  "missing": 40,
   "extra": 16,
-  "equiv_ratio": 0.80844
+  "equiv_ratio": 0.80745
  },
  "files": [
   {
@@ -1139,6 +1139,12 @@
    "protos": 10
   },
   {
+   "file": "proven_return_types",
+   "status": "ok",
+   "nonequiv": 4,
+   "protos": 13
+  },
+  {
    "file": "readable_if_values",
    "status": "ok",
    "nonequiv": 2,
@@ -1281,6 +1287,12 @@
    "status": "ok",
    "nonequiv": 0,
    "protos": 7
+  },
+  {
+   "file": "source_spacing",
+   "status": "ok",
+   "nonequiv": 1,
+   "protos": 4
   },
   {
    "file": "store_address_read_at_store",

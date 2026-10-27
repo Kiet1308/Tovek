@@ -51,19 +51,23 @@ pub struct Data {
     pub incomplete: bool,
 }
 #[derive(Default)]
-pub struct Origin(pub Option<Box<Data>>);
+pub struct Origin(pub Option<Box<Data>>, pub crate::source_lines::SourceLines);
 impl Origin {
     /// Copy metadata into a report without claiming a new AST occurrence.
-    pub fn snapshot(&self) -> Self { Self(self.0.clone()) }
+    pub fn snapshot(&self) -> Self { Self(self.0.clone(), self.1) }
     pub fn input(input: Input) -> Self {
-        Self(Some(Box::new(Data { inputs: vec![Arc::new(input)], ..Default::default() })))
+        Self(Some(Box::new(Data { inputs: vec![Arc::new(input)], ..Default::default() })), Default::default())
+    }
+    pub fn set_input(&mut self, input: Input) {
+        self.0 = Self::input(input).0;
     }
     pub fn synthesized(pass: &'static str) -> Self {
-        Self(Some(Box::new(Data { synthesized: Some(pass), ..Default::default() })))
+        Self(Some(Box::new(Data { synthesized: Some(pass), ..Default::default() })), Default::default())
     }
     pub fn merge(&mut self, other: &Self) {
+        self.1.merge(other.1);
         let Some(other_data) = &other.0 else { return; };
-        let Some(data) = &mut self.0 else { *self = other.snapshot(); return; };
+        let Some(data) = &mut self.0 else { self.0 = other.0.clone(); return; };
         let other = other_data;
         data.inlined |= other.inlined;
         data.cloned |= other.cloned;
@@ -158,7 +162,7 @@ pub fn statement_mut(item: &mut Statement) -> Option<&mut Origin> {
 /// Mark only the expression actually installed by a committed substitution.
 /// Descendant tags travel with it; failed probes never touch this flag.
 pub fn inlined(value: &mut RValue) {
-    if let Some(Origin(Some(data))) = value_mut(value) { data.inlined = true; }
+    if let Some(Origin(Some(data), _)) = value_mut(value) { data.inlined = true; }
 }
 
 /// A rewritten parent and an already attributed child can both contribute.

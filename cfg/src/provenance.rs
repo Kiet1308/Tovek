@@ -237,7 +237,7 @@ impl FunctionTrace {
             kind: ast::emission_map::value_kind(value),
             binding: value.as_local().map(RcLocal::stable_id), children: Vec::new() });
         if let Some(origin) = ast::node_origins::value_mut(value) {
-            *origin = ast::node_origins::Origin::input(ast::node_origins::Input {
+            origin.set_input(ast::node_origins::Input {
                 function: function.clone(), block, statement, value: Some(id),
             });
         }
@@ -264,7 +264,7 @@ pub fn record_values(function: &mut Function) {
         for (statement, item) in function.block_mut(node).unwrap().iter_mut().enumerate() {
             if trace.lifted.contains_key(&(node.index(), statement)) {
                 if let Some(origin) = ast::node_origins::statement_mut(item) {
-                    *origin = ast::node_origins::Origin::input(ast::node_origins::Input {
+                    origin.set_input(ast::node_origins::Input {
                         function: function_id.clone(), block: node.index(), statement, value: None,
                     });
                 }

@@ -938,6 +938,12 @@ fn decompile_bytecode_internal(
                     let mut ast_func = ast_func.lock();
                     ast_func.parameter_annotations = annotations;
                     ast_func.parameter_name_hints = hints;
+                    let lines = upvalue_analysis::decode_source_lines(proto);
+                    if lines.iter().any(Option::is_some) {
+                        ast_func.source_lines = ast::source_lines::SourceLines::of(
+                            std::iter::once(proto.line_defined as u32).chain(lines.into_iter().flatten())
+                        );
+                    }
                     typed_local_hints_from_bytecode(
                         proto.type_info.as_ref(),
                         &chunk.userdata_type_names,
@@ -1543,6 +1549,10 @@ fn decompile_bytecode_internal(
                 body.0.insert(0, ast::Comment::hot("native").into());
             }
             // No expression/condition mutation is permitted after this point.
+            {
+                let _span = ast::telemetry::Span::new("S_RETURN_TYPES");
+                ast::return_types::annotate(&mut body);
+            }
             let name_inference = {
                 ptime!(S_REFINE_NAMES);
                 ast::refine_names::refine_final_names(&body, ast::refine_names::Options {
