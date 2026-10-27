@@ -2860,6 +2860,18 @@
       "bytes": 939,
       "lines": 51
     },
+    "semantic/table_mixed_allocation_growth__O0.luau": {
+      "bytes": 389,
+      "lines": 37
+    },
+    "semantic/table_mixed_allocation_growth__O1.luau": {
+      "bytes": 389,
+      "lines": 37
+    },
+    "semantic/table_mixed_allocation_growth__O2.luau": {
+      "bytes": 389,
+      "lines": 37
+    },
     "semantic/table_newtable_growth__O0.luau": {
       "bytes": 323,
       "lines": 17

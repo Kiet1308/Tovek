@@ -69,6 +69,13 @@ public and 7 residual outputs. All 1,688 workspace tests and 33 audit steps pass
 The [L3 evaluation](evaluation_eq_polarity.md) keeps current EQ polarity: the
 global switch increased semantic lines and nesting. G1 remains open.
 
+The [mixed table growth checkpoint](checkpoint_mixed_table_growth.md) fixes a
+valid-bytecode refusal found by broad fuzz: explicit array keys still count as
+hash syntax in mixed constructors. All 1,689 workspace tests, 33 audit steps,
+1,476 table probes and 512 structuring probes pass; 459 reruns of failing seed
+profiles pass. Existing semantic/public/residual outputs remain byte-identical.
+Broad fuzz across the full range and final performance acceptance continue.
+
 ## Binding decisions
 
 These come from the owner. Do not reopen them.

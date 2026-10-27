@@ -1,13 +1,13 @@
 {
  "summary": {
-  "inputs": 262,
-  "protos": 1629,
-  "exact": 1172,
+  "inputs": 263,
+  "protos": 1631,
+  "exact": 1173,
   "equiv": 140,
-  "differ": 261,
+  "differ": 262,
   "missing": 40,
   "extra": 16,
-  "equiv_ratio": 0.8054
+  "equiv_ratio": 0.80503
  },
  "files": [
   {
@@ -1425,6 +1425,12 @@
    "status": "ok",
    "nonequiv": 0,
    "protos": 6
+  },
+  {
+   "file": "table_mixed_allocation_growth",
+   "status": "ok",
+   "nonequiv": 1,
+   "protos": 2
   },
   {
    "file": "table_newtable_growth",

@@ -184,3 +184,7 @@ Xem [báo cáo kiểm chứng](checkpoint_control_naming.md). Mốc này có 1.6
 ## Checkpoint formatter và quyết định L3
 
 [Cache source-line census](checkpoint_performance_public.md) đạt 1.688 workspace tests, 786 semantic, 445 deep-review và đủ 33 audit steps; semantic/public/residual outputs đều byte-identical. Phép đo xác nhận 51 samples cho median 1t -2,7%, 4t -0,1%, có nhiễu và chưa giải quyết mục tiêu G1. Loại ASCII naming vì chưa có lợi ích ổn định. [L3 đã đánh giá và giữ polarity EQ hiện tại](evaluation_eq_polarity.md), tránh tăng nesting và dòng trên semantic fixtures.
+
+## Checkpoint mixed table growth
+
+[Shared fold census và ca fuzz mới](checkpoint_mixed_table_growth.md): 1.689 workspace tests, 789 semantic, 451 deep-review, đủ 33 audit steps, 1.476 table probes và 512 structuring probes đạt. Sửa mixed constructor bị từ chối khi gộp thêm field; chạy lại 51 seeds từng lỗi × 9 profiles, 459/459 đạt. Mọi semantic/public/residual output cũ giữ từng byte. Broad fuzz toàn dải và benchmark cuối tiếp tục; không dùng checkpoint này để đóng G1 hoặc các private review cases chưa có reproducer.

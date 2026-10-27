@@ -61,6 +61,12 @@ Thử truyền Vec source lines từ prototype setup sang Lifter để tránh de
 
 Thử chuyển shared lower-camel và hai sanitizer từ Vec<char> sang Vec<u8>, dùng String::from_utf8 để giữ buffer. 1.161 AST tests đạt; mọi public output byte-identical. So với candidate chỉ có cache formatter, 7 sample A/B cho median 1t -0,5%, 4t -1,1%; 51 sample xen kẽ ghim CPU cho median 1t 0,778117 → 0,770349 s (-1,0%), 4t 0,218694 → 0,218607 s (gần 0%). Nhưng median paired ratios 1,0103/1,0012, chỉ 25/51 và 22/51 cặp nhanh hơn; RSS median không giảm. Loại vì chưa chứng minh lợi ích end-to-end ổn định, không dùng bớt allocation lý thuyết làm speedup. Evidence: `/workspace/work/v27/ascii-naming-candidate.patch`, `luau-lifter-ascii-naming`, `ascii-naming-{measure,confirm-t1.json,confirm-t4.json}`; không có private workload claim.
 
+### Public V2.7, 27/10/2026: scoped candidate index
+
+Port riêng bộ lọc head từ `origin/feat/deinline-next` (`e0b2f3c`), không lấy refactor/recovery khác. Bitset theo thứ tự priority chỉ bỏ attempt đã bị gate kind/name hiện hữu từ chối trước search fuel; rivals và thứ tự đầy đủ vẫn giữ. 154 deinline tests đạt, gồm bảy test index đối chiếu predicate độc lập. 513 outputs public byte-identical ở mọi mẫu. Profile riêng cho thấy index chỉ được dựng 18 lần/291 target entries trên 3/513 inputs.
+
+7 mẫu ordinary release: 1t -0,6%, 4t +1,1%. 51 mẫu xen kẽ, ghim CPU: 1t median 0,765077 → 0,762502 s (-0,34%), 4t 0,220181 → 0,220367 s (+0,08%); paired medians 1,0113/0,9992, thắng 21/51 và 27/51 cặp. RSS không giảm. Loại vì không cải thiện end-to-end trên workload public khả dụng; không suy lợi ích từ synthetic distinct-anchor workload của nhánh gốc. Không chạy full 33 gates cho code bị loại. Binary `8dc5032cb3d7d1d4b3bef83d2101143d18eea5638da67ca2b5f243753ee3c979`, patch/module, profile và reports được lưu tại `/workspace/work/v27/scoped-candidates-*`; source khôi phục byte-for-byte về `ba776bd`.
+
 ## 3. Build và toolchain
 
 | Hướng | Kết quả đo | Nguồn |

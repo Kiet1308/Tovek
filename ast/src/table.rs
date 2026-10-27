@@ -83,7 +83,9 @@ pub fn table_takes_another_key(table: &Table, key: &RValue) -> bool {
         TableShape::NewTable { hash, .. } => {
             if let Some(index) = table.array_index(key) {
                 let slots = table.0.iter().filter(|(key, _)| key.as_ref().is_none_or(|key| table.array_index(key).is_some())).count();
-                return index == slots + 1;
+                let has_list = table.0.iter().any(|(key, _)| key.is_none());
+                return index == slots + 1 && (!has_list
+                    || table.0.iter().filter(|(key, _)| key.is_some()).count() < hash as usize);
             }
             hash
         }
@@ -95,7 +97,11 @@ pub fn table_takes_another_key(table: &Table, key: &RValue) -> bool {
             TableShape::nodes(keys)
         }
     };
-    let listed = table.0.iter().filter(|(key, _)| key.as_ref().is_some_and(|key| table.array_index(key).is_none())).count();
+    // Mixed constructors cannot lower explicit array keys to list items:
+    // doing so shifts the later list stores. Luau counts those keys as hash fields.
+    let has_list = table.0.iter().any(|(key, _)| key.is_none());
+    let listed = table.0.iter().filter(|(key, _)| key.as_ref()
+        .is_some_and(|key| has_list || table.array_index(key).is_none())).count();
     u32::try_from(listed + 1).is_ok_and(|after| after <= capacity)
 }
 
@@ -167,6 +173,26 @@ mod tests {
         let mut other = t.clone();
         other.2 = TableShape::NewTable { hash: 2, array: 4 };
         assert!(!compatible_table_layouts(&t, &other));
+    }
+
+    #[test]
+    fn mixed_list_fields_keep_explicit_array_keys_in_the_hash_census() {
+        let mut t = Table(vec![
+            (Some(number()), number()),
+            (Some(Literal::Boolean(true).into()), number()),
+            (None, number()),
+        ], Default::default(), TableShape::NewTable { hash: 2, array: 1 });
+        assert!(!table_takes_another_key(&t, &Literal::String(b"extra".to_vec()).into()));
+        t.0.pop();
+        assert!(table_takes_another_key(&t, &Literal::String(b"extra".to_vec()).into()));
+
+        let mut t = Table(vec![(None, number()), (Some(Literal::Boolean(true).into()), number())],
+            Default::default(), TableShape::NewTable { hash: 1, array: 3 });
+        assert!(!table_takes_another_key(&t, &Literal::Number(2.0).into()));
+        assert!(!table_takes_another_key(&t, &number()));
+        t.2 = TableShape::NewTable { hash: 2, array: 3 };
+        assert!(table_takes_another_key(&t, &Literal::Number(2.0).into()));
+        assert!(!table_takes_another_key(&t, &Literal::Number(3.0).into()));
     }
 
     #[test]
