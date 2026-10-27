@@ -1,7 +1,8 @@
 # V2.8: kiểm chứng chéo tối ưu và giảm từ chối bytecode hợp lệ
 
-Trạng thái: hoàn tất hai mục chủ repo đã chọn. Code `9d0636a`; kết quả và
-giới hạn tại [ACCEPTANCE](ACCEPTANCE.md).
+Trạng thái: hoàn tất hai mục chủ repo đã chọn. Code mới nhất `302f9a3`; kết quả và
+giới hạn tại [owned-key checkpoint](owned_key_timing.md), checkpoint đầu
+tại [ACCEPTANCE](ACCEPTANCE.md).
 Nhánh `v2.8-dev`, bắt đầu tại `4a8f457`; engine baseline `4880984`.
 Binary baseline SHA256:
 `7be28396f9edf542913189f985b1d85aa26e7f2d7c7e437cef185771a8b31819`.
@@ -70,7 +71,7 @@ continuation index khớp chính xác. Shape O2 inline helper làm thay allocati
 vẫn bị từ chối; không nới proof để nhận shape ấy. Captured local key cạnh
 value có hiệu ứng cũng không snapshot khi chưa chứng minh thời điểm đọc key.
 
-## Kết quả cuối
+## Kết quả đợt đầu
 
 Code đã commit/push lên `v2.8-dev`. Rust 1.708 passed (2 manual probes
 ignored), Python 220 passed; semantic 816/816; public 513/513. Ma trận
@@ -81,3 +82,21 @@ cũ, ngưỡng gate hoặc chính sách tương thích đã chốt.
 
 Phần hoàn tất là hai mục decompiler của đợt này; G1, release và website
 không thuộc goal. Bounded runtime/oracle suites không chứng minh mọi bytecode.
+
+## Cải thiện tiếp theo: thời điểm đọc captured key
+
+- [x] Dùng ownership proof hiện hữu để snapshot value trước key của register
+  trong chính hàm, giữ từ chối incoming/ambiguous keys.
+- [x] Chuyển late-key counterexample sang mandatory-pass; thêm controls cho
+  saved/compound keys, nil/NaN, metamethods, errors, yield và shared Function.
+- [x] Ma trận 1.476 profiles: 1.400 runtime passes, 18 expected refusals,
+  58 compiler-sensitive profiles, 0 failed; thêm 33 profiles được khôi phục.
+- [x] 729 timing probes, 12.000 stress profiles, Rust 1.709 tests, Python
+  220 tests và full audit 33/33 bước đều không có failure. Invalid inputs và
+  typed refusals trong stress được ghi riêng trong checkpoint.
+- [x] 822 semantic / 513 public / 288 roadmap profiles đạt; toàn bộ
+  816 semantic, 513 public và 7 residual outputs cũ giữ nguyên từng byte.
+- [x] Code và evidence đã commit/push lên `v2.8-dev`.
+
+[Chi tiết và giới hạn còn lại](owned_key_timing.md). Không đổi ngưỡng gate,
+58 sensitivity baselines hoặc chính sách tương thích đã chốt.

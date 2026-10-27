@@ -1,5 +1,10 @@
 # V2.8: nghiệm thu hai mục decompiler đã chọn
 
+Cập nhật mới nhất: [captured-key recovery và stress review](owned_key_timing.md),
+code `302f9a3`. Số liệu bên dưới lưu checkpoint đầu `9d0636a`; bản mới có
+1.476 matrix profiles, 822 semantic profiles và 33/33 bước audit đạt.
+
+
 Hoàn tất ngày 28/10/2026 (UTC+7). Phạm vi: kiểm chứng chéo mức tối ưu và giảm từ chối bytecode hợp lệ có proof
 constructor an toàn. Nhánh `v2.8-dev`; code commit `9d0636acdf1144b6f60159848451d6d0797d20a9`.
 Binary ordinary release SHA256:
