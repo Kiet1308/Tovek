@@ -2944,6 +2944,18 @@
       "bytes": 3120,
       "lines": 181
     },
+    "semantic/table_open_list_split_prefix__O0.luau": {
+      "bytes": 1271,
+      "lines": 95
+    },
+    "semantic/table_open_list_split_prefix__O1.luau": {
+      "bytes": 1273,
+      "lines": 95
+    },
+    "semantic/table_open_list_split_prefix__O2.luau": {
+      "bytes": 1684,
+      "lines": 111
+    },
     "semantic/table_partial_array_keys__O0.luau": {
       "bytes": 519,
       "lines": 39

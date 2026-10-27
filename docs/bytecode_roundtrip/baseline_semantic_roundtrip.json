@@ -1,13 +1,13 @@
 {
  "summary": {
-  "inputs": 266,
-  "protos": 1650,
-  "exact": 1183,
+  "inputs": 267,
+  "protos": 1656,
+  "exact": 1186,
   "equiv": 143,
-  "differ": 268,
+  "differ": 271,
   "missing": 40,
   "extra": 16,
-  "equiv_ratio": 0.80364
+  "equiv_ratio": 0.80254
  },
  "files": [
   {
@@ -1467,6 +1467,12 @@
    "status": "ok",
    "nonequiv": 6,
    "protos": 16
+  },
+  {
+   "file": "table_open_list_split_prefix",
+   "status": "ok",
+   "nonequiv": 3,
+   "protos": 6
   },
   {
    "file": "table_partial_array_keys",

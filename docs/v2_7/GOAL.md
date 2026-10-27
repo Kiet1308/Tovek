@@ -83,7 +83,7 @@ Roadmap ghi nhận tại `1aeabd8`: 1.636 workspace tests, 699/699 semantic roun
 
 - [ ] `repeat` có `return` trong `if` ở O2: path walker sao chép terminal block nhỏ đúng scope/capture; chuyển refusal thành output đúng cho các ca được chứng minh.
 - [ ] Nested inlined calls trong generic `for` ở O2/g2: tìm reproducer cho lỗi fuzz, sửa debug-local boundary/phi hoặc edge-copy placement trong SSA; không che lỗi ở formatter.
-- [ ] Chuyển panic do malformed bytecode thành typed refusal tại `bytecode_validate`: `unreachable LOP_BREAK`, `unwrap(None)`, “not implemented”, FORGPREP thiếu partner. Giữ catch_unwind làm lớp bảo vệ cuối.
+- [x] Các họ malformed đã xác định được chuyển thành typed refusal tại `bytecode_validate`: debugger BREAK, CONCAT/constant operands, FORGPREP thiếu partner và open results. Unit/deep-review controls đạt; giữ catch_unwind. Chưa có bytecode riêng tương ứng các nhãn `unwrap(None)`/“not implemented” trong review gốc để xác nhận mọi trường hợp đó.
 - [x] NEWTABLE record value nil tại runtime: giữ đúng kiểu constructor khi cần, đo tác động public và kiểm tra pairs/next; xem checkpoint table nil.
 - [x] Mô hình NEWTABLE: size hint khác stores được fold và proof layout trong fold/match; [checkpoint table layout](checkpoint_table_layout.md) ghi rõ bounded encoding và ngoại lệ empty hash đã chốt.
 - [x] Xây exact vector fold model trước khi mở E2 (`ast/src/deinline/fold.rs`) cho helper nhận vector constants, như `reflect(v, Vector3.new(...))`; không dùng giả định thư viện chuẩn bất biến.
@@ -100,7 +100,7 @@ Roadmap ghi nhận tại `1aeabd8`: 1.636 workspace tests, 699/699 semantic roun
 
 - [ ] Mọi mục được triển khai và kiểm chứng, hoặc có quyết định cụ thể được chấp nhận cho mục vốn yêu cầu đánh giá/chính sách; không còn task bị bỏ qua vì thiếu thời gian.
 - [ ] Workspace tests, toàn bộ Fixture and Luau audit và các check tương thích liên quan đều đạt trên đúng commit cuối.
-- [ ] Hai open cases đã thành regression fixtures và có kết quả before/after rõ ràng.
+- [x] Hai open cases đã thành regression fixtures: while header và event parameter, gồm pinned bytecode assertions trong `late_readability.rs`, semantic O0/O1/O2 và [before/after](checkpoint_control_naming.md).
 - [ ] Mọi edge case mới nằm trong `docs/failure_fixtures/semantic_roundtrip`, kèm oracle và output-size baseline trong cùng commit code.
 - [ ] Đọc diff bốn dumps before/after: không mất rebuilt calls hoặc tăng tổng dòng so với baseline phù hợp của từng bước; mọi delta có chủ đích được giải thích. Không tự nâng baseline để che regression.
 - [ ] Benchmark cuối bằng release build so V2.6.1, V2.5.1 và điểm xuất phát V2.7, tách một luồng/đa luồng, public/private, latency/throughput và instrumented/ordinary.
@@ -200,3 +200,11 @@ Xem [báo cáo kiểm chứng](checkpoint_control_naming.md). Mốc này có 1.6
 ## Checkpoint vector producer metadata
 
 [Ledger của vector constructor](checkpoint_vector_producer.md): import cleanup chạy trước late producers, metadata chỉ nhận đúng model/role. 1.695 workspace tests, 798 semantic, 469 deep-review và đủ 33 audit steps đạt. Mọi output semantic/public/residual cũ giữ từng byte; source/runtime và ledger của single vector constant có regression fixture. Broad fuzz và benchmark cuối tiếp tục.
+
+## Benchmark tại checkpoint vector
+
+[Bốn version, ordinary release](benchmark_vector_checkpoint.md): 25 samples xen kẽ trên 513 public inputs. Median hiện tại chậm hơn V2.5.1 10,3%/16,1% ở 1/4 workers, so V2.6.1 là 3,2%/4,3%. Output deterministic trong từng version. G1 vẫn mở; không có private/Windows timing claim.
+
+## Checkpoint split prefix stores
+
+[Prefix bị tách/lặp trước open SETLIST](checkpoint_split_prefix.md): 1.697 workspace tests, 801 semantic, 469 deep-review và đủ 33 audit steps đạt. Khôi phục 288/288 profiles của 31 seeds từng bị từ chối và seed 8472; 1.476 table probes cùng 108 VM comparisons đạt. Mọi semantic/public/residual output cũ giữ từng byte. G1 và các dependency thiếu dữ liệu vẫn mở; broad stress sẽ chạy trên binary cuối của goal.

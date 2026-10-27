@@ -20,14 +20,18 @@ At `1aeabd8`, all checks pass:
 
 ## Current implementation checkpoint
 
-Latest: [vector producer metadata](checkpoint_vector_producer.md) keeps recorded
-constructor bindings through emission and validates both vector spelling models.
-It passes 1,695 workspace tests, 798 semantic and 469 deep-review cases and all
-33 audit steps; every old semantic/public/residual output remains byte-identical.
-The preceding [open SETLIST checkpoint](checkpoint_open_table_lists.md) preserves
-native bulk growth and prefix snapshots, with 1,476 table probes and 90 VM
-comparisons. Broad fuzz, performance and missing review specifications remain
-active work.
+Latest: [split prefix stores before open SETLIST](checkpoint_split_prefix.md)
+restores private repeated/separated prefix stores while retaining native bulk
+growth, key-error timing and allocation guards. It passes 1,697 workspace tests,
+801 semantic and 469 deep-review cases, all 33 audit steps, 1,476 table probes,
+108 VM comparisons and 288 targeted fuzz profiles. Every old semantic/public/
+residual output remains byte-identical. The preceding [vector producer
+checkpoint](checkpoint_vector_producer.md) retains and validates emitted vector
+bindings. Final broad stress, performance and missing review specifications
+remain active work.
+
+The checkpoint paragraphs below retain the status at each checkpoint; the
+current scope/status section is the active backlog.
 
 See [control flow, naming and proof validation](checkpoint_control_naming.md) for
 the next checkpoint after `76212c9`: while-header recovery, bounded readable
@@ -124,7 +128,7 @@ These come from the owner. Do not reopen them.
    - Kept dumps there: `v261` = V2.6.1, `s3c` = `0da3755`, `s2c` = `1aeabd8`, `frdyn251` = V2.5.1.
 4. **Baselines:** every output change regenerates the oracle baseline (`docs/bytecode_roundtrip/baseline_semantic_roundtrip.json`) and the output-size baseline (`docs/output_size/baseline_fixtures.json`).
 
-## Remaining work, in order
+## Decompiler scope and current status
 
 ### 1. Performance: one thread is still slower than V2.5.1
 
@@ -147,6 +151,12 @@ These come from the owner. Do not reopen them.
 | S_EXPR_DEINLINE / S_DEINLINE | +50 / +42 ms | |
 | S_COND_EXPRS, S_SYNTH_HELPERS | fixed in `125d12a` | |
 
+**Current cloud measurement.** [Checkpoint benchmark](benchmark_vector_checkpoint.md)
+uses 25 interleaved ordinary-release samples per version on 513 public inputs.
+At `02173c3`, median 1/4-worker time is 10.3%/16.1% above V2.5.1 and
+3.2%/4.3% above V2.6.1. G1 remains unmet; the older owner measurements above
+are a separate workload and machine.
+
 **Next targets.**
 - Avoid rebuilding the census each D_SCAN round: keep it per function and invalidate only what a round changed, or skip rounds that cannot admit anything.
 - Then D_COLLECT_TARGETS, S_FORMAT and the two DESER phases.
@@ -155,7 +165,15 @@ These come from the owner. Do not reopen them.
 
 **Profiling.** Without admin rights, WPR and xperf do not work. Use the line-table build (`--profile fastrel`) and sample with `cdb -pv -p <pid> -c "~* kc 60; qd"`.
 
-### 2. M4 structure
+### 2. M4 structure — implemented except the undefined handle-split case
+
+S1/S4 and while-header recovery have implementation and available validation;
+see [the implementation audit](audit_existing_m4_m6.md),
+[control-flow checkpoint](checkpoint_control_naming.md) and
+[placeholder proof](checkpoint_naming_placeholder.md). The list below records
+the requirements, not a new implementation backlog. Only “case (c)” lacks a
+definition in the accessible material. L3 was evaluated and the current EQ
+polarity retained; [measured reasons](evaluation_eq_polarity.md).
 
 **S1: small exact structure gates.**
 - `guard-continue` gate and tail-duplication limit.
@@ -175,12 +193,19 @@ These come from the owner. Do not reopen them.
 - A placeholder prints `nil` instead of the loader's `0` only when nothing can read the table before that key's first store.
 
 **`while` with an inlined condition.** Case: `open_cases/while_inlined_condition.luau`.
-- `while isAlive(h) do ... end` prints as `while true do if not isAlive(p) then break end ... end`.
-- Goal: rebuild the loop header from the rebuilt call.
+- Previously emitted `while true do if not isAlive(p) then break end ... end`.
+- Now recovers the loop header from the rebuilt call, preserving its comment
+  and evaluation/continue behavior; pinned and semantic fixtures cover it.
 
-**L3: EQ-jump polarity and branch order.** The golden diff is large, so measure it before deciding.
+**L3: EQ-jump polarity and branch order.** Evaluated; retain current polarity
+because the measured global switch increased semantic lines and nesting.
 
-### 3. M5 naming (N1 to N3)
+### 3. M5 naming (N1 to N3) — implemented and validated
+
+[Consensus checkpoint](checkpoint_naming_consensus.md),
+[naming/placeholder checkpoint](checkpoint_naming_placeholder.md) and
+[control-flow/naming checkpoint](checkpoint_control_naming.md) cover the
+requirements below, including both formerly wrong names.
 
 - **N1:** a `NameTier` on each local, an override matrix, consumer evidence, and vetoes for misleading names.
 - **N2:** version-tagged Roblox API tables (names only, never annotations), literal evidence (`.Name = "X"`), module/class/self roles (keep `recover_methods`' B3 rule), and restoration of discarded bindings when the frame has headroom.
@@ -188,9 +213,9 @@ These come from the owner. Do not reopen them.
   - unanimous phi votes;
   - tuple roles and irregular plurals;
   - the typed fallback (`p` → `str`), reported as a weak name.
-- **Known wrong names:**
-  - `open_cases/event_param_named_from_parent_store.luau`: a `CharacterAdded` callback argument is named `parent`, because the `.Parent = x` store rule beats the event's own evidence.
-  - Digit names `vector2`/`vector3`: the S3 reservation is in place; the type-digit naming still needs its part.
+- **Resolved naming cases:**
+  - `open_cases/event_param_named_from_parent_store.luau`: event evidence now keeps `character` despite the `.Parent = x` store; a pinned assertion and semantic fixture cover it.
+  - Digit names `vector2`/`vector3`: naming and S3 reservation are now implemented and tested.
 
 ### 4. Leftovers from the V2.6 review
 
@@ -199,7 +224,7 @@ These come from the owner. Do not reopen them.
    - The path walker must copy a small terminal block.
 2. **Nested inlined calls in a generic `for` at -O2 -g2.** Refused in 3 of 45,000 fuzz seeds.
    - The fix belongs in SSA: either a debug-local boundary that keeps a phi alive, or destruct's edge-copy placement on a for-body edge.
-3. **Panics caught on corrupted bytecode** should become refusals in `bytecode_validate`:
+3. **Known malformed-bytecode families now refuse before lifting**, with unit and deep-review controls. Original private bytes behind generic panic labels remain unavailable:
    - `unreachable LOP_BREAK`;
    - `unwrap` on `None`;
    - "not implemented";
@@ -207,16 +232,23 @@ These come from the owner. Do not reopen them.
 4. **Table layouts: bounded allocation/fold/match model implemented.**
    - [Allocation checkpoint](checkpoint_table_layout.md): 1,679 workspace tests, 771 semantic cases, 415 deep-review cases, 1,476 table probes and all 33 audit steps. Preserve both hash/array hints; shared layout proofs guard folding and helper matching. Empty hash constructors retain the owner-selected compatibility policy; output growth, one conservative semantic call refusal and encoding limits are documented.
    - Runtime-nil NEWTABLE record values are handled by [the formatter proof](checkpoint_table_nil.md); 18/513 public outputs change key spelling with no line/call regression. The older estimate of 478 private dump files cannot be checked here.
-5. **Helpers called with vector constant arguments are not rebuilt.** Example: a `reflect(v, Vector3.new(...))` helper. E2 (`ast/src/deinline/fold.rs`) refuses vectors by design. A rebuild needs an exact vector fold model first.
-6. **Policy question for the owner.** Structural rebuilds above the size floor do not consult the line census. Gating them would lose 38 calls in 51 dump files at -O2, and every rebuilt call at -O1.
+5. **Vector constant arguments are implemented.** The shared exact fold model restores both `reflect` calls; [proof and validation](checkpoint_vector_arguments.md). Library constructor lookups are not evaluated to prove a match.
+6. **Line-census policy is settled:** the owner selected the existing policy. Structural rebuilds above the size floor keep their current proof; no new mandatory line-census gate.
 
-### 5. M6, if time allows
+### 5. M6 — included in full scope; implemented and validated
+
+[L1/L2 checkpoint](checkpoint_final_ast.md) and [L4 audit](audit_existing_m4_m6.md)
+cover these requirements. Performance acceptance stays separate under G1.
 
 - L1: blank lines follow the source lines (`SourceLines` kept out of `PartialEq`).
 - L2: return types on the final AST, proven types only.
 - L4: consolidate the de-inline engine (expression mode replaces the legacy family, incremental helper cache).
 
-### 6. Release V2.7
+### 6. Release V2.7 — explicitly outside this task
+
+The owner excluded release, version changes, website/changelog work and merging
+main. The following is a future release checklist, not work authorized here.
+Engine benchmark acceptance remains in the decompiler goal.
 
 1. Bump the version: crate versions and the CLI string `luau-lifter V2.7`.
 2. Run the checks above, then a release benchmark against V2.6.1 and V2.5.1. Claim no speedup without clean measurements.
