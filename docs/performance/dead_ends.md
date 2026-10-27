@@ -57,6 +57,10 @@ Quy tắc:
 
 Thử truyền Vec source lines từ prototype setup sang Lifter để tránh decode hai lần cho M6. Output byte-identical trên 513 input public. Release A/B cùng nightly-2026-06-15, ghim CPU, cache artifact tắt; benchmark_v2.py dùng output directory ấm, 25 sample xen kẽ mỗi bên: 1 worker median 0,669725 → 0,682328 s (+1,88%), 4 workers 0,199420 → 0,197583 s (-0,92%). Lượt thăm dò 7 sample cũng không có lợi ở một luồng. Không giữ thay đổi vì không cải thiện mục tiêu một luồng; không dùng việc giảm số lần decode làm bằng chứng speedup. Raw reports, source patch và binary ở `/workspace/work/v27/lines-repeat-t{1,4}.json`, `lines-rejected.patch`, `luau-lifter-lines`; không có private dump/Windows timing claim.
 
+### Public V2.7, 27/10/2026: ASCII buffer cho naming
+
+Thử chuyển shared lower-camel và hai sanitizer từ Vec<char> sang Vec<u8>, dùng String::from_utf8 để giữ buffer. 1.161 AST tests đạt; mọi public output byte-identical. So với candidate chỉ có cache formatter, 7 sample A/B cho median 1t -0,5%, 4t -1,1%; 51 sample xen kẽ ghim CPU cho median 1t 0,778117 → 0,770349 s (-1,0%), 4t 0,218694 → 0,218607 s (gần 0%). Nhưng median paired ratios 1,0103/1,0012, chỉ 25/51 và 22/51 cặp nhanh hơn; RSS median không giảm. Loại vì chưa chứng minh lợi ích end-to-end ổn định, không dùng bớt allocation lý thuyết làm speedup. Evidence: `/workspace/work/v27/ascii-naming-candidate.patch`, `luau-lifter-ascii-naming`, `ascii-naming-{measure,confirm-t1.json,confirm-t4.json}`; không có private workload claim.
+
 ## 3. Build và toolchain
 
 | Hướng | Kết quả đo | Nguồn |

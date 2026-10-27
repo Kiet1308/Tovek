@@ -63,6 +63,12 @@ cases and 445 deep-review cases; all old per-file line/call counts are unchanged
 N1–N3 have implementation and available validation. L3, performance, final
 stress checks and the explicitly missing review material remain open.
 
+The [formatter checkpoint](checkpoint_performance_public.md) caches one adjacent
+source-line census per block and preserves every byte across 786 semantic, 513
+public and 7 residual outputs. All 1,688 workspace tests and 33 audit steps pass.
+The [L3 evaluation](evaluation_eq_polarity.md) keeps current EQ polarity: the
+global switch increased semantic lines and nesting. G1 remains open.
+
 ## Binding decisions
 
 These come from the owner. Do not reopen them.

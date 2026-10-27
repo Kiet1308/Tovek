@@ -51,7 +51,7 @@ Roadmap ghi nhận tại `1aeabd8`: 1.636 workspace tests, 699/699 semantic roun
 
 ### G1 Hiệu năng
 
-- [ ] Profile lại chi phí thật; tách profiling khỏi benchmark release không instrument.
+- [x] Profile lại chi phí thật; tách profiling khỏi benchmark release không instrument. [Profile public và các phép đo](checkpoint_performance_public.md); mục tiêu hết regression vẫn mở.
 - [ ] Ưu tiên `D_SCAN` và `D_ROUND_CENSUS`: census theo hàm với invalidation đúng phạm vi, hoặc gate vòng không thể admit; chứng minh không bỏ cơ hội match mới sau splice trong block con.
 - [ ] Sau đó xử lý `D_COLLECT_TARGETS`, `S_FORMAT`, `DESER_LIFT`, `DESER_INLINED_COPIES`; chỉ mở rộng sang naming hoặc literal-sharing khi profile mới cho thấy cần thiết.
 - [ ] Mỗi candidate giữ output từng byte, thứ tự rewrite/candidate và kết quả proof; đo A/B release cùng toolchain, allocator, flags, input và worker count.
@@ -68,7 +68,7 @@ Roadmap ghi nhận tại `1aeabd8`: 1.636 workspace tests, 699/699 semantic roun
 - [x] S4: if-expression với hai atomic arms, tối đa 72 cột, chỉ ở vị trí giá trị.
 - [x] S4: placeholder `0` chỉ đổi thành `nil` khi không thể đọc table trước lần store đầu vào key đó; [proof và giới hạn](checkpoint_naming_placeholder.md).
 - [x] Khôi phục header `while isAlive(h) do` từ rebuilt call; dùng `open_cases/while_inlined_condition.luau`, bảo toàn số lần và thứ tự đánh giá điều kiện, break/continue và scope.
-- [ ] L3: đo golden diff của EQ-jump polarity/branch order trước khi chọn triển khai. Nếu không nhận thay đổi, ghi quyết định dựa trên diff và semantic/readability evidence, đúng tính chất đánh giá của mục này.
+- [x] L3: [đã đo golden diff và giữ polarity hiện tại](evaluation_eq_polarity.md). Candidate tăng 24 semantic lines, public không giảm tổng dòng và có nhiều nhánh sâu hơn; không giữ global switch.
 
 ### G3 M5 Naming
 
@@ -180,3 +180,7 @@ Xem [báo cáo kiểm chứng](checkpoint_control_naming.md). Mốc này có 1.6
 ## Checkpoint đồng thuận naming
 
 [Đồng thuận RHS, parameter input và literal object names](checkpoint_naming_consensus.md): workspace 1.687 passed, 786 semantic cases, 445 deep-review cases, đủ 33 audit steps. 54/780 semantic, 49/513 public và 5/7 residual outputs cũ đổi tên; mỗi file giữ nguyên số dòng và rebuilt calls. N1–N3 đã có implementation và kiểm chứng khả dụng; L3, hiệu năng, broad fuzz và các dependency thiếu dữ liệu vẫn tiếp tục.
+
+## Checkpoint formatter và quyết định L3
+
+[Cache source-line census](checkpoint_performance_public.md) đạt 1.688 workspace tests, 786 semantic, 445 deep-review và đủ 33 audit steps; semantic/public/residual outputs đều byte-identical. Phép đo xác nhận 51 samples cho median 1t -2,7%, 4t -0,1%, có nhiễu và chưa giải quyết mục tiêu G1. Loại ASCII naming vì chưa có lợi ích ổn định. [L3 đã đánh giá và giữ polarity EQ hiện tại](evaluation_eq_polarity.md), tránh tăng nesting và dòng trên semantic fixtures.

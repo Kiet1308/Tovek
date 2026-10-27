@@ -1192,6 +1192,28 @@ mod tests {
     }
 
     #[test]
+    fn source_gaps_keep_comments_and_merged_function_boundaries() {
+        use crate::source_lines::{SourceLines, seed_statement};
+        let call = |name, line| {
+            let mut statement: Statement = Call::new(global(name), vec![]).into();
+            seed_statement(&mut statement, SourceLines::at(line));
+            statement
+        };
+        let helper = local("helper");
+        let mut declaration = Assign::new(vec![helper.clone().into()], vec![]);
+        declaration.prefix = true;
+        declaration.node_origin.1 = SourceLines::at(6);
+        let function = Function { source_lines: SourceLines::of([8, 9]), ..Default::default() };
+        let definition = Assign::new(vec![helper.into()], vec![Closure {
+            node_origin: Default::default(), function: ByAddress(Arc::new(Mutex::new(function))), upvalues: vec![],
+        }.into()]);
+        let block = Block(vec![call("first", 1), crate::Comment::trailing("tail".into()).into(),
+            call("second", 2), crate::Comment::new("note".into()).into(), call("third", 5),
+            declaration.into(), definition.into(), call("last", 10), call("unknown", 0), call("far", 20)]);
+        assert_eq!(block.to_string(), "first() -- tail\nsecond()\n\n-- note\nthird()\nlocal function helper() end\nlast()\nunknown()\nfar()");
+    }
+
+    #[test]
     fn a_block_after_a_trailing_comment_keeps_its_blank_line() {
         let branch = crate::If::new(global("ready"), Block(vec![Call::new(global("go"), vec![]).into()]), Block::default());
         let block = Block(vec![
@@ -2088,7 +2110,7 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
     // keep comments attached to the statement they document: a leading
     // comment takes the blank line that statement would get, and nothing
     // separates it from the statement.
-    fn wants_blank_line(block: &Block, index: usize) -> bool {
+    fn wants_blank_line(block: &Block, index: usize, cached: &mut Option<(usize, crate::source_lines::SourceLines)>) -> bool {
         // A trailing comment sits on the line of the statement before it.
         let mut at = index - 1;
         while at > 0 && matches!(&block[at], Statement::Comment(comment) if comment.trailing) {
@@ -2098,9 +2120,13 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
         if matches!(prev, Statement::Comment(_)) {
             return false;
         }
-        let next = block.0[index..].iter().find(|s| !matches!(s, Statement::Comment(_)));
-        next.is_some_and(|next| {
-            crate::source_lines::statement(next).gap_after(crate::source_lines::statement(prev))
+        let next = block.iter().enumerate().skip(index).find(|(_, s)| !matches!(s, Statement::Comment(_)));
+        next.is_some_and(|(next_index, next)| {
+            let previous_lines = cached.filter(|(index, _)| *index == at)
+                .map_or_else(|| crate::source_lines::statement(prev), |(_, lines)| lines);
+            let next_lines = crate::source_lines::statement(next);
+            *cached = Some((next_index, next_lines));
+            next_lines.gap_after(previous_lines)
                 .unwrap_or_else(|| Self::is_block_statement(prev) || Self::is_block_statement(next))
         })
     }
@@ -2108,6 +2134,8 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
     fn format_block_no_indent(&mut self, block: &Block) -> fmt::Result {
         let mut next_non_comment = 0;
         let mut defined = None;
+        // Adjacent boundaries share one immutable statement's line census.
+        let mut cached_lines = None;
         for (i, statement) in block.iter().enumerate() {
             if defined == Some(i) {
                 continue;
@@ -2128,7 +2156,7 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
             }
             if i != 0 {
                 writeln!(self.output)?;
-                if Self::wants_blank_line(block, i) {
+                if Self::wants_blank_line(block, i, &mut cached_lines) {
                     writeln!(self.output)?;
                 }
             }
