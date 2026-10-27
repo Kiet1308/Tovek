@@ -20,6 +20,9 @@
 //!     local base = vector.create(4, 1, 2)
 //!     local function lift(v) return v + vector.create(0, 0.5, 0) end
 //!     print(lift(base))
+//!
+//! vector_single_constant (`--fflags=false --vector-lib=vector --vector-ctor=create`):
+//!     return vector.create(1, 2, 3)
 
 const PROOF: &[u8] = include_bytes!("fixtures/vector_spelling_proof.luaubc");
 const ROBLOX: &[u8] = include_bytes!("fixtures/vector_spelling_roblox.luaubc");
@@ -53,4 +56,36 @@ fn other_chunks_keep_the_constructor_snapshot() {
     let source = decompile(INLINE, 1);
     assert!(source.starts_with("local createVector = vector.create"), "{source}");
     assert!(source.contains("createVector(0, 0.5, 0)") && !source.contains("Vector3"), "{source}");
+}
+
+#[test]
+fn vector_producer_records_name_retained_final_bindings() {
+    let single = include_bytes!("fixtures/vector_single_constant.luaubc");
+    for bytecode in [single.as_slice(), INLINE] {
+        let plain = decompile(bytecode, 1);
+        for detailed in [false, true] {
+            let artifact = luau_lifter::try_decompile_bytecode_artifact_with_options(
+                bytecode, 1, None, luau_lifter::DecompileOptions {
+                    emit_binding_provenance: detailed,
+                    ..Default::default()
+                },
+            ).unwrap();
+            assert_eq!(artifact.source, plain);
+            let analysis = artifact.upvalue_analysis.unwrap();
+            let report = analysis.materialize_vectors.unwrap();
+            assert_eq!(report["model"], "entry_constructor_snapshot_v1");
+            assert_eq!(report["introduced_locals"], 1);
+            if let Some(trace) = analysis.binding_provenance {
+                let group = trace["local_producers"]["passes"].as_array().unwrap().iter()
+                    .find(|group| group["pass"] == "materialize_vectors").unwrap();
+                assert_eq!(group["records"], report["introduced_bindings"]["records"]);
+                for record in group["records"].as_array().unwrap() {
+                    let binding = trace["final_bindings"].as_array().unwrap().iter()
+                        .find(|binding| binding["binding_id"] == record["binding_id"]).unwrap();
+                    assert_eq!(binding["lineage"], serde_json::json!([]));
+                    assert_eq!(binding["emitter_introduction"]["pass"], "materialize_vectors");
+                }
+            }
+        }
+    }
 }

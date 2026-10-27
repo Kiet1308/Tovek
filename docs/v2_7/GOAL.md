@@ -196,3 +196,7 @@ Xem [báo cáo kiểm chứng](checkpoint_control_naming.md). Mốc này có 1.6
 ## Checkpoint open table lists
 
 [Native growth và prefix snapshots](checkpoint_open_table_lists.md): 1.694 workspace tests, 795 semantic, 469 deep-review, đủ 33 audit steps, 1.476 table probes và 90 VM comparisons đạt. Sửa lỗi length/next của open SETLIST và captured-cell motion; những open tails chưa có proof bị typed refusal. Public/residual giữ từng byte; semantic cũ +15 dòng và không mất rebuilt call. Broad fuzz cuối, performance và vector producer metadata tiếp tục; chưa đóng goal.
+
+## Checkpoint vector producer metadata
+
+[Ledger của vector constructor](checkpoint_vector_producer.md): import cleanup chạy trước late producers, metadata chỉ nhận đúng model/role. 1.695 workspace tests, 798 semantic, 469 deep-review và đủ 33 audit steps đạt. Mọi output semantic/public/residual cũ giữ từng byte; source/runtime và ledger của single vector constant có regression fixture. Broad fuzz và benchmark cuối tiếp tục.

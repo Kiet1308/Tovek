@@ -3,24 +3,34 @@ import unittest
 from local_producers import MODEL, PASSES, RECORD_LIMIT, introductions, validate_local_producers
 
 
-def fixture(size=1, omitted=0):
-    records = [dict(binding_id=f'b{i}', role='constructor_property_value') for i in range(size)]
-    report = dict(model=PASSES['branch_constructors'][0], introduced_locals=size + omitted,
+def fixture(size=1, omitted=0, name='branch_constructors', role='constructor_property_value'):
+    records = [dict(binding_id=f'b{i}', role=role) for i in range(size)]
+    report = dict(model=PASSES[name][0], introduced_locals=size + omitted,
                   introduced_bindings=dict(records=records, omitted_records=omitted))
     final = [dict(binding_id=f'b{i}', name='v', lineage=[], incomplete=True,
-                  emitter_introduction={'pass': 'branch_constructors', 'record': i}) for i in range(size)]
+                  emitter_introduction={'pass': name, 'record': i}) for i in range(size)]
     final.append(dict(binding_id=f'b{size}', name='v', lineage=[], incomplete=True))
     trace = dict(final_bindings=final, local_producers=dict(schema_version=1, model=MODEL,
         records_per_pass=RECORD_LIMIT, recorded_introductions=size, omitted_records=omitted,
-        passes=[dict(pass_='branch_constructors', rewrite_model=report['model'],
+        passes=[dict(pass_=name, rewrite_model=report['model'],
                      introduced_locals=size + omitted, records=records, omitted_records=omitted)]))
     group = trace['local_producers']['passes'][0]
     group['pass'] = group.pop('pass_')
-    metadata = dict(branch_constructors=report, binding_provenance=trace, source_recovery=dict(bindings=[]))
+    metadata = {name: report, 'binding_provenance': trace, 'source_recovery': dict(bindings=[])}
     return trace, metadata
 
 
 class LocalProducerTests(unittest.TestCase):
+    def test_vector_snapshot_and_inline_models_have_distinct_binding_contracts(self):
+        name = 'materialize_vectors'
+        trace, metadata = fixture(name=name, role='vector_constructor')
+        self.assertEqual(validate_local_producers(trace, metadata), [])
+        for size in (0, 1):
+            trace, metadata = fixture(size, name=name, role='vector_constructor')
+            metadata[name]['model'] = 'inline_constructor_v1'
+            trace['local_producers']['passes'][0]['rewrite_model'] = 'inline_constructor_v1'
+            self.assertEqual(bool(validate_local_producers(trace, metadata)), size != 0)
+
     def test_open_list_snapshots_require_matching_report_and_snapshot_role(self):
         trace, metadata = fixture()
         name = 'table_open_list_snapshots'

@@ -1445,6 +1445,8 @@ fn decompile_bytecode_internal(
             }
             // The final naming graph must not keep RcLocal references alive
             // during earlier cleanup (some passes inspect reference counts).
+            // Import cleanup must precede the committed local introductions below.
+            ast::fold_import_callees::fold_import_callees(&mut body);
             let mut local_producers = Vec::new();
             // Lower remaining scalar selects at their evaluation point. Only
             // literal `not` break guards are introduced; comparisons are never
@@ -1480,6 +1482,7 @@ fn decompile_bytecode_internal(
             if options.assume_standard_libraries {
                 ast::library_constants::spell_library_constants(&mut body, pristine_libraries(&globals));
             }
+            let mut materialize_vectors = None;
             if chunk.functions.iter().any(|function| function.constants.iter().any(|constant| {
                 matches!(constant, deserializer::constant::Constant::Vector(..)
                     | deserializer::constant::Constant::VectorD(..))
@@ -1487,6 +1490,12 @@ fn decompile_bytecode_internal(
                 if let Some(pass) = ast::materialize_vectors::spell_vectors(&mut body, vector_spelling)
                     .map_err(DecompileFailure::message)?
                 {
+                    if emit_upvalue_analysis {
+                        materialize_vectors = Some(serde_json::json!({
+                            "model": pass.rewrite_model, "introduced_locals": pass.introduced_locals,
+                            "introduced_bindings": pass.ledger,
+                        }));
+                    }
                     if options.emit_binding_provenance { local_producers.push(pass); }
                 }
             }
@@ -1505,7 +1514,6 @@ fn decompile_bytecode_internal(
             }
             ast::forward_declarations::bare_forward_declarations(&mut body);
             ast::compound_bases::fold_compound_bases(&mut body);
-            ast::fold_import_callees::fold_import_callees(&mut body);
             ast::untruncate_arguments::untruncate_arguments(&mut body);
             // Preserve unfinished array stores and the original hash allocation.
             // An AUX word reading as an allocation only costs the walk.
@@ -1599,6 +1607,7 @@ fn decompile_bytecode_internal(
                 analysis.name_inference = Some(source_recovery::naming_report(name_inference, legacy_naming));
                 analysis.capture_effects = Some(capture_effects.report());
                 analysis.conditional_lowering = conditional_lowering;
+                analysis.materialize_vectors = materialize_vectors;
                 analysis.table_open_list_snapshots = table_open_list_snapshots;
                 if options.emit_binding_provenance {
                     analysis.binding_provenance = Some(source_recovery::provenance_report(function_traces, &mut body, emission_map, local_producers, call_origins.take_report()));

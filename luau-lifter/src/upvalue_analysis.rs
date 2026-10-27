@@ -300,6 +300,9 @@ pub struct ScriptUpvalueAnalysis {
     /// Private prefix values retained across a delayed native list constructor.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub table_open_list_snapshots: Option<serde_json::Value>,
+    /// Vector constant spelling and any retained constructor binding.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub materialize_vectors: Option<serde_json::Value>,
 }
 
 pub(crate) fn reconcile_bindings(
@@ -646,6 +649,7 @@ pub(crate) fn reconcile_bindings(
         conditional_lowering: None,
         branch_constructors: None,
         table_open_list_snapshots: None,
+        materialize_vectors: None,
     }
 }
 

@@ -1,13 +1,13 @@
 {
  "summary": {
-  "inputs": 265,
-  "protos": 1649,
+  "inputs": 266,
+  "protos": 1650,
   "exact": 1183,
   "equiv": 143,
-  "differ": 267,
+  "differ": 268,
   "missing": 40,
   "extra": 16,
-  "equiv_ratio": 0.80412
+  "equiv_ratio": 0.80364
  },
  "files": [
   {
@@ -1581,6 +1581,12 @@
    "status": "ok",
    "nonequiv": 1,
    "protos": 2
+  },
+  {
+   "file": "vector_single_constructor_snapshot",
+   "status": "ok",
+   "nonequiv": 1,
+   "protos": 1
   },
   {
    "file": "while_header_opens_for",

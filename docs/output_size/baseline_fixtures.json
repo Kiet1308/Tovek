@@ -3172,6 +3172,18 @@
       "bytes": 334,
       "lines": 11
     },
+    "semantic/vector_single_constructor_snapshot__O0.luau": {
+      "bytes": 30,
+      "lines": 1
+    },
+    "semantic/vector_single_constructor_snapshot__O1.luau": {
+      "bytes": 30,
+      "lines": 1
+    },
+    "semantic/vector_single_constructor_snapshot__O2.luau": {
+      "bytes": 64,
+      "lines": 2
+    },
     "semantic/while_header_opens_for__O0.luau": {
       "bytes": 571,
       "lines": 33
