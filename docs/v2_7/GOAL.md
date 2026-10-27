@@ -51,7 +51,7 @@ Roadmap ghi nhận tại `1aeabd8`: 1.636 workspace tests, 699/699 semantic roun
 
 ### G1 Hiệu năng
 
-- [x] Profile lại chi phí thật; tách profiling khỏi benchmark release không instrument. [Profile public và các phép đo](checkpoint_performance_public.md); mục tiêu hết regression vẫn mở.
+- [x] Profile lại chi phí thật; tách profiling khỏi benchmark release không instrument. [Profile public và các phép đo](checkpoint_performance_public.md), bổ sung [CPU call stacks tại `d3e64a2`](checkpoint_cpu_profile.md); mục tiêu hết regression vẫn mở.
 - [ ] Ưu tiên `D_SCAN` và `D_ROUND_CENSUS`: census theo hàm với invalidation đúng phạm vi, hoặc gate vòng không thể admit; chứng minh không bỏ cơ hội match mới sau splice trong block con.
 - [ ] Sau đó xử lý `D_COLLECT_TARGETS`, `S_FORMAT`, `DESER_LIFT`, `DESER_INLINED_COPIES`; chỉ mở rộng sang naming hoặc literal-sharing khi profile mới cho thấy cần thiết.
 - [ ] Mỗi candidate giữ output từng byte, thứ tự rewrite/candidate và kết quả proof; đo A/B release cùng toolchain, allocator, flags, input và worker count.
@@ -208,3 +208,7 @@ Xem [báo cáo kiểm chứng](checkpoint_control_naming.md). Mốc này có 1.6
 ## Checkpoint split prefix stores
 
 [Prefix bị tách/lặp trước open SETLIST](checkpoint_split_prefix.md): 1.697 workspace tests, 801 semantic, 469 deep-review và đủ 33 audit steps đạt. Khôi phục 288/288 profiles của 31 seeds từng bị từ chối và seed 8472; 1.476 table probes cùng 108 VM comparisons đạt. Mọi semantic/public/residual output cũ giữ từng byte. G1 và các dependency thiếu dữ liệu vẫn mở; broad stress sẽ chạy trên binary cuối của goal.
+
+## Benchmark tại checkpoint split prefix
+
+[Đo lại bốn version](benchmark_split_prefix.md): 25 samples mỗi version trên 513 input public, source `d3e64a2`. Median chậm hơn V2.5.1 10,0%/11,1% ở 1/4 workers; so V2.6.1 là 0,3%/0,2%. Hai candidate census và SSA relevance không có lợi ích ổn định qua 51 samples, đã hoàn nguyên và ghi [dead ends](../performance/dead_ends.md). G1 vẫn mở; chưa có quyết định thay tiêu chí nghiệm thu.

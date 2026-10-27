@@ -67,6 +67,14 @@ Port riêng bộ lọc head từ `origin/feat/deinline-next` (`e0b2f3c`), không
 
 7 mẫu ordinary release: 1t -0,6%, 4t +1,1%. 51 mẫu xen kẽ, ghim CPU: 1t median 0,765077 → 0,762502 s (-0,34%), 4t 0,220181 → 0,220367 s (+0,08%); paired medians 1,0113/0,9992, thắng 21/51 và 27/51 cặp. RSS không giảm. Loại vì không cải thiện end-to-end trên workload public khả dụng; không suy lợi ích từ synthetic distinct-anchor workload của nhánh gốc. Không chạy full 33 gates cho code bị loại. Binary `8dc5032cb3d7d1d4b3bef83d2101143d18eea5638da67ca2b5f243753ee3c979`, patch/module, profile và reports được lưu tại `/workspace/work/v27/scoped-candidates-*`; source khôi phục byte-for-byte về `ba776bd`.
 
+### Public V2.7, 28/10/2026: import-only census và expression helper shape
+
+Thử một cấp census chỉ thu globals/environment cho `fold_import_callees`, cùng traversal/refusal bounds như full census; expression helper admission dùng shape-only census hiện hữu. 1.166 AST tests đạt, gồm differential facts và budget boundaries. 513 public outputs giữ từng byte qua mọi sample. Lượt thăm dò 7 samples cho 1t -4,8%, 4t -5,4%, nhưng xác nhận 51 samples xen kẽ ghim CPU chỉ cho median 1t 0,729905 → 0,729122 s (-0,11%), 4t 0,210078 → 0,209108 s (-0,46%). Paired medians 0,98398/0,99744, thắng 30/51 và 28/51 cặp; RSS không giảm đáng kể. Loại vì không có lợi ích end-to-end ổn định đủ để giữ thêm cấp facts; không lấy lượt thăm dò làm kết quả cuối. Không chạy full 33 gates cho code bị loại. Patch, binary và toàn bộ sample nằm tại `/workspace/work/v27/census-facts-{rejected.patch,r7-t1.json,r7-t4.json,r51-t1.json,r51-t4.json}`, binary SHA256 `679cc599dd71d6374748c2fc3d98690d6482516e35e4d0cb7e68673514ce7645`. Source ba file khôi phục byte-for-byte về `d3e64a2`. Không có private/Windows timing claim.
+
+### Public V2.7, 28/10/2026: lọc SSA producer trước proof di chuyển
+
+Từ CPU profile tại `d3e64a2`, thử kiểm tra destination có thuộc eligibility snapshot của consumer trước các proof depth/capture/handle. Không bỏ statement barriers, iterator-pack path hoặc đổi thứ tự producer. 39 inliner tests đạt, gồm differential từng sweep/origins/events và controls với 32 producer không liên quan, callback barriers, pack 2/3 slots. Mọi 513 output public giữ từng byte. Thăm dò 7 samples: 1t -1,1%, 4t +3,9%. Xác nhận 51 samples xen kẽ ghim CPU: median 1t 0,776666 → 0,780553 s (+0,50%), 4t 0,218285 → 0,218774 s (+0,22%); paired medians 0,99907/0,99761, thắng 26/51 và 27/51. Loại vì không có lợi ích end-to-end; không chạy full 33 gates cho code bị loại. Evidence tại `/workspace/work/v27/ssa-relevance-*`, binary SHA256 `58d2d8328f4ed092074abc91673ade5a12e1227f5a6ca2777a7c31695d602ea6`; source khôi phục byte-for-byte về `d3e64a2`. Không có private/Windows timing claim.
+
 ## 3. Build và toolchain
 
 | Hướng | Kết quả đo | Nguồn |
