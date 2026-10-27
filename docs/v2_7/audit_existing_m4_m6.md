@@ -24,6 +24,8 @@ Vì vậy L4 cần ghi nhận và kiểm chứng cơ chế hiện hữu; không 
 
 ## Phần naming đã có
 
-`refine_names` chỉ chuyển phi evidence khi cả hai nhánh cho cùng tên và các điều kiện writes/capture phù hợp; disagreement không lấy tên của nhánh đầu. API table Roblox có version `roblox-event-roles-v1`, chỉ gợi ý tên. Literal `.Name`, tuple result roles và rehoist headroom đã có test. Việc bỏ suy luận class chỉ từ `__index`, bổ sung irregular plurals và các thay đổi output liên quan được kiểm chứng ở checkpoint naming riêng.
+`refine_names` chỉ chuyển phi evidence của private adjacent diamond khi cả hai nhánh cho cùng tên và các điều kiện writes/capture phù hợp. Điều này chưa ngăn Namer lấy RHS hint của nhánh đầu cho local đọc nhiều lần; lỗi đó đã được xử lý ở [checkpoint consensus](checkpoint_naming_consensus.md). API table Roblox có version `roblox-event-roles-v1`, chỉ gợi ý tên; tuple result roles và rehoist headroom đã có test. Ví dụ `.Name = "X"` từng có trong test trình diễn nhưng chưa assert naming từ literal: checkpoint consensus nay có implementation và các assertion riêng cho literal Name. Việc bỏ suy luận class chỉ từ `__index` và bổ sung irregular plurals được kiểm chứng ở checkpoint naming/placeholder.
 
 Các test trên nằm trong workspace gates; runtime, semantic và metadata suites vẫn phải đạt ở commit nghiệm thu. Audit này không thay thế frozen dumps, các fuzz seed riêng chưa được cung cấp hoặc benchmark V2.5.1/V2.6.1.
+
+N1 dùng `NameTier` trên `BindingRoles`: Source > Evidence > TypeFallback > Generated; trong Evidence giữ priority hiện hữu và veto trước publication. Consumer evidence trong `refine_names` chỉ thay type fallback yếu. N2 `rehoist_constants` giới hạn candidate bằng `local_rewrite_frame(...).headroom`, tính cả parameter/local và register scratch; tests kiểm tra hàm gần local limit và call 73 arguments dưới local limit. Những binding không chứng minh được không được dựng lại chỉ để có tên đẹp.

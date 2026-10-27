@@ -10,6 +10,8 @@ import sys
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 CASES = {
+    "naming_literal_object_name": ((ROOT / "docs/failure_fixtures/semantic_roundtrip/naming_literal_object_name.luau").read_text(), ''),
+    "naming_branch_consensus": ((ROOT / "docs/failure_fixtures/semantic_roundtrip/naming_branch_consensus.luau").read_text(), ''),
     "table_large_allocation": ((ROOT / "docs/failure_fixtures/semantic_roundtrip/table_large_allocation.luau").read_text(), ''),
     "table_unobserved_placeholder": ((ROOT / "docs/failure_fixtures/semantic_roundtrip/table_unobserved_placeholder.luau").read_text(), ''),
     "naming_irregular_collections": ((ROOT / "docs/failure_fixtures/semantic_roundtrip/naming_irregular_collections.luau").read_text(), ''),

@@ -48,14 +48,22 @@ collision placement when record values can become nil at runtime. Its full
 audit passes; public and existing semantic line counts and per-file call
 comments are unchanged. Capacity mismatches and the rest of the goal remain open.
 
-## Binding decisions
-
 The [naming/placeholder checkpoint](checkpoint_naming_placeholder.md) removes
 `__index`-only class hints, adds irregular collection names, proves private
 placeholder stores and accepts two larger allocation cases. All 33 audit
 steps pass; old per-file line/call counts are unchanged. The [implementation
 audit](audit_existing_m4_m6.md) records existing S1 gates and the shared L4
-engine/cache. First-branch RHS naming, L3 and the performance goal remain open.
+engine/cache.
+
+The [naming consensus checkpoint](checkpoint_naming_consensus.md) requires
+compatible RHS roles before publishing assignment hints and adds literal
+object-name evidence. Incoming parameter values and unknown writes veto narrow
+RHS names. All 33 audit steps pass, with 1,687 workspace tests, 786 semantic
+cases and 445 deep-review cases; all old per-file line/call counts are unchanged.
+N1–N3 have implementation and available validation. L3, performance, final
+stress checks and the explicitly missing review material remain open.
+
+## Binding decisions
 
 These come from the owner. Do not reopen them.
 

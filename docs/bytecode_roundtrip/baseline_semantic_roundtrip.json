@@ -1,13 +1,13 @@
 {
  "summary": {
-  "inputs": 260,
-  "protos": 1618,
-  "exact": 1167,
+  "inputs": 262,
+  "protos": 1629,
+  "exact": 1172,
   "equiv": 140,
-  "differ": 255,
+  "differ": 261,
   "missing": 40,
   "extra": 16,
-  "equiv_ratio": 0.80779
+  "equiv_ratio": 0.8054
  },
  "files": [
   {
@@ -983,6 +983,12 @@
    "protos": 2
   },
   {
+   "file": "naming_branch_consensus",
+   "status": "ok",
+   "nonequiv": 5,
+   "protos": 9
+  },
+  {
    "file": "naming_builtin_spellings_never_capture",
    "status": "ok",
    "nonequiv": 0,
@@ -999,6 +1005,12 @@
    "status": "ok",
    "nonequiv": 0,
    "protos": 1
+  },
+  {
+   "file": "naming_literal_object_name",
+   "status": "ok",
+   "nonequiv": 1,
+   "protos": 2
   },
   {
    "file": "naming_mixed_screaming_and_builtin_plurals",

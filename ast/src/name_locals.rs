@@ -272,7 +272,7 @@ fn call_hint(call: &Call) -> Option<String> {
 }
 
 /// `call_hint` for a call of `callee`, which may stand in for the local alias
-/// actually called (`Namer::aliased_call_hint`).
+/// actually called (`assignment_hint`).
 fn call_hint_of(callee: &RValue, arguments: &[RValue]) -> Option<String> {
     // require(script.Foo) -> "Foo"; require(script.Parent) -> "parentModule"
     // (the value is a module, not the parent Instance); require(<local>) ->
@@ -1248,6 +1248,14 @@ pub(crate) fn rvalue_hint(rvalue: &RValue) -> Option<String> {
     }
 }
 
+fn assignment_hint(rvalue: &RValue, aliases: &FxHashMap<usize, RValue>) -> Option<String> {
+    rvalue_hint(rvalue).or_else(|| {
+        let (RValue::Call(call) | RValue::Select(Select::Call(call))) = rvalue else { return None; };
+        let RValue::Local(local) = &*call.value else { return None; };
+        call_hint_of(aliases.get(&local_ptr(local))?, &call.arguments)
+    })
+}
+
 // A transform result such as `serialized` describes a value; it does not
 // identify the noun a collection contains. Keep that distinction through local
 // hints and collection consensus, rather than banning suffixes on source names.
@@ -2016,6 +2024,13 @@ struct LocalUsage {
     /// A multi-result/vararg assignment may write this slot without an explicit
     /// one-to-one RHS node. Such a write invalidates every value-shape consensus.
     unknown_value_write: bool,
+    /// RHS names must agree before traversal can publish one to other locals.
+    assignment_name: Option<String>,
+    assignment_name_conflict: bool,
+    assignment_sources: u8,
+    incoming_parameter: bool,
+    object_name: Option<String>,
+    object_name_conflict: bool,
     /// Returned from its enclosing block/function.
     returned: bool,
     /// Stored as the value of a callback-shaped table field (`onClose = local`).
@@ -2203,10 +2218,40 @@ fn is_accumulator_update(local: &RcLocal, value: &RValue) -> bool {
         || (is_self(&binary.right) && !is_number(&binary.left, 1.0))
 }
 
-fn note_local_write(local: &RcLocal, value: &RValue, usage: &mut FxHashMap<usize, LocalUsage>) {
+fn keeps_assignment_role(local: &RcLocal, value: &RValue) -> bool {
+    let is_self = |value: &RValue| matches!(value, RValue::Local(source) if source == local);
+    match value {
+        RValue::Local(_) => is_self(value),
+        RValue::Unary(unary) => unary.operation == UnaryOperation::Negate && is_self(&unary.value),
+        RValue::Binary(binary) => matches!(binary.operation,
+            BinaryOperation::Add | BinaryOperation::Sub | BinaryOperation::Mul | BinaryOperation::Div
+            | BinaryOperation::IDiv | BinaryOperation::Mod | BinaryOperation::Pow)
+            && (is_self(&binary.left) || is_self(&binary.right)),
+        _ => false,
+    }
+}
+
+fn note_local_write(local: &RcLocal, value: &RValue, aliases: &FxHashMap<usize, RValue>, usage: &mut FxHashMap<usize, LocalUsage>) {
     usage.entry(local_ptr(local)).or_default().count_role_source = count_role_source(value, 0);
     usage.entry(local_ptr(local)).or_default().size_role_source = size_role_source(value, 0);
     let entry = usage.entry(local_ptr(local)).or_default();
+    if let RValue::Table(table) = value {
+        for (key, value) in &table.0 {
+            if let Some(key) = key { note_object_name(key, Some(value), entry); }
+        }
+    }
+    // An in-place arithmetic update retains the noun; this is no type/effect proof.
+    if !matches!(value, RValue::Literal(Literal::Nil)) && !keeps_assignment_role(local, value) {
+        entry.assignment_sources = entry.assignment_sources.saturating_add(1);
+        match assignment_hint(value, aliases) {
+            Some(name) => match &entry.assignment_name {
+                None => entry.assignment_name = Some(name),
+                Some(previous) if previous != &name => entry.assignment_name_conflict = true,
+                _ => {}
+            },
+            None => entry.assignment_name_conflict = true,
+        }
+    }
     if is_counter_update(local, value) {
         entry.counter_updates += 1;
     } else if !is_number(value, 0.0) {
@@ -2669,20 +2714,38 @@ fn size_role_source(value: &RValue, depth: usize) -> Option<usize> {
     }
 }
 
+fn note_object_name(key: &RValue, value: Option<&RValue>, entry: &mut LocalUsage) {
+    if string_literal(key) == Some("Name") {
+        match value.and_then(string_literal).and_then(sanitize) {
+            Some(name) => match &entry.object_name {
+                None => entry.object_name = Some(name),
+                Some(previous) if previous != &name => entry.object_name_conflict = true,
+                _ => {}
+            },
+            None => entry.object_name_conflict = true,
+        }
+    } else if !matches!(key, RValue::Literal(_)) {
+        entry.object_name_conflict = true;
+    }
+}
+
 /// Record that a param's value was stored into a named field (`obj.Key = param`):
 /// the destination key names the param. Only a bare `RValue::Local` RHS qualifies
 /// — a wrapped RHS (`obj.CFrame = CFrame.new(p5)`, `obj.X = f(p)`) is a
 /// `Call`/`Index` node, so `p5`/`p` is correctly skipped (it is not *the* value of
 /// that field). A string-literal key only (dynamic `t[i] = p` is excluded). Two
 /// distinct destination keys flag a conflict (refuse, mirroring `note_type_guard`).
-fn note_field_store(lvalue: &LValue, rvalue: &RValue, usage: &mut FxHashMap<usize, LocalUsage>) {
+fn note_field_store(lvalue: &LValue, rvalue: Option<&RValue>, usage: &mut FxHashMap<usize, LocalUsage>) {
     let LValue::Index(index) = lvalue else {
         return;
     };
+    if let RValue::Local(object) = &*index.left {
+        note_object_name(&index.right, rvalue, usage.entry(local_ptr(object)).or_default());
+    }
     let Some(key) = string_literal(&index.right) else {
         return;
     };
-    let RValue::Local(local) = rvalue else {
+    let Some(RValue::Local(local)) = rvalue else {
         return;
     };
     let entry = usage.entry(local_ptr(local)).or_default();
@@ -2892,10 +2955,12 @@ fn gather_usage_in(
             Statement::Call(call) => note_call_usage(call, in_loop, aliases, context.callee_aliases, usage),
             Statement::MethodCall(method_call) => note_method_usage(method_call, usage),
             Statement::Assign(assign) => {
-                for (lvalue, rvalue) in assign.left.iter().zip(assign.right.iter()) {
+                for (index, lvalue) in assign.left.iter().enumerate() {
+                    let rvalue = assign.right.get(index);
                     note_field_store(lvalue, rvalue, usage);
+                    let Some(rvalue) = rvalue else { continue; };
                     if let LValue::Local(local) = lvalue {
-                        note_local_write(local, rvalue, usage);
+                        note_local_write(local, rvalue, context.callee_aliases, usage);
                     }
                     if let crate::LValue::Index(index) = lvalue
                         && let RValue::Local(local) = &*index.left
@@ -2963,7 +3028,11 @@ fn gather_usage_in(
 
         // Recurse: closures reset the loop context; loops set it.
         for function in functions {
-            gather_usage_in(&mut function.lock().body, false, context, usage);
+            let mut function = function.lock();
+            for parameter in &function.parameters {
+                usage.entry(local_ptr(parameter)).or_default().incoming_parameter = true;
+            }
+            gather_usage_in(&mut function.body, false, context, usage);
         }
         match &*statement {
             Statement::If(r#if) => {
@@ -3407,14 +3476,14 @@ impl Namer {
     /// (+lines). Counts are stable between here and that pass (only recover_methods
     /// and a movable-temp inline run in between, neither of which alters a
     /// 3-write temp's read/write counts).
-    fn is_collapse_candidate(&self, local: &RcLocal) -> bool {
+    fn is_collapse_candidate(&self, ptr: usize) -> bool {
         // Both the count gate (what the pass tests) AND the exact adjacency
         // structure must hold. The structural set keeps a 3-write/1-read temp
         // whose use is NOT adjacent (so it never actually collapses) nameable.
-        self.collapse_candidates.contains(&local_ptr(local))
+        self.collapse_candidates.contains(&ptr)
             && self
                 .counts
-                .get(&local_ptr(local))
+                .get(&ptr)
                 .is_some_and(|u| u.reads == 1 && u.writes == 3 && !u.captured)
     }
 
@@ -3599,12 +3668,18 @@ impl Namer {
                 && !self
                     .usage
                     .get(&ptr)
-                    .is_some_and(|usage| usage.unknown_value_write)
+                    .is_some_and(|usage| usage.unknown_value_write || usage.incoming_parameter)
             {
                 candidates.push((ptr, name.clone(), 65, "instance_constructor_consensus"));
             }
         }
         for (&ptr, usage) in &self.usage {
+            if !usage.object_name_conflict && !self.is_collapse_candidate(ptr)
+                && !self.movable_temp_locals.contains(&ptr)
+                && let Some(name) = &usage.object_name
+            {
+                candidates.push((ptr, name.clone(), 75, "literal_object_name"));
+            }
             if self.collapse_candidates.contains(&ptr) || self.movable_temp_locals.contains(&ptr) {
                 continue;
             }
@@ -3937,18 +4012,6 @@ impl Namer {
         };
         let name = self.callable_name(&call.value)?;
         sanitize(strip_verb_prefix(crate::name_spelling::strip_private(&name))?)
-    }
-
-    /// A call through a local alias of a library member (`local innerScope =
-    /// Fusion.innerScope`) names its result as a call of the member does.
-    fn aliased_call_hint(&self, rvalue: &RValue) -> Option<String> {
-        let (RValue::Call(call) | RValue::Select(Select::Call(call))) = rvalue else {
-            return None;
-        };
-        let RValue::Local(local) = &*call.value else {
-            return None;
-        };
-        call_hint_of(self.callee_aliases.get(&local_ptr(local))?, &call.arguments)
     }
 
     /// Fusion's `use(state)` and `peek(state)` read a state object's current
@@ -5018,6 +5081,9 @@ impl Namer {
                         if let Some(local) = lvalue.as_local()
                             && let Some(rvalue) = assign.right.get(index)
                         {
+                            let ptr = local_ptr(local);
+                            let conflict = self.usage.get(&ptr).is_some_and(|u| u.incoming_parameter
+                                || u.unknown_value_write || (u.assignment_sources > 1 && u.assignment_name_conflict));
                             self.children_or_result_hint(local);
                             if matches!(rvalue, RValue::Closure(_)) {
                                 self.closure_locals.insert(local_ptr(local));
@@ -5029,7 +5095,7 @@ impl Namer {
                                 if is_root && assign.prefix {
                                     self.module_table_locals.insert(local_ptr(local));
                                 }
-                                if let Some(hint) = table_collection_hint(table) {
+                                if !conflict && let Some(hint) = table_collection_hint(table) {
                                     self.set_hint(local, hint, 90);
                                 }
                                 // An EMPTY table later used as a metatable
@@ -5057,7 +5123,7 @@ impl Namer {
                                     .counts
                                     .get(&local_ptr(local))
                                     .is_some_and(|u| u.reads == 1 && u.writes == 1 && !u.captured);
-                                if table.0.is_empty()
+                                if !conflict && table.0.is_empty()
                                     && !inlinable_temp
                                     && self.class_signal_locals.contains(&local_ptr(local))
                                 {
@@ -5074,7 +5140,7 @@ impl Namer {
                             // mirrors it. Naming on a *single*-reassign (`local v; v = X`,
                             // writes == 2) or any multi-read local stays enabled, so the
                             // common hoisted-init names are preserved.
-                            let collapse_candidate = self.is_collapse_candidate(local);
+                            let collapse_candidate = self.is_collapse_candidate(local_ptr(local));
                             if !collapse_candidate {
                                 if let Some(hint) = instance_constructor_hint(rvalue) {
                                     self.note_instance_assignment(local, hint);
@@ -5082,12 +5148,18 @@ impl Namer {
                                     if !is_instance_compatible_placeholder(rvalue) {
                                         self.instance_assignment_conflicts.insert(local_ptr(local));
                                     }
-                                    if let Some(hint) = rvalue_hint(rvalue).or_else(|| self.aliased_call_hint(rvalue)) {
+                                    if let Some(hint) = assignment_hint(rvalue, &self.callee_aliases) {
                                         let role = rvalue_name_role(rvalue, &hint, 0);
                                         if let Some(evidence) = &mut self.evidence {
-                                            evidence.register(local_ptr(local), local.stable_id());
+                                            evidence.register(ptr, local.stable_id());
+                                            if conflict {
+                                                evidence.record(ptr, &hint, 60, self.evidence_rule, std::panic::Location::caller());
+                                                evidence.invalidate(ptr, "conflicting_assignment_names");
+                                            }
                                         }
-                                        self.set_hint_ptr_with_role(local_ptr(local), hint, 60, role);
+                                        if !conflict {
+                                            self.set_hint_ptr_with_role(ptr, hint, 60, role);
+                                        }
                                     }
                                     // A dynamic FindFirstChild/WaitForChild result
                                     // has only the honest hypernym `child`. Keep it
@@ -5095,11 +5167,11 @@ impl Namer {
                                     // collection context), and out of rvalue_hint
                                     // so nested require paths cannot leak it onto
                                     // the module export local.
-                                    if let Some(hint) = dynamic_child_lookup_rvalue_hint(rvalue) {
+                                    if !conflict && let Some(hint) = dynamic_child_lookup_rvalue_hint(rvalue) {
                                         self.set_hint(local, hint, 50);
                                     }
                                 }
-                                if let RValue::Closure(closure) = rvalue
+                                if !conflict && let RValue::Closure(closure) = rvalue
                                     && let Some(name) = closure
                                         .function
                                         .lock()
@@ -5113,7 +5185,7 @@ impl Namer {
                             // §2.7 predicate/boolean naming fires only on DECLARATIONS
                             // (still prefix-gated) and additionally never on a collapse
                             // candidate.
-                            if assign.prefix && !collapse_candidate {
+                            if assign.prefix && !collapse_candidate && !conflict {
                                 // §2.7 Layer A: a predicate-call result reads as the
                                 // predicate's subject (`local v = isFoo(x)` -> `foo`).
                                 // Score 60 = rvalue_hint tier; `call_hint` returns
@@ -5155,14 +5227,14 @@ impl Namer {
                             {
                                 self.movable_temp_locals.insert(local_ptr(local));
                             }
-                            if assign.prefix && !collapse_candidate {
+                            if assign.prefix && !collapse_candidate && !conflict {
                                 self.declaration_fallback_hints(local, rvalue);
                             }
-                            self.ref_hint(local, rvalue);
+                            if !conflict { self.ref_hint(local, rvalue); }
                             // Generic guarded-lookup children get parent-qualified
                             // (`plantedSeedsClient`) rather than colliding to
                             // `client`/`client2`.
-                            if let Some((name, score)) = self.guarded_lookup_qualified_hint(rvalue)
+                            if !conflict && let Some((name, score)) = self.guarded_lookup_qualified_hint(rvalue)
                             {
                                 self.set_hint(local, name, score);
                             }
@@ -6842,6 +6914,133 @@ mod tests {
     }
 
     #[test]
+    fn incoming_parameter_and_conflicting_getter_results_keep_neutral_names() {
+        for assigned in [Index::new(global("model"), string("Head")).into(),
+            Call::new(Index::new(global("Instance"), string("new")).into(), vec![string("Part")]).into()]
+        {
+            let value = RcLocal::default();
+            let function = Function { parameters: vec![value.clone()], body: Block(vec![
+                If::new(global("condition"), Block(vec![Assign::new(vec![value.clone().into()],
+                    vec![assigned]).into()]), Block::default()).into(),
+                use_local(&value), Return::new(vec![value.clone().into()]).into(),
+            ]), ..Default::default() };
+            let mut block = Block(vec![Return::new(vec![closure_of(function)]).into()]);
+            name_locals(&mut block, true);
+            assert_eq!(name_of(&value), "p");
+        }
+
+        let value = RcLocal::default();
+        let mut block = Block(vec![declare(&value, Call::new(global("getHead"), vec![]).into()),
+            Assign::new(vec![value.clone().into()], vec![Call::new(global("getTail"), vec![]).into()]).into(),
+            use_local(&value)]);
+        name_locals(&mut block, true);
+        assert_eq!(name_of(&value), "v");
+    }
+
+    #[test]
+    fn branch_rhs_names_require_consensus_before_publication() {
+        for (first, second, expected) in [
+            ("Head", "Tail", "v"), ("Tail", "Head", "v"), ("Head", "Head", "head"),
+        ] {
+            let value = RcLocal::default();
+            let write = |key| Assign::new(vec![value.clone().into()],
+                vec![Index::new(global("model"), string(key)).into()]).into();
+            let mut block = Block(vec![declare(&value, Literal::Nil.into()),
+                If::new(global("condition"), Block(vec![write(first)]), Block(vec![write(second)])).into(),
+                use_local(&value), use_local(&value)]);
+            let report = super::name_locals_with_evidence(&mut block, true, None, Default::default(), true);
+            assert_eq!(name_of(&value), expected);
+            let row = report.bindings.iter().find(|row| row.id == value.stable_id()).unwrap();
+            assert_eq!(row.invalidations.contains(&"conflicting_assignment_names"), first != second);
+        }
+    }
+
+    #[test]
+    fn arithmetic_updates_keep_the_noun_but_a_new_role_still_vetoes_it() {
+        for operation in [None, Some(BinaryOperation::Add), Some(BinaryOperation::Sub),
+            Some(BinaryOperation::Mul), Some(BinaryOperation::Div), Some(BinaryOperation::IDiv),
+            Some(BinaryOperation::Mod), Some(BinaryOperation::Pow)]
+        {
+            for conflict in [false, true] {
+                let value = RcLocal::default();
+                let update = match operation {
+                    None => Unary::new(value.clone().into(), UnaryOperation::Negate).into(),
+                    Some(op) => Binary::new(value.clone().into(), number(2.0), op).into(),
+                };
+                let mut block = Block(vec![declare(&value, Index::new(global("model"), string("Weight")).into()),
+                    Assign::new(vec![value.clone().into()], vec![update]).into(), use_local(&value)]);
+                if conflict {
+                    block.push(Assign::new(vec![value.clone().into()],
+                        vec![Index::new(global("model"), string("Height")).into()]).into());
+                }
+                name_locals(&mut block, true);
+                assert_eq!(name_of(&value), if conflict { "v" } else { "weight" });
+            }
+        }
+        let value = RcLocal::default();
+        let mut block = Block(vec![declare(&value, MethodCall::new(global("model"), "Dot".into(), vec![number(1.0)]).into()),
+            Assign::new(vec![value.clone().into()], vec![Unary::new(value.clone().into(), UnaryOperation::Negate).into()]).into(),
+            use_local(&value)]);
+        name_locals(&mut block, true);
+        assert_eq!(name_of(&value), "dot");
+    }
+
+    #[test]
+    fn unknown_rhs_and_tuple_writes_veto_narrow_names_but_keep_literal_roles() {
+        for tuple in [false, true] {
+            for literal_role in [false, true] {
+                let value = RcLocal::default();
+                let unknown = RcLocal::default();
+                let first = Assign::new(vec![value.clone().into()],
+                    vec![Index::new(global("model"), string("Head")).into()]).into();
+                let other = if tuple {
+                    Assign::new(vec![unknown.clone().into(), value.clone().into()],
+                        vec![Select::Call(Call::new(global("read"), vec![])).into()]).into()
+                } else { Assign::new(vec![value.clone().into()], vec![unknown.into()]).into() };
+                let mut block = Block(vec![declare(&value, Literal::Nil.into()),
+                    If::new(global("condition"), Block(vec![first]), Block(vec![other])).into(),
+                    use_local(&value), use_local(&value)]);
+                if literal_role {
+                    block.push(Assign::new(vec![Index::new(value.clone().into(), string("Name")).into()],
+                        vec![string("Chosen")]).into());
+                }
+                name_locals(&mut block, true);
+                assert_eq!(name_of(&value), if literal_role { "chosen" } else { "v" });
+            }
+        }
+    }
+
+    #[test]
+    fn literal_object_names_need_unanimous_stores_and_yield_to_source_names() {
+        for kind in 0..7 {
+            let object = RcLocal::default();
+            let store = |key, value| Assign::new(vec![Index::new(object.clone().into(), key).into()], value).into();
+            let initial = if kind == 6 { Table::new(vec![(Some(string("Name")), string("Greeting"))]) }
+                else { Table::default() };
+            let mut block = Block(vec![declare(&object, initial.into()),
+                store(string("Name"), vec![string("Greeting")]), use_local(&object)]);
+            block.push(match kind {
+                0 | 5 | 6 => store(string("Name"), vec![string("Greeting")]),
+                1 => store(string("Name"), vec![string("Other")]),
+                2 => store(string("Name"), vec![global("unknown")]),
+                3 => store(global("key"), vec![string("Other")]),
+                _ => Assign::new(vec![global("ignored").as_global().unwrap().clone().into(),
+                    Index::new(object.clone().into(), string("Name")).into()],
+                    vec![Select::Call(Call::new(global("read"), vec![])).into()]).into(),
+            });
+            if kind == 5 {
+                object.0.lock().add_source_binding(crate::SourceBinding {
+                    name: "SourceObject".into(), origin: crate::BindingOrigin::DebugLocal {
+                        prototype: 0, register: 1, start_pc: 0, end_pc: 100,
+                    },
+                });
+            }
+            name_locals(&mut block, true);
+            assert_eq!(name_of(&object), match kind { 0 | 6 => "greeting", 5 => "SourceObject", _ => "v" });
+        }
+    }
+
+    #[test]
     fn non_instance_write_invalidates_constructor_consensus() {
         let value = RcLocal::default();
         let constructor = RValue::Call(Call::new(
@@ -7032,7 +7231,8 @@ mod tests {
 
         name_locals_with_script_name(&mut block, true, Some("Collision.luau"));
 
-        assert_eq!(name_of(&module), "Foo");
+        // Reassignment no longer lets the original module's narrow RHS name win.
+        assert_eq!(name_of(&module), "v");
     }
 
     #[test]

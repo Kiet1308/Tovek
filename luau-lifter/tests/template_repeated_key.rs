@@ -16,6 +16,7 @@ fn a_placeholder_takes_the_value_stored_through_a_temp_key() {
     let source = luau_lifter::try_decompile_bytecode_with_options(BYTECODE, 1, None, Default::default())
         .expect("fixture decompiles");
     assert_eq!(source.matches("Velocity = ").count(), 1, "{source}");
-    assert!(source.contains("MaxSpeed = huge"), "{source}");
+    assert_eq!(source.matches("MaxSpeed = ").count(), 1, "{source}");
+    assert!(source.contains(", MaxSpeed = "), "{source}");
     assert!(!source.contains("= 0\n"), "{source}");
 }

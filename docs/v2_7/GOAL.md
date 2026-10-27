@@ -45,7 +45,7 @@ Roadmap ghi nhận tại `1aeabd8`: 1.636 workspace tests, 699/699 semantic roun
 - [x] Xác nhận working tree và nhánh; giữ các thay đổi của người dùng.
 - [x] Thiết lập Rust `nightly-2026-06-15`, Luau pin `c2ec0d4e5ca50796ba174a7565298f59aa572268` và benchmark VM.
 - [x] Build baseline từ `76212c9`, lưu binary và provenance tại `/workspace/work/v27`; snapshot semantic fixtures trước khi sửa. SHA256 binary: `915fecbf7911a83abeeb50b0a292a1a5d133b6c79293cf0e9c711fc86f305e3d`.
-- [ ] Chạy baseline gates và phân biệt lỗi sẵn có, lỗi môi trường và lỗi mới.
+- [x] Chạy baseline gates và phân biệt lỗi sẵn có, lỗi môi trường và lỗi mới: audit-1 đủ 33 bước; checkpoint đầu ghi workspace và semantic baseline.
 - [x] Chủ repo xác nhận không có nguồn truy cập bốn frozen dumps. Tiếp tục implementation và public validation; không tuyên bố đã nghiệm thu trên 9.987 input riêng.
 - [ ] Đọc các plan/review local nếu có. Tách các chi tiết chưa đủ định nghĩa trong roadmap, đặc biệt “handle splits without case (c)”, thành dependency cần làm rõ; không tự đoán phép biến đổi.
 
@@ -72,11 +72,11 @@ Roadmap ghi nhận tại `1aeabd8`: 1.636 workspace tests, 699/699 semantic roun
 
 ### G3 M5 Naming
 
-- [ ] N1: `NameTier`, override matrix, consumer evidence và veto cho tên gây hiểu sai.
+- [x] N1: `NameTier`, override matrix, consumer evidence và veto cho tên gây hiểu sai.
 - [x] Sửa ca `CharacterAdded` nhận tên `parent` trong `open_cases/event_param_named_from_parent_store.luau`: event evidence thắng suy luận từ store `.Parent`.
-- [ ] N2: Roblox API tables có version, chỉ cung cấp tên; literal `.Name = "X"`; module/class/self roles, giữ B3 của `recover_methods`.
-- [ ] N2: phục hồi discarded binding chỉ khi còn register/local headroom.
-- [ ] N3: unanimous phi votes; tuple roles; irregular plurals; type fallback yếu dưới mọi evidence rule, suffix theo scope.
+- [x] N2: Roblox API tables có version, chỉ cung cấp tên; literal `.Name = "X"`; module/class/self roles, giữ B3 của `recover_methods`.
+- [x] N2: phục hồi discarded binding chỉ khi còn register/local headroom.
+- [x] N3: unanimous phi votes; tuple roles; irregular plurals; type fallback yếu dưới mọi evidence rule, suffix theo scope.
 - [x] Hoàn thiện type-digit naming `vector2`/`vector3`, phối hợp reservation S3; không shadow tên global cần in ra.
 
 ### G4 Tồn đọng review V2.6
@@ -176,3 +176,7 @@ Xem [báo cáo kiểm chứng](checkpoint_control_naming.md). Mốc này có 1.6
 ## Checkpoint naming và placeholder
 
 [Proof và kiểm chứng](checkpoint_naming_placeholder.md): workspace 1.682 passed, 780 semantic cases, 433 deep-review cases, đủ 33 audit steps. Bỏ class hint chỉ từ `__index`, thêm 15 irregular plurals, làm S4 placeholder và mở rộng bounded allocation padding cho hai ca lớn trước đây bị từ chối. Số dòng và rebuilt calls trên mọi output cũ không đổi. N1/N3 còn lỗi tên chọn theo nhánh đầu (`Head`/`Tail`), đang xử lý tiếp; L3 và hiệu năng vẫn mở.
+
+## Checkpoint đồng thuận naming
+
+[Đồng thuận RHS, parameter input và literal object names](checkpoint_naming_consensus.md): workspace 1.687 passed, 786 semantic cases, 445 deep-review cases, đủ 33 audit steps. 54/780 semantic, 49/513 public và 5/7 residual outputs cũ đổi tên; mỗi file giữ nguyên số dòng và rebuilt calls. N1–N3 đã có implementation và kiểm chứng khả dụng; L3, hiệu năng, broad fuzz và các dependency thiếu dữ liệu vẫn tiếp tục.

@@ -252,10 +252,12 @@ fn gather_usage_in(
             Statement::Call(call) => note_call_usage(call, in_loop, aliases, context.callee_aliases, usage),
             Statement::MethodCall(method_call) => note_method_usage(method_call, usage),
             Statement::Assign(assign) => {
-                for (lvalue, rvalue) in assign.left.iter().zip(assign.right.iter()) {
+                for (index, lvalue) in assign.left.iter().enumerate() {
+                    let rvalue = assign.right.get(index);
                     note_field_store(lvalue, rvalue, usage);
+                    let Some(rvalue) = rvalue else { continue; };
                     if let LValue::Local(local) = lvalue {
-                        note_local_write(local, rvalue, usage);
+                        note_local_write(local, rvalue, context.callee_aliases, usage);
                     }
                     if let crate::LValue::Index(index) = lvalue
                         && let RValue::Local(local) = &*index.left
@@ -331,7 +333,11 @@ fn gather_usage_in(
             None
         });
         for function in functions {
-            gather_usage_in(&mut function.lock().body, false, context, usage);
+            let mut function = function.lock();
+            for parameter in &function.parameters {
+                usage.entry(local_ptr(parameter)).or_default().incoming_parameter = true;
+            }
+            gather_usage_in(&mut function.body, false, context, usage);
         }
         match &*statement {
             Statement::If(r#if) => {
