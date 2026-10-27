@@ -1,7 +1,12 @@
 # Tovek V2.7 roadmap and handoff
 
-State on 2026-10-27. Work happens on branch `v2.7-dev`, which starts at V2.6.1 (`77edf38`, where `main` still points).
+State on 2026-10-28. Work happens on branch `v2.7-dev`, which starts at V2.6.1 (`77edf38`, where `main` still points).
 Merging into `main` and releasing need the owner's go-ahead.
+
+**Decompiler goal complete within the owner-approved scope, 2026-10-28.**
+[Acceptance report](ACCEPTANCE.md): G1 and the three review cases without
+specifications/reproducers were explicitly deferred by the owner. They remain
+technically unresolved in the follow-up backlog. Release/site work is excluded.
 
 ## Done on v2.7-dev
 
@@ -25,8 +30,9 @@ keeps the raw-alias, captured-cell and malformed-schema rules while reducing
 allocation. It passes 1,698 workspace tests, all 33 audit steps, 801 semantic,
 469 deep-review and 513 public cases. All semantic/public/residual outputs
 remain byte-identical. Two longer A/B runs favor four workers; single-worker
-speedup remains uncertain, and G1 is open. The report retains the contrary
-short run and all samples.
+speedup remains uncertain. On 2026-10-28 the owner accepted the measurements
+and deferred remaining G1 work; eliminating the regression no longer gates
+this goal. The report retains the contrary short run and all samples.
 
 The preceding [split prefix stores before open SETLIST](checkpoint_split_prefix.md)
 restores private repeated/separated prefix stores while retaining native bulk
@@ -38,12 +44,16 @@ checkpoint](checkpoint_vector_producer.md) retains and validates emitted vector
 bindings. [Broad stress on that split-prefix binary](stress_split_prefix.md) is complete:
 133,906 passed / 1,094 invalid / zero failed or refused across 135,000 profiles;
 mutation has 7,695 passed / 904 typed refusals / 401 invalid / zero failed.
-Both 512-case structuring probe sets pass. Performance and missing review
-specifications remain active work; broad coverage does not identify the
-original missing review inputs.
+Both 512-case structuring probe sets also pass on the accepted `b798e5b`
+binary, with byte-identical outputs against the split-prefix checkpoint.
+The [three review cases lacking specifications/reproducers](remaining_review_cases.md)
+remain unresolved and were separately deferred by the owner; broad coverage
+does not identify the original missing inputs.
 
 The checkpoint paragraphs below retain the status at each checkpoint; the
-current scope/status section is the active backlog.
+current scope/status section and acceptance report define the final scope.
+
+## Historical checkpoints
 
 See [control flow, naming and proof validation](checkpoint_control_naming.md) for
 the next checkpoint after `76212c9`: while-header recovery, bounded readable
@@ -112,6 +122,8 @@ These come from the owner. Do not reopen them.
 - **D3: readability first for if-expressions.** Use an if-expression where it reads clearest: two short arms in a value position. Otherwise keep statements.
 - **D4: keep handle preservation.** `GetService` and `require` handles stay as named locals. Fold only duplicate `GetService` paths and constructor/template slots.
 - **Empty hash allocations (owner decision, 2026-10-27):** preserve legacy empty-constructor output instead of refusing public inputs. Exact `pairs`/`next` order across different recompilation optimization levels remains unproven here; populated constructors and fold/match proofs keep their layout checks.
+- **G1 (owner decision, 2026-10-28):** accept the current measurements and move remaining performance work to a follow-up. The V2.5.1 regression remains real/unresolved; removing it is no longer an acceptance condition for this V2.7 decompiler goal. Preserve all benchmark evidence.
+- **Missing review cases (separate owner decision, 2026-10-28):** defer case (c), the original repeat/return O2 case and the three original generic-for O2/g2 seeds until specifications/reproducers are available. Complete the validated decompiler scope now; do not label these deferred cases fixed.
 - **`error(msg, level)`:** a different line position in the message never blocks a helper rebuild.
 - **Naming:**
   - Evidence names come first.
@@ -142,7 +154,11 @@ These come from the owner. Do not reopen them.
 
 ## Decompiler scope and current status
 
-### 1. Performance: one thread is still slower than V2.5.1
+### 1. Performance — remaining work deferred by the owner
+
+On 2026-10-28 the owner selected “Chấp nhận số đo hiện tại, chuyển G1 sang việc
+tiếp theo”. G1 no longer blocks completion of this goal. The regression has
+not been fixed; the figures and investigation below remain the follow-up baseline.
 
 **Measurement.**
 - Instrumented single-thread corpus run (`MEDAL_PROFILE_JSON=<file>`, per-pass spans): 15.56 s at V2.6 plus the V2.7 work, against 14.01 s for V2.5.1.
@@ -171,10 +187,10 @@ the report. Cross-run changes are not estimates of a code change's effect.
 [CPU call stacks](checkpoint_cpu_profile.md) provide separate diagnostics.
 [Additional process CPU time](checkpoint_cpu_time.md) does not establish a
 single-worker gain from singleton phi; the empty-cell-map candidate was rejected.
-G1 remains unmet; the older owner measurements above are a separate workload
-and machine.
+The original performance target remains unmet, with further work deferred by
+the owner. The older owner measurements above are a separate workload and machine.
 
-**Next targets.**
+**Follow-up backlog (outside the current goal after the owner decision).**
 - Avoid rebuilding the census each D_SCAN round: keep it per function and invalidate only what a round changed, or skip rounds that cannot admit anything.
 - Then D_COLLECT_TARGETS, S_FORMAT and the two DESER phases.
 
@@ -182,15 +198,16 @@ and machine.
 
 **Profiling.** Without admin rights, WPR and xperf do not work. Use the line-table build (`--profile fastrel`) and sample with `cdb -pv -p <pid> -c "~* kc 60; qd"`.
 
-### 2. M4 structure — implemented except the undefined handle-split case
+### 2. M4 structure — validated; undefined handle-split case deferred
 
 S1/S4 and while-header recovery have implementation and available validation;
 see [the implementation audit](audit_existing_m4_m6.md),
 [control-flow checkpoint](checkpoint_control_naming.md) and
 [placeholder proof](checkpoint_naming_placeholder.md). The list below records
 the requirements, not a new implementation backlog. Only “case (c)” lacks a
-definition in the accessible material. L3 was evaluated and the current EQ
-polarity retained; [measured reasons](evaluation_eq_polarity.md).
+definition in the accessible material and was deferred by the owner on
+2026-10-28. L3 was evaluated and the current EQ polarity retained;
+[measured reasons](evaluation_eq_polarity.md).
 
 **S1: small exact structure gates.**
 - `guard-continue` gate and tail-duplication limit.
@@ -203,7 +220,7 @@ polarity retained; [measured reasons](evaluation_eq_polarity.md).
 - Snapshot-noise refinement and colon precision.
 - Index tuple and swap folds.
 - Statement residue, refused when the `if` sits in a loop that does not contain the declaration.
-- Handle splits without case (c).
+- Handle splits without case (c): deferred pending its definition, by owner decision.
 
 **S4: readable if-expressions.**
 - Two atomic arms, at most 72 columns, value positions only.
@@ -236,11 +253,8 @@ requirements below, including both formerly wrong names.
 
 ### 4. Leftovers from the V2.6 review
 
-1. **`repeat` with a `return` inside an `if`, at -O2.** It is refused, not miscompiled; V2.5.1 refuses it too.
-   - The inlined copy's return jumps past the `until` exit.
-   - The path walker must copy a small terminal block.
-2. **Nested inlined calls in a generic `for` at -O2 -g2.** Refused in 3 of 45,000 fuzz seeds.
-   - The fix belongs in SSA: either a debug-local boundary that keeps a phi alive, or destruct's edge-copy placement on a for-body edge.
+1. **`repeat` with a `return` inside an `if`, at -O2 — original case deferred pending reproducer.** The old review reported a refusal in both versions, with an inlined return jumping past the `until` exit and a proposed small terminal-block copy. Public repeat/inlining probes pass on the current binary; without the original input this is not a confirmed fix of that review case.
+2. **Nested inlined calls in a generic `for` at -O2 -g2 — original seeds deferred pending data.** The old review reported refusals in 3 of 45,000 seeds and suggested SSA debug-local boundaries or destruct edge-copy placement. Current public probes pass; the three original seeds remain unidentified. The owner deferred both entries on 2026-10-28; see [conditions for resuming](remaining_review_cases.md).
 3. **Known malformed-bytecode families now refuse before lifting**, with unit and deep-review controls. Original private bytes behind generic panic labels remain unavailable:
    - `unreachable LOP_BREAK`;
    - `unwrap` on `None`;
@@ -255,7 +269,8 @@ requirements below, including both formerly wrong names.
 ### 5. M6 — included in full scope; implemented and validated
 
 [L1/L2 checkpoint](checkpoint_final_ast.md) and [L4 audit](audit_existing_m4_m6.md)
-cover these requirements. Performance acceptance stays separate under G1.
+cover these requirements. Remaining performance work under G1 was deferred
+by the owner's 2026-10-28 decision.
 
 - L1: blank lines follow the source lines (`SourceLines` kept out of `PartialEq`).
 - L2: return types on the final AST, proven types only.
@@ -265,7 +280,8 @@ cover these requirements. Performance acceptance stays separate under G1.
 
 The owner excluded release, version changes, website/changelog work and merging
 main. The following is a future release checklist, not work authorized here.
-Engine benchmark acceptance remains in the decompiler goal.
+Engine benchmark evidence is recorded above; remaining G1 optimizations are
+a separate follow-up under the owner's decision.
 
 1. Bump the version: crate versions and the CLI string `luau-lifter V2.7`.
 2. Run the checks above, then a release benchmark against V2.6.1 and V2.5.1. Claim no speedup without clean measurements.

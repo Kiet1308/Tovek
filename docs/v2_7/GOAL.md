@@ -1,6 +1,6 @@
 # Hoàn thiện decompiler Tovek V2.7
 
-Trạng thái: đang triển khai; baseline workspace và semantic đã đạt, chưa nghiệm thu toàn bộ.
+Trạng thái: **hoàn tất phần decompiler V2.7 theo phạm vi chủ repo chốt ngày 28/10/2026**. G1 và ba review cases thiếu dữ liệu chuyển sang backlog bằng quyết định rõ ràng; không coi chúng là đã sửa. [Báo cáo nghiệm thu](ACCEPTANCE.md).
 Ngày lập: 27/10/2026, UTC+7.
 Nhánh thực hiện: `v2.7-dev`. Điểm xuất phát sau pull: `76212c9`.
 Nguồn yêu cầu: [ROADMAP.md](ROADMAP.md), cập nhật ngày 27/10/2026, và yêu cầu của chủ repo hoàn thiện toàn bộ decompiler, trừ release và web changelog.
@@ -9,7 +9,7 @@ Nguồn yêu cầu: [ROADMAP.md](ROADMAP.md), cập nhật ngày 27/10/2026, và
 
 Hoàn thiện toàn bộ hạng mục decompiler còn mở trong mục 1–5 của roadmap: hiệu năng, M4 structure, M5 naming, tồn đọng review V2.6 và M6. Giữ đúng hành vi bytecode, cải thiện khả năng khôi phục và độ dễ đọc, kiểm chứng mỗi thay đổi bằng fixture, semantic gates và số đo phù hợp. M6 nằm trong phạm vi đầy đủ của goal này, không bỏ qua vì nhãn “if time allows” trong roadmap gốc.
 
-Goal kết thúc bằng code và bằng chứng nghiệm thu trên `v2.7-dev`. Không tự đóng mục còn thiếu kiểm chứng; trường hợp thiếu dữ liệu, thiếu quyết định hoặc chưa có cách triển khai đúng phải giữ trạng thái bị chặn, nêu rõ điều kiện tiếp tục.
+Goal kết thúc bằng code và bằng chứng nghiệm thu trên `v2.7-dev`. Các mục thiếu kiểm chứng chỉ chuyển khỏi phạm vi khi chủ repo chốt rõ; giữ nguyên trạng thái kỹ thuật chưa giải quyết và điều kiện tiếp tục trong backlog. Hai quyết định ngày 28/10/2026 đã chuyển G1 và ba review cases sang việc tiếp theo.
 
 ## Phạm vi
 
@@ -35,6 +35,8 @@ Roadmap ghi nhận tại `1aeabd8`: 1.636 workspace tests, 699/699 semantic roun
 - Tối ưu hiệu năng phải giữ output byte-identical với baseline ngay trước bước tối ưu. Không tắt quality pass, giảm proof budget hay đổi quyết định tìm kiếm để làm benchmark nhanh hơn.
 - Giữ capture/closure identity, evaluation order, multret, NaN, signed zero, metamethod, CLOSE/iteration cells, lỗi và khả năng quan sát table layout.
 - Quyết định bổ sung 27/10/2026: giữ cách xuất cũ cho constructor rỗng có hash được cấp sẵn, tránh mất output public; ghi rõ chưa bảo đảm `pairs`/`next` khi biên dịch lại ở mức tối ưu khác. Không mở ngoại lệ này cho constructor có field hoặc proof fold/match.
+- Quyết định 28/10/2026: chủ repo chấp nhận số đo hiện tại và chuyển G1 sang việc tiếp theo. Hết regression V2.5.1 không còn là điều kiện đóng goal này; không ghi thành đã sửa regression.
+- Quyết định bổ sung 28/10/2026: chủ repo chọn “Chuyển 3 mục sang backlog chờ dữ liệu” cho case (c), ca repeat/return O2 gốc và 3 seeds generic-for O2/g2 gốc. Chi tiết và điều kiện mở lại tại [backlog review](remaining_review_cases.md).
 - Đọc `docs/performance/dead_ends.md` trước thí nghiệm engine; ghi số đo và lý do của hướng bị loại.
 - Áp dụng Ponytail `full`: đọc đủ luồng dữ liệu, tái sử dụng cơ chế sẵn có, sửa nhỏ nhưng hoàn chỉnh, không rút bớt validation hoặc proof để giảm code.
 
@@ -47,16 +49,22 @@ Roadmap ghi nhận tại `1aeabd8`: 1.636 workspace tests, 699/699 semantic roun
 - [x] Build baseline từ `76212c9`, lưu binary và provenance tại `/workspace/work/v27`; snapshot semantic fixtures trước khi sửa. SHA256 binary: `915fecbf7911a83abeeb50b0a292a1a5d133b6c79293cf0e9c711fc86f305e3d`.
 - [x] Chạy baseline gates và phân biệt lỗi sẵn có, lỗi môi trường và lỗi mới: audit-1 đủ 33 bước; checkpoint đầu ghi workspace và semantic baseline.
 - [x] Chủ repo xác nhận không có nguồn truy cập bốn frozen dumps. Tiếp tục implementation và public validation; không tuyên bố đã nghiệm thu trên 9.987 input riêng.
-- [ ] Đọc các plan/review local nếu có. Tách các chi tiết chưa đủ định nghĩa trong roadmap, đặc biệt “handle splits without case (c)”, thành dependency cần làm rõ; không tự đoán phép biến đổi.
+- [x] Đã tìm các plan/review khả dụng; các tài liệu riêng không có trong môi trường. Những chi tiết chưa đủ định nghĩa được tách thành dependency, sau đó chủ repo chuyển ba review cases sang backlog chờ dữ liệu; không tự đoán phép biến đổi.
 
-### G1 Hiệu năng
+### G1 Hiệu năng — chuyển sang backlog theo quyết định chủ repo
 
-- [x] Profile lại chi phí thật; tách profiling khỏi benchmark release không instrument. [Profile public và các phép đo](checkpoint_performance_public.md), bổ sung [CPU call stacks tại `d3e64a2`](checkpoint_cpu_profile.md); mục tiêu hết regression vẫn mở.
-- [ ] Ưu tiên `D_SCAN` và `D_ROUND_CENSUS`: census theo hàm với invalidation đúng phạm vi, hoặc gate vòng không thể admit; chứng minh không bỏ cơ hội match mới sau splice trong block con.
-- [ ] Sau đó xử lý `D_COLLECT_TARGETS`, `S_FORMAT`, `DESER_LIFT`, `DESER_INLINED_COPIES`; chỉ mở rộng sang naming hoặc literal-sharing khi profile mới cho thấy cần thiết.
-- [ ] Mỗi candidate giữ output từng byte, thứ tự rewrite/candidate và kết quả proof; đo A/B release cùng toolchain, allocator, flags, input và worker count.
-- [ ] Mục tiêu là khắc phục regression so với V2.5.1 ở một luồng, kiểm tra cả đa luồng, đồng thời so V2.6.1. Lưu toàn bộ sample và report workload riêng; không suy speedup từ phase timing hoặc synthetic operation counts.
-- [ ] Nếu chưa khắc phục được regression, báo rõ còn chưa đạt; không lấy việc thử nhiều phương án làm tiêu chí hoàn thành hiệu năng.
+Ngày 28/10/2026, chủ repo chọn: **“Chấp nhận số đo hiện tại, chuyển G1 sang việc tiếp theo”**. Đây là thay đổi tiêu chí nghiệm thu, không phải xác nhận regression đã được khắc phục. Không tiếp tục thử candidate hiệu năng trong goal này.
+
+- [x] Profile và A/B ordinary release đã có evidence; các candidate được giữ có workspace/audit và output-byte comparisons, các candidate bị loại được hoàn nguyên và ghi dead ends.
+- [x] Benchmark bốn version tại `b798e5b` đã lưu đủ samples: [báo cáo mới nhất](benchmark_phi_singleton.md) ghi median chậm hơn V2.5.1 15,5%/15,4% ở 1/4 workers, có nhiễu lớn. Số 10,0%/11,1% trong câu hỏi là checkpoint `d3e64a2` trước đó; giữ cả hai báo cáo, không sửa số đo theo quyết định mới.
+- [x] Ghi rõ CPU-time diagnostic chưa xác nhận speedup một worker; không suy speedup từ phase timing hoặc việc giảm allocation/lượt quét.
+- [x] Chủ repo chấp nhận chuyển mục tiêu hết regression sang việc tiếp theo; G1 không còn chặn goal V2.7 hiện tại.
+
+Backlog hiệu năng sau goal này, vẫn chưa được triển khai/nghiệm thu đầy đủ:
+
+- [ ] `D_SCAN`/`D_ROUND_CENSUS`: census theo hàm với invalidation đúng phạm vi, hoặc gate vòng không thể admit; không bỏ match mới sau splice ở block con.
+- [ ] `D_COLLECT_TARGETS`, `S_FORMAT`, `DESER_LIFT`, `DESER_INLINED_COPIES`, theo profile mới.
+- [ ] Khắc phục regression V2.5.1; vẫn giữ output từng byte, proof/candidate order, cùng toolchain/flags/workload khi đo.
 
 ### G2 M4 Structure
 
@@ -64,7 +72,7 @@ Roadmap ghi nhận tại `1aeabd8`: 1.636 workspace tests, 699/699 semantic roun
 - [x] S1: `negate_exact` và guard split không đảo toán tử quan hệ khi có NaN; truthiness collapse; chuỗi and/or chỉ dùng truthiness của literal và constructor theo D1.
 - [x] S1: comparison orientation ở SSA inliner; snapshot-noise refinement; colon precision; index tuple và swap folds.
 - [x] S1: statement residue từ chối khi `if` nằm trong vòng lặp không chứa declaration; audit ghi rõ enclosing-loop liveness.
-- [ ] S1: handle splits loại case (c), sau khi xác định được đặc tả của case này; đã hỏi chủ repo, không tự suy ra từ D4.
+- [x] Quyết định phạm vi S1: chủ repo chuyển “handle splits without case (c)” sang backlog chờ đặc tả; chưa triển khai/nghiệm thu một case chưa định nghĩa, không đồng nhất với D4.
 - [x] S4: if-expression với hai atomic arms, tối đa 72 cột, chỉ ở vị trí giá trị.
 - [x] S4: placeholder `0` chỉ đổi thành `nil` khi không thể đọc table trước lần store đầu vào key đó; [proof và giới hạn](checkpoint_naming_placeholder.md).
 - [x] Khôi phục header `while isAlive(h) do` từ rebuilt call; dùng `open_cases/while_inlined_condition.luau`, bảo toàn số lần và thứ tự đánh giá điều kiện, break/continue và scope.
@@ -81,8 +89,8 @@ Roadmap ghi nhận tại `1aeabd8`: 1.636 workspace tests, 699/699 semantic roun
 
 ### G4 Tồn đọng review V2.6
 
-- [ ] `repeat` có `return` trong `if` ở O2: path walker sao chép terminal block nhỏ đúng scope/capture; chuyển refusal thành output đúng cho các ca được chứng minh.
-- [ ] Nested inlined calls trong generic `for` ở O2/g2: tìm reproducer cho lỗi fuzz, sửa debug-local boundary/phi hoặc edge-copy placement trong SSA; không che lỗi ở formatter.
+- [x] Quyết định phạm vi: ca `repeat`/`return` O2 gốc chuyển sang backlog chờ reproducer theo chủ repo. Public repeat/inlining probes trên code hiện tại đều qua; không ghi đã sửa đúng ca review chưa nhận diện.
+- [x] Quyết định phạm vi: 3 seeds generic-for O2/g2 gốc chuyển sang backlog chờ dữ liệu theo chủ repo. Public generic-for probes và SSA differential tests đạt; không dùng chúng thay danh tính các seeds gốc.
 - [x] Các họ malformed đã xác định được chuyển thành typed refusal tại `bytecode_validate`: debugger BREAK, CONCAT/constant operands, FORGPREP thiếu partner và open results. Unit/deep-review controls đạt; giữ catch_unwind. Chưa có bytecode riêng tương ứng các nhãn `unwrap(None)`/“not implemented” trong review gốc để xác nhận mọi trường hợp đó.
 - [x] NEWTABLE record value nil tại runtime: giữ đúng kiểu constructor khi cần, đo tác động public và kiểm tra pairs/next; xem checkpoint table nil.
 - [x] Mô hình NEWTABLE: size hint khác stores được fold và proof layout trong fold/match; [checkpoint table layout](checkpoint_table_layout.md) ghi rõ bounded encoding và ngoại lệ empty hash đã chốt.
@@ -94,17 +102,17 @@ Roadmap ghi nhận tại `1aeabd8`: 1.636 workspace tests, 699/699 semantic roun
 - [x] L1: blank lines theo source lines; `SourceLines` không tham gia `PartialEq`.
 - [x] L2: return types trên final AST, chỉ những type đã chứng minh; không đưa annotation từ bảng tên API Roblox vào output.
 - [x] L4: engine và helper cache hiện hữu đã có shared proof, invalidation và differential reference; [audit chi tiết](audit_existing_m4_m6.md). Legacy chỉ còn trong test.
-- [x] L4 đã được kiểm chứng bằng differential reference cho target order, AST/source, origins/events/owners và capture proof; presentation L1/L2 có checkpoint và baseline riêng. Mục hiệu năng G1 vẫn mở.
+- [x] L4 đã được kiểm chứng bằng differential reference cho target order, AST/source, origins/events/owners và capture proof; presentation L1/L2 có checkpoint và baseline riêng. Phần hiệu năng G1 đã được chủ repo chuyển sang backlog.
 
 ### G6 Nghiệm thu toàn bộ decompiler
 
-- [ ] Mọi mục được triển khai và kiểm chứng, hoặc có quyết định cụ thể được chấp nhận cho mục vốn yêu cầu đánh giá/chính sách; không còn task bị bỏ qua vì thiếu thời gian.
-- [ ] Workspace tests, toàn bộ Fixture and Luau audit và các check tương thích liên quan đều đạt trên đúng commit cuối.
+- [x] Các mục còn trong phạm vi đã triển khai/kiểm chứng; G1 và ba review cases được chủ repo chuyển riêng sang backlog ngày 28/10/2026. Không ghi các mục chuyển tiếp thành đã sửa.
+- [x] Code hiện tại `b798e5b` đã qua 1.698 workspace tests, đủ 33 bước Fixture and Luau audit và các check tương thích; các commit sau chỉ là tài liệu. Evidence và binary được ghim tại [checkpoint](checkpoint_phi_singleton.md).
 - [x] Hai open cases đã thành regression fixtures: while header và event parameter, gồm pinned bytecode assertions trong `late_readability.rs`, semantic O0/O1/O2 và [before/after](checkpoint_control_naming.md).
-- [ ] Mọi edge case mới nằm trong `docs/failure_fixtures/semantic_roundtrip`, kèm oracle và output-size baseline trong cùng commit code.
-- [ ] Đọc diff bốn dumps before/after: không mất rebuilt calls hoặc tăng tổng dòng so với baseline phù hợp của từng bước; mọi delta có chủ đích được giải thích. Không tự nâng baseline để che regression.
-- [ ] Benchmark cuối bằng release build so V2.6.1, V2.5.1 và điểm xuất phát V2.7, tách một luồng/đa luồng, public/private, latency/throughput và instrumented/ordinary.
-- [ ] Cập nhật roadmap với commit, kết quả check, số đo và phần bị chặn thật. Bàn giao source, fixtures, baseline và báo cáo engine; dừng trước release, website và merge main.
+- [x] Các runtime edge cases đã sửa có semantic fixtures và oracle/output-size baselines trong cùng commit code; các tối ưu byte-identical có differential tests, không sửa baseline.
+- [x] Nghiệm thu trên phạm vi public đã chốt do bốn dumps không khả dụng: đọc và ghi delta từng checkpoint; mọi thay đổi baseline có giải thích. Tại code cuối, 801 semantic, 513 public và 7 residual outputs giữ từng byte so với checkpoint correctness trước. Không tuyên bố đã đọc/kiểm chứng 9.987 private inputs.
+- [x] Benchmark ordinary release tại `b798e5b` so V2.6.1, V2.5.1 và điểm xuất phát V2.7 đã có cho 1/4 workers trên public corpus; không có private/Windows timing. Regression đã được chủ repo chấp nhận chuyển sang backlog.
+- [x] Bàn giao source `b798e5b`, fixtures, baselines, [báo cáo nghiệm thu](ACCEPTANCE.md), benchmark và backlog có điều kiện mở lại. Hai bộ review probes cuối trên đúng binary nghiệm thu đạt 1.024/1.024, output byte-identical. Phạm vi kết thúc ở decompiler; release, website và merge main nằm ngoài yêu cầu.
 
 ## Quy trình kiểm chứng
 
@@ -122,7 +130,7 @@ Không chạy build, CI và profiling/benchmark cùng lúc. Giữ CRLF/LF của 
 - Chưa có các plan local `PLAN_V2_7_PERFORMANCE.md`, `PLAN_V2_7_READABILITY.md`, `2026-10-12-deinline.md`, bản thiết kế M0–M6 và các `fr-*.md`. Tìm lại khi cần các tiêu chí chưa được định nghĩa đủ trong handoff.
 - Cần reproducer/seed cụ thể của lỗi generic-for và danh tính cụ thể của các malformed-bytecode panic; trước hết thử giảm ca bằng harness hiện có, không bịa dữ liệu từ bộ 45.000 seeds.
 - Chính sách line census đã chốt: giữ hiện tại. D1–D4 và các binding decisions khác đã chốt, không hỏi lại.
-- Có thể triển khai và kiểm chứng các mục độc lập trong lúc thiếu dữ liệu; không đánh dấu nghiệm thu toàn bộ cho tới khi các blocker cần thiết được giải quyết.
+- Chủ repo đã chuyển ba review cases thiếu dữ liệu sang backlog và chốt nghiệm thu phần decompiler đã kiểm chứng. Các mục này vẫn chưa được giải quyết về kỹ thuật; điều kiện tiếp tục được ghi riêng, không còn là blocker của goal này.
 
 ## Môi trường đã kiểm tra
 
@@ -226,3 +234,7 @@ Xem [báo cáo kiểm chứng](checkpoint_control_naming.md). Mốc này có 1.6
 [Bốn version tại `b798e5b`](benchmark_phi_singleton.md): 25 samples mỗi version/worker count; median hiện tại chậm hơn V2.5.1 15,5%/15,4% ở 1/4 workers, so V2.6.1 là 3,3%/4,2%. Nhiễu lớn, đặc biệt một worker; paired ratios và toàn bộ samples được giữ. Không suy hiệu quả một thay đổi từ chênh lệch giữa hai lần đo. G1 chưa đạt; chưa có quyết định thay tiêu chí.
 
 [CPU time bổ sung](checkpoint_cpu_time.md) không xác nhận speedup một worker của singleton phi. Candidate bỏ scan map rỗng đã bị loại sau ordinary A/B và CPU-time diagnostic; source khôi phục đúng checkpoint đã audit. G1, đặc tả case (c) và original review reproducers vẫn chưa được giải quyết.
+
+## Chốt phạm vi và nghiệm thu ngày 28/10/2026
+
+Chủ repo đã đưa ra hai quyết định riêng: chấp nhận số đo hiện tại và chuyển G1 sang việc tiếp theo; chuyển [ba review cases thiếu dữ liệu](remaining_review_cases.md) sang backlog chờ dữ liệu. Các checkpoint phía trên giữ nguyên trạng thái tại thời điểm ghi. Goal hiện tại hoàn tất theo phạm vi mới, với [báo cáo nghiệm thu](ACCEPTANCE.md); các mục backlog vẫn chưa được sửa/nghiệm thu về kỹ thuật.
