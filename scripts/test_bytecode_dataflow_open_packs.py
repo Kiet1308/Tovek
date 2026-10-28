@@ -68,6 +68,17 @@ class OpenPackReadTests(unittest.TestCase):
         self.assertEqual(compare_acyclic(sample(10), sample(20))['status'], 'unknown')
         self.assertEqual(compare_dataflow(sample(10), sample(20))['status'], 'unknown')
 
+    def test_c_metamethod_top_reset_cannot_ignore_frame_size(self):
+        code = [op('MOVE', 3, 1), op('CALL', 3, 1, 0),
+                op('GETTABLEKS', 0, 0, aux=0), op('RETURN', 3, 0)]
+        samples = []
+        for frame_size in [8, 12]:
+            source = chunk(code, constants=[('str', 1)], strings=[b'm'])
+            source.protos[0].max_stack = frame_size
+            samples.append(source)
+        self.assertEqual(compare_acyclic(*samples)['status'], 'unknown')
+        self.assertEqual(compare_dataflow(*samples)['status'], 'unknown')
+
     def test_pending_top_refuses_each_implicit_effect_and_comparison(self):
         effects = [op('GETGLOBAL', 2, aux=0), op('SETGLOBAL', 0, aux=0),
                    op('GETTABLE', 2, 0, 1), op('SETTABLE', 0, 0, 1),
