@@ -10,6 +10,11 @@
   "compiler_flags": [
     "--fflags=false"
   ],
+  "total_profiles": 77,
+  "initial_status_counts": {
+    "different": 20,
+    "unknown": 57
+  },
   "profiles": [
     {
       "index": 0,

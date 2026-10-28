@@ -12,6 +12,8 @@ import hashlib
 import struct
 
 MODEL = 'luau-register-cfg-bisimulation-v2'
+PRIVATE_MODEL = 'luau-private-storage-cfg-v1'
+ADJACENT_PACK_MODEL = 'luau-private-adjacent-pack-cfg-v1'
 
 
 class Unknown(Exception):
@@ -19,7 +21,8 @@ class Unknown(Exception):
 
 
 class Graph:
-    def __init__(self, chunk, budget):
+    def __init__(self, chunk, budget, *, private_copies=False):
+        self.private_copies = private_copies
         self.chunk = chunk
         self.remaining = budget
         self.prototypes = {}
@@ -27,6 +30,8 @@ class Graph:
         self.originals = []
         self.templates = {}
         self.exact_storage = False
+        self._reference_context = False
+        self._adjacent_packs = False
         self.stats = collections.Counter()
 
     def spend(self, count=1):
@@ -138,9 +143,14 @@ class Graph:
             if OPCODES[row[1]] == 'CAPTURE' and pc not in payload:
                 raise Unknown('orphan capture')
 
+        if proto.is_vararg:
+            if OPCODES[code[0][1]] != 'PREPVARARGS' or sum(
+                    OPCODES[row[1]] == 'PREPVARARGS' for row in code.values()) != 1:
+                raise Unknown('graph requires one entry vararg preparation')
+
         # Open result packs address an unbounded suffix. Keep the exact register
         # layout in these functions; finite fixed-arity functions may alpha-rename.
-        exact_storage = open_packs or self.exact_storage
+        exact_storage = open_packs or (self.exact_storage and (not self._reference_context or bool(referenced)))
         registers = {i: ('parameter', i) for i in range(proto.num_params)}
 
         def reg(index):
@@ -156,6 +166,7 @@ class Graph:
             return tuple(reg(i) for i in range(start, start + size))
 
         labels, queue, nodes, facts = {0: 0}, collections.deque([0]), [], []
+        pcs = []
 
         def label(pc):
             if pc not in code or pc in payload:
@@ -360,15 +371,196 @@ class Graph:
                 raise Unknown('unsupported opcode ' + name)
             edges = tuple(label(q) for q in successors)
             self.stats['back_edges'] += sum(q <= pc for q in successors)
+            pcs.append(pc)
             nodes.append((name, operands, edges))
             facts.append((reads, writes, kills, edge_writes, top_write, open_read, edge_kills, edge_tops))
 
+        if proto.is_vararg and any(0 in edges for _, _, edges in nodes):
+            raise Unknown('graph cannot re-enter vararg preparation')
         self.validate_definitions(proto, nodes, facts)
+        if self._adjacent_packs and open_packs and not self.exact_storage:
+            rewritten = self.adjacent_pack_graph(proto, nodes, facts, pcs, code)
+            if rewritten is not None:
+                nodes, facts = rewritten
+                exact_storage = False
+                registers = {r: ('register', r) for r in range(proto.max_stack)}
+        if self.private_copies and not exact_storage:
+            nodes = self.private_copy_graph(nodes, facts, pcs, code, registers, proto.num_params)
         self.stats['instructions'] += len(nodes)
         self.stats['edges'] += sum(len(node[2]) for node in nodes)
         self.stats['prototypes'] += 1
         return (proto.num_params, proto.num_upvalues, bool(proto.is_vararg),
                 proto.max_stack if exact_storage else None, tuple(nodes))
+
+    def adjacent_pack_graph(self, proto, nodes, facts, pcs, code):
+        """Keep opaque private packs only across a unique immediate consumer.
+
+        Definition validation must precede this: an open producer leaves its
+        suffix undefined for subsequent fixed reads, even after consumption.
+        """
+        predecessors = [[] for _ in nodes]
+        for index, (_, _, edges) in enumerate(nodes):
+            for target in edges:
+                predecessors[target].append(index)
+        producers, consumers = {}, {}
+        for index, (name, _, edges) in enumerate(nodes):
+            self.spend()
+            _, _, a, b, c, _, _, _ = code[pcs[index]]
+            if any(type(top) is int for top in facts[index][7].values()):
+                return None  # FASTCALL success can bypass the ordinary producer.
+            if (name == 'CALL' and c == 0) or (name == 'GETVARARGS' and b == 0):
+                if len(edges) != 1 or predecessors[edges[0]] != [index] or not 0 <= a < proto.max_stack:
+                    return None
+                consumer = edges[0]
+                if (nodes[consumer][0] not in ('CALL', 'RETURN', 'SETLIST')
+                        or facts[consumer][5] is None or pcs[consumer] != pcs[index] + 1):
+                    return None
+                start = facts[consumer][5]
+                if not 0 <= start <= a:
+                    return None
+                producers[index] = a
+                consumers[consumer] = a
+        if not producers or {i for i, fact in enumerate(facts) if fact[5] is not None} != set(consumers):
+            return None
+        result, updated = [], []
+        for index, (name, operands, edges) in enumerate(nodes):
+            self.spend()
+            prefix = tuple(range(facts[index][5], consumers[index])) if index in consumers else ()
+            self.spend(len(prefix))
+            def rewrite(value):
+                self.spend()
+                if type(value) is tuple:
+                    if len(value) == 2 and value[0] == 'open':
+                        return ('open', tuple(('register', r) for r in prefix))
+                    if len(value) == 2 and value[0] == 'open_result':
+                        return ('open_result',)
+                    return tuple(rewrite(item) for item in value)
+                return value
+            result.append((name, rewrite(operands), edges))
+            reads, writes, kills, edge_writes, top_write, _, edge_kills, edge_tops = facts[index]
+            updated.append((reads | set(prefix), writes, kills, edge_writes, top_write, None, edge_kills, edge_tops))
+        self.stats['adjacent_pack_pairs'] += len(producers)
+        return result, updated
+
+    def private_copy_graph(self, nodes, facts, pcs, code, registers, parameters):
+        """Private storage only: preserve effects and normalize dead copy slots.
+
+        The caller certifies private storage and any adjacent open packs. Copies
+        have one predecessor and a dead source; lookup reads/results are split.
+        """
+        predecessors = [[] for _ in nodes]
+        for source, (_, _, edges) in enumerate(nodes):
+            for target in edges:
+                predecessors[target].append(source)
+        mask = lambda values: sum(1 << r for r in values)
+        incoming = [0] * len(nodes)
+        outgoing = [0] * len(nodes)
+        pending, queued = collections.deque(range(len(nodes))), set(range(len(nodes)))
+        while pending:
+            self.spend()
+            index = pending.popleft()
+            queued.remove(index)
+            reads, writes, kills, edge_writes, _, _, edge_kills, _ = facts[index]
+            after = 0
+            for edge, target in enumerate(nodes[index][2]):
+                after |= incoming[target] & ~mask(edge_writes.get(edge, ())) & ~mask(edge_kills.get(edge, ()))
+            before = mask(reads) | (after & ~mask(writes) & ~mask(kills))
+            outgoing[index] = after
+            if before != incoming[index]:
+                incoming[index] = before
+                for predecessor in predecessors[index]:
+                    if predecessor not in queued:
+                        pending.append(predecessor)
+                        queued.add(predecessor)
+        removed = set()
+        nodes = list(nodes)
+        facts = list(facts)
+        for index, (name, operands, edges) in enumerate(nodes):
+            self.spend()
+            if name not in ('GETGLOBAL', 'GETIMPORT', 'GETUPVAL', 'GETTABLE', 'GETTABLEKS', 'GETTABLEN') or len(edges) != 1:
+                continue
+            move = edges[0]
+            if nodes[move][0] != 'MOVE' or predecessors[move] != [index] or len(nodes[move][2]) != 1:
+                continue
+            source = code[pcs[index]][2]
+            destination, copied = code[pcs[move]][2:4]
+            if source != copied or source == destination or outgoing[move] & (1 << source):
+                continue
+            nodes[index] = name, (nodes[move][1][0], *operands[1:]), edges
+            facts[index] = (facts[index][0], {destination}, *facts[index][2:])
+            removed.add(move)
+        self.stats['private_copies_removed'] += len(removed)
+        labels, queue, output, output_facts = {0: 0}, collections.deque([0]), [], []
+        def label(index):
+            while index in removed:
+                self.spend()
+                index = nodes[index][2][0]
+            if index not in labels:
+                labels[index] = len(labels)
+                queue.append(index)
+            return labels[index]
+        while queue:
+            self.spend()
+            old = queue.popleft()
+            name, operands, edges = nodes[old]
+            output.append((name, operands, tuple(label(edge) for edge in edges)))
+            output_facts.append(facts[old])
+        # Canonicalize private storage lifetimes, not allocation of dead slots.
+        nodes, facts = output, output_facts
+        incoming = [0] * len(nodes)
+        changed = True
+        while changed:
+            changed = False
+            for index in reversed(range(len(nodes))):
+                self.spend()
+                reads, writes, kills, edge_writes, _, _, edge_kills, _ = facts[index]
+                after = 0
+                for edge, target in enumerate(nodes[index][2]):
+                    after |= incoming[target] & ~mask(edge_writes.get(edge, ())) & ~mask(edge_kills.get(edge, ()))
+                before = mask(reads) | (after & ~mask(writes) & ~mask(kills))
+                if before != incoming[index]:
+                    incoming[index] = before
+                    changed = True
+        parent = {}
+        def find(cell):
+            self.spend()
+            path = []
+            while parent.setdefault(cell, cell) != cell:
+                self.spend()
+                path.append(cell)
+                cell = parent[cell]
+            for child in path:
+                parent[child] = cell
+            return cell
+        lookups = {'GETGLOBAL', 'GETIMPORT', 'GETUPVAL', 'GETTABLE', 'GETTABLEKS', 'GETTABLEN'}
+        def after_cell(index, register):
+            return (index, register, 'result') if nodes[index][0] in lookups and register in facts[index][1] else (index, register)
+        for index, (_, _, edges) in enumerate(nodes):
+            for target in edges:
+                bits = incoming[target]
+                while bits:
+                    bit = bits & -bits
+                    register = bit.bit_length() - 1
+                    left, right = find(after_cell(index, register)), find((target, register))
+                    parent[right] = left
+                    bits -= bit
+        names = {find((0, r)): ('parameter', r) for r in range(parameters) if incoming[0] & (1 << r)}
+        originals = {value: key for key, value in registers.items()}
+        next_name = 0
+        def rename(index, value, output=False):
+            nonlocal next_name
+            self.spend()
+            if type(value) is tuple:
+                if len(value) == 2 and value[0] in ('temporary', 'parameter', 'register') and type(value[1]) is int:
+                    root = find(after_cell(index, originals[value]) if output else (index, originals[value]))
+                    if root not in names:
+                        names[root] = ('temporary', next_name)
+                        next_name += 1
+                    return names[root]
+                return tuple(rename(index, item) for item in value)
+            return value
+        return [(name, tuple(rename(index, operand, name in lookups and slot == 0) for slot, operand in enumerate(operands)), edges)
+                for index, (name, operands, edges) in enumerate(nodes)]
 
     def validate_definitions(self, proto, nodes, facts):
         """Must-definition analysis; joins intersect definitions, loops converge.
@@ -450,15 +642,40 @@ class Graph:
 
 
 def compare_graph(original, rebuilt, *, budget=20000):
+    return _compare_graph(original, rebuilt, budget=budget, private_copies=False)
+
+
+def compare_private_graph(original, rebuilt, *, budget=20000):
+    """Bisimulation up to adjacent lookup copies and private storage lifetimes.
+
+    REF/main-upvalue and open-pack functions retain the exact-storage contract.
+    Unsupported transitions and exhausted analysis fuel still return unknown.
+    """
+    return _compare_graph(original, rebuilt, budget=budget, private_copies=True)
+
+
+def compare_adjacent_pack_graph(original, rebuilt, *, budget=20000):
+    """Private storage with uniquely paired immediate open-pack transitions.
+
+    Entire chunks with REF captures or main upvalues retain exact storage.
+    Nonadjacent/ambiguous packs retain the existing exact function contract.
+    """
+    return _compare_graph(original, rebuilt, budget=budget, private_copies=True, adjacent_packs=True)
+
+
+def _compare_graph(original, rebuilt, *, budget, private_copies, adjacent_packs=False):
     graphs, summaries, reasons = [], [], {}
     for label, chunk in [('original', original), ('rebuilt', rebuilt)]:
         try:
-            graph, summary = Graph(chunk, budget).build()
+            builder = Graph(chunk, budget, private_copies=private_copies)
+            builder._adjacent_packs = adjacent_packs
+            graph, summary = builder.build()
             graphs.append(graph)
             summaries.append(summary)
         except (Unknown, RecursionError) as error:
             reasons[label] = str(error) or 'recursion budget'
-    result = dict(model=MODEL, status='unknown')
+    model = ADJACENT_PACK_MODEL if adjacent_packs else PRIVATE_MODEL if private_copies else MODEL
+    result = dict(model=model, status='unknown')
     if reasons:
         result['reasons'] = reasons
     else:
@@ -466,5 +683,6 @@ def compare_graph(original, rebuilt, *, budget=20000):
                       fingerprints=[hashlib.sha256(repr(g).encode()).hexdigest() for g in graphs],
                       summaries=summaries)
         if graphs[0] != graphs[1]:
-            result['reason'] = 'no structural bisimulation under the bounded register mapping'
+            result['reason'] = ('no bisimulation under bounded private-storage lifetimes' if private_copies
+                                else 'no structural bisimulation under the bounded register mapping')
     return result

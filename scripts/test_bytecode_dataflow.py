@@ -83,6 +83,15 @@ class DataflowTests(unittest.TestCase):
                    instruction("MOVE", 11, 9), instruction("RETURN", 11, 2)])
         self.status(a, b, "proved")
 
+    def test_ork_uses_its_constant_and_not_the_same_numbered_register(self):
+        code = [instruction("ORK", 2, 0, 1), instruction("RETURN", 2, 2)]
+        a = chunk(code, constants=[("bool", False), ("bool", True)])
+        changed_constant = chunk(code, constants=[("bool", False), ("bool", False)])
+        self.status(a, changed_constant, "different")
+        changed_dead_register = chunk([instruction("LOADN", 1, d=99), *code],
+                                      constants=a.protos[0].constants)
+        self.status(a, changed_dead_register, "proved")
+
     def test_constant_and_string_pool_reorder_and_metadata(self):
         a = chunk([instruction("LOADK", 2, d=0), instruction("RETURN", 2, 2)],
                   constants=[("str", 1), ("num", 3.0)], strings=[b"ok", b"other"])
@@ -124,7 +133,7 @@ class DataflowTests(unittest.TestCase):
                     chunk([*reversed(effects), instruction("RETURN", 0, 1)], **kwargs), "different")
         self.status(chunk([instruction("GETUPVAL", 2, 0), instruction("RETURN", 2, 2)], upvalues=2),
                     chunk([instruction("GETUPVAL", 2, 1), instruction("RETURN", 2, 2)], upvalues=2),
-                    "different")
+                    "unknown")
 
     def test_capture_close_and_iterator_mutants_never_proved(self):
         for name, a in (("CAPTURE", 0), ("CAPTURE", 1), ("CLOSEUPVALS", 0),
