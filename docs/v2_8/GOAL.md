@@ -1,6 +1,7 @@
 # V2.8: kiểm chứng chéo tối ưu và giảm từ chối bytecode hợp lệ
 
-Trạng thái: hoàn tất hai mục chủ repo đã chọn và đợt sửa lỗi/review tiếp theo.
+Trạng thái: các checkpoint trước đã hoàn tất; đang thực hiện
+[goal xử lý 77 public proof gaps](public_proof_recovery.md) theo yêu cầu tiếp theo.
 Code mới nhất `d6ffc29`; đã khôi phục cả bốn helper sites còn lại tại
 [helper recovery checkpoint](helper_shape_recovery.md). Các checkpoint trước
 gồm [incoming-read checkpoint](incoming_read_timing.md),
