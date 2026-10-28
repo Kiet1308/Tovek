@@ -1548,43 +1548,55 @@ fn protected_call_result_hint(rvalue: &RValue) -> Option<String> {
     sanitize(getter_name)
 }
 
+// Naming can see a saved iterator without moving its lookup past the argument.
+fn iterator_global<'a>(rvalue: &'a RValue, aliases: &'a FxHashMap<usize, RValue>) -> Option<&'a [u8]> {
+    let callee = match rvalue {
+        RValue::Local(local) => aliases.get(&local_ptr(local))?,
+        callee => callee,
+    };
+    match callee {
+        RValue::Global(global) => Some(global.0.as_slice()),
+        _ => None,
+    }
+}
+
 /// Names for the variables of a generic `for`, inferred from the iterator.
-fn iterator_names(right: &[RValue]) -> Option<Vec<&'static str>> {
-    fn generator_global(rvalue: &RValue) -> Option<&[u8]> {
+fn iterator_names(right: &[RValue], aliases: &FxHashMap<usize, RValue>) -> Option<Vec<&'static str>> {
+    fn generator_global<'a>(rvalue: &'a RValue, aliases: &'a FxHashMap<usize, RValue>) -> Option<&'a [u8]> {
         match rvalue {
-            RValue::Global(global) => Some(global.0.as_slice()),
+            RValue::Global(_) | RValue::Local(_) => iterator_global(rvalue, aliases),
             RValue::Call(call) | RValue::Select(Select::Call(call)) => {
-                generator_global(&call.value)
+                generator_global(&call.value, aliases)
             }
             _ => None,
         }
     }
-    fn generator_method(rvalue: &RValue) -> Option<&str> {
+    fn generator_method<'a>(rvalue: &'a RValue, aliases: &FxHashMap<usize, RValue>) -> Option<&'a str> {
         match rvalue {
             RValue::MethodCall(method_call) | RValue::Select(Select::MethodCall(method_call)) => {
                 Some(method_call.method.as_str())
             }
             RValue::Call(call) | RValue::Select(Select::Call(call))
-                if generator_global(&call.value)
+                if generator_global(&call.value, aliases)
                     .is_some_and(|name| name == b"ipairs" || name == b"pairs") =>
             {
-                call.arguments.first().and_then(generator_method)
+                call.arguments.first().and_then(|argument| generator_method(argument, aliases))
             }
             RValue::Call(call) | RValue::Select(Select::Call(call)) => {
-                generator_method(&call.value)
+                generator_method(&call.value, aliases)
             }
             _ => None,
         }
     }
     for rvalue in right {
-        if let Some(method) = generator_method(rvalue) {
+        if let Some(method) = generator_method(rvalue, aliases) {
             match method {
                 "GetChildren" => return Some(vec!["i", "child"]),
                 "GetDescendants" => return Some(vec!["i", "descendant"]),
                 _ => {}
             }
         }
-        if let Some(name) = generator_global(rvalue) {
+        if let Some(name) = generator_global(rvalue, aliases) {
             if name == b"ipairs" {
                 return Some(vec!["i", "v"]);
             }
@@ -1758,10 +1770,10 @@ fn pluralize(name: &str) -> Option<String> {
 
 /// `pairs(x)`/`ipairs(x)`/`next(x)` -> `x`; anything else is returned unchanged.
 /// Used to look through a generic-for iterator wrapper at the real collection.
-fn unwrap_iter_arg(rvalue: &RValue) -> &RValue {
+fn unwrap_iter_arg<'a>(rvalue: &'a RValue, aliases: &FxHashMap<usize, RValue>) -> &'a RValue {
     if let RValue::Call(call) | RValue::Select(Select::Call(call)) = rvalue
-        && let RValue::Global(global) = &*call.value
-        && matches!(global.0.as_slice(), b"pairs" | b"ipairs" | b"next")
+        && let Some(global) = iterator_global(&call.value, aliases)
+        && matches!(global, b"pairs" | b"ipairs" | b"next")
         && let Some(arg) = call.arguments.first()
     {
         return arg;
@@ -2325,13 +2337,17 @@ fn note_call_usage(
     callee_aliases: &FxHashMap<usize, RValue>,
     usage: &mut FxHashMap<usize, LocalUsage>,
 ) {
-    if static_callee(call) == Some((Some("string"), "rep"))
+    let callee = match &*call.value {
+        RValue::Local(local) => callee_aliases.get(&local_ptr(local)).unwrap_or(&call.value),
+        callee => callee,
+    };
+    if static_callee_of(callee) == Some((Some("string"), "rep"))
         && call.arguments.first().and_then(string_literal).is_some()
         && let Some(count) = call.arguments.get(1).and_then(|value| count_role_source(value, 0))
     {
         usage.entry(count).or_default().repetition_count = true;
     }
-    if let Some((Some("buffer"), member)) = static_callee(call)
+    if let Some((Some("buffer"), member)) = static_callee_of(callee)
         && crate::naming_api::buffer_arguments(member).first() == Some(&"size")
         && let Some(size) = call.arguments.first().and_then(|value| size_role_source(value, 0))
     {
@@ -2340,7 +2356,7 @@ fn note_call_usage(
     if let RValue::Local(local) = &*call.value {
         usage.entry(local_ptr(local)).or_default().used_as_callee = true;
     }
-    if let RValue::Index(index) = &*call.value
+    if let RValue::Index(index) = callee
         && index_key(index) == Some("insert")
         && let RValue::Global(global) = &*index.left
         && global.0.as_slice() == b"table"
@@ -2365,7 +2381,7 @@ fn note_call_usage(
     // Stable standard-library argument slots (§2.C). These are positional API
     // contracts, not guesses from surrounding syntax, and disagreement is
     // handled by the same conflict-on-consensus gate as other slots.
-    if let RValue::Index(callee) = &*call.value
+    if let RValue::Index(callee) = callee
         && let RValue::Global(namespace) = &*callee.left
         && let Some(member) = string_literal(&callee.right)
     {
@@ -2407,11 +2423,7 @@ fn note_call_usage(
     // Fusion scope plumbing (`innerScope(outerScope, ...)`, `doCleanup(scope)`)
     // and state reads (`peek(state)`), whether called bare, through the
     // library table (`Fusion.peek(state)`) or through a local alias of it.
-    let member = callable_static_name(&call.value).or_else(|| match &*call.value {
-        RValue::Local(local) => callee_aliases.get(&local_ptr(local)).and_then(callable_static_name),
-        _ => None,
-    });
-    if let Some(member) = member {
+    if let Some(member) = callable_static_name(callee) {
         let slot = match member {
             // Fusion's docs name the scope an inner scope is made from
             // `outerScope`; the inner one is the `scope`.
@@ -2427,7 +2439,7 @@ fn note_call_usage(
         }
     }
     // Global builtins with one stable positional contract.
-    if let RValue::Global(global) = &*call.value {
+    if let RValue::Global(global) = callee {
         let slots: &[&str] = match global.0.as_slice() {
             b"ipairs" | b"unpack" => &["list"],
             b"next" => {
@@ -3003,7 +3015,7 @@ fn gather_usage_in(
             }
             Statement::GenericFor(generic_for) => {
                 for rvalue in &generic_for.right {
-                    if let RValue::Local(local) = unwrap_iter_arg(rvalue) {
+                    if let RValue::Local(local) = unwrap_iter_arg(rvalue, context.callee_aliases) {
                         usage.entry(local_ptr(local)).or_default().iterated = true;
                     }
                 }
@@ -4097,7 +4109,7 @@ impl Namer {
     /// real source identifier rather than guessed.
     fn collection_element_name(&self, right: &[RValue]) -> Option<String> {
         for rvalue in right {
-            let name = match unwrap_iter_arg(rvalue) {
+            let name = match unwrap_iter_arg(rvalue, &self.callee_aliases) {
                 RValue::Local(local) => self.local_known_name(local),
                 RValue::Index(index) => index_key(index).map(str::to_string),
                 _ => None,
@@ -5255,11 +5267,11 @@ impl Namer {
                     self.set_hint_str(&numeric_for.counter, "i", 40);
                 }
                 Statement::GenericFor(generic_for) => {
-                    let names = iterator_names(&generic_for.right);
+                    let names = iterator_names(&generic_for.right, &self.callee_aliases);
                     // The element (second) variable can be named after the
                     // collection it iterates: `for index, crop in crops`.
                     let element_name = self.collection_element_name(&generic_for.right).or_else(|| {
-                        generic_for.right.first().and_then(|value| match unwrap_iter_arg(value) {
+                        generic_for.right.first().and_then(|value| match unwrap_iter_arg(value, &self.callee_aliases) {
                             RValue::Local(local) if self.usage.get(&local_ptr(local)).is_some_and(|usage| usage.typeof_conflict) => Some("item".to_string()),
                             _ => None,
                         })
@@ -8416,6 +8428,145 @@ mod tests {
     }
 
     #[test]
+    fn saved_iterator_preserves_method_element_and_collection_names() {
+        for iterator in ["pairs", "ipairs"] {
+            for (method, element_name, collection_name) in [
+                ("GetChildren", "child", "children"),
+                ("GetDescendants", "descendant", "descendants"),
+            ] {
+                let (alias, collection, key, element) = (
+                    RcLocal::default(), RcLocal::default(), RcLocal::default(), RcLocal::default(),
+                );
+                let call = Call::new(RValue::Local(alias.clone()), vec![
+                    method_call(global("workspace"), method, vec![]),
+                ]);
+                let generator = if iterator == "pairs" {
+                    RValue::Select(Select::Call(call))
+                } else {
+                    RValue::Call(call)
+                };
+                let mut block = Block(vec![
+                    declare(&alias, global(iterator)),
+                    declare(&collection, RValue::Table(Table::default())),
+                    Statement::GenericFor(GenericFor::new(
+                        vec![key.clone(), element.clone()], vec![generator],
+                        Block(vec![
+                            use_local(&key),
+                            Statement::Call(Call::new(
+                                RValue::Index(Index::new(global("table"), string("insert"))),
+                                vec![RValue::Local(collection.clone()), RValue::Local(element.clone())],
+                            )),
+                        ]),
+                    )),
+                    use_local(&collection),
+                ]);
+                name_locals(&mut block, true);
+                assert_eq!(name_of(&key), "i");
+                assert_eq!(name_of(&element), element_name);
+                assert_eq!(name_of(&collection), collection_name);
+                let Statement::GenericFor(loop_) = &block[2] else { panic!() };
+                let (RValue::Call(call) | RValue::Select(Select::Call(call))) = &loop_.right[0] else { panic!() };
+                assert!(matches!(&*call.value, RValue::Local(local) if local == &alias));
+            }
+        }
+    }
+
+    #[test]
+    fn saved_iterator_preserves_collection_element_name() {
+        for (iterator, key_name) in [("pairs", "k"), ("ipairs", "i"), ("next", "k")] {
+            let (alias, crops, key, crop) = (
+                RcLocal::default(), RcLocal::default(), RcLocal::default(), RcLocal::default(),
+            );
+            let mut block = Block(vec![
+                declare(&alias, global(iterator)),
+                declare(&crops, RValue::Index(Index::new(global("data"), string("Crops")))),
+                Statement::GenericFor(GenericFor::new(
+                    vec![key.clone(), crop.clone()],
+                    vec![RValue::Call(Call::new(RValue::Local(alias), vec![RValue::Local(crops.clone())]))],
+                    Block(vec![use_local(&key), use_local(&crop)]),
+                )),
+            ]);
+            name_locals(&mut block, true);
+            assert_eq!(name_of(&key), key_name);
+            assert_eq!(name_of(&crop), "crop");
+        }
+    }
+
+    #[test]
+    fn iterator_alias_rejects_reassignments_members_and_copies() {
+        for variant in ["reassigned", "captured_write", "member", "copy"] {
+            let (alias, original, key, element) = (
+                RcLocal::default(), RcLocal::default(), RcLocal::default(), RcLocal::default(),
+            );
+            let mut block = Block(vec![declare(&original, global("pairs"))]);
+            block.push(declare(&alias, match variant {
+                "member" => RValue::Index(Index::new(global("custom"), string("pairs"))),
+                "copy" => RValue::Local(original),
+                _ => global("pairs"),
+            }));
+            let replacement = || Statement::Assign(Assign::new(
+                vec![LValue::Local(alias.clone())], vec![global("replacement")],
+            ));
+            match variant {
+                "reassigned" => block.push(replacement()),
+                "captured_write" => {
+                    let callback = RcLocal::default();
+                    block.push(declare(&callback, RValue::Closure(Closure {
+                        node_origin: Default::default(),
+                        function: ByAddress(Arc::new(Mutex::new(Function {
+                            body: Block(vec![replacement()]), ..Function::default()
+                        }))),
+                        upvalues: vec![Upvalue::Ref(alias.clone())],
+                    })));
+                    block.push(use_local(&callback));
+                }
+                _ => {}
+            }
+            block.push(Statement::GenericFor(GenericFor::new(
+                vec![key.clone(), element.clone()],
+                vec![RValue::Call(Call::new(RValue::Local(alias.clone()), vec![
+                    method_call(global("workspace"), "GetChildren", vec![]),
+                ]))],
+                Block(vec![use_local(&key), use_local(&element)]),
+            )));
+            name_locals(&mut block, true);
+            assert_ne!(name_of(&element), "child", "{variant}");
+        }
+    }
+
+    #[test]
+    fn captured_iterator_alias_keeps_nested_child_name_distinct() {
+        let outer_child = RcLocal::default();
+        let (alias, callback, key, child) = (
+            RcLocal::default(), RcLocal::default(), RcLocal::default(), RcLocal::default(),
+        );
+        let function = Function {
+            body: Block(vec![Statement::GenericFor(GenericFor::new(
+                vec![key.clone(), child.clone()],
+                vec![RValue::Call(Call::new(RValue::Local(alias.clone()), vec![
+                    method_call(global("workspace"), "GetChildren", vec![]),
+                ]))],
+                Block(vec![use_local(&key), use_local(&child), use_local(&outer_child)]),
+            ))]),
+            ..Function::default()
+        };
+        let mut block = Block(vec![
+            declare(&outer_child, RValue::Index(Index::new(global("state"), string("child")))),
+            declare(&alias, global("pairs")),
+            declare(&callback, RValue::Closure(Closure {
+                node_origin: Default::default(),
+                function: ByAddress(Arc::new(Mutex::new(function))),
+                upvalues: vec![Upvalue::Copy(alias), Upvalue::Ref(outer_child.clone())],
+            })),
+            use_local(&callback),
+        ]);
+        name_locals(&mut block, true);
+        assert_eq!(name_of(&outer_child), "child");
+        assert_eq!(name_of(&child), "child2");
+        assert!(block.to_string().contains("print(child)"));
+    }
+
+    #[test]
     fn irregular_plural_names_roundtrip_without_guessing_ambiguous_words() {
         for &(plural, singular) in super::IRREGULAR_PLURALS {
             assert_eq!(super::singularize(plural).as_deref(), Some(singular));
@@ -11281,6 +11432,126 @@ mod tests {
         ]);
         name_locals(&mut block, true);
         assert_eq!((name_of(&outer), name_of(&scope), name_of(&size)), ("outerScope".into(), "scope".into(), "size".into()));
+    }
+
+    #[test]
+    fn saved_api_callees_preserve_argument_roles() {
+        for (namespace, member, expected) in [
+            (Some("buffer"), "readstring", &["buf", "offset", "count"][..]),
+            (Some("buffer"), "writestring", &["buf", "offset", "str", "count"][..]),
+            (Some("buffer"), "copy", &["target", "targetOffset", "source", "sourceOffset", "count"][..]),
+            (Some("math"), "clamp", &["value", "min", "max"][..]),
+            (Some("task"), "delay", &["duration", "callback"][..]),
+            (Some("string"), "sub", &["value"][..]),
+            (None, "unpack", &["list"][..]),
+            (None, "require", &["moduleScript"][..]),
+            (None, "error", &["message"][..]),
+            (None, "pcall", &["callback"][..]),
+        ] {
+            let alias = RcLocal::default();
+            let parameters: Vec<_> = expected.iter().map(|_| RcLocal::default()).collect();
+            let callee = namespace.map_or_else(|| global(member), |namespace| {
+                RValue::Index(Index::new(global(namespace), string(member)))
+            });
+            name_param_fn(parameters.clone(), vec![
+                declare(&alias, callee),
+                Statement::Call(Call::new(RValue::Local(alias), parameters.iter().cloned().map(RValue::Local).collect())),
+            ]);
+            assert_eq!(parameters.iter().map(name_of).collect::<Vec<_>>(), expected, "{namespace:?}.{member}");
+        }
+    }
+
+    #[test]
+    fn saved_api_callees_preserve_numeric_and_collection_usage() {
+        for (namespace, member, name) in [("buffer", "create", "size"), ("string", "rep", "count")] {
+            let (alias, parameter, amount) = (RcLocal::default(), RcLocal::default(), RcLocal::default());
+            let mut arguments = vec![RValue::Local(amount.clone())];
+            if member == "rep" { arguments.insert(0, string(" ")); }
+            name_param_fn(vec![parameter.clone()], vec![
+                declare(&alias, RValue::Index(Index::new(global(namespace), string(member)))),
+                declare(&amount, RValue::Binary(Binary::new(RValue::Local(parameter.clone()), number(1.0), BinaryOperation::Add))),
+                ret(vec![RValue::Call(Call::new(RValue::Local(alias), arguments))]),
+            ]);
+            assert_eq!(name_of(&parameter), name);
+        }
+        let (alias, connections) = (RcLocal::default(), RcLocal::default());
+        let mut block = Block(vec![
+            declare(&alias, RValue::Index(Index::new(global("table"), string("insert")))),
+            declare(&connections, RValue::Table(Table::default())),
+            Statement::Call(Call::new(RValue::Local(alias.clone()), vec![
+                RValue::Local(connections.clone()), method_call(global("signal"), "Connect", vec![global("callback")]),
+            ])),
+            use_local(&connections),
+        ]);
+        name_locals(&mut block, true);
+        assert_eq!(name_of(&connections), "connections");
+        let Statement::Call(call) = &block[2] else { panic!() };
+        assert!(matches!(&*call.value, RValue::Local(local) if local == &alias));
+    }
+
+    #[test]
+    fn saved_api_roles_reject_mutation_shadowed_namespace_and_alias_chains() {
+        for variant in ["reassigned", "captured_write", "shadowed_namespace", "copy"] {
+            let (alias, original, namespace) = (RcLocal::default(), RcLocal::default(), RcLocal::default());
+            let parameters: Vec<_> = (0..5).map(|_| RcLocal::default()).collect();
+            let mut body = vec![declare(&namespace, global("custom"))];
+            body.push(declare(&original, RValue::Index(Index::new(global("buffer"), string("copy")))));
+            body.push(declare(&alias, match variant {
+                "shadowed_namespace" => RValue::Index(Index::new(RValue::Local(namespace), string("copy"))),
+                "copy" => RValue::Local(original),
+                _ => RValue::Index(Index::new(global("buffer"), string("copy"))),
+            }));
+            let overwrite = || Assign::new(vec![LValue::Local(alias.clone())], vec![global("replacement")]).into();
+            match variant {
+                "reassigned" => body.push(overwrite()),
+                "captured_write" => {
+                    let callback = RcLocal::default();
+                    body.push(declare(&callback, RValue::Closure(Closure {
+                        node_origin: Default::default(),
+                        function: ByAddress(Arc::new(Mutex::new(Function {
+                            body: Block(vec![overwrite()]), ..Function::default()
+                        }))),
+                        upvalues: vec![Upvalue::Ref(alias.clone())],
+                    })));
+                    body.push(use_local(&callback));
+                }
+                _ => {}
+            }
+            body.push(Statement::Call(Call::new(RValue::Local(alias.clone()), parameters.iter().cloned().map(RValue::Local).collect())));
+            name_param_fn(parameters.clone(), body);
+            for (parameter, role) in parameters.iter().zip(["target", "targetOffset", "source", "sourceOffset", "count"]) {
+                assert_ne!(name_of(parameter), role, "{variant}");
+            }
+        }
+    }
+
+    #[test]
+    fn captured_api_alias_keeps_outer_and_parameter_roles_distinct() {
+        let (outer_target, alias, callback, target) = (
+            RcLocal::default(), RcLocal::default(), RcLocal::default(), RcLocal::default(),
+        );
+        let function = Function {
+            parameters: vec![target.clone()],
+            body: Block(vec![
+                Statement::Call(Call::new(RValue::Local(alias.clone()), vec![
+                    RValue::Local(target.clone()), number(0.0), global("sourceBuffer"), number(0.0), number(1.0),
+                ])),
+                use_local(&outer_target),
+            ]),
+            ..Function::default()
+        };
+        let mut block = Block(vec![
+            declare(&outer_target, RValue::Index(Index::new(global("state"), string("target")))),
+            declare(&alias, RValue::Index(Index::new(global("buffer"), string("copy")))),
+            declare(&callback, RValue::Closure(Closure {
+                node_origin: Default::default(), function: ByAddress(Arc::new(Mutex::new(function))),
+                upvalues: vec![Upvalue::Copy(alias), Upvalue::Ref(outer_target.clone())],
+            })),
+            use_local(&callback),
+        ]);
+        name_locals(&mut block, true);
+        assert_eq!(name_of(&outer_target), "target");
+        assert_eq!(name_of(&target), "target2");
     }
 
     /// API-slot params: `innerScope(p)` -> `outerScope`, `peek(p)` -> `state`,

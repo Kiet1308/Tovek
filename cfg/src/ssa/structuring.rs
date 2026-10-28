@@ -1108,11 +1108,11 @@ mod tests {
         assert_eq!(run(eq(), eq(), lv(&e)), None);
     }
 
-    // then == condition == else collapses to just the condition (via `X or X`).
+    // The expression keeps an eager snapshot instead of exposing a borrowed local.
     #[test]
-    fn then_condition_and_else_all_equal_collapse_to_condition() {
+    fn then_condition_and_else_all_equal_keep_logical_snapshot() {
         let v = rclocal("v");
-        assert_eq!(run(lv(&v), lv(&v), lv(&v)), Some("v".to_string()));
+        assert_eq!(run(lv(&v), lv(&v), lv(&v)), Some("v or v".to_string()));
     }
 
     // No-regression boundary: matching only the right operand (v2, not the whole

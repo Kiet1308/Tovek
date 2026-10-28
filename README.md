@@ -252,8 +252,15 @@ including native bulk growth for open SETLIST; an open list store without that
 proof is refused. Recovery covers mixed positional/keyed prefixes and preserves
 invalid-key errors before later field effects. A captured register key is
 snapshotted after its field value, preserving mutations made by a callback.
-This recovery still refuses incoming captured keys beside effectful values
-when their read timing has not been proved.
+Proved incoming captured keys are snapshotted before their field values;
+ambiguous capture contexts remain refused. Final output also preserves early
+upvalue reads when the compiler inlines a helper: expressions such as
+`key or key` intentionally force an early read. Explicit logical snapshots from the
+input retain that ordering, including for arithmetic, indexing and calls.
+Actual builtin calls may print as `(math.max)(...)` so recompilation keeps the
+call when an external environment replaces the builtin. Open call results that
+cross an operation without a tuple-order proof are refused: a scalar temporary
+would lose arbitrary return values, and a wrapper would add a call frame.
 Empty preallocated hash tables remain a compatibility exception:
 they can still emit `{}`, and `pairs`/`next` order is not guaranteed when compiling
 at a different optimization level. This exception does not justify folding

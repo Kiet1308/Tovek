@@ -1,11 +1,6 @@
-//! A callee read into a local before the arguments run, because they may
-//! run code: `local new = Vector2.new; ...; return new(f(x), g(y))`. Luau
-//! resolves a global path the script never assigns once, when it loads
-//! (`deinline_safety::CaptureSafety::constant_import`), and reads it again
-//! only after code calls getfenv/setfenv on the script's environment, which
-//! the output assumes no other script does (README, "Output and validation").
-//! The call may then name it in place: `Vector2.new(f(x), g(y))`, which
-//! compiles to the same read before the arguments.
+//! Name single-use builtin imports directly at adjacent call sites when the
+//! evaluation-order proof preserves their lookup. Enabling FASTCALL can move
+//! that lookup after arguments, so observable arguments keep the snapshot.
 use crate::{Block, LValue, RValue, RcLocal, Select, Statement, Traverse};
 
 pub fn fold_import_callees(body: &mut Block) {
@@ -13,39 +8,55 @@ pub fn fold_import_callees(body: &mut Block) {
     if census.dynamic_environment() {
         return;
     }
-    block(&mut body.0, &census);
+    block(&mut body.0, &census, true);
 }
 
-fn block(stmts: &mut Vec<Statement>, census: &crate::deinline_safety::CaptureSafety) {
+/// A specialized matching pattern owns its statement blocks, but closure
+/// literals still share their Function bodies with the real tree. Keep those
+/// untouched, and use the full module census for its remaining captured reads.
+pub(crate) fn fold_specialized_import_callees(stmts: &mut Vec<Statement>, census: &crate::deinline_safety::CaptureSafety) -> bool {
+    if census.dynamic_environment() { return false; }
+    block(stmts, census, false)
+}
+
+fn block(stmts: &mut Vec<Statement>, census: &crate::deinline_safety::CaptureSafety, descend_functions: bool) -> bool {
+    let mut changed = false;
     for statement in stmts.iter_mut() {
-        nested_blocks(statement, &mut |nested| block(nested, census));
-        statement.traverse_rvalues(&mut |value| {
-            if let RValue::Closure(closure) = value {
-                block(&mut closure.function.0.lock().body.0, census);
-            }
-        });
+        nested_blocks(statement, &mut |nested| { changed |= block(nested, census, descend_functions); });
+        if descend_functions {
+            statement.traverse_rvalues(&mut |value| {
+                if let RValue::Closure(closure) = value {
+                    changed |= block(&mut closure.function.0.lock().body.0, census, true);
+                }
+            });
+        }
     }
     let mut i = 0;
     while i < stmts.len() {
-        if let Some((alias, path)) = import_alias(&stmts[i], census)
+        if let Some((alias, path)) = import_alias(&stmts[i])
+            // shortcut: only cross comments/empty statements; extend with an explicit intervening-motion proof.
+            && let Some(next) = (i + 1..stmts.len()).find(|&at| !matches!(stmts[at], Statement::Comment(_) | Statement::Empty(_)))
             && crate::deinline::count_local_reads(&stmts[i + 1..], &alias) == 1
             && !written(&stmts[i + 1..], &alias)
-            && name_callee(&mut stmts[i + 1..], &alias, &path)
+            && crate::evaluation_order::can_sink(&stmts[next], &alias, &path, &|local| !census.uncaptured(local))
+            && name_callee(&mut stmts[next], &alias, &path)
         {
             stmts.remove(i);
+            changed = true;
             continue;
         }
         i += 1;
     }
+    changed
 }
 
-/// `local alias = Global.path`, a constant import.
-fn import_alias(statement: &Statement, census: &crate::deinline_safety::CaptureSafety) -> Option<(RcLocal, RValue)> {
+/// Restrict this presentation pass to builtin names; this is no purity proof.
+fn import_alias(statement: &Statement) -> Option<(RcLocal, RValue)> {
     let Statement::Assign(assign) = statement else { return None };
     let ([LValue::Local(alias)], [path]) = (assign.left.as_slice(), assign.right.as_slice()) else {
         return None;
     };
-    (assign.prefix && census.constant_import(path)).then(|| (alias.clone(), path.clone()))
+    (assign.prefix && crate::deinline_safety::library_import(path)).then(|| (alias.clone(), path.clone()))
 }
 
 fn written(stmts: &[Statement], local: &RcLocal) -> bool {
@@ -56,7 +67,7 @@ fn written(stmts: &[Statement], local: &RcLocal) -> bool {
 
 /// Replaces the call of `alias` outside closures with a call of `path`;
 /// false if `alias` is not called there.
-fn name_callee(stmts: &mut [Statement], alias: &RcLocal, path: &RValue) -> bool {
+fn name_callee(statement: &mut Statement, alias: &RcLocal, path: &RValue) -> bool {
     let rename = |call: &mut crate::Call| {
         let calls_alias = matches!(&*call.value, RValue::Local(local) if local == alias);
         if calls_alias {
@@ -64,26 +75,18 @@ fn name_callee(stmts: &mut [Statement], alias: &RcLocal, path: &RValue) -> bool 
         }
         calls_alias
     };
-    for statement in stmts {
-        let mut done = match statement {
-            Statement::Call(call) => rename(call),
-            _ => false,
-        };
-        if !done {
-            statement.traverse_rvalues(&mut |value| {
-                if !done && let RValue::Call(call) | RValue::Select(Select::Call(call)) = value {
-                    done = rename(call);
-                }
-            });
-        }
-        if !done {
-            nested_blocks(statement, &mut |nested| done = done || name_callee(nested, alias, path));
-        }
-        if done {
-            return true;
-        }
+    let mut done = match statement {
+        Statement::Call(call) => rename(call),
+        _ => false,
+    };
+    if !done {
+        statement.traverse_rvalues(&mut |value| {
+            if !done && let RValue::Call(call) | RValue::Select(Select::Call(call)) = value {
+                done = rename(call);
+            }
+        });
     }
-    false
+    done
 }
 
 fn nested_blocks(statement: &mut Statement, visit: &mut impl FnMut(&mut Vec<Statement>)) {
@@ -129,8 +132,94 @@ mod tests {
     #[test]
     fn an_import_read_once_as_a_callee_is_named_in_place() {
         let (new, declaration) = alias("new");
+        let value = Call::new(new.into(), vec![Literal::Number(1.0).into()]).into();
+        let output = run(vec![declaration, Return::new(vec![value]).into()]);
+        assert_eq!(output, "return Vector2.new(1)");
+    }
+
+    #[test]
+    fn callee_snapshot_stays_before_effectful_or_captured_arguments() {
+        let (new, declaration) = alias("new");
         let output = run(vec![declaration, Return::new(vec![call(&new)]).into()]);
-        assert_eq!(output, "return Vector2.new(f())");
+        assert!(output.starts_with("local new = Vector2.new"), "{output}");
+
+        let (new, declaration) = alias("new");
+        let cell = RcLocal::new(Local::new(Some("cell".into())));
+        let writer = Function { body: Block(vec![
+            Assign::new(vec![cell.clone().into()], vec![Literal::Number(20.0).into()]).into(),
+        ]), ..Default::default() };
+        let closure = Closure { node_origin: Default::default(),
+            function: ByAddress(Arc::new(Mutex::new(writer))), upvalues: vec![crate::Upvalue::Ref(cell.clone())] };
+        let value = Call::new(new.into(), vec![cell.into()]).into();
+        let output = run(vec![declaration, Return::new(vec![value, closure.into()]).into()]);
+        assert!(output.starts_with("local new = Vector2.new"), "{output}");
+    }
+
+    #[test]
+    fn specialized_import_folding_uses_the_full_capture_census() {
+        let cell = RcLocal::new(Local::new(Some("cell".into())));
+        let writer = Closure { node_origin: Default::default(),
+            function: ByAddress(Arc::new(Mutex::new(Function {
+                body: Block(vec![Assign::new(vec![cell.clone().into()], vec![Literal::Number(20.0).into()]).into()]),
+                ..Default::default()
+            }))), upvalues: vec![crate::Upvalue::Ref(cell.clone())] };
+        let module = Block(vec![Return::new(vec![writer.into()]).into()]);
+        let census = crate::deinline_safety::CaptureSafety::new(&module);
+        for (argument, allowed) in [
+            (Literal::Number(1.0).into(), true),
+            (cell.into(), false),
+            (Global::from("external").into(), false),
+            (Call::new(Global::from("change").into(), vec![]).into(), false),
+        ] {
+            let (new, declaration) = alias("new");
+            let mut pattern = vec![declaration, Return::new(vec![Call::new(new.into(), vec![argument]).into()]).into()];
+            let before = format!("{pattern:?}");
+            assert_eq!(fold_specialized_import_callees(&mut pattern, &census), allowed);
+            if !allowed { assert_eq!(format!("{pattern:?}"), before); }
+        }
+        let (new, declaration) = alias("new");
+        let mut pattern = vec![declaration, Return::new(vec![Call::new(new.into(), vec![Literal::Number(1.0).into()]).into()]).into()];
+        assert!(!fold_specialized_import_callees(&mut pattern,
+            &crate::deinline_safety::CaptureSafety::exhausted_for_tests()));
+        assert_eq!(pattern.len(), 2);
+    }
+
+    #[test]
+    fn specialized_import_folding_owns_blocks_but_never_changes_shared_functions() {
+        let make_body = || {
+            let (new, declaration) = alias("new");
+            Block(vec![declaration, Return::new(vec![Call::new(new.into(), vec![Literal::Number(1.0).into()]).into()]).into()])
+        };
+        let function = ByAddress(Arc::new(Mutex::new(Function { body: make_body(), ..Default::default() })));
+        let closure = Closure { node_origin: Default::default(), function: function.clone(), upvalues: vec![] };
+        let original = Block(vec![crate::If::new(Global::from("condition").into(),
+            make_body(), Block(vec![Return::new(vec![closure.into()]).into()])).into()]);
+        let census = crate::deinline_safety::CaptureSafety::new(&original);
+        let before = original.to_string();
+        let function_before = function.lock().body.to_string();
+        let mut pattern = crate::deinline::canon(&original.0);
+        assert!(fold_specialized_import_callees(&mut pattern, &census));
+        assert_eq!(original.to_string(), before);
+        assert_eq!(function.lock().body.to_string(), function_before);
+        assert!(Block(pattern).to_string().contains("return Vector2.new(1)"));
+    }
+
+    #[test]
+    fn callee_lookup_does_not_cross_statements_or_become_conditional() {
+        for mode in ["lookup", "mutation", "branch"] {
+            let (new, declaration) = alias("new");
+            let result = Return::new(vec![Call::new(new.into(), vec![Literal::Number(1.0).into()]).into()]).into();
+            let statements = match mode {
+                "branch" => vec![declaration, crate::If::new(Global::from("flag").into(), Block(vec![result]), Block::default()).into()],
+                "mutation" => {
+                    let path = Index::new(Global::from("Vector2").into(), Literal::String(b"new".to_vec()).into());
+                    vec![declaration, Assign::new(vec![path.into()], vec![Literal::Nil.into()]).into(), result]
+                }
+                _ => vec![declaration, Call::new(Global::from("observe").into(), vec![]).into(), result],
+            };
+            let output = run(statements);
+            assert!(output.starts_with("local new = Vector2.new"), "{output}");
+        }
     }
 
     #[test]

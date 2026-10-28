@@ -10,13 +10,33 @@ import struct
 import subprocess
 import sys
 
+from expected_refusals import OPEN_CALL_ORDER_REFUSAL, refusal_outcome_matches
+
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 # These error probes compare the message body; source line numbers change on decompilation.
 ERROR_REPORTER = ('local function report(ok, ...) if ok then print(ok, ...) else '
                   'local message = ...; print(ok, (message:gsub("^subject:%d+: ", ""))) end end; ')
+FALLBACK_DRIVER = (ROOT / "docs/failure_fixtures/fastcall_fallback.driver.luau").read_text()
 CASES = {
+    "vector_member_fallback": ((ROOT / "docs/failure_fixtures/vector_member_fallback.luau").read_text(),
+                               (ROOT / "docs/failure_fixtures/vector_member_fallback.driver.luau").read_text()),
+    "fastcall_open_result_controls": ((ROOT / "docs/failure_fixtures/fastcall_open_result_controls.luau").read_text(),
+                                      (ROOT / "docs/failure_fixtures/fastcall_open_result_controls.driver.luau").read_text()),
+    "fastcall_open_result_error": ((ROOT / "docs/failure_fixtures/fastcall_open_result_error.luau").read_text(),
+                                   (ROOT / "docs/failure_fixtures/fastcall_open_result_error.driver.luau").read_text()),
+    "builtin_constant_call": ((ROOT / "docs/failure_fixtures/builtin_constant_call.luau").read_text(),
+                              (ROOT / "docs/failure_fixtures/builtin_constant_call.driver.luau").read_text()),
+    "fastcall_fallback_prefix_write": ((ROOT / "docs/failure_fixtures/fastcall_fallback_prefix_write.luau").read_text(),
+                                       (ROOT / "docs/failure_fixtures/fastcall_fallback_prefix_write.driver.luau").read_text()),
+    "fastcall_fallback_prefix_read": ((ROOT / "docs/failure_fixtures/fastcall_fallback_prefix_read.luau").read_text(),
+                                      (ROOT / "docs/failure_fixtures/fastcall_fallback_prefix_read.driver.luau").read_text()),
+    "fastcall_alias_snapshot": ((ROOT / "docs/failure_fixtures/semantic_roundtrip/fastcall_alias_snapshot.luau").read_text(), ''),
+    "fastcall_fallback_captured": ((ROOT / "docs/failure_fixtures/fastcall_fallback_captured.luau").read_text(), FALLBACK_DRIVER),
+    "fastcall_fallback_effects": ((ROOT / "docs/failure_fixtures/fastcall_fallback_effects.luau").read_text(), FALLBACK_DRIVER),
+    "incoming_operand_read_timing": ((ROOT / "docs/failure_fixtures/semantic_roundtrip/incoming_operand_read_timing.luau").read_text(), ''),
+    "binary_snapshot_timing": ((ROOT / "docs/failure_fixtures/semantic_roundtrip/binary_snapshot_timing.luau").read_text(), ''),
     "table_open_list_owned_key_timing": ((ROOT / "docs/failure_fixtures/semantic_roundtrip/table_open_list_owned_key_timing.luau").read_text(), ''),
-    "table_open_list_incoming_key_timing": ((ROOT / "docs/failure_fixtures/strict_refusals/table_open_list_incoming_key_timing.luau").read_text(), ''),
+    "table_open_list_incoming_key_timing": ((ROOT / "docs/failure_fixtures/semantic_roundtrip/table_open_list_incoming_key_timing.luau").read_text(), ''),
     "table_open_list_late_key_read": ((ROOT / "docs/failure_fixtures/semantic_roundtrip/table_open_list_late_key_read.luau").read_text(), ''),
     "table_open_list_key_errors": ((ROOT / "docs/failure_fixtures/semantic_roundtrip/table_open_list_key_errors.luau").read_text(), ''),
     "table_open_list_positional_prefix": ((ROOT / "docs/failure_fixtures/semantic_roundtrip/table_open_list_positional_prefix.luau").read_text(), ''),
@@ -158,13 +178,22 @@ CROSS_OPT_FIXTURES = (
     'parameter_hole_multret', 'snapshot_receiver_and_constructor_key',
 )
 CROSS_OPT_BASELINE = ROOT / 'docs/failure_fixtures/deep_review_cross_optimization_baseline.json'
+# Only these reviewed source/profile/options tuples admit the open-result refusal.
+EXPECTED_INPUT_REFUSALS = {
+    (name, optimization, debug, digest,
+     ('--fflags=false', '--vector-lib=vector', '--vector-ctor=create')):
+        OPEN_CALL_ORDER_REFUSAL
+    for name, digest, optimizations, debugs in (
+        ('fastcall_open_result_error',
+         'd352150d50ed69efdb6edb6f6ae281d3ea3a115b9154a179b9aa17d28bb5ddb8', (1, 2), (0, 1, 2)),
+        ('closure_constant_cached_by_another_copy',
+         'c634332ae9d39e5d18b8cdc0ca39a3a80b3d8855a1b5f7b5a42f4e8b6bf5a74d', (1,), (0, 2)),
+    )
+    for optimization in optimizations for debug in debugs
+}
 PROFILE_FIELDS = ('ca', 'input_optimization', 'output_optimization', 'debug')
 IDENTITY_FIELDS = (*PROFILE_FIELDS, 'source_sha256', 'driver_sha256', 'compiler_options',
                    'driver_optimization', 'driver_debug')
-EXPECTED_REFUSALS = {
-    ('table_open_list_incoming_key_timing', optimization, debug): 'an open SETLIST without a proved native constructor'
-    for optimization, debug in ((0, 0), (0, 2), (1, 0), (1, 2), (2, 0), (2, 2))
-}
 
 
 def run(command):
@@ -261,6 +290,10 @@ def check(args, name, source, driver, optimization, debug, bytecode=None, intege
                 'driver_sha256': hashlib.sha256(driver.encode()).hexdigest(),
                 'compiler_options': compiler_options(integer, vector3),
                 'driver_optimization': 1, 'driver_debug': 1, 'group': case_group(name), 'status': 'failed'}
+    if (refusal is None and bytecode is None
+            and type(optimization) is int and type(debug) is int):
+        refusal = EXPECTED_INPUT_REFUSALS.get((name, optimization, debug, evidence['source_sha256'],
+                                               tuple(evidence['compiler_options'])))
     stage = 'driver_compile'
     try:
         compile_source(args, driver_source, driver_data, 1, 1, integer, vector3)
@@ -276,7 +309,10 @@ def check(args, name, source, driver, optimization, debug, bytecode=None, intege
         stage = 'decompile'
         evidence['decompile'] = run([args.lifter, data])
         if refusal and evidence['decompile']['exit_code'] != 0:
-            assert refusal in evidence['decompile']['stderr'] + evidence['decompile']['stdout'], evidence['decompile']
+            if refusal == OPEN_CALL_ORDER_REFUSAL:
+                assert refusal_outcome_matches(refusal, evidence['decompile']), evidence['decompile']
+            else:
+                assert refusal in evidence['decompile']['stderr'] + evidence['decompile']['stdout'], evidence['decompile']
             evidence['ket_qua'] = 'PASS'
             evidence['status'] = 'expected_refusal'
             evidence['tu_choi'] = refusal
@@ -363,8 +399,7 @@ def run_cross_optimization(args):
                     key = (name, optimization, output_optimization, debug)
                     row = check(args, name, source, driver, optimization, debug,
                                 integer=name == 'integer_literals', output_optimization=output_optimization,
-                                vector3=vector3, baseline=baseline.get(key),
-                                refusal=EXPECTED_REFUSALS.get((name, optimization, debug)))
+                                vector3=vector3, baseline=baseline.get(key))
                     results.append(row)
     counts = dict(collections.Counter(row['status'] for row in results))
     missing = sorted(set(baseline) - {profile_key(row) for row in results})
@@ -400,8 +435,18 @@ def main():
         for debug in (0, 2):
             for optimization in (0, 1, 2):
                 results.append(check(args, name, source, driver, optimization, debug,
-                                     integer=name == 'integer_literals',
-                                     refusal=EXPECTED_REFUSALS.get((name, optimization, debug))))
+                                     integer=name == 'integer_literals'))
+    # g1 helper matching must preserve captured reads/writes around fallback callee lookups.
+    for name in ('fastcall_fallback_prefix_read', 'fastcall_fallback_prefix_write'):
+        source, driver = CASES[name]
+        results.append(check(args, name, source, driver, 2, 1, output_optimization=0))
+    # Native vector FASTCALL and ordinary CALL branches must stay distinct at each compiler level.
+    source = (ROOT / 'docs/failure_fixtures/vector_mixed_call_paths.luau').read_text()
+    driver = (ROOT / 'docs/failure_fixtures/vector_mixed_call_paths.driver.luau').read_text()
+    for optimization in (0, 1, 2):
+        for debug in (0, 1, 2):
+            results.append(check(args, 'vector_mixed_call_paths_same_opt', source, driver,
+                                 optimization, debug, vector3=True))
     for path in sorted((ROOT / '_harness/_bugs').glob('C*.luau')):
         if '.dec.' in path.name:
             continue

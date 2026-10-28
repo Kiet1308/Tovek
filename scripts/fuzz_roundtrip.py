@@ -56,6 +56,8 @@ import struct
 import subprocess
 import sys
 
+from expected_refusals import OPEN_CALL_ORDER_REFUSAL, refusal_outcome_matches
+
 VERSION = "typed-families-v3"
 
 PRELUDE = r'''local ids, nextId = {}, 0
@@ -1017,7 +1019,10 @@ def check(args, units, directory, opt, debug, out_opt, mutation=None):
         text = output + error
         if "panicked" in text:
             return "failed", f"panic: {text.strip()[-300:]}"
-        if any(reason in text for reason in REFUSALS):
+        if OPEN_CALL_ORDER_REFUSAL in text:
+            if refusal_outcome_matches(OPEN_CALL_ORDER_REFUSAL, dict(exit_code=code, stdout=output, stderr=error)):
+                return "refused", error.strip()
+        elif code > 0 and not output and any(reason in error for reason in REFUSALS):
             return "refused", text.strip()[-200:]
         return "failed", f"decompile error: {text.strip()[-300:]}"
     emitted = directory / "output.luau"

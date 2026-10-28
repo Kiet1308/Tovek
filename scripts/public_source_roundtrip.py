@@ -16,7 +16,8 @@ import tempfile
 
 from bytecode_roundtrip import compare_chunks, parse_chunk
 from bytecode_dataflow import compare_dataflow
-from roadmap_v2 import ROOT, checked, compile_source, fixture_path, sha256
+from roadmap_v2 import ROOT, checked, compile_source, compiler_flags, fixture_path, run, sha256
+from expected_refusals import refusal_evidence
 from source_fidelity import compare_ast, parse_ast
 from output_quality import analyze_tree
 
@@ -103,8 +104,22 @@ def main():
             raw = compile_source(args, source, opt, manifest["debug_level"])
             bytecode = directory / (source.name + ".luaubc")
             bytecode.write_bytes(raw)
-            output, elapsed = checked([args.lifter, bytecode, "--strict-no-synthetic-control",
-                                       "--script-name", entry["file"], *args.lifter_arg], timeout=args.timeout)
+            decompiled, elapsed = run([args.lifter, bytecode, "--strict-no-synthetic-control",
+                                      "--script-name", entry["file"], *args.lifter_arg], timeout=args.timeout)
+            row["input"] = str(bytecode)
+            outcome = {"exit_code": decompiled.returncode,
+                       "stdout": decompiled.stdout.decode("utf-8", errors="replace"),
+                       "stderr": decompiled.stderr.decode("utf-8", errors="replace")}
+            profile = dict(opt=opt, debug=manifest["debug_level"], bytecode_version=args.bytecode_version,
+                           compiler_flags=compiler_flags(args), lifter_args=args.lifter_arg)
+            refusal = refusal_evidence(entry, entry["source_sha256"], profile, outcome)
+            if refusal:
+                row.update(status="expected_refusal", refusal=refusal, output_bytes=0,
+                           decompile_seconds=elapsed)
+                return row
+            if decompiled.returncode != 0:
+                raise RuntimeError(f"exit {decompiled.returncode}: {outcome['stderr'][:2000]}")
+            output = decompiled.stdout
             if not output.strip():
                 raise ValueError("empty decompiler output")
             emitted = directory / (source.name + ".out.luau")
@@ -141,8 +156,9 @@ def main():
         groups[split] = {"total": len(subset), "status": dict(collections.Counter(r["status"] for r in subset)),
                          "dataflow": dict(collections.Counter(r["dataflow"]["status"] for r in subset)),
                          "ast": dict(collections.Counter(r["source_fidelity"]["status"] for r in subset))}
-    report = {"schema_version": 1, "manifest_sha256": sha256(args.manifest), "summary": groups,
+    report = {"schema_version": 1, "manifest_path": str(args.manifest.resolve()), "manifest_sha256": sha256(args.manifest), "summary": groups,
               "lifter_args": args.lifter_arg, "bytecode_version": args.bytecode_version,
+              "compiler_flags": compiler_flags(args),
               "tools": {name: {"path": str(getattr(args, name)), "sha256": sha256(getattr(args, name))}
                         for name in ("compiler", "lifter", "ast") if getattr(args, name)},
               "compiler_commit_expected": manifest["compiler_commit"], "rows": rows,
@@ -156,7 +172,7 @@ def main():
     args.report.parent.mkdir(parents=True, exist_ok=True)
     args.report.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8", newline="\n")
     print(json.dumps(groups, indent=2))
-    return int(any(r["status"] != "passed" for r in rows))
+    return int(any(r["status"] not in ("passed", "expected_refusal") for r in rows))
 
 
 if __name__ == "__main__":

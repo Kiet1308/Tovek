@@ -511,9 +511,10 @@ struct OpenListSnapshots {
 
 impl OpenListSnapshots {
     fn can_snapshot_key(&self, key: &RValue, value: &RValue, function: Option<usize>) -> bool {
-        // shortcut: incoming or ambiguous captured keys stay refused until their eager-read recovery is verified.
+        // shortcut: ambiguous capture contexts stay refused until read timing is proved for every occurrence.
         !matches!(key, RValue::Local(local) if self.inventory.captured.contains(&local.stable_id())
-            && !crate::is_total_pure(value) && !self.safety.register_of(local, function))
+            && !crate::is_total_pure(value) && !self.safety.register_of(local, function)
+            && !self.safety.upvalue_of(local, function))
     }
 
     fn snapshots(&mut self, fields: &mut [(Option<RValue>, RValue)], function: Option<usize>) -> Vec<Statement> {
@@ -1899,8 +1900,49 @@ mod tests {
     }
 
     #[test]
-    fn late_list_snapshots_refuse_incoming_and_ambiguous_captured_keys() {
-        for shared in [false, true] {
+    fn late_list_snapshots_read_incoming_keys_before_effectful_values() {
+        for copy in [false, true] {
+            for grandchild in [false, true] {
+                for split in [false, true] {
+                    for value in [Call::new(global("change"), vec![]).into(), global("lookup")] {
+                        let key = local("key");
+                        let object = local("object");
+                        let fields = if split { vec![] } else { vec![(Some(key.clone().into()), value.clone())] };
+                        let mut body = Block(vec![declare(&object, Table(fields, Default::default(),
+                            crate::TableShape::NewTable { hash: 1, array: 1 }).into())]);
+                        if split { body.0.push(assign_field(&object, key.clone().into(), value)); }
+                        body.0.push(Call::new(global("middle"), vec![]).into());
+                        body.0.push(crate::SetList::new(object, 1, vec![],
+                            Some(Call::new(global("tail"), vec![]).into())).into());
+                        let capture = if copy { Upvalue::Copy(key) } else { Upvalue::Ref(key) };
+                        let mut block = Block(vec![declare(&local("build"), Closure {
+                            node_origin: Default::default(),
+                            function: ByAddress(Arc::new(Mutex::new(Function { body, ..Default::default() }))),
+                            upvalues: vec![capture.clone()],
+                        }.into())]);
+                        if grandchild {
+                            block = Block(vec![declare(&local("outer"), Closure {
+                                node_origin: Default::default(),
+                                function: ByAddress(Arc::new(Mutex::new(Function { body: block, ..Default::default() }))),
+                                upvalues: vec![capture],
+                            }.into())]);
+                        }
+                        let pass = super::snapshot_open_list_constructors(&mut block).unwrap();
+                        assert_eq!(pass.introduced_locals, 2);
+                        assert_eq!(pass.ledger.records.len(), 2);
+                        let text = block.to_string();
+                        assert!(text.find("local constructorKey = key").unwrap()
+                            < text.find("local constructorValue = ").unwrap(), "{text}");
+                        assert!(super::reserve_unfolded_table_slots(&mut block).is_ok(), "{text}");
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn late_list_snapshots_refuse_ambiguous_captured_keys() {
+        for reverse in [false, true] {
             for split in [false, true] {
                 for value in [Call::new(global("change"), vec![]).into(), global("lookup")] {
                     let key = local("key");
@@ -1915,14 +1957,12 @@ mod tests {
                     let function = ByAddress(Arc::new(Mutex::new(Function { body, ..Default::default() })));
                     let closure = Closure { node_origin: Default::default(), function,
                         upvalues: vec![Upvalue::Ref(key)] };
-                    let mut block = Block::default();
-                    if shared {
-                        // A later occurrence supplies captures absent from the first visited body.
-                        let mut first = closure.clone();
-                        first.upvalues.clear();
-                        block.0.push(declare(&local("first"), first.into()));
-                    }
-                    block.0.push(declare(&local("build"), closure.into()));
+                    // One occurrence supplies captures absent from the other shared body.
+                    let mut first = closure.clone();
+                    first.upvalues.clear();
+                    let mut block = Block(vec![declare(&local("first"), first.into()),
+                        declare(&local("build"), closure.into())]);
+                    if reverse { block.0.reverse(); }
                     let before = block.to_string();
                     assert!(super::snapshot_open_list_constructors(&mut block).is_none());
                     assert_eq!(block.to_string(), before);

@@ -312,7 +312,177 @@
       "source": "naming_roles.luau",
       "driver": "naming_roles.driver.luau",
       "runtime_compile_inline": true,
-      "expected_stdout": "1:0|true:3:Sa:plain:Sb|3:Da:false:Db|\"x\"|one,two|2|5|serialize:a,serialize:b,deserialize:a,observe:Da,deserialize:b,observe:Db\n1:1|false:STOP1|serialize:a\n1:2|false:STOP2|serialize:a,serialize:b\n1:3|false:STOP3|serialize:a,serialize:b,deserialize:a\n1:4|false:STOP4|serialize:a,serialize:b,deserialize:a,observe:Da\n1:5|false:STOP5|serialize:a,serialize:b,deserialize:a,observe:Da,deserialize:b\n1:6|false:STOP6|serialize:a,serialize:b,deserialize:a,observe:Da,deserialize:b,observe:Db\n2:0|true:3:Sa:plain:Sb|3:Da:false:Db|false|one,two|2|6|serialize:a,serialize:b,deserialize:a,observe:Da,deserialize:b,observe:Db\n2:1|false:STOP1|serialize:a\n2:2|false:STOP2|serialize:a,serialize:b\n2:3|false:STOP3|serialize:a,serialize:b,deserialize:a\n2:4|false:STOP4|serialize:a,serialize:b,deserialize:a,observe:Da\n2:5|false:STOP5|serialize:a,serialize:b,deserialize:a,observe:Da,deserialize:b\n2:6|false:STOP6|serialize:a,serialize:b,deserialize:a,observe:Da,deserialize:b,observe:Db\n3:0|true:3:Sa:plain:Sb|3:Da:false:Db|7|one,two|2|8|serialize:a,serialize:b,deserialize:a,observe:Da,deserialize:b,observe:Db\n3:1|false:STOP1|serialize:a\n3:2|false:STOP2|serialize:a,serialize:b\n3:3|false:STOP3|serialize:a,serialize:b,deserialize:a\n3:4|false:STOP4|serialize:a,serialize:b,deserialize:a,observe:Da\n3:5|false:STOP5|serialize:a,serialize:b,deserialize:a,observe:Da,deserialize:b\n3:6|false:STOP6|serialize:a,serialize:b,deserialize:a,observe:Da,deserialize:b,observe:Db\n4:0|true:3:Sa:plain:Sb|3:Da:false:Db| \"a\"   \"b\"|one,two|2|9|serialize:a,serialize:b,deserialize:a,observe:Da,deserialize:b,observe:Db\n4:1|false:STOP1|serialize:a\n4:2|false:STOP2|serialize:a,serialize:b\n4:3|false:STOP3|serialize:a,serialize:b,deserialize:a\n4:4|false:STOP4|serialize:a,serialize:b,deserialize:a,observe:Da\n4:5|false:STOP5|serialize:a,serialize:b,deserialize:a,observe:Da,deserialize:b\n4:6|false:STOP6|serialize:a,serialize:b,deserialize:a,observe:Da,deserialize:b,observe:Db\n5:0|true:3:Sa:plain:Sb|3:Da:false:Db|nil|one,two|2|11|serialize:a,serialize:b,deserialize:a,observe:Da,deserialize:b,observe:Db\n5:1|false:STOP1|serialize:a\n5:2|false:STOP2|serialize:a,serialize:b\n5:3|false:STOP3|serialize:a,serialize:b,deserialize:a\n5:4|false:STOP4|serialize:a,serialize:b,deserialize:a,observe:Da\n5:5|false:STOP5|serialize:a,serialize:b,deserialize:a,observe:Da,deserialize:b\n5:6|false:STOP6|serialize:a,serialize:b,deserialize:a,observe:Da,deserialize:b,observe:Db\n6:0|true:3:Sa:plain:Sb|3:Da:false:Db||one,two|2|12|serialize:a,serialize:b,deserialize:a,observe:Da,deserialize:b,observe:Db\n6:1|false:STOP1|serialize:a\n6:2|false:STOP2|serialize:a,serialize:b\n6:3|false:STOP3|serialize:a,serialize:b,deserialize:a\n6:4|false:STOP4|serialize:a,serialize:b,deserialize:a,observe:Da\n6:5|false:STOP5|serialize:a,serialize:b,deserialize:a,observe:Da,deserialize:b\n6:6|false:STOP6|serialize:a,serialize:b,deserialize:a,observe:Da,deserialize:b,observe:Db\n"
+      "expected_stdout": "1:0|true:3:Sa:plain:Sb|3:Da:false:Db|\"x\"|one,two|2|5|serialize:a,serialize:b,deserialize:a,observe:Da,deserialize:b,observe:Db\n1:1|false:STOP1|serialize:a\n1:2|false:STOP2|serialize:a,serialize:b\n1:3|false:STOP3|serialize:a,serialize:b,deserialize:a\n1:4|false:STOP4|serialize:a,serialize:b,deserialize:a,observe:Da\n1:5|false:STOP5|serialize:a,serialize:b,deserialize:a,observe:Da,deserialize:b\n1:6|false:STOP6|serialize:a,serialize:b,deserialize:a,observe:Da,deserialize:b,observe:Db\n2:0|true:3:Sa:plain:Sb|3:Da:false:Db|false|one,two|2|6|serialize:a,serialize:b,deserialize:a,observe:Da,deserialize:b,observe:Db\n2:1|false:STOP1|serialize:a\n2:2|false:STOP2|serialize:a,serialize:b\n2:3|false:STOP3|serialize:a,serialize:b,deserialize:a\n2:4|false:STOP4|serialize:a,serialize:b,deserialize:a,observe:Da\n2:5|false:STOP5|serialize:a,serialize:b,deserialize:a,observe:Da,deserialize:b\n2:6|false:STOP6|serialize:a,serialize:b,deserialize:a,observe:Da,deserialize:b,observe:Db\n3:0|true:3:Sa:plain:Sb|3:Da:false:Db|7|one,two|2|8|serialize:a,serialize:b,deserialize:a,observe:Da,deserialize:b,observe:Db\n3:1|false:STOP1|serialize:a\n3:2|false:STOP2|serialize:a,serialize:b\n3:3|false:STOP3|serialize:a,serialize:b,deserialize:a\n3:4|false:STOP4|serialize:a,serialize:b,deserialize:a,observe:Da\n3:5|false:STOP5|serialize:a,serialize:b,deserialize:a,observe:Da,deserialize:b\n3:6|false:STOP6|serialize:a,serialize:b,deserialize:a,observe:Da,deserialize:b,observe:Db\n4:0|true:3:Sa:plain:Sb|3:Da:false:Db| \"a\"   \"b\"|one,two|2|9|serialize:a,serialize:b,deserialize:a,observe:Da,deserialize:b,observe:Db\n4:1|false:STOP1|serialize:a\n4:2|false:STOP2|serialize:a,serialize:b\n4:3|false:STOP3|serialize:a,serialize:b,deserialize:a\n4:4|false:STOP4|serialize:a,serialize:b,deserialize:a,observe:Da\n4:5|false:STOP5|serialize:a,serialize:b,deserialize:a,observe:Da,deserialize:b\n4:6|false:STOP6|serialize:a,serialize:b,deserialize:a,observe:Da,deserialize:b,observe:Db\n5:0|true:3:Sa:plain:Sb|3:Da:false:Db|nil|one,two|2|11|serialize:a,serialize:b,deserialize:a,observe:Da,deserialize:b,observe:Db\n5:1|false:STOP1|serialize:a\n5:2|false:STOP2|serialize:a,serialize:b\n5:3|false:STOP3|serialize:a,serialize:b,deserialize:a\n5:4|false:STOP4|serialize:a,serialize:b,deserialize:a,observe:Da\n5:5|false:STOP5|serialize:a,serialize:b,deserialize:a,observe:Da,deserialize:b\n5:6|false:STOP6|serialize:a,serialize:b,deserialize:a,observe:Da,deserialize:b,observe:Db\n6:0|true:3:Sa:plain:Sb|3:Da:false:Db||one,two|2|12|serialize:a,serialize:b,deserialize:a,observe:Da,deserialize:b,observe:Db\n6:1|false:STOP1|serialize:a\n6:2|false:STOP2|serialize:a,serialize:b\n6:3|false:STOP3|serialize:a,serialize:b,deserialize:a\n6:4|false:STOP4|serialize:a,serialize:b,deserialize:a,observe:Da\n6:5|false:STOP5|serialize:a,serialize:b,deserialize:a,observe:Da,deserialize:b\n6:6|false:STOP6|serialize:a,serialize:b,deserialize:a,observe:Da,deserialize:b,observe:Db\n",
+      "source_sha256": "e1d3057e48ccfbfcdf3f2438aab41d9bb32e27694643dedccbfbc7d00df60e62",
+      "expected_refusal": {
+        "reason": "cannot preserve open call results across an operation without a tuple-order proof",
+        "profiles": [
+          {
+            "opt": 1,
+            "debug": 1,
+            "bytecode_version": 9,
+            "compiler_flags": [
+              "--fflags=false"
+            ],
+            "lifter_args": []
+          },
+          {
+            "opt": 1,
+            "debug": 1,
+            "bytecode_version": 12,
+            "compiler_flags": [
+              "--fflags=false,LuauBytecodeCostModel=true,LuauEmitCallFeedback=true",
+              "-t1"
+            ],
+            "lifter_args": []
+          },
+          {
+            "opt": 1,
+            "debug": 1,
+            "bytecode_version": 14,
+            "compiler_flags": [
+              "--fflags=false,LuauBytecodeCostModel=true,LuauEmitCallFeedback=true,LuauCompileEmitVectorDouble=true,LuauCompileFastpcall=true",
+              "-t1"
+            ],
+            "lifter_args": []
+          },
+          {
+            "opt": 1,
+            "debug": 1,
+            "bytecode_version": 9,
+            "compiler_flags": [
+              "--fflags=false"
+            ],
+            "lifter_args": [
+              "--style",
+              "compact"
+            ]
+          },
+          {
+            "opt": 1,
+            "debug": 2,
+            "bytecode_version": 9,
+            "compiler_flags": [
+              "--fflags=false"
+            ],
+            "lifter_args": []
+          },
+          {
+            "opt": 1,
+            "debug": 2,
+            "bytecode_version": 12,
+            "compiler_flags": [
+              "--fflags=false,LuauBytecodeCostModel=true,LuauEmitCallFeedback=true",
+              "-t1"
+            ],
+            "lifter_args": []
+          },
+          {
+            "opt": 1,
+            "debug": 2,
+            "bytecode_version": 14,
+            "compiler_flags": [
+              "--fflags=false,LuauBytecodeCostModel=true,LuauEmitCallFeedback=true,LuauCompileEmitVectorDouble=true,LuauCompileFastpcall=true",
+              "-t1"
+            ],
+            "lifter_args": []
+          },
+          {
+            "opt": 1,
+            "debug": 2,
+            "bytecode_version": 9,
+            "compiler_flags": [
+              "--fflags=false"
+            ],
+            "lifter_args": [
+              "--style",
+              "compact"
+            ]
+          },
+          {
+            "opt": 2,
+            "debug": 1,
+            "bytecode_version": 9,
+            "compiler_flags": [
+              "--fflags=false"
+            ],
+            "lifter_args": []
+          },
+          {
+            "opt": 2,
+            "debug": 1,
+            "bytecode_version": 12,
+            "compiler_flags": [
+              "--fflags=false,LuauBytecodeCostModel=true,LuauEmitCallFeedback=true",
+              "-t1"
+            ],
+            "lifter_args": []
+          },
+          {
+            "opt": 2,
+            "debug": 1,
+            "bytecode_version": 14,
+            "compiler_flags": [
+              "--fflags=false,LuauBytecodeCostModel=true,LuauEmitCallFeedback=true,LuauCompileEmitVectorDouble=true,LuauCompileFastpcall=true",
+              "-t1"
+            ],
+            "lifter_args": []
+          },
+          {
+            "opt": 2,
+            "debug": 1,
+            "bytecode_version": 9,
+            "compiler_flags": [
+              "--fflags=false"
+            ],
+            "lifter_args": [
+              "--style",
+              "compact"
+            ]
+          },
+          {
+            "opt": 2,
+            "debug": 2,
+            "bytecode_version": 9,
+            "compiler_flags": [
+              "--fflags=false"
+            ],
+            "lifter_args": []
+          },
+          {
+            "opt": 2,
+            "debug": 2,
+            "bytecode_version": 12,
+            "compiler_flags": [
+              "--fflags=false,LuauBytecodeCostModel=true,LuauEmitCallFeedback=true",
+              "-t1"
+            ],
+            "lifter_args": []
+          },
+          {
+            "opt": 2,
+            "debug": 2,
+            "bytecode_version": 14,
+            "compiler_flags": [
+              "--fflags=false,LuauBytecodeCostModel=true,LuauEmitCallFeedback=true,LuauCompileEmitVectorDouble=true,LuauCompileFastpcall=true",
+              "-t1"
+            ],
+            "lifter_args": []
+          },
+          {
+            "opt": 2,
+            "debug": 2,
+            "bytecode_version": 9,
+            "compiler_flags": [
+              "--fflags=false"
+            ],
+            "lifter_args": [
+              "--style",
+              "compact"
+            ]
+          }
+        ]
+      }
     },
     {
       "name": "terminal_returns",
@@ -360,6 +530,14 @@
       "driver": "open_list_prefix_recovery.driver.luau",
       "runtime_compile_inline": true,
       "expected_stdout": "keyed\ttrue\nvalue\nsecond\nyes\nresult\t3\t5\tnil\t7\tnil\t1\t2\nkeyed\tfalse\nvalue\nsecond\nno\nresult\t4\t5\tnil\t7\tnil\tnil\t2\nkeyed\ttrue\nvalue\nerror\ttable index is nil\nkeyed\tfalse\nvalue\nerror\ttable index is NaN\npositional\ttrue\narray\nvalue\nsecond\nyes\nresult\t10\t3\t5\tnil\t7\t1\t2\npositional\tfalse\narray\nvalue\nsecond\nno\nresult\t10\t4\t5\tnil\t7\tnil\t2\npositional\ttrue\narray\nvalue\nerror\ttable index is nil\npositional\tfalse\narray\nvalue\nerror\ttable index is NaN\n"
+    },
+    {
+      "name": "eager_capture_operand",
+      "group": "capture-read-order",
+      "source": "eager_capture_operand.luau",
+      "driver": "eager_capture_operand.driver.luau",
+      "runtime_compile_inline": true,
+      "expected_stdout": "12\n2\n-5\n"
     },
     {
       "name": "captured_key_store_order",

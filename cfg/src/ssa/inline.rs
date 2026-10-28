@@ -143,58 +143,6 @@ fn rvalue_blocks_reorder(rvalue: &ast::RValue) -> bool {
     }
 }
 
-/// Whether evaluating `rvalue` later could write a captured cell. A builtin
-/// or a fixed library member (`error`, `debug.traceback`) the chunk cannot
-/// have replaced is fetched without running Lua code, so it cannot; a script
-/// table's field (`t.x`) may run `__index`, and any call, operator or other
-/// index might.
-fn may_write_capture_when_moved(rvalue: &ast::RValue, globals: &ast::ChunkGlobals) -> bool {
-    !globals.fixed_library_import(rvalue) && ast::effects::may_write_capture(rvalue)
-}
-
-/// A global or a constant-key field chain on one (`table.insert`): what
-/// GETIMPORT fetches.
-fn is_import_path(rvalue: &ast::RValue) -> bool {
-    match rvalue {
-        ast::RValue::Global(_) => true,
-        ast::RValue::Index(index) => {
-            matches!(index.right.as_ref(), ast::RValue::Literal(ast::Literal::String(_)))
-                && is_import_path(&index.left)
-        }
-        _ => false,
-    }
-}
-
-/// Every node of the import-path callees of `Call`s lifted from a FASTCALL or
-/// FASTPCALL fallback. The bytecode fetches such a callee after evaluating the
-/// arguments, so no part of it is an ordering barrier for them.
-fn late_global_callees(statement: &ast::Statement) -> Vec<*const ast::RValue> {
-    fn mark(call: &ast::Call, out: &mut Vec<*const ast::RValue>) {
-        if !call.callee_after_arguments || !is_import_path(&call.value) {
-            return;
-        }
-        let mut node = call.value.as_ref();
-        loop {
-            out.push(node as *const _);
-            let ast::RValue::Index(index) = node else { break };
-            out.push(index.right.as_ref() as *const _);
-            node = index.left.as_ref();
-        }
-    }
-    fn visit(rvalue: &ast::RValue, out: &mut Vec<*const ast::RValue>) {
-        if let ast::RValue::Call(call) | ast::RValue::Select(ast::Select::Call(call)) = rvalue {
-            mark(call, out);
-        }
-        rvalue.visit_rvalues(&mut |child| { visit(child, out); true });
-    }
-    let mut out = Vec::new();
-    if let ast::Statement::Call(call) = statement {
-        mark(call, &mut out);
-    }
-    statement.visit_rvalues(&mut |rvalue| { visit(rvalue, &mut out); true });
-    out
-}
-
 /// Returns whether `read` occurs in a subexpression that may not be evaluated
 /// on every execution of `rvalue`. A side-effecting definition cannot be moved
 /// into such a position: `local x = effect(); return flag and x` must not become
@@ -372,7 +320,6 @@ impl<'a> Inliner<'a> {
         }
     }
 
-    #[allow(clippy::too_many_arguments)]
     fn try_inline(
         traversible: &mut impl Traverse,
         read: &ast::RcLocal,
@@ -381,7 +328,6 @@ impl<'a> Inliner<'a> {
         upvalue_to_group: &IndexMap<ast::RcLocal, ast::RcLocal>,
         readonly_capture_ids: &FxHashSet<u64>,
         incoming_upvalue_ids: Option<&FxHashSet<u64>>,
-        late_callees: &[*const ast::RValue],
     ) -> bool {
         let candidate_may_write_capture = new_rvalue_has_side_effects
             && ast::effects::may_write_capture(new_rvalue.as_ref().unwrap());
@@ -474,7 +420,6 @@ impl<'a> Inliner<'a> {
                                 _ => {}
                             }
                             if new_rvalue_has_side_effects
-                                && !late_callees.contains(&(rvalue as *const ast::RValue))
                                 && !late_reads.contains(&(rvalue as *const ast::RValue))
                                 && (rvalue_blocks_reorder(rvalue)
                                     || (candidate_may_write_capture
@@ -505,7 +450,6 @@ impl<'a> Inliner<'a> {
         for node_index in 0..schedule.nodes.len() {
             let node = schedule.nodes[node_index];
             if !schedule.visit(node, self.function.block(node).unwrap().len()) { continue; }
-            let globals = self.function.globals.clone();
             let block = self.function.block_mut(node).unwrap();
             let mut facts = facts::Cache::new(
                 block.len(), self.local_to_group, self.upvalue_to_group, self.readonly_capture_ids);
@@ -585,7 +529,7 @@ impl<'a> Inliner<'a> {
                         let new_rvalue_has_side_effects = statement_facts.single_rhs_observable.unwrap();
                         if (!new_rvalue_has_side_effects || allow_side_effects)
                             && !(crossed_capture_read && new_rvalue_has_side_effects
-                                && may_write_capture_when_moved(new_rvalue, &globals))
+                                && ast::effects::may_write_capture(new_rvalue))
                             && !is_service_or_require_handle(new_rvalue)
                             && !new_rvalue.nests_deeper_than(ast::MAX_INLINED_DEPTH)
                             && !matches!(new_rvalue, ast::RValue::Closure(c)
@@ -594,6 +538,10 @@ impl<'a> Inliner<'a> {
                             if let Ok(ast::LValue::Local(local)) = &assign.left.iter().exactly_one()
                                 && !forwards_table_into_index_write(new_rvalue, &block[index], local)
                                 && !forwards_call_into_generalized_iteration(new_rvalue, &block[index], local)
+                                && !ast::evaluation_order::import_callee_conflict(&block[index], local, new_rvalue, &|cell| {
+                                    self.upvalue_to_group.contains_key(cell)
+                                        && !self.readonly_capture_ids.contains(&cell.stable_id())
+                                })
                                 && !forwards_cell_into_late_read(new_rvalue, &block[index], local, |cell| {
                                     self.upvalue_to_group.contains_key(cell)
                                         && !self.readonly_capture_ids.contains(&cell.stable_id())
@@ -611,10 +559,6 @@ impl<'a> Inliner<'a> {
                                         .pop()
                                         .unwrap(),
                                 );
-                                // A FASTPCALL callee is an import fetched after the
-                                // arguments (`Call::callee_after_arguments`), so an
-                                // argument definition does not move across it.
-                                let late_callees = late_global_callees(&block[index]);
                                 // A function moving into the store of its own
                                 // name (`M.F = F`, `function M.F`) that line info
                                 // shows Luau inlined: the move is proven on a copy
@@ -638,7 +582,6 @@ impl<'a> Inliner<'a> {
                                         self.upvalue_to_group,
                                         self.readonly_capture_ids,
                                         self.incoming_upvalue_ids,
-                                        &late_callees,
                                     ) && let Some(ast::RValue::Closure(closure)) = &new_rvalue
                                     {
                                         closure.function.lock().named_store_fold = true;
@@ -653,7 +596,6 @@ impl<'a> Inliner<'a> {
                                         self.upvalue_to_group,
                                         self.readonly_capture_ids,
                                         self.incoming_upvalue_ids,
-                                        &late_callees,
                                     )
                                 };
                                 if inlined {
@@ -871,7 +813,6 @@ impl<'a> Inliner<'a> {
                                     self.upvalue_to_group,
                                     self.readonly_capture_ids,
                                     None,
-                                    &[],
                                 ) {
                                     assert!(new_rvalue.is_none());
                                     schedule.changed(node);
@@ -1971,6 +1912,8 @@ mod tests {
             ("store_key", false, false),
             ("store_base", false, false),
             ("receiver", false, false),
+            ("call_alias", false, false),
+            ("call_alias", true, true),
             ("constructor_key", false, false),
             ("store_key", true, true),
             ("store_literal", false, true),
@@ -1992,6 +1935,9 @@ mod tests {
                 "receiver" => Return::new(vec![
                     ast::MethodCall::new(local_value(&before), "m".into(), vec![change()]).into(),
                 ]).into(),
+                "call_alias" => Return::new(vec![
+                    ast::Call::new(local_value(&target), vec![local_value(&before), change()]).into(),
+                ]).into(),
                 _ => Return::new(vec![Table::new(vec![(Some(local_value(&before)), change())]).into()]).into(),
             };
             let mut function = Function::new(0);
@@ -2012,6 +1958,46 @@ mod tests {
             let block = function.block_mut(entry).unwrap();
             remove_empty(block);
             assert_eq!(block.len(), if inlined { 1 } else { 2 }, "{shape} incoming={incoming}: {block}");
+        }
+    }
+
+    #[test]
+    fn builtin_fallback_preserves_early_and_late_callee_snapshots() {
+        for early in [false, true] {
+            for effectful in [false, true] {
+                for scalar in [false, true] {
+                    let callee = local("maximum");
+                    let argument = local("argument");
+                    let cell = local("cell");
+                    let import: RValue = Index::new(global("math"), string("max")).into();
+                    let argument_value = if effectful {
+                        ast::Call::new(global("change"), vec![]).into()
+                    } else { local_value(&cell) };
+                    let callee_bind = Assign::new(vec![callee.clone().into()], vec![import.clone()]).into();
+                    let argument_bind = Assign::new(vec![argument.clone().into()], vec![argument_value]).into();
+                    let mut call = ast::Call::new(local_value(&callee), vec![local_value(&argument), number(2.0)]);
+                    call.callee_after_arguments = !early;
+                    let result = if scalar { ast::Select::Call(call).into() } else { RValue::Call(call) };
+                    let mut function = Function::new(0);
+                    let entry = function.new_block();
+                    let mut statements = if early { vec![callee_bind, argument_bind] } else { vec![argument_bind, callee_bind] };
+                    statements.push(Return::new(vec![result]).into());
+                    *function.block_mut(entry).unwrap() = Block(statements);
+                    function.set_entry(entry);
+                    let captures = IndexMap::from_iter([(cell.clone(), cell)]);
+                    inline(&mut function, &FxHashMap::default(), &captures);
+                    let block = function.block_mut(entry).unwrap();
+                    remove_empty(block);
+                    let kept = if early { &callee } else { &argument };
+                    assert!(block.iter().any(|statement| matches!(statement, Statement::Assign(assign)
+                        if assign.left == vec![LValue::Local(kept.clone())])),
+                        "early={early} effectful={effectful} scalar={scalar}: {block}");
+                    let removed = if early { &argument } else { &callee };
+                    assert!(!block.iter().any(|statement| matches!(statement, Statement::Assign(assign)
+                        if assign.left == vec![LValue::Local(removed.clone())])),
+                        "early={early} effectful={effectful} scalar={scalar}: {block}");
+                }
+            }
         }
     }
 

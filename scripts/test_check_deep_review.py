@@ -114,6 +114,59 @@ class DeepReviewTests(unittest.TestCase):
                     self.assertEqual(row['status'], 'failed')
                     self.assertEqual(row['failure_stage'], 'runtime_comparison')
 
+    def test_open_result_refusal_does_not_cover_o0_or_control_cases(self):
+        reason = 'prototype 0, pc 8: cannot preserve open call results across an operation without a tuple-order proof'
+        with tempfile.TemporaryDirectory() as directory:
+            args = types.SimpleNamespace(work=Path(directory), vm=Path('vm'), lifter=Path('lifter'))
+            for name, optimization, diagnostic, changed_source, vector3, expected in [
+                ('fastcall_open_result_error', 1, reason, False, False, 'expected_refusal'),
+                ('fastcall_open_result_error', 2, reason, False, False, 'expected_refusal'),
+                ('fastcall_open_result_error', 0, reason, False, False, 'failed'),
+                ('fastcall_open_result_controls', 1, reason, False, False, 'failed'),
+                ('fastcall_open_result_error', 1, 'unrelated failure', False, False, 'failed'),
+                ('fastcall_open_result_error', 1, reason, True, False, 'failed'),
+                ('fastcall_open_result_error', 1, reason, False, True, 'failed'),
+            ]:
+                with self.subTest(name=name, optimization=optimization, diagnostic=diagnostic), \
+                        patch.object(review, 'compile_source'), \
+                        patch.object(review, 'run', side_effect=[observed('before\n'), observed('', 1, diagnostic)]), \
+                        contextlib.redirect_stdout(io.StringIO()):
+                    source, driver = review.CASES[name]
+                    if changed_source:
+                        source += '\n-- changed source'
+                    row = review.check(args, name, source, driver, optimization, 2, vector3=vector3)
+                    self.assertEqual(row['status'], expected)
+                    self.assertNotEqual(row['status'], 'passed')
+
+    def test_open_result_refusal_requires_complete_failure_and_compiled_input(self):
+        reason = 'cannot preserve open call results across an operation without a tuple-order proof'
+        diagnostic = 'prototype 0, pc 8: ' + reason
+        source, driver = review.CASES['fastcall_open_result_error']
+        with tempfile.TemporaryDirectory() as directory:
+            args = types.SimpleNamespace(work=Path(directory), vm=Path('vm'), lifter=Path('lifter'))
+            for outcome, bytecode, expected in [
+                (observed('', 1, diagnostic), None, 'expected_refusal'),
+                (observed('', 1, diagnostic + '\n'), None, 'expected_refusal'),
+                (observed('', 1, diagnostic + '\r\n'), None, 'expected_refusal'),
+                (observed('return 7', 1, diagnostic), None, 'failed'),
+                (observed(' \n', 1, diagnostic), None, 'failed'),
+                (observed('', -11, diagnostic), None, 'failed'),
+                (observed('', True, diagnostic), None, 'failed'),
+                (observed('', 1, diagnostic + '\nthread panicked'), None, 'failed'),
+                (observed('', 1, 'unrelated failure: ' + reason), None, 'failed'),
+                (observed('', 1, diagnostic + '\r'), None, 'failed'),
+                (observed('', 1, diagnostic), b'not the compiled source', 'failed'),
+            ]:
+                with self.subTest(outcome=outcome, bytecode=bytecode), \
+                        patch.object(review, 'compile_source'), \
+                        patch.object(review, 'run', side_effect=[observed('before\n'), outcome]), \
+                        contextlib.redirect_stdout(io.StringIO()):
+                    row = review.check(args, 'fastcall_open_result_error', source, driver, 1, 2,
+                                       bytecode=bytecode)
+                    self.assertEqual(row['status'], expected)
+                    self.assertNotIn('sau_sua', row)
+                    self.assertFalse(any(args.work.glob('*/output.luau')))
+
     def test_invalid_utf8_bytes_remain_distinct_through_run_and_check(self):
         results = [types.SimpleNamespace(returncode=0, stdout=stdout, stderr=b'')
                    for stdout in (b'\xff\n', b'return 1', b'\xfe\n')]

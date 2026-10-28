@@ -209,8 +209,11 @@ impl<'a: 'b, 'b> Reduce for Binary {
                 BinaryOperation::Or => right.reduce(),
                 _ => unreachable!(),
             },
-            (left, right, BinaryOperation::And)
-                if crate::is_total_pure(&left) && crate::is_total_pure(&right) && left == right =>
+            // A logical expression snapshots a local before later operands run;
+            // a bare local can instead be read after a callback changes its cell.
+            (left, right, BinaryOperation::And | BinaryOperation::Or)
+                if !matches!(&left, RValue::Local(_))
+                    && crate::is_total_pure(&left) && crate::is_total_pure(&right) && left == right =>
             {
                 left
             }
@@ -228,11 +231,6 @@ impl<'a: 'b, 'b> Reduce for Binary {
                 RValue::Literal(Literal::Boolean(false)),
                 BinaryOperation::Or,
             ) => value,
-            (left, right, BinaryOperation::Or)
-                if crate::is_total_pure(&left) && crate::is_total_pure(&right) && left == right =>
-            {
-                left
-            }
             // TODO: concat numbers
             (
                 RValue::Literal(Literal::String(left)),
@@ -460,21 +458,34 @@ mod tests {
         matches!(r, RValue::Binary(b) if b.operation == op)
     }
 
-    // P1: `a or a` collapses to `a` only when `a` is side-effect-free; a
-    // side-effecting `a` (e.g. a global read) must keep both evaluations.
+    // Pure non-local expressions keep their evaluation point when folded.
     #[test]
-    fn or_idempotence_folds_only_pure_operand() {
-        let x = RcLocal::default();
-        let folded = Binary::new(
-            RValue::Local(x.clone()),
-            RValue::Local(x.clone()),
-            BinaryOperation::Or,
-        )
-        .reduce();
-        assert_eq!(folded, RValue::Local(x));
+    fn idempotence_folds_only_pure_nonlocal_operands() {
+        let value: RValue = crate::Unary::new(local(), crate::UnaryOperation::Not).into();
+        for operation in [BinaryOperation::And, BinaryOperation::Or] {
+            let literal = RValue::Literal(Literal::String(b"value".to_vec()));
+            assert_eq!(Binary::new(literal.clone(), literal.clone(), operation).reduce(), literal);
+            let kept = Binary::new(global("foo"), global("foo"), operation).reduce();
+            assert!(is_binary(&kept, operation));
+        }
+        // De Morgan reduction still evaluates the local before later operands.
+        assert!(matches!(Binary::new(value.clone(), value, BinaryOperation::Or).reduce(), RValue::Unary(_)));
+    }
 
-        let kept = Binary::new(global("foo"), global("foo"), BinaryOperation::Or).reduce();
-        assert!(is_binary(&kept, BinaryOperation::Or));
+    #[test]
+    fn repeated_local_logical_operands_keep_eager_reads() {
+        let value = local();
+        for operation in [BinaryOperation::And, BinaryOperation::Or] {
+            let snapshot: RValue = Binary::new(value.clone(), value.clone(), operation).into();
+            let expression = Binary::new(
+                snapshot.clone(),
+                crate::Call::new(global("change"), Vec::new()).into(),
+                BinaryOperation::Add,
+            );
+            let reduced = expression.clone().reduce();
+            assert_eq!(reduced, expression.into());
+            assert_eq!(snapshot.clone().reduce_condition(), snapshot);
+        }
     }
 
     #[test]

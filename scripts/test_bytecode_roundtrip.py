@@ -378,7 +378,8 @@ class GateTests(unittest.TestCase):
 
     RETURN = bytes([6, 1, 0, 1, 1, 0, 0, 0, 0, 0, 1]) + struct.pack('<I', 22 | (1 << 16)) + bytes([0, 0, 0, 0, 0, 0, 0])
 
-    def run_gate(self, files, baseline, decompiler_exit=0, extra=(), fails_on=None):
+    def run_gate(self, files, baseline, decompiler_exit=0, extra=(), fails_on=None,
+                 refusal=None, batch_failures=None):
         import base64
         import json
         import pathlib
@@ -402,13 +403,33 @@ class GateTests(unittest.TestCase):
                     (out / 'good.luau').write_text('return')
                     # `fails_on`: an input the decompiler fails whenever it is given.
                     given = fails_on is not None and (pathlib.Path(command[2]) / fails_on).exists()
-                    return subprocess.CompletedProcess(command, 1 if given else decompiler_exit, b'', b'')
+                    inputs = list(pathlib.Path(command[2]).rglob('*.lua'))
+                    skipped = sum(path.read_text().startswith('-- no bytecode') for path in inputs)
+                    diagnostic = (b'ok good.lua\n' + (batch_failures or b'')
+                                  + (f'----------------------------------------\n'
+                                     f'Done: 1 decompiled, {skipped} skipped (no bytecode), {len(inputs) - skipped - 1} failed.\n'
+                                     f'Output: {out.resolve()}\n'
+                                     f'Time: 0.01s  ({len(inputs)} files, 5.0 ms/file, 200 files/s, 1 threads)\n').encode())
+                    return subprocess.CompletedProcess(command, 1 if given else decompiler_exit, b'', diagnostic)
+                if refusal and pathlib.Path(command[1]).name.startswith('refusal-'):
+                    outcome = refusal[1]
+                    return subprocess.CompletedProcess(command, outcome['exit_code'],
+                                                       outcome['stdout'].encode(), outcome['stderr'].encode())
                 return subprocess.CompletedProcess(command, 0, self.RETURN, b'')
+
+            collect = bytecode_roundtrip.collect_inputs
+
+            def collect_reviewed(args, work):
+                result = collect(args, work)
+                if refusal:
+                    args._source_refusals = {'refused': (refusal[0], refusal[0]['source_sha256'])}
+                return result
 
             argv = ['bytecode_roundtrip.py', '--lifter', 'lifter', '--compiler', 'compiler', '--corpus', str(corpus),
                     '--key', '1', '--threads', '1', '--work', str(root / 'work'), '--baseline', str(root / 'base.json'),
                     *extra]
             with mock.patch.object(bytecode_roundtrip, 'run', fake_run), mock.patch.object(sys, 'argv', argv), \
+                    mock.patch.object(bytecode_roundtrip, 'collect_inputs', collect_reviewed), \
                     mock.patch('builtins.print'):
                 return bytecode_roundtrip.main()
 
@@ -436,6 +457,45 @@ class GateTests(unittest.TestCase):
             self.assertEqual(self.run_gate(files, {'files': [ok('good'), ok('zbad')]}, extra=selection,
                                            fails_on='zbad.lua'), 0, selection)
 
+    def test_reviewed_refusals_keep_the_input_and_require_exact_batch_accounting(self):
+        import base64
+        import copy
+        good = base64.b64encode(self.RETURN).decode()
+        reason = 'cannot preserve open call results across an operation without a tuple-order proof'
+        profile = dict(opt=2, debug=1, bytecode_version=9,
+                       compiler_flags=['--fflags=false', '--vector-lib=Vector3',
+                                       '--vector-ctor=new', '--vector-type=Vector3'], lifter_args=[])
+        entry = dict(source_sha256='a' * 64, expected_refusal=dict(reason=reason, profiles=[profile]))
+        outcome = dict(exit_code=1, stdout='', stderr=f'prototype 0, pc 1: {reason}\n')
+        baseline = {'files': [{'file': 'good', 'status': 'ok', 'nonequiv': 0, 'protos': 1},
+                              {'file': 'refused', 'status': 'expected_refusal', 'nonequiv': 0, 'protos': 1}]}
+
+        clean_batch = b'FAIL refused.lua\n      ' + outcome['stderr'].encode()
+
+        def gate(refusal=(entry, outcome), batch=clean_batch, code=1, base=baseline):
+            return self.run_gate({'good.lua': good, 'refused.lua': good}, base, decompiler_exit=code,
+                                 refusal=refusal, batch_failures=batch)
+
+        self.assertEqual(gate(), 0)
+        self.assertEqual(gate(batch=b'FAIL another.lua\n'), 1)
+        self.assertEqual(gate(batch=b'FAIL refused.lua\nFAIL manifest\n'), 1)
+        self.assertEqual(gate(batch=b"thread 'worker' panicked: boom\n" + clean_batch), 1)
+        self.assertEqual(gate(batch=b'FAIL refused.lua\n      unrelated failure\n'), 1)
+        self.assertEqual(gate(code=2), 1)
+        self.assertEqual(gate(code=0, batch=b''), 1)
+        self.assertEqual(gate(refusal=None), 1)
+        for change in ({'stdout': 'partial source'}, {'stderr': 'unexpected failure'}, {'exit_code': 0}):
+            self.assertEqual(gate(refusal=(entry, dict(outcome, **change))), 1)
+        wrong_profile = copy.deepcopy(entry)
+        wrong_profile['expected_refusal']['profiles'][0]['opt'] = 0
+        self.assertEqual(gate(refusal=(wrong_profile, outcome)), 1)
+        # A verified coverage loss still needs an explicit baseline review.
+        previous = copy.deepcopy(baseline)
+        previous['files'][1]['status'] = 'ok'
+        self.assertEqual(gate(base=previous), 1)
+        self.assertEqual(self.run_gate({'good.lua': good}, {'files': [baseline['files'][0]]},
+                                       batch_failures=b'error: worker failed\n'), 1)
+
     def test_source_likeness_skips_inputs_too_long_to_match(self):
         import time
         import bytecode_roundtrip
@@ -444,6 +504,84 @@ class GateTests(unittest.TestCase):
         self.assertIsNone(bytecode_roundtrip.source_likeness(long_source, long_source))
         self.assertLess(time.time() - start, 5)
         self.assertEqual(bytecode_roundtrip.source_likeness('return 1', 'return 1'), 1.0)
+
+    def test_corpus_refusal_binds_raw_hash_key_and_diagnostic_and_rejects_output_artifacts(self):
+        import hashlib
+        import pathlib
+        import subprocess
+        import tempfile
+        from types import SimpleNamespace
+        from unittest import mock
+        import bytecode_roundtrip
+        reason = "cannot preserve open call results across an operation without a tuple-order proof"
+        raw = chunk_bytes([proto_body(key=203)])
+        entry = dict(file="refused.lua", fixture_sha256="a" * 64,
+                     bytecode_sha256=hashlib.sha256(raw).hexdigest(),
+                     expected_refusal=dict(reason=reason, prototype=0, pc=3, modes=["strict"]))
+        with tempfile.TemporaryDirectory() as directory:
+            root = pathlib.Path(directory)
+            output = root / "refused.luau"
+            args = SimpleNamespace(lifter="lifter", _short_dir=root, _corpus_refusals={"refused": entry})
+            good = subprocess.CompletedProcess([], 1, b"", f"prototype 0, pc 3: {reason}\n".encode())
+            with mock.patch.object(bytecode_roundtrip, "run", return_value=good) as run:
+                result = bytecode_roundtrip.process_file(args, "refused", raw, 203, output)
+                self.assertEqual(result["status"], "expected_refusal")
+                self.assertEqual(result["refusal"]["key"], 203)
+                self.assertIn("-e", run.call_args.args[0])
+            for outcome in (subprocess.CompletedProcess([], 1, b"partial", good.stderr),
+                            subprocess.CompletedProcess([], 1, b"", good.stderr.replace(b"pc 3", b"pc 4")),
+                            subprocess.CompletedProcess([], -9, b"", good.stderr)):
+                with mock.patch.object(bytecode_roundtrip, "run", return_value=outcome):
+                    self.assertEqual(bytecode_roundtrip.process_file(args, "refused", raw, 203, output)["status"], "no-output")
+            with mock.patch.object(bytecode_roundtrip, "run", return_value=good):
+                entry["bytecode_sha256"] = "0" * 64
+                self.assertEqual(bytecode_roundtrip.process_file(args, "refused", raw, 203, output)["status"], "no-output")
+                output.write_text("")
+                self.assertEqual(bytecode_roundtrip.process_file(args, "refused", raw, 203, output)["status"], "invalid-output")
+                linked = root / "linked.luau"
+                linked.symlink_to(root / "absent.luau")
+                self.assertEqual(bytecode_roundtrip.process_file(args, "refused", raw, 203, linked)["status"], "invalid-output")
+
+    def test_corpus_manifest_is_used_only_at_its_reviewed_root(self):
+        import pathlib
+        import tempfile
+        from types import SimpleNamespace
+        from unittest import mock
+        import bytecode_roundtrip
+        with tempfile.TemporaryDirectory() as directory:
+            root = pathlib.Path(directory)
+            corpus = root / "corpus"
+            corpus.mkdir()
+            args = SimpleNamespace(sources=None, corpus=str(corpus), key=203)
+            with mock.patch("check_residual_control.fixture_manifest") as manifest:
+                bytecode_roundtrip.collect_inputs(args, root)
+                self.assertEqual(args._corpus_refusals, {})
+                manifest.assert_not_called()
+            entry = dict(expected_refusal={"reason": "reviewed"})
+            with mock.patch("check_residual_control.FIXTURE_ROOT", corpus), \
+                    mock.patch("check_residual_control.fixture_manifest", return_value=(corpus, {"a.lua": entry})) as manifest:
+                bytecode_roundtrip.collect_inputs(args, root)
+                self.assertEqual(args._corpus_refusals, {"a": entry})
+                manifest.assert_called_once_with()
+
+    def test_source_discovery_keeps_nested_inputs_but_excludes_environment_preludes(self):
+        import pathlib
+        import tempfile
+        from types import SimpleNamespace
+        from unittest import mock
+        import bytecode_roundtrip
+        with tempfile.TemporaryDirectory() as directory:
+            root = pathlib.Path(directory)
+            source = root / "sources"
+            for name in ("test.luau", "nested/control.luau", "prelude/test.luau"):
+                path = source / name
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text("return")
+            args = SimpleNamespace(sources=str(source), compiler="compiler", source_opt="2")
+            with mock.patch.object(bytecode_roundtrip, "compile_source", return_value=(self.RETURN, "")):
+                _, key, items, unreadable = bytecode_roundtrip.collect_inputs(args, root / "work")
+            self.assertEqual((key, unreadable), (1, []))
+            self.assertEqual([relative for relative, *_ in items], ["nested/control", "test"])
 
     def test_capture_tier_reports_but_never_fails_the_gate(self):
         import base64

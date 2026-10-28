@@ -1,6 +1,6 @@
 -- A global another chunk sets (`G`) is read after the helper's leading call
 -- that sets it, so the read may not move ahead of the rebuilt call.
-loadstring("function setG(v) G = v end")()
+-- The companion prelude defines setG in a separate chunk.
 local function h(v)
 	setG(v)
 	if v then

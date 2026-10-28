@@ -596,9 +596,8 @@ impl<'a> Lifter<'a> {
         };
 
         let mut top: Option<(ast::RValue, u8)> = None;
-        // PC of the CALL whose fallback follows the most recent FASTCALL or
-        // FASTPCALL in this block.
-        let mut fastcall_target: Option<usize> = None;
+        // CALL target and builtin ID; FASTPCALL's A is a register, not a builtin.
+        let mut fastcall_target: Option<(usize, Option<u8>)> = None;
         let trace_origins = self.function.provenance.is_some();
         let mut pending_pcs = Vec::new();
         let mut statement_origins = Vec::new();
@@ -879,7 +878,8 @@ impl<'a> Lifter<'a> {
                     | OpCode::LOP_FASTCALL2K
                     | OpCode::LOP_FASTCALL3
                     | OpCode::LOP_FASTPCALL => {
-                        fastcall_target = Some(pc + 1 + c as usize);
+                        fastcall_target = Some((pc + 1 + c as usize,
+                            (op_code != OpCode::LOP_FASTPCALL).then_some(a)));
                     }
                     OpCode::LOP_NAMECALL | OpCode::LOP_NAMECALLUDATA => {
                         let namecall_base = a;
@@ -983,8 +983,9 @@ impl<'a> Lifter<'a> {
                         };
 
                         let mut call = ast::Call::new(self.register(a as _).into(), arguments);
-                        if fastcall_target.take_if(|target| *target == pc).is_some() {
+                        if let Some((_, builtin)) = fastcall_target.take_if(|(target, _)| *target == pc) {
                             call.callee_after_arguments = true;
+                            call.vector_constructor_fastcall = builtin == Some(54); // LBF_VECTOR
                         }
 
                         if c != 0 {
@@ -2061,6 +2062,33 @@ mod tests {
     fn operand_registers_reach_the_last_register() {
         assert_eq!(super::operand_registers(254, 2), 254..255);
         assert_eq!(super::operand_registers(0, 1), 0..0);
+    }
+
+    #[test]
+    fn vector_constructor_identity_comes_from_the_matching_fastcall_builtin() {
+        for opcode in [OpCode::LOP_FASTCALL, OpCode::LOP_FASTCALL1, OpCode::LOP_FASTCALL2,
+            OpCode::LOP_FASTCALL2K, OpCode::LOP_FASTCALL3, OpCode::LOP_FASTPCALL]
+        {
+            for builtin in [54, 55] {
+                let register = if opcode == OpCode::LOP_FASTPCALL { builtin } else { 0 };
+                let mut proto = prototype(64, vec![
+                    instruction(opcode, builtin, 0, 1),
+                    instruction(OpCode::LOP_MOVE, register, register + 1, 0),
+                    instruction(OpCode::LOP_CALL, register, 1, 1),
+                    instruction(OpCode::LOP_CALL, register, 1, 1),
+                    instruction(OpCode::LOP_RETURN, 0, 1, 0),
+                ]);
+                proto.max_stack_size = 64;
+                let function = Lifter::lift(&vec![proto], &[], 14, 0, None, &[], false).0;
+                let calls = function.graph().node_weights().flat_map(|block| block.iter())
+                    .filter_map(|statement| statement.as_call()).collect::<Vec<_>>();
+                assert_eq!(calls.len(), 2);
+                assert!(calls[0].callee_after_arguments);
+                assert_eq!(calls[0].vector_constructor_fastcall, builtin == 54 && opcode != OpCode::LOP_FASTPCALL);
+                assert!(!calls[1].callee_after_arguments);
+                assert!(!calls[1].vector_constructor_fastcall);
+            }
+        }
     }
 
     #[test]

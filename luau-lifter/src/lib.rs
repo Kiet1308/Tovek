@@ -823,6 +823,7 @@ fn decompile_bytecode_internal(
                 .map_err(DecompileFailure::message)?;
             validate_source_spellings(&chunk).map_err(DecompileFailure::message)?;
             bytecode_validate::validate(&chunk).map_err(DecompileFailure::message)?;
+            bytecode_validate::admit_open_call_order(&chunk).map_err(DecompileFailure::message)?;
             if std::env::var_os("MEDAL_DUMP_TYPES").is_some() {
                 debug_dump_types(&chunk);
             }
@@ -1440,6 +1441,10 @@ fn decompile_bytecode_internal(
                 emit_upvalue_analysis.then(|| serde_json::to_value(report).expect("finite select report"))
             } else { None };
             let late_timer = prof::Timer::new(&prof::S_LATE);
+            // Actual calls must survive folding; the constructor spellings of
+            // bytecode constants below deliberately remain foldable.
+            ast::preserve_builtin_calls::preserve_builtin_calls(&mut body, options.assume_standard_libraries)
+                .map_err(DecompileFailure::message)?;
             // Repeating decimals as the fractions the compiler folded. Every
             // pass before this one sees the raw literals, as the de-inliner's
             // constant-folded argument recovery (E2) will need.
@@ -1523,6 +1528,9 @@ fn decompile_bytecode_internal(
                 let _span = ast::telemetry::Span::new("S_READABLE_CONDITIONALS");
                 ast::compact_conditionals::readable_conditionals(&mut body);
             }
+            // No cleanup may erase these eager reads before the final register check and emission.
+            ast::preserve_eager_reads::preserve_eager_upvalue_reads(&mut body)
+                .map_err(DecompileFailure::message)?;
             // Temporaries left apart for the folding passes may, where some
             // did not fold, push a huge function past the local or register
             // limit, as may source locals of `do` blocks the output flattens:
@@ -3339,7 +3347,7 @@ mod v11_fixtures {
             };
             build_chunk(6, 1, &[name], &[proto], 0)
         };
-        assert!(decompile(&chunk("type"), 1, None).unwrap().contains("type("));
+        assert!(decompile(&chunk("type"), 1, None).unwrap().contains("(type)("));
         let error = decompile(&chunk("typ "), 1, None).unwrap_err();
         assert!(error.contains("a builtin call names another function"), "{error}");
         assert!(decompile(&chunk("typeof"), 1, None).is_err());
@@ -3457,17 +3465,16 @@ mod v11_fixtures {
     }
 
     #[test]
-    fn v14_fastpcall_restores_source_callee_order() {
+    fn v14_fastpcall_preserves_arguments_before_callee_lookup() {
         let strings = ["g", "h", "k", "pcall"];
         let blob = build_chunk(14, 3, &strings, &[fastpcall_proto(true)], 0);
         let out = decompile(&blob, 1, None).expect("v14 FASTPCALL chunk must decompile");
-        assert_eq!(out.trim(), "return pcall(g, h.k)");
+        assert_eq!(out.trim(), "local g = g\nlocal k = h.k\nreturn pcall(g, k)");
     }
 
     #[test]
     fn late_global_callee_without_fastpcall_stays_ordered() {
-        // The same instruction order without FASTPCALL is not an import
-        // fallback: fetching the callee global remains an ordering barrier.
+        // Explicit late lookup keeps argument snapshots without FASTPCALL metadata too.
         let strings = ["g", "h", "k", "pcall"];
         let blob = build_chunk(14, 3, &strings, &[fastpcall_proto(false)], 0);
         let out = decompile(&blob, 1, None).expect("chunk must decompile");

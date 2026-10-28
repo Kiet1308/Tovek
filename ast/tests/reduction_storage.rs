@@ -1,5 +1,5 @@
 #![feature(box_patterns)]
-//! Frozen pre-storage-reuse reduction oracle. No skipped or extra reduction calls.
+//! Pre-storage-reuse oracle with deliberate semantic corrections. No skipped or extra reduction calls.
 use ast::*;
 use by_address::ByAddress;
 use parking_lot::Mutex;
@@ -123,7 +123,8 @@ impl LegacyReduce for Binary {
                 _ => unreachable!(),
             },
             (left, right, BinaryOperation::And)
-                if ast::is_total_pure(&left) && ast::is_total_pure(&right) && left == right =>
+                if !matches!(&left, RValue::Local(_))
+                    && ast::is_total_pure(&left) && ast::is_total_pure(&right) && left == right =>
             {
                 left
             }
@@ -142,7 +143,8 @@ impl LegacyReduce for Binary {
                 BinaryOperation::Or,
             ) => value,
             (left, right, BinaryOperation::Or)
-                if ast::is_total_pure(&left) && ast::is_total_pure(&right) && left == right =>
+                if !matches!(&left, RValue::Local(_))
+                    && ast::is_total_pure(&left) && ast::is_total_pure(&right) && left == right =>
             {
                 left
             }
@@ -723,12 +725,6 @@ fn unchanged_reductions_reuse_every_box_across_repeated_value_and_condition_call
 
 #[test]
 fn repeated_reduction_still_has_legacy_non_idempotent_steps() {
-    let local = RcLocal::new(Local::new(Some("a".into())));
-    let not = || Unary::new(local.clone().into(), UnaryOperation::Not).into();
-    let value: RValue = Binary::new(not(), not(), BinaryOperation::And).into();
-    let once = value.reduce();
-    assert_eq!(once.to_string(), "not (a or a)");
-    assert_eq!(once.reduce().to_string(), "not a");
     let value: RValue = Unary::new(Literal::Number(1.0).into(), UnaryOperation::Negate).into();
     let once = value.reduce_condition();
     assert_eq!(once.to_string(), "-1");

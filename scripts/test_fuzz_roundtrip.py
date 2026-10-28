@@ -314,6 +314,32 @@ class FuzzRoundtripTests(unittest.TestCase):
             outputs[1] = "1:6,6.5 table: 0x2"
             self.assertTrue(fuzz_roundtrip.source_differs(args, [], work / "b", 1, 1))
 
+    def test_open_tuple_refusal_requires_failure_without_partial_source(self):
+        work = pathlib.Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, work, ignore_errors=True)
+        args = mock.Mock(timeout=5)
+        reason = "prototype 0, pc 8: cannot preserve open call results across an operation without a tuple-order proof"
+        for index, (result, expected) in enumerate([
+                ((1, "", reason), "refused"),
+                ((1, "", reason + "\r\n"), "refused"),
+                ((1, "", "no faithful source"), "refused"),
+                ((1, " \n", "no faithful source"), "failed"),
+                ((1, "return 7", reason), "failed"),
+                ((1, " \n", reason), "failed"),
+                ((1, "", "cannot preserve open call results"), "failed"),
+                ((1, "", reason + "\nthread panicked"), "failed"),
+                ((1, "", "panic: " + reason), "failed"),
+                ((1, "", "unrelated failure " + reason), "failed"),
+                ((1, "", "a builtin call names another function: " + reason), "failed"),
+                ((1, "", reason + "\r"), "failed"),
+                ((-11, "", reason), "failed")]):
+            with self.subTest(result=result), \
+                    mock.patch.object(fuzz_roundtrip, "compile_luau", return_value=b"\x09"), \
+                    mock.patch.object(fuzz_roundtrip, "run", side_effect=[(0, "reference", ""), result]):
+                status, _ = fuzz_roundtrip.check(args, [], work / str(index), 2, 1, 0)
+                self.assertEqual(status, expected)
+                self.assertFalse((work / str(index) / "output.luau").exists())
+
     def test_service_handles_use_global_stubs(self):
         sites = set()
         for seed in range(100):

@@ -23,6 +23,7 @@ fn helpers_returning_their_locals_rebuild() {
     assert!(source.contains("= makeTrack(instance)"), "{source}");
     assert!(source.contains("local bump, count = counter()"), "{source}");
     assert!(source.contains("local frameClock = FrameClock()"), "{source}");
-    // Its one result read once, the call stands in that read.
-    assert!(source.contains("print(toNames(children), children)"), "{source}");
+    // The helper's effects precede the external environment's print lookup.
+    assert!(source.contains("local result = toNames(children)"), "{source}");
+    assert!(source.contains("print(result, children)"), "{source}");
 }

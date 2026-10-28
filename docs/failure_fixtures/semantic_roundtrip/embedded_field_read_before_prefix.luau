@@ -1,6 +1,6 @@
 -- A field of a script global (`Shared.x`) is no constant import: the
 -- helper's argument call writes it before the comparison reads it.
-loadstring("Shared = { x = 5 }")()
+-- The companion prelude initializes Shared in a separate chunk.
 local function bump()
 	Shared.x = Shared.x + 100
 	return 10

@@ -1,0 +1,67 @@
+{
+  "schema_version": 1,
+  "key": 203,
+  "description": "Exact saved-bytecode inventory. Refusals retain open CALL results across an observable import lookup; no runtime equivalence is claimed for missing outputs.",
+  "files": [
+    {
+      "file": "ReplicatedStorage/Cmdr/Server commands/Admin/teleportServer.lua",
+      "fixture_sha256": "9a624ccb250ee6a9acca98fed1aecebe9592da0e40ac110556e07ca511680381",
+      "bytecode_sha256": "766fc5c5acdf82ef59fbc4cbee153a2cd77bb83e1fcd540d7e0cc7bf6d223b5c",
+      "bytecode_version": 9
+    },
+    {
+      "file": "ReplicatedStorage/FusionPackage/Components/Base/Container.lua",
+      "fixture_sha256": "c5a5a3a519ac5651f6f771c696f3d1941e6e721e9e1b03879be59b31ebf301ee",
+      "bytecode_sha256": "c6416b597012d2965756078bced74e8bc8b9d0403e71ad4f7994c697e32b1e2c",
+      "bytecode_version": 9
+    },
+    {
+      "file": "ReplicatedStorage/Part_Icles/Emit.lua",
+      "fixture_sha256": "21e608c5bcba1563d60d06b212606cf63700a1ba4677586fdfe81be5b4c0f380",
+      "bytecode_sha256": "1244e04cecaa6e56fc00eb0cb481adea1d3a396e9138416ffeb221af85ff1c09",
+      "bytecode_version": 9,
+      "expected_refusal": {
+        "reason": "cannot preserve open call results across an operation without a tuple-order proof",
+        "prototype": 2,
+        "pc": 1149,
+        "modes": [
+          "default",
+          "strict"
+        ]
+      }
+    },
+    {
+      "file": "ReplicatedStorage/Shared/Information/Abilities.lua",
+      "fixture_sha256": "753ae975dcf62859778d507209cbe680e861828de2b2fc36eb96a94edc77b0ac",
+      "bytecode_sha256": "90e2205f727d8cc1ca549b99edc9e2b9d9ed1476acb5f8703ae91357a167744f",
+      "bytecode_version": 9
+    },
+    {
+      "file": "ReplicatedStorage/Shared/TimeManager/MeshEmitter/init.lua",
+      "fixture_sha256": "8628b6b08e5c3e4bd514f6bf86ce0faba907d69b46aead0c982133dd5e6c3ebf",
+      "bytecode_sha256": "db2dffa3f3551640ccd06ea6f2e1b60f3357d5ada4acfc33ba25bfa5a60f6a26",
+      "bytecode_version": 9
+    },
+    {
+      "file": "StarterPlayer/StarterCharacterScripts/Animate.client.lua",
+      "fixture_sha256": "4ce85ae6fb3713ff8537fac52696149b0c533c305a59fb0cf74193a80b9290e4",
+      "bytecode_sha256": "ee5ea32bb814d948bbf9fbcd67ac0318f9760c4fec6004faf276e96e0a2712d9",
+      "bytecode_version": 9,
+      "expected_refusal": {
+        "reason": "cannot preserve open call results across an operation without a tuple-order proof",
+        "prototype": 6,
+        "pc": 58,
+        "modes": [
+          "default",
+          "strict"
+        ]
+      }
+    },
+    {
+      "file": "StarterPlayer/StarterPlayerScripts/PlayerModule/ControlModule/ClickToMoveController.lua",
+      "fixture_sha256": "8172b90e8c734c077305f87a4a8c45659a999f18faf1c9456dd75b9ba28b760a",
+      "bytecode_sha256": "d72eba2d844ff6da0dbbf300b92e3a9d649749e2883d2e979e8122b46587c244",
+      "bytecode_version": 9
+    }
+  ]
+}

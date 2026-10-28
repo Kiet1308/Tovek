@@ -300,7 +300,7 @@ fn gather_usage_in(
             }
             Statement::GenericFor(generic_for) => {
                 for rvalue in &generic_for.right {
-                    if let RValue::Local(local) = unwrap_iter_arg(rvalue) {
+                    if let RValue::Local(local) = unwrap_iter_arg(rvalue, context.callee_aliases) {
                         usage.entry(local_ptr(local)).or_default().iterated = true;
                     }
                 }

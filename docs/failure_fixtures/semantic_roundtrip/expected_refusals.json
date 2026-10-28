@@ -1,0 +1,667 @@
+{
+  "schema_version": 1,
+  "compiler_commit": "c2ec0d4e5ca50796ba174a7565298f59aa572268",
+  "contract": "Reviewed source/profile refusals retain their denominator and never count as runtime passes. A successful recovery must pass the ordinary checks. Any new source, option or diagnostic failure requires review.",
+  "cases": [
+    {
+      "source": "captured_cell_iterator.luau",
+      "source_sha256": "ca075f677b5c6838ea73aa1fd5905ba2bc2c8d048cf9c2f8102096ea24fa2e38",
+      "expected_refusal": {
+        "reason": "cannot preserve open call results across an operation without a tuple-order proof",
+        "profiles": [
+          {
+            "opt": 1,
+            "debug": 1,
+            "bytecode_version": 9,
+            "compiler_flags": [
+              "--fflags=false"
+            ],
+            "lifter_args": []
+          }
+        ]
+      }
+    },
+    {
+      "source": "closure_constant_cached_by_another_copy.luau",
+      "source_sha256": "c634332ae9d39e5d18b8cdc0ca39a3a80b3d8855a1b5f7b5a42f4e8b6bf5a74d",
+      "expected_refusal": {
+        "reason": "cannot preserve open call results across an operation without a tuple-order proof",
+        "profiles": [
+          {
+            "opt": 1,
+            "debug": 1,
+            "bytecode_version": 9,
+            "compiler_flags": [
+              "--fflags=false"
+            ],
+            "lifter_args": []
+          }
+        ]
+      }
+    },
+    {
+      "source": "deep_expression_vector_constant.luau",
+      "source_sha256": "01053239b85a2b0817e2472153ae70b82c49fe107bc727e5a673a0aa34322213",
+      "expected_refusal": {
+        "reason": "cannot preserve open call results across an operation without a tuple-order proof",
+        "profiles": [
+          {
+            "opt": 1,
+            "debug": 1,
+            "bytecode_version": 9,
+            "compiler_flags": [
+              "--fflags=false"
+            ],
+            "lifter_args": []
+          }
+        ]
+      }
+    },
+    {
+      "source": "deinline_constant_fold_equations.luau",
+      "source_sha256": "f65d2ba1c1636d070b36185c1a54db5e41e0129296326bde6bdb54ee4b0f6f55",
+      "expected_refusal": {
+        "reason": "cannot preserve open call results across an operation without a tuple-order proof",
+        "profiles": [
+          {
+            "opt": 1,
+            "debug": 1,
+            "bytecode_version": 9,
+            "compiler_flags": [
+              "--fflags=false"
+            ],
+            "lifter_args": []
+          },
+          {
+            "opt": 2,
+            "debug": 1,
+            "bytecode_version": 9,
+            "compiler_flags": [
+              "--fflags=false"
+            ],
+            "lifter_args": []
+          },
+          {
+            "opt": 2,
+            "debug": 1,
+            "bytecode_version": 9,
+            "compiler_flags": [
+              "--fflags=false",
+              "--vector-lib=Vector3",
+              "--vector-ctor=new",
+              "--vector-type=Vector3"
+            ],
+            "lifter_args": []
+          }
+        ]
+      }
+    },
+    {
+      "source": "deinline_constant_folded_helper_copies.luau",
+      "source_sha256": "355d84ae98357cdd6effaf3632cb8ff807f54c12f66818c1395a5c59bcf25076",
+      "expected_refusal": {
+        "reason": "cannot preserve open call results across an operation without a tuple-order proof",
+        "profiles": [
+          {
+            "opt": 1,
+            "debug": 1,
+            "bytecode_version": 9,
+            "compiler_flags": [
+              "--fflags=false"
+            ],
+            "lifter_args": []
+          },
+          {
+            "opt": 2,
+            "debug": 1,
+            "bytecode_version": 9,
+            "compiler_flags": [
+              "--fflags=false"
+            ],
+            "lifter_args": []
+          },
+          {
+            "opt": 2,
+            "debug": 1,
+            "bytecode_version": 9,
+            "compiler_flags": [
+              "--fflags=false",
+              "--vector-lib=Vector3",
+              "--vector-ctor=new",
+              "--vector-type=Vector3"
+            ],
+            "lifter_args": []
+          }
+        ]
+      }
+    },
+    {
+      "source": "deinline_hosted_values.luau",
+      "source_sha256": "3f2201206747b4875cf2d589eb12ee24e11d175a535d9966e07239a13675865a",
+      "expected_refusal": {
+        "reason": "cannot preserve open call results across an operation without a tuple-order proof",
+        "profiles": [
+          {
+            "opt": 1,
+            "debug": 1,
+            "bytecode_version": 9,
+            "compiler_flags": [
+              "--fflags=false"
+            ],
+            "lifter_args": []
+          }
+        ]
+      }
+    },
+    {
+      "source": "deinline_left_out_argument_after_spreading_call.luau",
+      "source_sha256": "3833a52e9128323c57b10d74476ff4e8e40a6dce9ae5b89d95128c0eb97cfcc5",
+      "expected_refusal": {
+        "reason": "cannot preserve open call results across an operation without a tuple-order proof",
+        "profiles": [
+          {
+            "opt": 1,
+            "debug": 1,
+            "bytecode_version": 9,
+            "compiler_flags": [
+              "--fflags=false"
+            ],
+            "lifter_args": []
+          },
+          {
+            "opt": 2,
+            "debug": 1,
+            "bytecode_version": 9,
+            "compiler_flags": [
+              "--fflags=false"
+            ],
+            "lifter_args": []
+          },
+          {
+            "opt": 2,
+            "debug": 1,
+            "bytecode_version": 9,
+            "compiler_flags": [
+              "--fflags=false",
+              "--vector-lib=Vector3",
+              "--vector-ctor=new",
+              "--vector-type=Vector3"
+            ],
+            "lifter_args": []
+          }
+        ]
+      }
+    },
+    {
+      "source": "deinline_returns_distributed_and_short_circuit.luau",
+      "source_sha256": "6f086ea2feec7ac51539def54c1111b05cfba9074713453db120aab41784ac21",
+      "expected_refusal": {
+        "reason": "cannot preserve open call results across an operation without a tuple-order proof",
+        "profiles": [
+          {
+            "opt": 1,
+            "debug": 1,
+            "bytecode_version": 9,
+            "compiler_flags": [
+              "--fflags=false"
+            ],
+            "lifter_args": []
+          }
+        ]
+      }
+    },
+    {
+      "source": "deinline_trailing_false_flag_left_out.luau",
+      "source_sha256": "ef52f68a9e8459b9abdc66badc20368830a03b982089c5cd3eff0d71ae693fff",
+      "expected_refusal": {
+        "reason": "cannot preserve open call results across an operation without a tuple-order proof",
+        "profiles": [
+          {
+            "opt": 1,
+            "debug": 1,
+            "bytecode_version": 9,
+            "compiler_flags": [
+              "--fflags=false"
+            ],
+            "lifter_args": []
+          },
+          {
+            "opt": 2,
+            "debug": 1,
+            "bytecode_version": 9,
+            "compiler_flags": [
+              "--fflags=false"
+            ],
+            "lifter_args": []
+          },
+          {
+            "opt": 2,
+            "debug": 1,
+            "bytecode_version": 9,
+            "compiler_flags": [
+              "--fflags=false",
+              "--vector-lib=Vector3",
+              "--vector-ctor=new",
+              "--vector-type=Vector3"
+            ],
+            "lifter_args": []
+          }
+        ]
+      }
+    },
+    {
+      "source": "deinline_value_sites_without_prefix_limit.luau",
+      "source_sha256": "e56e07a194d9ef69e9da2bce6653067de604691f51bd66c2a2f5207ea7b389b9",
+      "expected_refusal": {
+        "reason": "cannot preserve open call results across an operation without a tuple-order proof",
+        "profiles": [
+          {
+            "opt": 1,
+            "debug": 1,
+            "bytecode_version": 9,
+            "compiler_flags": [
+              "--fflags=false"
+            ],
+            "lifter_args": []
+          }
+        ]
+      }
+    },
+    {
+      "source": "fastcall_argument_order.luau",
+      "source_sha256": "38fef8990cc59a9419bc6ed2405d6d298026715829f41b95291060f132a188e1",
+      "expected_refusal": {
+        "reason": "cannot preserve open call results across an operation without a tuple-order proof",
+        "profiles": [
+          {
+            "opt": 1,
+            "debug": 1,
+            "bytecode_version": 9,
+            "compiler_flags": [
+              "--fflags=false"
+            ],
+            "lifter_args": []
+          },
+          {
+            "opt": 2,
+            "debug": 1,
+            "bytecode_version": 9,
+            "compiler_flags": [
+              "--fflags=false"
+            ],
+            "lifter_args": []
+          },
+          {
+            "opt": 2,
+            "debug": 1,
+            "bytecode_version": 9,
+            "compiler_flags": [
+              "--fflags=false",
+              "--vector-lib=Vector3",
+              "--vector-ctor=new",
+              "--vector-type=Vector3"
+            ],
+            "lifter_args": []
+          }
+        ]
+      }
+    },
+    {
+      "source": "fastcall_multret_argument_copied.luau",
+      "source_sha256": "914231d8453ab716e7052ecb6b3422aa8ecdeff378457328cc43f203f0a6a9c6",
+      "expected_refusal": {
+        "reason": "cannot preserve open call results across an operation without a tuple-order proof",
+        "profiles": [
+          {
+            "opt": 1,
+            "debug": 1,
+            "bytecode_version": 9,
+            "compiler_flags": [
+              "--fflags=false"
+            ],
+            "lifter_args": []
+          },
+          {
+            "opt": 2,
+            "debug": 1,
+            "bytecode_version": 9,
+            "compiler_flags": [
+              "--fflags=false"
+            ],
+            "lifter_args": []
+          },
+          {
+            "opt": 2,
+            "debug": 1,
+            "bytecode_version": 9,
+            "compiler_flags": [
+              "--fflags=false",
+              "--vector-lib=Vector3",
+              "--vector-ctor=new",
+              "--vector-type=Vector3"
+            ],
+            "lifter_args": []
+          }
+        ]
+      }
+    },
+    {
+      "source": "first_read_argument_hoist.luau",
+      "source_sha256": "1b696b4b185e38d538a5479faf3d462a4f4338f580a2ca96613a0345c94ec50a",
+      "expected_refusal": {
+        "reason": "cannot preserve open call results across an operation without a tuple-order proof",
+        "profiles": [
+          {
+            "opt": 1,
+            "debug": 1,
+            "bytecode_version": 9,
+            "compiler_flags": [
+              "--fflags=false"
+            ],
+            "lifter_args": []
+          }
+        ]
+      }
+    },
+    {
+      "source": "fractions_over_source_denominators.luau",
+      "source_sha256": "fcec229cc5bec6b98b678a8a64abb6279ad9e3cb1973579521e4b87459d30ad7",
+      "expected_refusal": {
+        "reason": "cannot preserve open call results across an operation without a tuple-order proof",
+        "profiles": [
+          {
+            "opt": 1,
+            "debug": 1,
+            "bytecode_version": 9,
+            "compiler_flags": [
+              "--fflags=false"
+            ],
+            "lifter_args": []
+          },
+          {
+            "opt": 2,
+            "debug": 1,
+            "bytecode_version": 9,
+            "compiler_flags": [
+              "--fflags=false"
+            ],
+            "lifter_args": []
+          },
+          {
+            "opt": 2,
+            "debug": 1,
+            "bytecode_version": 9,
+            "compiler_flags": [
+              "--fflags=false",
+              "--vector-lib=Vector3",
+              "--vector-ctor=new",
+              "--vector-type=Vector3"
+            ],
+            "lifter_args": []
+          }
+        ]
+      }
+    },
+    {
+      "source": "import_lookup_may_raise.luau",
+      "source_sha256": "a63f4b48666acadff6d7194783c3677e61e75d736aae2d8c607c579581bbbc8a",
+      "expected_refusal": {
+        "reason": "cannot preserve open call results across an operation without a tuple-order proof",
+        "profiles": [
+          {
+            "opt": 1,
+            "debug": 1,
+            "bytecode_version": 9,
+            "compiler_flags": [
+              "--fflags=false"
+            ],
+            "lifter_args": []
+          }
+        ]
+      }
+    },
+    {
+      "source": "loop_carried_cell_declared_before_loop.luau",
+      "source_sha256": "3b223380539d4a16e1c334efb7ce5042e0e1ed52200b63d4fb6c29380708dd02",
+      "expected_refusal": {
+        "reason": "cannot preserve open call results across an operation without a tuple-order proof",
+        "profiles": [
+          {
+            "opt": 1,
+            "debug": 1,
+            "bytecode_version": 9,
+            "compiler_flags": [
+              "--fflags=false"
+            ],
+            "lifter_args": []
+          },
+          {
+            "opt": 2,
+            "debug": 1,
+            "bytecode_version": 9,
+            "compiler_flags": [
+              "--fflags=false"
+            ],
+            "lifter_args": []
+          },
+          {
+            "opt": 2,
+            "debug": 1,
+            "bytecode_version": 9,
+            "compiler_flags": [
+              "--fflags=false",
+              "--vector-lib=Vector3",
+              "--vector-ctor=new",
+              "--vector-type=Vector3"
+            ],
+            "lifter_args": []
+          }
+        ]
+      }
+    },
+    {
+      "source": "loop_result_exports.luau",
+      "source_sha256": "161f496fea44ce169a64f03485f9095efe6ba34cf8a7c4f8ec0fd1ae425e4abf",
+      "expected_refusal": {
+        "reason": "cannot preserve open call results across an operation without a tuple-order proof",
+        "profiles": [
+          {
+            "opt": 1,
+            "debug": 1,
+            "bytecode_version": 9,
+            "compiler_flags": [
+              "--fflags=false"
+            ],
+            "lifter_args": []
+          }
+        ]
+      }
+    },
+    {
+      "source": "loop_shapes.luau",
+      "source_sha256": "95647d5d77ca95ba747d3df04b20d5b8933833b7f7a504e0ea893122a01a4782",
+      "expected_refusal": {
+        "reason": "cannot preserve open call results across an operation without a tuple-order proof",
+        "profiles": [
+          {
+            "opt": 1,
+            "debug": 1,
+            "bytecode_version": 9,
+            "compiler_flags": [
+              "--fflags=false"
+            ],
+            "lifter_args": []
+          }
+        ]
+      }
+    },
+    {
+      "source": "naming_builtin_spellings_never_capture.luau",
+      "source_sha256": "a54a0cc36afb4196046ba58c3816e6f39be45145ee168e893c5e2066eab3f50f",
+      "expected_refusal": {
+        "reason": "cannot preserve open call results across an operation without a tuple-order proof",
+        "profiles": [
+          {
+            "opt": 1,
+            "debug": 1,
+            "bytecode_version": 9,
+            "compiler_flags": [
+              "--fflags=false"
+            ],
+            "lifter_args": []
+          },
+          {
+            "opt": 2,
+            "debug": 1,
+            "bytecode_version": 9,
+            "compiler_flags": [
+              "--fflags=false"
+            ],
+            "lifter_args": []
+          },
+          {
+            "opt": 2,
+            "debug": 1,
+            "bytecode_version": 9,
+            "compiler_flags": [
+              "--fflags=false",
+              "--vector-lib=Vector3",
+              "--vector-ctor=new",
+              "--vector-type=Vector3"
+            ],
+            "lifter_args": []
+          }
+        ]
+      }
+    },
+    {
+      "source": "nested_capture_argument.luau",
+      "source_sha256": "adff3bd4ad036d982d00b2735643dfd03267336f4c2809bd735daf18f41258fa",
+      "expected_refusal": {
+        "reason": "cannot preserve open call results across an operation without a tuple-order proof",
+        "profiles": [
+          {
+            "opt": 1,
+            "debug": 1,
+            "bytecode_version": 9,
+            "compiler_flags": [
+              "--fflags=false"
+            ],
+            "lifter_args": []
+          }
+        ]
+      }
+    },
+    {
+      "source": "numeric_for_init_reads_cell.luau",
+      "source_sha256": "0719fd6ee510ee484bbd43db5fd20cede31ae83445d9da6e8c15e841693f6a8f",
+      "expected_refusal": {
+        "reason": "cannot preserve open call results across an operation without a tuple-order proof",
+        "profiles": [
+          {
+            "opt": 1,
+            "debug": 1,
+            "bytecode_version": 9,
+            "compiler_flags": [
+              "--fflags=false"
+            ],
+            "lifter_args": []
+          },
+          {
+            "opt": 2,
+            "debug": 1,
+            "bytecode_version": 9,
+            "compiler_flags": [
+              "--fflags=false"
+            ],
+            "lifter_args": []
+          },
+          {
+            "opt": 2,
+            "debug": 1,
+            "bytecode_version": 9,
+            "compiler_flags": [
+              "--fflags=false",
+              "--vector-lib=Vector3",
+              "--vector-ctor=new",
+              "--vector-type=Vector3"
+            ],
+            "lifter_args": []
+          }
+        ]
+      }
+    },
+    {
+      "source": "readable_if_values.luau",
+      "source_sha256": "d61c52f8f813e4113155f8fbec8d7b2c92704ca8133e0c0aa8aaf21bef8091b2",
+      "expected_refusal": {
+        "reason": "cannot preserve open call results across an operation without a tuple-order proof",
+        "profiles": [
+          {
+            "opt": 1,
+            "debug": 1,
+            "bytecode_version": 9,
+            "compiler_flags": [
+              "--fflags=false"
+            ],
+            "lifter_args": []
+          }
+        ]
+      }
+    },
+    {
+      "source": "report_repeat_break_in_numeric_for.luau",
+      "source_sha256": "2788a83de68b54077467938bcd5627d467ca7eb48b2e154276aa33ecef19c7b4",
+      "expected_refusal": {
+        "reason": "cannot preserve open call results across an operation without a tuple-order proof",
+        "profiles": [
+          {
+            "opt": 1,
+            "debug": 1,
+            "bytecode_version": 9,
+            "compiler_flags": [
+              "--fflags=false"
+            ],
+            "lifter_args": []
+          }
+        ]
+      }
+    },
+    {
+      "source": "short_tables_one_line.luau",
+      "source_sha256": "f191a85d276f7454e4ec14ca02324f94e2ed047aec83c186fac152bb561ffb18",
+      "expected_refusal": {
+        "reason": "cannot preserve open call results across an operation without a tuple-order proof",
+        "profiles": [
+          {
+            "opt": 1,
+            "debug": 1,
+            "bytecode_version": 9,
+            "compiler_flags": [
+              "--fflags=false"
+            ],
+            "lifter_args": []
+          }
+        ]
+      }
+    },
+    {
+      "source": "vector_constant_full_upvalues.luau",
+      "source_sha256": "6707003188211529312c3fde57674df92e979eab7e05ef3365da37af02ad22d1",
+      "expected_refusal": {
+        "reason": "cannot preserve open call results across an operation without a tuple-order proof",
+        "profiles": [
+          {
+            "opt": 1,
+            "debug": 1,
+            "bytecode_version": 9,
+            "compiler_flags": [
+              "--fflags=false"
+            ],
+            "lifter_args": []
+          }
+        ]
+      }
+    }
+  ]
+}

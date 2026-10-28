@@ -12,7 +12,7 @@
 
 use crate::{
     deinline::{
-        collect_declared_locals, unify_local, unify_lvalue, unify_rvalue, Bindings, MatchCtx,
+        collect_declared_locals, unify_call, unify_local, unify_lvalue, unify_rvalue, Bindings, MatchCtx,
     },
     Block, Call, Continue, LValue, RValue, Return, Select, Statement, Traverse,
 };
@@ -763,8 +763,7 @@ fn alpha_stmt(a: &Statement, b: &Statement, ctx: &MatchCtx, bindings: &mut Bindi
         (Statement::Empty(_), Statement::Empty(_)) => true,
         (Statement::Comment(x), Statement::Comment(y)) => x == y,
         (Statement::Call(x), Statement::Call(y)) => {
-            unify_rvalue(ctx, &x.value, &y.value, bindings).is_ok()
-                && alpha_values(&x.arguments, &y.arguments, ctx, bindings)
+            unify_call(ctx, x, y, bindings).is_ok()
         }
         (Statement::MethodCall(x), Statement::MethodCall(y)) => {
             x.method == y.method
@@ -869,6 +868,31 @@ mod tests {
         let Some(Statement::Call(merged)) = body.0.last() else { panic!("{body}") };
         assert_eq!(merged.rebuilt, Some(crate::call_origins::Kind::StatementDeinline));
         assert!(body.to_string().ends_with("helper() -- inferred equivalent call"), "{body}");
+    }
+
+    #[test]
+    fn tails_do_not_merge_distinct_native_or_grouped_call_paths() {
+        for grouped in [false, true] {
+            for shape in 0..3 {
+                let ordinary = Call::new(global("callee"), vec![Literal::Number(1.0).into()]);
+                let mut distinct = ordinary.clone();
+                if grouped { distinct.group_callee = true; } else { distinct.vector_constructor_fastcall = true; }
+                let statement = |call| match shape {
+                    0 => Statement::Call(call),
+                    1 => Return::new(vec![RValue::Call(call)]).into(),
+                    _ => Return::new(vec![Select::Call(call).into()]).into(),
+                };
+                for same in [false, true] {
+                    let left = statement(distinct.clone());
+                    let right = statement(if same { distinct.clone() } else { ordinary.clone() });
+                    assert_eq!(block_alpha_eq(std::slice::from_ref(&left), std::slice::from_ref(&right)), same);
+                    let mut body = Block(vec![If::new(global("choose"),
+                        Block(vec![call("left"), left]), Block(vec![call("right"), right])).into()]);
+                    assert_eq!(factor_common_tails(&mut body), same, "grouped={grouped}, shape={shape}, same={same}");
+                    if !same { assert_eq!(body.0.len(), 1); }
+                }
+            }
+        }
     }
 
     #[test]

@@ -1,29 +1,35 @@
 {
  "provenance": {
-  "lifter_commit": "d31366187777b49430fd1164e00e7aece3df6beb",
   "compiler_commit": "c2ec0d4e5ca50796ba174a7565298f59aa572268",
-  "normalization": "VM table-template defaults are numeric zero; explicit nil is applied after all template entries.",
-  "migration": "Replayed the original baseline lifter with corrected normalization; thresholds are not regenerated from current decompiler output.",
-  "reviewed_count_changes": {
-   "ReplicatedStorage/Part_Icles/Emit": "Historical EmitBeam loses eleven VM-default zero fields; the corrected oracle detects them. Current EmitBeam preserves them. Current main still differs for its entry vector.create snapshot; no global reads are erased. The snapshot requires the standard constructor at chunk entry.",
-   "ReplicatedStorage/Shared/Information/Abilities": "Historical output adds an implicit zero for the private Abilities field before its explicit store. The same difference is present in current output."
+  "lifter_sha256": "778005572654c3edce6d243bfb99cc1a2d31692b2e36ffd4128e9ab80719bd8e",
+  "review": "V2.8 incoming-read checkpoint: retained builtin calls and eager snapshots change signatures; existing comparison rules are unchanged. Refusals remain separate from equivalence totals.",
+  "evidence": "docs/v2_8/incoming_read_timing.md; /workspace/work/v28/eager-key/baseline-review-final/release-oracle-review.json",
+  "previous_baseline": {
+   "lifter_commit": "d31366187777b49430fd1164e00e7aece3df6beb",
+   "compiler_commit": "c2ec0d4e5ca50796ba174a7565298f59aa572268",
+   "normalization": "VM table-template defaults are numeric zero; explicit nil is applied after all template entries.",
+   "migration": "Replayed the original baseline lifter with corrected normalization; thresholds are not regenerated from current decompiler output.",
+   "reviewed_count_changes": {
+    "ReplicatedStorage/Part_Icles/Emit": "Historical EmitBeam loses eleven VM-default zero fields; the corrected oracle detects them. Current EmitBeam preserves them. Current main still differs for its entry vector.create snapshot; no global reads are erased. The snapshot requires the standard constructor at chunk entry.",
+    "ReplicatedStorage/Shared/Information/Abilities": "Historical output adds an implicit zero for the private Abilities field before its explicit store. The same difference is present in current output."
+   }
   }
  },
  "summary": {
   "inputs": 7,
-  "protos": 177,
-  "exact": 117,
-  "equiv": 31,
-  "differ": 29,
+  "protos": 137,
+  "exact": 79,
+  "equiv": 19,
+  "differ": 39,
   "missing": 0,
   "extra": 0,
-  "equiv_ratio": 0.83616
+  "equiv_ratio": 0.71533
  },
  "files": [
   {
    "file": "ReplicatedStorage/Cmdr/Server commands/Admin/teleportServer",
    "status": "ok",
-   "nonequiv": 0,
+   "nonequiv": 1,
    "protos": 2
   },
   {
@@ -34,32 +40,58 @@
   },
   {
    "file": "ReplicatedStorage/Part_Icles/Emit",
-   "status": "ok",
-   "nonequiv": 3,
-   "protos": 7
+   "status": "expected_refusal",
+   "nonequiv": 0,
+   "protos": 7,
+   "refusal": {
+    "fixture_sha256": "21e608c5bcba1563d60d06b212606cf63700a1ba4677586fdfe81be5b4c0f380",
+    "bytecode_sha256": "1244e04cecaa6e56fc00eb0cb481adea1d3a396e9138416ffeb221af85ff1c09",
+    "key": 203,
+    "mode": "strict",
+    "reason": "cannot preserve open call results across an operation without a tuple-order proof",
+    "prototype": 2,
+    "pc": 1149,
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": "prototype 2, pc 1149: cannot preserve open call results across an operation without a tuple-order proof\n"
+   },
+   "input_sha256": "1244e04cecaa6e56fc00eb0cb481adea1d3a396e9138416ffeb221af85ff1c09"
   },
   {
    "file": "ReplicatedStorage/Shared/Information/Abilities",
    "status": "ok",
-   "nonequiv": 2,
+   "nonequiv": 4,
    "protos": 8
   },
   {
    "file": "ReplicatedStorage/Shared/TimeManager/MeshEmitter/init",
    "status": "ok",
-   "nonequiv": 10,
+   "nonequiv": 13,
    "protos": 32
   },
   {
    "file": "StarterPlayer/StarterCharacterScripts/Animate.client",
-   "status": "ok",
-   "nonequiv": 2,
-   "protos": 33
+   "status": "expected_refusal",
+   "nonequiv": 0,
+   "protos": 33,
+   "refusal": {
+    "fixture_sha256": "4ce85ae6fb3713ff8537fac52696149b0c533c305a59fb0cf74193a80b9290e4",
+    "bytecode_sha256": "ee5ea32bb814d948bbf9fbcd67ac0318f9760c4fec6004faf276e96e0a2712d9",
+    "key": 203,
+    "mode": "strict",
+    "reason": "cannot preserve open call results across an operation without a tuple-order proof",
+    "prototype": 6,
+    "pc": 58,
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": "prototype 6, pc 58: cannot preserve open call results across an operation without a tuple-order proof\n"
+   },
+   "input_sha256": "ee5ea32bb814d948bbf9fbcd67ac0318f9760c4fec6004faf276e96e0a2712d9"
   },
   {
    "file": "StarterPlayer/StarterPlayerScripts/PlayerModule/ControlModule/ClickToMoveController",
    "status": "ok",
-   "nonequiv": 10,
+   "nonequiv": 19,
    "protos": 88
   }
  ]

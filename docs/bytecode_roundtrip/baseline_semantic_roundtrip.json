@@ -1,13 +1,19 @@
 {
+ "provenance": {
+  "compiler_commit": "c2ec0d4e5ca50796ba174a7565298f59aa572268",
+  "lifter_sha256": "778005572654c3edce6d243bfb99cc1a2d31692b2e36ffd4128e9ab80719bd8e",
+  "review": "V2.8 incoming-read checkpoint: retained builtin calls and eager snapshots change signatures; existing comparison rules are unchanged. Refusals remain separate from equivalence totals.",
+  "evidence": "docs/v2_8/incoming_read_timing.md; /workspace/work/v28/eager-key/baseline-review-final/release-oracle-review.json"
+ },
  "summary": {
-  "inputs": 274,
-  "protos": 1699,
-  "exact": 1216,
-  "equiv": 145,
-  "differ": 282,
+  "inputs": 278,
+  "protos": 1684,
+  "exact": 842,
+  "equiv": 336,
+  "differ": 449,
   "missing": 40,
-  "extra": 16,
-  "equiv_ratio": 0.80106
+  "extra": 17,
+  "equiv_ratio": 0.69952
  },
  "files": [
   {
@@ -29,9 +35,15 @@
    "protos": 4
   },
   {
-   "file": "branch_tuple_helper",
+   "file": "binary_snapshot_timing",
    "status": "ok",
    "nonequiv": 0,
+   "protos": 10
+  },
+  {
+   "file": "branch_tuple_helper",
+   "status": "ok",
+   "nonequiv": 3,
    "protos": 6
   },
   {
@@ -49,13 +61,13 @@
   {
    "file": "builtin_last_argument_kinds",
    "status": "ok",
-   "nonequiv": 6,
+   "nonequiv": 7,
    "protos": 12
   },
   {
    "file": "call_argument_width",
    "status": "ok",
-   "nonequiv": 0,
+   "nonequiv": 1,
    "protos": 5
   },
   {
@@ -97,7 +109,7 @@
   {
    "file": "captured_cell_block_param_rename",
    "status": "ok",
-   "nonequiv": 4,
+   "nonequiv": 5,
    "protos": 12
   },
   {
@@ -109,19 +121,19 @@
   {
    "file": "captured_connection_after_branch",
    "status": "ok",
-   "nonequiv": 2,
+   "nonequiv": 4,
    "protos": 6
   },
   {
    "file": "captured_copy_into_plain_local",
    "status": "ok",
-   "nonequiv": 1,
+   "nonequiv": 4,
    "protos": 7
   },
   {
    "file": "captured_handle_from_merge",
    "status": "ok",
-   "nonequiv": 2,
+   "nonequiv": 4,
    "protos": 6
   },
   {
@@ -139,7 +151,7 @@
   {
    "file": "captured_swap_before_generic_loop",
    "status": "ok",
-   "nonequiv": 1,
+   "nonequiv": 3,
    "protos": 10
   },
   {
@@ -193,7 +205,7 @@
   {
    "file": "cell_swap_beside_copy",
    "status": "ok",
-   "nonequiv": 6,
+   "nonequiv": 7,
    "protos": 8
   },
   {
@@ -271,7 +283,7 @@
   {
    "file": "compound_local_base",
    "status": "ok",
-   "nonequiv": 0,
+   "nonequiv": 1,
    "protos": 3
   },
   {
@@ -301,7 +313,7 @@
   {
    "file": "conditional_write_of_a_captured_local",
    "status": "ok",
-   "nonequiv": 2,
+   "nonequiv": 3,
    "protos": 9
   },
   {
@@ -319,7 +331,7 @@
   {
    "file": "constructor_split_keeps_list_slots",
    "status": "ok",
-   "nonequiv": 1,
+   "nonequiv": 2,
    "protos": 3
   },
   {
@@ -361,7 +373,7 @@
   {
    "file": "declared_select_prefix",
    "status": "ok",
-   "nonequiv": 1,
+   "nonequiv": 2,
    "protos": 3
   },
   {
@@ -385,25 +397,65 @@
   {
    "file": "deinline_closure_factories",
    "status": "ok",
-   "nonequiv": 2,
+   "nonequiv": 4,
    "protos": 27
   },
   {
    "file": "deinline_constant_fold_equations",
-   "status": "ok",
-   "nonequiv": 2,
-   "protos": 19
+   "status": "expected_refusal",
+   "nonequiv": 0,
+   "protos": 19,
+   "refusal": {
+    "reason": "cannot preserve open call results across an operation without a tuple-order proof",
+    "source_sha256": "f65d2ba1c1636d070b36185c1a54db5e41e0129296326bde6bdb54ee4b0f6f55",
+    "profile": {
+     "opt": 2,
+     "debug": 1,
+     "bytecode_version": 9,
+     "compiler_flags": [
+      "--fflags=false",
+      "--vector-lib=Vector3",
+      "--vector-ctor=new",
+      "--vector-type=Vector3"
+     ],
+     "lifter_args": []
+    },
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": "prototype 0, pc 32: cannot preserve open call results across an operation without a tuple-order proof\n"
+   },
+   "input_sha256": "0a06311fda42dfb4defbe3cb3e91146e86c1d0fddd3bd174c3309a2b17b21e54"
   },
   {
    "file": "deinline_constant_folded_helper_copies",
-   "status": "ok",
-   "nonequiv": 1,
-   "protos": 14
+   "status": "expected_refusal",
+   "nonequiv": 0,
+   "protos": 14,
+   "refusal": {
+    "reason": "cannot preserve open call results across an operation without a tuple-order proof",
+    "source_sha256": "355d84ae98357cdd6effaf3632cb8ff807f54c12f66818c1395a5c59bcf25076",
+    "profile": {
+     "opt": 2,
+     "debug": 1,
+     "bytecode_version": 9,
+     "compiler_flags": [
+      "--fflags=false",
+      "--vector-lib=Vector3",
+      "--vector-ctor=new",
+      "--vector-type=Vector3"
+     ],
+     "lifter_args": []
+    },
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": "prototype 0, pc 32: cannot preserve open call results across an operation without a tuple-order proof\n"
+   },
+   "input_sha256": "2caef38f058a765878afeae403370581dfba45debd3e6c45ddf8c9c1f4a718f9"
   },
   {
    "file": "deinline_constant_parameter_still_captured",
    "status": "ok",
-   "nonequiv": 3,
+   "nonequiv": 4,
    "protos": 6
   },
   {
@@ -415,25 +467,25 @@
   {
    "file": "deinline_discarded_result",
    "status": "ok",
-   "nonequiv": 0,
+   "nonequiv": 3,
    "protos": 7
   },
   {
    "file": "deinline_earlier_body_and_extents",
    "status": "ok",
-   "nonequiv": 0,
+   "nonequiv": 6,
    "protos": 11
   },
   {
    "file": "deinline_error_level_helper_rebuilt",
    "status": "ok",
-   "nonequiv": 0,
+   "nonequiv": 5,
    "protos": 12
   },
   {
    "file": "deinline_free_cell_read_late",
    "status": "ok",
-   "nonequiv": 0,
+   "nonequiv": 1,
    "protos": 3
   },
   {
@@ -445,7 +497,7 @@
   {
    "file": "deinline_helper_kept_beside_its_named_store",
    "status": "ok",
-   "nonequiv": 1,
+   "nonequiv": 5,
    "protos": 7
   },
   {
@@ -457,19 +509,39 @@
   {
    "file": "deinline_late_register_read_of_a_cell",
    "status": "ok",
-   "nonequiv": 2,
+   "nonequiv": 4,
    "protos": 6
   },
   {
    "file": "deinline_left_out_argument_after_spreading_call",
-   "status": "ok",
+   "status": "expected_refusal",
    "nonequiv": 0,
-   "protos": 6
+   "protos": 6,
+   "refusal": {
+    "reason": "cannot preserve open call results across an operation without a tuple-order proof",
+    "source_sha256": "3833a52e9128323c57b10d74476ff4e8e40a6dce9ae5b89d95128c0eb97cfcc5",
+    "profile": {
+     "opt": 2,
+     "debug": 1,
+     "bytecode_version": 9,
+     "compiler_flags": [
+      "--fflags=false",
+      "--vector-lib=Vector3",
+      "--vector-ctor=new",
+      "--vector-type=Vector3"
+     ],
+     "lifter_args": []
+    },
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": "prototype 0, pc 32: cannot preserve open call results across an operation without a tuple-order proof\n"
+   },
+   "input_sha256": "741333b84d22675e73b4fa141d072108c10e9de2013c574704e940b623ee4716"
   },
   {
    "file": "deinline_line_evidence_admits_small_helpers",
    "status": "ok",
-   "nonequiv": 5,
+   "nonequiv": 6,
    "protos": 22
   },
   {
@@ -481,7 +553,7 @@
   {
    "file": "deinline_merged_result_branches",
    "status": "ok",
-   "nonequiv": 0,
+   "nonequiv": 6,
    "protos": 10
   },
   {
@@ -499,7 +571,7 @@
   {
    "file": "deinline_orphan_function",
    "status": "ok",
-   "nonequiv": 4,
+   "nonequiv": 6,
    "protos": 6
   },
   {
@@ -511,38 +583,58 @@
   {
    "file": "deinline_returned_cell",
    "status": "ok",
-   "nonequiv": 1,
+   "nonequiv": 6,
    "protos": 15
   },
   {
    "file": "deinline_returns_distributed_and_short_circuit",
    "status": "ok",
-   "nonequiv": 1,
+   "nonequiv": 9,
    "protos": 11
   },
   {
    "file": "deinline_specialization_outside_copies",
    "status": "ok",
-   "nonequiv": 1,
+   "nonequiv": 3,
    "protos": 10
   },
   {
    "file": "deinline_specialized_copies",
    "status": "ok",
-   "nonequiv": 1,
+   "nonequiv": 4,
    "protos": 9
   },
   {
    "file": "deinline_store_rebuilt_below_its_caller_copy",
    "status": "ok",
-   "nonequiv": 1,
+   "nonequiv": 2,
    "protos": 11
   },
   {
    "file": "deinline_trailing_false_flag_left_out",
-   "status": "ok",
+   "status": "expected_refusal",
    "nonequiv": 0,
-   "protos": 9
+   "protos": 9,
+   "refusal": {
+    "reason": "cannot preserve open call results across an operation without a tuple-order proof",
+    "source_sha256": "ef52f68a9e8459b9abdc66badc20368830a03b982089c5cd3eff0d71ae693fff",
+    "profile": {
+     "opt": 2,
+     "debug": 1,
+     "bytecode_version": 9,
+     "compiler_flags": [
+      "--fflags=false",
+      "--vector-lib=Vector3",
+      "--vector-ctor=new",
+      "--vector-type=Vector3"
+     ],
+     "lifter_args": []
+    },
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": "prototype 0, pc 32: cannot preserve open call results across an operation without a tuple-order proof\n"
+   },
+   "input_sha256": "a49d569f6fafc53cd62a8aa4d3b15a17dff97318a96def64697c98a41115b944"
   },
   {
    "file": "deinline_tuple_result_shared_closure",
@@ -559,7 +651,7 @@
   {
    "file": "deinline_value_moves_into_its_reader",
    "status": "ok",
-   "nonequiv": 1,
+   "nonequiv": 5,
    "protos": 9
   },
   {
@@ -577,13 +669,13 @@
   {
    "file": "deinline_written_parameter_alias",
    "status": "ok",
-   "nonequiv": 4,
+   "nonequiv": 8,
    "protos": 8
   },
   {
    "file": "deinline_written_parameter_live_outside",
    "status": "ok",
-   "nonequiv": 3,
+   "nonequiv": 8,
    "protos": 9
   },
   {
@@ -619,7 +711,7 @@
   {
    "file": "embedded_helper_value",
    "status": "ok",
-   "nonequiv": 1,
+   "nonequiv": 2,
    "protos": 4
   },
   {
@@ -649,7 +741,7 @@
   {
    "file": "exact_fraction_constants",
    "status": "ok",
-   "nonequiv": 0,
+   "nonequiv": 1,
    "protos": 3
   },
   {
@@ -659,10 +751,36 @@
    "protos": 5
   },
   {
-   "file": "fastcall_argument_order",
+   "file": "fastcall_alias_snapshot",
    "status": "ok",
-   "nonequiv": 1,
-   "protos": 2
+   "nonequiv": 2,
+   "protos": 6
+  },
+  {
+   "file": "fastcall_argument_order",
+   "status": "expected_refusal",
+   "nonequiv": 0,
+   "protos": 2,
+   "refusal": {
+    "reason": "cannot preserve open call results across an operation without a tuple-order proof",
+    "source_sha256": "38fef8990cc59a9419bc6ed2405d6d298026715829f41b95291060f132a188e1",
+    "profile": {
+     "opt": 2,
+     "debug": 1,
+     "bytecode_version": 9,
+     "compiler_flags": [
+      "--fflags=false",
+      "--vector-lib=Vector3",
+      "--vector-ctor=new",
+      "--vector-type=Vector3"
+     ],
+     "lifter_args": []
+    },
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": "prototype 1, pc 79: cannot preserve open call results across an operation without a tuple-order proof\n"
+   },
+   "input_sha256": "cd56cc2777fc15b97e248fe84b31941e420a91c4056a75f3e286e971f05f6998"
   },
   {
    "file": "fastcall_captured_register_read",
@@ -672,14 +790,34 @@
   },
   {
    "file": "fastcall_multret_argument_copied",
-   "status": "ok",
-   "nonequiv": 1,
-   "protos": 3
+   "status": "expected_refusal",
+   "nonequiv": 0,
+   "protos": 3,
+   "refusal": {
+    "reason": "cannot preserve open call results across an operation without a tuple-order proof",
+    "source_sha256": "914231d8453ab716e7052ecb6b3422aa8ecdeff378457328cc43f203f0a6a9c6",
+    "profile": {
+     "opt": 2,
+     "debug": 1,
+     "bytecode_version": 9,
+     "compiler_flags": [
+      "--fflags=false",
+      "--vector-lib=Vector3",
+      "--vector-ctor=new",
+      "--vector-type=Vector3"
+     ],
+     "lifter_args": []
+    },
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": "prototype 1, pc 14: cannot preserve open call results across an operation without a tuple-order proof\n"
+   },
+   "input_sha256": "a459120e81686832257af936bd00c83076ae852f9bb4e76dc394a220a4e60d98"
   },
   {
    "file": "first_read_argument_hoist",
    "status": "ok",
-   "nonequiv": 2,
+   "nonequiv": 4,
    "protos": 7
   },
   {
@@ -703,13 +841,13 @@
   {
    "file": "first_read_statement_hoist",
    "status": "ok",
-   "nonequiv": 1,
+   "nonequiv": 2,
    "protos": 7
   },
   {
    "file": "flattened_do_blocks_register_limit",
    "status": "ok",
-   "nonequiv": 0,
+   "nonequiv": 1,
    "protos": 3
   },
   {
@@ -726,9 +864,29 @@
   },
   {
    "file": "fractions_over_source_denominators",
-   "status": "ok",
+   "status": "expected_refusal",
    "nonequiv": 0,
-   "protos": 3
+   "protos": 3,
+   "refusal": {
+    "reason": "cannot preserve open call results across an operation without a tuple-order proof",
+    "source_sha256": "fcec229cc5bec6b98b678a8a64abb6279ad9e3cb1973579521e4b87459d30ad7",
+    "profile": {
+     "opt": 2,
+     "debug": 1,
+     "bytecode_version": 9,
+     "compiler_flags": [
+      "--fflags=false",
+      "--vector-lib=Vector3",
+      "--vector-ctor=new",
+      "--vector-type=Vector3"
+     ],
+     "lifter_args": []
+    },
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": "prototype 0, pc 14: cannot preserve open call results across an operation without a tuple-order proof\n"
+   },
+   "input_sha256": "951a192da2aa13ecffb5066d06dc72797794490bfe983fa0b6211c1904363be1"
   },
   {
    "file": "fresh_closure_capture_read_global",
@@ -739,7 +897,7 @@
   {
    "file": "function_from_debug_info_writes_cell",
    "status": "ok",
-   "nonequiv": 0,
+   "nonequiv": 1,
    "protos": 3
   },
   {
@@ -787,7 +945,7 @@
   {
    "file": "import_alias_script_globals",
    "status": "ok",
-   "nonequiv": 0,
+   "nonequiv": 1,
    "protos": 6
   },
   {
@@ -803,39 +961,45 @@
    "protos": 3
   },
   {
+   "file": "incoming_operand_read_timing",
+   "status": "ok",
+   "nonequiv": 16,
+   "protos": 45
+  },
+  {
    "file": "inferred_call_comment_on_its_first_line",
    "status": "ok",
-   "nonequiv": 0,
+   "nonequiv": 3,
    "protos": 6
   },
   {
    "file": "inferred_call_comments",
    "status": "ok",
-   "nonequiv": 0,
+   "nonequiv": 2,
    "protos": 9
   },
   {
    "file": "inner_loop_continues_outer",
    "status": "ok",
-   "nonequiv": 0,
+   "nonequiv": 1,
    "protos": 3
   },
   {
    "file": "interpolated_string_in_last_position",
    "status": "ok",
-   "nonequiv": 0,
+   "nonequiv": 1,
    "protos": 5
   },
   {
    "file": "iter_metamethod_order",
    "status": "ok",
-   "nonequiv": 0,
+   "nonequiv": 3,
    "protos": 5
   },
   {
    "file": "late_control_flow_shapes",
    "status": "ok",
-   "nonequiv": 2,
+   "nonequiv": 6,
    "protos": 7
   },
   {
@@ -853,7 +1017,7 @@
   {
    "file": "live_self_updates",
    "status": "ok",
-   "nonequiv": 3,
+   "nonequiv": 4,
    "protos": 8
   },
   {
@@ -865,7 +1029,7 @@
   {
    "file": "locals_past_the_limit_take_if_expressions",
    "status": "ok",
-   "nonequiv": 1,
+   "nonequiv": 2,
    "protos": 11
   },
   {
@@ -912,9 +1076,29 @@
   },
   {
    "file": "loop_carried_cell_declared_before_loop",
-   "status": "ok",
-   "nonequiv": 1,
-   "protos": 21
+   "status": "expected_refusal",
+   "nonequiv": 0,
+   "protos": 21,
+   "refusal": {
+    "reason": "cannot preserve open call results across an operation without a tuple-order proof",
+    "source_sha256": "3b223380539d4a16e1c334efb7ce5042e0e1ed52200b63d4fb6c29380708dd02",
+    "profile": {
+     "opt": 2,
+     "debug": 1,
+     "bytecode_version": 9,
+     "compiler_flags": [
+      "--fflags=false",
+      "--vector-lib=Vector3",
+      "--vector-ctor=new",
+      "--vector-type=Vector3"
+     ],
+     "lifter_args": []
+    },
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": "prototype 0, pc 10: cannot preserve open call results across an operation without a tuple-order proof\n"
+   },
+   "input_sha256": "5d3ebb2ed94243fdf94bbe27fe610b9b4f7a004db1e7f315b20348e36abaab26"
   },
   {
    "file": "loop_exit_after_continue_and_break",
@@ -955,7 +1139,7 @@
   {
    "file": "loop_shared_return",
    "status": "ok",
-   "nonequiv": 2,
+   "nonequiv": 9,
    "protos": 10
   },
   {
@@ -990,9 +1174,29 @@
   },
   {
    "file": "naming_builtin_spellings_never_capture",
-   "status": "ok",
+   "status": "expected_refusal",
    "nonequiv": 0,
-   "protos": 4
+   "protos": 4,
+   "refusal": {
+    "reason": "cannot preserve open call results across an operation without a tuple-order proof",
+    "source_sha256": "a54a0cc36afb4196046ba58c3816e6f39be45145ee168e893c5e2066eab3f50f",
+    "profile": {
+     "opt": 2,
+     "debug": 1,
+     "bytecode_version": 9,
+     "compiler_flags": [
+      "--fflags=false",
+      "--vector-lib=Vector3",
+      "--vector-ctor=new",
+      "--vector-type=Vector3"
+     ],
+     "lifter_args": []
+    },
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": "prototype 0, pc 37: cannot preserve open call results across an operation without a tuple-order proof\n"
+   },
+   "input_sha256": "91c5880a854b117ffa2d29ee5ba85f4743be6d7a1f949d6aadc558a8ffe7559d"
   },
   {
    "file": "naming_counter_compaction_respects_captures",
@@ -1015,7 +1219,7 @@
   {
    "file": "naming_mixed_screaming_and_builtin_plurals",
    "status": "ok",
-   "nonequiv": 0,
+   "nonequiv": 3,
    "protos": 5
   },
   {
@@ -1069,7 +1273,7 @@
   {
    "file": "nested_capture_argument",
    "status": "ok",
-   "nonequiv": 0,
+   "nonequiv": 6,
    "protos": 7
   },
   {
@@ -1098,9 +1302,29 @@
   },
   {
    "file": "numeric_for_init_reads_cell",
-   "status": "ok",
-   "nonequiv": 2,
-   "protos": 5
+   "status": "expected_refusal",
+   "nonequiv": 0,
+   "protos": 5,
+   "refusal": {
+    "reason": "cannot preserve open call results across an operation without a tuple-order proof",
+    "source_sha256": "0719fd6ee510ee484bbd43db5fd20cede31ae83445d9da6e8c15e841693f6a8f",
+    "profile": {
+     "opt": 2,
+     "debug": 1,
+     "bytecode_version": 9,
+     "compiler_flags": [
+      "--fflags=false",
+      "--vector-lib=Vector3",
+      "--vector-ctor=new",
+      "--vector-type=Vector3"
+     ],
+     "lifter_args": []
+    },
+    "exit_code": 1,
+    "stdout": "",
+    "stderr": "prototype 3, pc 39: cannot preserve open call results across an operation without a tuple-order proof\n"
+   },
+   "input_sha256": "f0f98007ee055ba2bbad696c77f912e3b239c86fd79dee024b55552705c338e5"
   },
   {
    "file": "numeric_loop_return",
@@ -1117,7 +1341,7 @@
   {
    "file": "one_variable_generic_loops_register_limit",
    "status": "ok",
-   "nonequiv": 0,
+   "nonequiv": 1,
    "protos": 5
   },
   {
@@ -1195,7 +1419,7 @@
   {
    "file": "recursive_local_function_in_loop",
    "status": "ok",
-   "nonequiv": 2,
+   "nonequiv": 4,
    "protos": 7
   },
   {
@@ -1207,7 +1431,7 @@
   {
    "file": "register_store_target_after_value_call",
    "status": "ok",
-   "nonequiv": 0,
+   "nonequiv": 1,
    "protos": 5
   },
   {
@@ -1267,19 +1491,19 @@
   {
    "file": "services_table_under_pressure",
    "status": "ok",
-   "nonequiv": 0,
+   "nonequiv": 1,
    "protos": 3
   },
   {
    "file": "short_tables_one_line",
    "status": "ok",
-   "nonequiv": 0,
+   "nonequiv": 1,
    "protos": 2
   },
   {
    "file": "signed_zero_key_after_nil_slot",
    "status": "ok",
-   "nonequiv": 0,
+   "nonequiv": 1,
    "protos": 8
   },
   {
@@ -1333,7 +1557,7 @@
   {
    "file": "store_site_helper_call",
    "status": "ok",
-   "nonequiv": 0,
+   "nonequiv": 3,
    "protos": 7
   },
   {
@@ -1357,7 +1581,7 @@
   {
    "file": "swap_of_two_captured_cells",
    "status": "ok",
-   "nonequiv": 1,
+   "nonequiv": 4,
    "protos": 11
   },
   {
@@ -1441,7 +1665,7 @@
   {
    "file": "table_mixed_allocation_growth",
    "status": "ok",
-   "nonequiv": 1,
+   "nonequiv": 2,
    "protos": 2
   },
   {
@@ -1483,13 +1707,19 @@
   {
    "file": "table_open_list_growth",
    "status": "ok",
-   "nonequiv": 6,
+   "nonequiv": 8,
    "protos": 16
+  },
+  {
+   "file": "table_open_list_incoming_key_timing",
+   "status": "ok",
+   "nonequiv": 2,
+   "protos": 9
   },
   {
    "file": "table_open_list_key_errors",
    "status": "ok",
-   "nonequiv": 1,
+   "nonequiv": 4,
    "protos": 5
   },
   {
@@ -1507,19 +1737,19 @@
   {
    "file": "table_open_list_positional_prefix",
    "status": "ok",
-   "nonequiv": 2,
+   "nonequiv": 5,
    "protos": 7
   },
   {
    "file": "table_open_list_split_prefix",
    "status": "ok",
-   "nonequiv": 3,
+   "nonequiv": 5,
    "protos": 6
   },
   {
    "file": "table_partial_array_keys",
    "status": "ok",
-   "nonequiv": 0,
+   "nonequiv": 1,
    "protos": 2
   },
   {
@@ -1579,7 +1809,7 @@
   {
    "file": "untruncated_arguments",
    "status": "ok",
-   "nonequiv": 0,
+   "nonequiv": 1,
    "protos": 6
   },
   {
@@ -1591,7 +1821,7 @@
   {
    "file": "upvalue_operand_read_before_call",
    "status": "ok",
-   "nonequiv": 0,
+   "nonequiv": 1,
    "protos": 7
   },
   {
@@ -1609,13 +1839,13 @@
   {
    "file": "value_capture_through_call_argument",
    "status": "ok",
-   "nonequiv": 2,
+   "nonequiv": 4,
    "protos": 12
   },
   {
    "file": "value_capture_written_after_closure",
    "status": "ok",
-   "nonequiv": 1,
+   "nonequiv": 2,
    "protos": 8
   },
   {
@@ -1645,7 +1875,7 @@
   {
    "file": "while_inlined_condition",
    "status": "ok",
-   "nonequiv": 0,
+   "nonequiv": 1,
    "protos": 4
   },
   {

@@ -47,7 +47,8 @@ by-reference one, or a closure that now captures itself.
 
 Exit status is non-zero when any input fails to decompile/recompile/parse, or
 when `--baseline` is given and the number of non-equivalent prototypes grew
-(overall, or in any single file).
+(overall, or in any single file). Reviewed source/profile refusals are reported
+separately and never counted as compared or equivalent prototypes.
 """
 from __future__ import annotations
 
@@ -1337,8 +1338,31 @@ def process_file(args, rel: str, orig_raw: bytes, key: int, decompiled: pathlib.
         res["error"] = str(e)
         return res
     res["protos"] = len(orig.protos)
+    if decompiled.is_symlink() or (decompiled.exists() and (not decompiled.is_file() or decompiled.stat().st_size == 0)):
+        res["status"] = "invalid-output"
+        return res
     if not decompiled.exists():
         res["status"] = "no-output"
+        reviewed = getattr(args, "_source_refusals", {}).get(rel)
+        corpus_reviewed = getattr(args, "_corpus_refusals", {}).get(rel)
+        if reviewed or corpus_reviewed:
+            binary = args._short_dir / f"refusal-{next(_short_names)}.luaubc"
+            binary.write_bytes(orig_raw)
+            single = run([args.lifter, str(binary), *(["-e"] if corpus_reviewed else []), "--strict-no-synthetic-control"])
+            outcome = dict(exit_code=single.returncode, stdout=single.stdout.decode("utf-8", "replace"),
+                           stderr=single.stderr.decode("utf-8", "replace"))
+            if reviewed:
+                from expected_refusals import refusal_evidence
+                entry, source_sha256 = reviewed
+                profile = dict(opt=int(args.source_opt), debug=1, bytecode_version=9,
+                               compiler_flags=["--fflags=false", "--vector-lib=Vector3",
+                                               "--vector-ctor=new", "--vector-type=Vector3"], lifter_args=[])
+                evidence = refusal_evidence(entry, source_sha256, profile, outcome)
+            else:
+                from check_residual_control import fixture_refusal_evidence
+                evidence = fixture_refusal_evidence(corpus_reviewed, orig_raw, key, "strict", outcome)
+            if evidence:
+                res.update(status="expected_refusal", refusal=evidence)
         return res
     output_bytes = decompiled.read_bytes()
     res["output_sha256"] = hashlib.sha256(output_bytes).hexdigest()
@@ -1397,12 +1421,26 @@ def collect_inputs(args, work: pathlib.Path):
     """Return (input_dir, key, [(rel, orig_bytes, source_text|None)],
     [result for each input that could not be read or compiled])."""
     unreadable = []
+    args._skipped_inputs = []
     if args.sources:
         src_root = pathlib.Path(args.sources)
+        refusal_manifest = src_root / "expected_refusals.json"
+        reviewed = {}
+        args._source_refusals = {}
+        if refusal_manifest.exists():
+            manifest = json.loads(refusal_manifest.read_text(encoding="utf-8"))
+            if manifest.get("schema_version") != 1:
+                raise ValueError("unsupported source refusal manifest")
+            reviewed = {entry["source"]: entry for entry in manifest["cases"]}
+            if len(reviewed) != len(manifest["cases"]):
+                raise ValueError("duplicate source refusal entry")
         inp = work / "in"
         inp.mkdir(parents=True, exist_ok=True)
         items = []
         for src in sorted(src_root.rglob("*.luau")):
+            # Fixture preludes configure the VM environment; they are not decompiler inputs.
+            if src.is_relative_to(src_root / "prelude"):
+                continue
             rel = src.relative_to(src_root).with_suffix("").as_posix()
             raw, err = compile_source(args.compiler, src, args.source_opt)
             if raw is None:
@@ -1412,15 +1450,24 @@ def collect_inputs(args, work: pathlib.Path):
             target = inp / (rel + ".lua")
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_text(base64.b64encode(raw).decode())
+            if entry := reviewed.get(src.relative_to(src_root).as_posix()):
+                args._source_refusals[rel] = (entry, hashlib.sha256(src.read_bytes()).hexdigest())
             items.append((rel, raw, src.read_text(encoding="utf-8", errors="replace")))
         return inp, 1, items, unreadable
     root = pathlib.Path(args.corpus)
+    from check_residual_control import FIXTURE_ROOT, fixture_manifest
+    args._corpus_refusals = {}
+    if root.resolve() == FIXTURE_ROOT:
+        _, entries = fixture_manifest()
+        args._corpus_refusals = {pathlib.Path(name).with_suffix("").as_posix(): entry
+                                for name, entry in entries.items() if entry.get("expected_refusal")}
     items = []
     for src in sorted(root.rglob("*.lua")):
         rel = src.relative_to(root).with_suffix("").as_posix()
         try:
             raw = read_saved_bytecode(src)
         except NoBytecode:
+            args._skipped_inputs.append(rel + ".lua")
             continue
         except ValueError as error:
             print(f"[DECODE FAIL] {rel}: {error}")
@@ -1436,7 +1483,7 @@ def main() -> int:
     ap.add_argument("--compiler", required=True, help="official luau-compile")
     g = ap.add_mutually_exclusive_group(required=True)
     g.add_argument("--corpus", help="folder of saved-bytecode .lua files")
-    g.add_argument("--sources", help="folder of ground-truth .luau sources (compiled at --source-opt)")
+    g.add_argument("--sources", help="folder of ground-truth .luau sources (compiled at --source-opt; excludes prelude/)")
     ap.add_argument("--source-opt", default="2", choices=["0", "1", "2"])
     ap.add_argument("--key", type=int, default=203, help="opcode key for --corpus inputs (203 Roblox, 1 plain)")
     ap.add_argument("--threads", type=int, default=os.cpu_count() or 4)
@@ -1512,6 +1559,15 @@ def main() -> int:
     results.sort(key=lambda r: r["file"])
     t2 = time.time()
 
+    from expected_refusals import batch_refusals_match
+    batch = dict(exit_code=dec.returncode, stdout=dec.stdout.decode("utf-8", "replace"),
+                 stderr=dec.stderr.decode("utf-8", "replace"))
+    expected_failures = {r["file"] + ".lua": r["refusal"]["stderr"]
+                         for r in results if r["status"] == "expected_refusal"}
+    batch_valid = batch_refusals_match(batch, expected_failures, {rel + ".lua" for rel, _, _ in items},
+                                      str(out.resolve()),
+                                      [] if args.filter or args.limit else args._skipped_inputs)
+
     # ---- summary
     tot = collections.Counter()
     status = collections.Counter(r["status"] for r in results)
@@ -1549,6 +1605,7 @@ def main() -> int:
         "differ_classes": dict(class_count),
         "tags": dict(tag_count),
         "decompile_fail_lines": len(fails),
+        "batch_valid": batch_valid,
         "dataflow": dict(collections.Counter(
             r.get("dataflow", {}).get("status", "unavailable") for r in results)),
         "seconds": {"decompile": round(t1 - t0, 1), "compare": round(t2 - t1, 1)},
@@ -1576,13 +1633,14 @@ def main() -> int:
         print(f"  CAPTURE {r['file']}: {_capture_counts_text(r)} ({_capture_hits_text(r)})")
     print(f"time: decompile {t1 - t0:.1f}s, recompile+compare {t2 - t1:.1f}s")
 
-    report = {"summary": summary, "files": results}
+    report = {"summary": summary, "files": results, "batch": batch}
     if args.write_baseline:
         compact = {
             "summary": {k: summary[k] for k in ("inputs", "protos", "exact", "equiv", "differ", "missing", "extra", "equiv_ratio")},
             "files": [
                 {"file": r["file"], "status": r["status"], "nonequiv": r.get("nonequiv", 0),
                  "protos": r.get("protos", 0),
+                 **({"refusal": r["refusal"], "input_sha256": r["input_sha256"]} if "refusal" in r else {}),
                  # Only flagged files carry the field, so the others keep their baseline lines.
                  **({"capture_excess": capture_excess(r)} if capture_excess(r) else {})}
                 for r in results
@@ -1595,12 +1653,12 @@ def main() -> int:
         write_markdown(pathlib.Path(args.markdown), report)
 
     rc = 0
-    bad_status = sum(v for k, v in status.items() if k != "ok")
+    bad_status = sum(v for k, v in status.items() if k not in ("ok", "expected_refusal"))
     if bad_status:
         print(f"FAIL: {bad_status} inputs did not round-trip (see status)")
         rc = 1
-    if dec.returncode != 0:
-        print(f"FAIL: the decompiler exited {dec.returncode}")
+    if not batch_valid:
+        print("FAIL: batch diagnostics or inventory do not match the individually checked inputs")
         rc = 1
     if args.min_equiv is not None and equiv_ratio < args.min_equiv:
         print(f"FAIL: equiv ratio {equiv_ratio:.4%} < {args.min_equiv:.4%}")

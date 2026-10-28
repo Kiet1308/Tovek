@@ -272,8 +272,8 @@ struct Target {
     /// ([`crate::evaluation_order::region_late_read_conflict`]). Read off
     /// the pattern the first time a site needs it ([`Target::free_cells`]).
     free_cells: std::cell::OnceCell<Vec<RcLocal>>,
-    /// At least one branch condition reads a parameter.  Only such targets can
-    /// change statement shape after constant argument propagation, so this is a
+    /// A parameter-dependent branch or eligible leading concat snapshot can
+    /// change statement shape after constant argument propagation. This is the
     /// cold precomputed gate for the Tier-B partial-evaluation fallback.
     specializable: bool,
     /// Parameters read where only their truth matters
@@ -868,6 +868,53 @@ pub fn deinline_with_orphans(body: &mut Block, chunk_orphans: &mut Vec<(RcLocal,
     deinline_orphans_in(body, chunk_orphans, true);
 }
 
+/// SSA cannot prove that an incoming cell is immutable across other functions,
+/// so helpers can retain `local snapshot = captured` where their inlined copies
+/// read `captured` directly. Normalize only that proved-stable scalar shape,
+/// before helper patterns and site windows are cached. In particular, neither
+/// an import lookup nor a closure's captured snapshot is a redundant alias.
+fn normalize_stable_capture_snapshots(body: &mut Block, captures: &crate::deinline_safety::CaptureSafety) -> bool {
+    if !captures.unique_function_bodies() { return false; }
+    let usage = crate::inline_temps::collect_usage(body);
+    let mut aliases = FxHashMap::default();
+    fn walk(body: &mut Block, captures: &crate::deinline_safety::CaptureSafety,
+        usage: &FxHashMap<RcLocal, crate::inline_temps::Usage>, aliases: &mut FxHashMap<RcLocal, RcLocal>,
+        visited: &mut FxHashSet<FnPtr>) {
+        body.0.retain(|statement| {
+            let Statement::Assign(assign) = statement else { return true };
+            let ([LValue::Local(snapshot)], [RValue::Local(source)]) =
+                (assign.left.as_slice(), assign.right.as_slice()) else { return true };
+            let named = snapshot.0.0.lock().0.is_some();
+            if !assign.prefix || assign.parallel || assign.compound || snapshot == source
+                || snapshot.preserve_binding()
+                || (named && !crate::inline_temps::is_generated_temp(snapshot))
+                || !captures.uncaptured(snapshot) || captures.uncaptured(source)
+                || !captures.never_reassigned(source)
+                || !usage.get(snapshot).is_some_and(|u| u.writes == 1 && u.reads == 1 && !u.captured)
+                || !usage.get(source).is_some_and(|u| u.writes <= 1)
+            { return true; }
+            aliases.insert(snapshot.clone(), source.clone());
+            false
+        });
+        for statement in &mut body.0 {
+            crate::inline_temps::collect_closures_in_statement(statement, &mut |closure| {
+                if visited.insert(Arc::as_ptr(&closure.function.0)) {
+                    walk(&mut closure.function.lock().body, captures, usage, aliases, visited);
+                }
+            });
+            for nested in nested_blocks(statement) {
+                walk(&mut nested.lock(), captures, usage, aliases, visited);
+            }
+        }
+    }
+    walk(body, captures, &usage, &mut aliases, &mut FxHashSet::default());
+    if aliases.is_empty() { return false; }
+    // Sources are captured and destinations are not, so this map has no chains
+    // and cannot redirect a write or alter a closure's Copy/Ref capture list.
+    crate::replace_locals::replace_locals(body, &aliases);
+    true
+}
+
 /// [`deinline_with_orphans`], where `nested` says whether a function of
 /// the chunk may hold orphans of its own (else none is looked for).
 pub fn deinline_orphans_in(body: &mut Block, chunk_orphans: &mut Vec<(RcLocal, Closure)>, nested: bool) {
@@ -880,10 +927,14 @@ pub fn deinline_orphans_in(body: &mut Block, chunk_orphans: &mut Vec<(RcLocal, C
         crate::telemetry::count("skipped_without_targets", 1);
         return;
     }
-    let captures = crate::deinline_safety::CaptureSafety::new(body);
+    let mut captures = crate::deinline_safety::CaptureSafety::new(body);
     if !captures.complete() || captures.dynamic_environment() || captures.call_frames_untracked() {
         crate::telemetry::count("skipped_without_targets", 1);
         return;
+    }
+    // Detached orphan bodies are not part of this census's capture inventory.
+    if orphans.is_empty() && normalize_stable_capture_snapshots(body, &captures) {
+        captures = crate::deinline_safety::CaptureSafety::new(body);
     }
     // What each literal captures, so no rewrite changes whether Luau shares
     // it (`literal_sharing`).
@@ -3337,8 +3388,9 @@ fn spreads_into_parameter(ctx: &MatchCtx, pattern: Option<&RValue>, candidate: O
         && matches!(candidate, Some(RValue::Call(_) | RValue::MethodCall(_) | RValue::VarArg(_)))
 }
 
-fn unify_call(ctx: &MatchCtx, a: &Call, d: &Call, b: &mut Bindings) -> Result<(), ()> {
-    if a.arguments.len() != d.arguments.len() || spreads_into_parameter(ctx, a.arguments.last(), d.arguments.last()) {
+pub(crate) fn unify_call(ctx: &MatchCtx, a: &Call, d: &Call, b: &mut Bindings) -> Result<(), ()> {
+    if !a.same_execution(d) || a.arguments.len() != d.arguments.len()
+        || spreads_into_parameter(ctx, a.arguments.last(), d.arguments.last()) {
         return Err(());
     }
     unify_rvalue(ctx, &a.value, &d.value, b)?;
@@ -3448,7 +3500,7 @@ pub(crate) fn rvalue_exact_eq(a: &RValue, b: &RValue) -> bool {
                 && rvalue_exact_eq(&x.else_value, &y.else_value)
         }
         (RValue::Call(x), RValue::Call(y)) => {
-            call_exact_eq(&x.value, &x.arguments, &y.value, &y.arguments)
+            x.same_execution(y) && call_exact_eq(&x.value, &x.arguments, &y.value, &y.arguments)
         }
         (RValue::MethodCall(x), RValue::MethodCall(y)) => {
             x.method == y.method && call_exact_eq(&x.value, &x.arguments, &y.value, &y.arguments)
@@ -3471,7 +3523,7 @@ pub(crate) fn rvalue_exact_eq(a: &RValue, b: &RValue) -> bool {
         // still compares by identity.
         (RValue::Select(x), RValue::Select(y)) => match (x, y) {
             (Select::Call(x), Select::Call(y)) => {
-                call_exact_eq(&x.value, &x.arguments, &y.value, &y.arguments)
+                x.same_execution(y) && call_exact_eq(&x.value, &x.arguments, &y.value, &y.arguments)
             }
             (Select::MethodCall(x), Select::MethodCall(y)) => {
                 x.method == y.method
@@ -4463,9 +4515,10 @@ fn try_match_at(
         // `canon` preserves). NOT to `AtResultDecl` Value targets — their `pat[0]`
         // may be a leaf `return X` unified against an `Assign`, so the variant
         // check would be unsound there.
-        // A constant argument can remove a leading `if` of a specializable
-        // pattern (Tier B), leaving any statement first at the site.
-        let head_may_vanish = t.specializable && matches!(t.pat[0], Statement::If(_));
+        // Partial evaluation can remove a leading branch or a proved scalar
+        // concat snapshot, leaving its following statement first at the site.
+        let head_may_vanish = t.specializable
+            && (matches!(t.pat[0], Statement::If(_)) || leading_scalar_snapshot(&t.pat).is_some());
         let use_disc = !head_may_vanish
             && (t.kind == TKind::Void || (t.kind == TKind::Value && t.value_anchor == ValueAnchor::AtPrefix));
         // Canon may fuse a site's select `if` into the assignment a pattern
@@ -4657,8 +4710,8 @@ fn match_void(
     let max_w = raw_width_for_effective(stmts, start, t.pat_spine_len + 1);
     let mut site: Option<Site> = None;
     let mut ambiguous = false;
-    // A constant argument can remove a branch of the body (Tier B), so a
-    // specializable helper's copy may be shorter than its body.
+    // A constant argument can remove a branch or a proved concat snapshot
+    // (Tier B), so a specializable helper's copy may be shorter than its body.
     let min_w = if t.specializable { 1 } else { kc };
     // The canon length and return scan of each width, one statement at a time.
     let mut grown = WindowGrowth::new(stmts, start, min_w);
@@ -5850,12 +5903,13 @@ fn match_embedded_value(
     // The call runs the helper's statements after every value `S` evaluated
     // before its place, which the prefix ran before: none of those may see a
     // difference. A local the prefix writes, a cell a call in it may write,
-    // and a global or field that code may change once the prefix runs any
-    // (`dispatch = new; dispatch(f())` is not `dispatch(helper())`). A method
-    // lookup is no effect, as everywhere in evaluation order.
+    // and a global or field whose lookup may observe the prefix's effects
+    // (`dispatch = new; dispatch(f())` is not `dispatch(helper())`). Method
+    // lookup follows the arguments, so it is not an earlier value here.
     // Each read once a value needs it.
     let prefix_writes = std::cell::OnceCell::new();
     let prefix_runs_code = std::cell::OnceCell::new();
+    let prefix_lookup_conflict = std::cell::OnceCell::new();
     let writes = || {
         prefix_writes.get_or_init(|| {
             let mut written = FxHashSet::default();
@@ -5863,7 +5917,11 @@ fn match_embedded_value(
             written
         })
     };
-    let runs_code = || *prefix_runs_code.get_or_init(|| may_run_code(prefix));
+    let runs_code = || *prefix_runs_code.get_or_init(|| prefix_has_order_dependency(prefix, &|_| false));
+    let conflicts_with_lookup = || *prefix_lookup_conflict.get_or_init(|| {
+        prefix_has_order_dependency(prefix, &|local| !t.captures.uncaptured(local))
+            || writes().iter().any(|local| !t.captures.uncaptured(local))
+    });
     let function = current_func.map(|function| function as usize);
     let register = |local: &RcLocal| t.captures.register_of(local, function);
     let changed_by_prefix = |read: &Earlier| match read {
@@ -5871,7 +5929,8 @@ fn match_embedded_value(
         Earlier::Value(value @ RValue::Local(local)) => {
             writes().contains(local) || (runs_code() && !t.captures.stable_at(value, function))
         }
-        Earlier::Value(value) => runs_code() && !t.captures.constant_import(value),
+        // Even a builtin lookup can call an external environment's __index.
+        Earlier::Value(_) => conflicts_with_lookup(),
     };
     visit_leading_values(&mut host, &register, &mut |value, evaluated_before, spread| {
         if value_kind(value) != root || evaluated_before.iter().any(&changed_by_prefix) {
@@ -6513,14 +6572,13 @@ enum Earlier {
     Value(RValue),
 }
 
-/// Whether `stmts` may run code other than their own: a call, a store to a
-/// global or a field, or an operation a metamethod can take over.
-fn may_run_code(stmts: &[Statement]) -> bool {
+/// Whether `stmts` may run other code or read a cell that it may change.
+fn prefix_has_order_dependency(stmts: &[Statement], capture: &impl Fn(&RcLocal) -> bool) -> bool {
     stmts.iter().any(|statement| match statement {
         Statement::Assign(assign) => {
             assign.left.iter().any(|left| !matches!(left, LValue::Local(_)))
                 || assign.right.iter().any(|value| {
-                    !crate::effects::summarize(value, &|_| false).effects.is_total_pure()
+                    crate::effects::summarize(value, capture).effects.has_order_dependency()
                 })
         }
         Statement::Comment(_) | Statement::Empty(_) => false,
@@ -7654,6 +7712,70 @@ fn try_unify_specialized_site(t: &Target, cwin: &[Statement], current_func: Opti
     Some(unified)
 }
 
+/// Exactly one leading scalar declaration consumed as a direct argument of the
+/// adjacent call. No nested expression, statement, or closure search is needed.
+fn leading_scalar_snapshot(stmts: &[Statement]) -> Option<(&RcLocal, &RValue, usize)> {
+    let [Statement::Assign(assign), Statement::Call(call), ..] = stmts else { return None };
+    let ([LValue::Local(local)], [value]) = (assign.left.as_slice(), assign.right.as_slice()) else { return None };
+    let named = local.0.0.lock().0.is_some();
+    if !assign.prefix || assign.parallel || assign.compound || local.preserve_binding()
+        || (named && !crate::inline_temps::is_generated_temp(local))
+    { return None; }
+    let argument = call.arguments.iter().position(|value| matches!(value, RValue::Local(read) if read == local))?;
+    Some((local, value, argument))
+}
+
+fn concat_literal(value: &RValue) -> bool {
+    matches!(value, RValue::Literal(Literal::String(_) | Literal::Number(_)))
+        // Pi/non-finite numeric spellings can read the environment.
+        && crate::effects::intrinsic(value, &|_| false).is_total_pure()
+}
+
+fn specializable_leading_concat(stmts: &[Statement], params: &FxHashSet<RcLocal>,
+    captures: &crate::deinline_safety::CaptureSafety) -> bool {
+    if !captures.unique_function_bodies() || captures.dynamic_environment() { return false; }
+    let Some((local, RValue::Binary(binary), _)) = leading_scalar_snapshot(stmts) else { return false };
+    let parameter = |value: &RValue| matches!(value, RValue::Local(read) if params.contains(read));
+    binary.operation == BinaryOperation::Concat
+        && [&*binary.left, &*binary.right].into_iter().all(|value| concat_literal(value) || parameter(value))
+        && (parameter(&binary.left) || parameter(&binary.right))
+        && !params.contains(local) && captures.uncaptured(local) && captures.never_reassigned(local)
+        && count_local_reads(stmts, local) == 1
+}
+
+/// Used speculatively only to expose parameter positions to the seed unifier.
+/// The emitted match must separately prove this motion after substitution.
+fn expand_leading_scalar_snapshot(stmts: &mut Vec<Statement>) -> bool {
+    let Some((_, value, argument)) = leading_scalar_snapshot(stmts) else { return false };
+    let value = value.clone();
+    let Statement::Call(call) = &mut stmts[1] else { unreachable!() };
+    call.arguments[argument] = value;
+    stmts.remove(0);
+    true
+}
+
+fn fold_specialized_leading_concat(t: &Target, specialized: &mut Vec<Statement>) -> bool {
+    if t.kind != TKind::Void || t.orphan.is_some()
+        || !specializable_leading_concat(&t.pat, &t.params, &t.captures)
+    { return false; }
+    let Some((local, value, _)) = leading_scalar_snapshot(specialized) else { return false };
+    if leading_scalar_snapshot(&t.pat).is_none_or(|(original, _, _)| original != local) { return false; }
+    // Luau concatenates primitive strings/numbers without invoking a
+    // metamethod. Keep every leaf's ordinary emission proof; unknown values,
+    // booleans, nil, calls and environment-backed literals remain effectful.
+    let nodes = match value {
+        RValue::Literal(Literal::String(_)) => 1,
+        RValue::Binary(binary) if binary.operation == BinaryOperation::Concat
+            && concat_literal(&binary.left) && concat_literal(&binary.right) => 3,
+        _ => return false,
+    };
+    let summary = crate::effects::Summary { effects: crate::effects::Effects::ALLOCATION, nodes, exhausted: false };
+    if !crate::evaluation_order::can_sink_with_summary(&specialized[1], local, value,
+        &|read| !t.captures.uncaptured(read), &|_| false, summary)
+    { return false; }
+    expand_leading_scalar_snapshot(specialized)
+}
+
 fn try_seeded_specialization(t: &Target, cwin: &[Statement], current_func: Option<FnPtr>) -> Option<Unified> {
     if !t.specializable || t.params.is_empty() {
         return None;
@@ -7661,6 +7783,17 @@ fn try_seeded_specialization(t: &Target, cwin: &[Statement], current_func: Optio
 
     let mut seed = Bindings::default();
     seed_unify_block(t, &t.pat, cwin, &mut seed);
+    let complete_seed = |seed: &Bindings| seed.params.values().any(|value| matches!(value, RValue::Literal(_)))
+        && t.param_order.iter().all(|param| seed.params.contains_key(param) || t.unread.contains(param));
+    if !complete_seed(&seed) && t.kind == TKind::Void && t.orphan.is_none()
+        && specializable_leading_concat(&t.pat, &t.params, &t.captures)
+    {
+        let mut seed_pattern = canon(&t.pat);
+        if expand_leading_scalar_snapshot(&mut seed_pattern) {
+            seed = Bindings::default();
+            seed_unify_block(t, &seed_pattern, cwin, &mut seed);
+        }
+    }
     if !seed
         .params
         .values()
@@ -7690,14 +7823,26 @@ fn try_seeded_specialization(t: &Target, cwin: &[Statement], current_func: Optio
     // the recovered function body's shared Arcs while we prune constant arms.
     let mut specialized = canon(&t.pat);
     specialize_block(&mut specialized, &seed.params);
-    let specialized = canon(&specialized);
+    let mut specialized = canon(&specialized);
 
     let mut verified = Bindings {
-        params: seed.params,
+        params: seed.params.clone(),
         ..Bindings::default()
     };
     if unify_block(t, &specialized, cwin, &mut verified).is_err() {
-        return None;
+        // Literal substitution can make an earlier scalar or callee snapshot
+        // redundant. The ordinary pattern still needs it. Only mutate this owned specialized pattern;
+        // nested Function bodies remain shared and must not be traversed.
+        // Detached orphan bodies (including their nested captures) are absent
+        // from the full-tree census until a proven call materializes them.
+        if t.orphan.is_some() { return None; }
+        let concat = fold_specialized_leading_concat(t, &mut specialized);
+        let imports = crate::fold_import_callees::fold_specialized_import_callees(&mut specialized, &t.captures);
+        if !concat && !imports {
+            return None;
+        }
+        verified = Bindings { params: seed.params, ..Bindings::default() };
+        unify_block(t, &specialized, cwin, &mut verified).ok()?;
     }
     let unified = finish_unified(t, cwin, verified, current_func)?;
     if !specialization_is_honest(t, cwin, &unified.args) {
@@ -8068,7 +8213,7 @@ fn seed_unify_stmt(t: &Target, pattern: &Statement, candidate: &Statement, b: &m
             }
             seed_unify_values(&ctx, &left.right, &right.right, b);
         }
-        (Statement::Call(left), Statement::Call(right)) => {
+        (Statement::Call(left), Statement::Call(right)) if left.same_execution(right) => {
             let _ = unify_rvalue(&ctx, &left.value, &right.value, b);
             seed_unify_values(&ctx, &left.arguments, &right.arguments, b);
         }
@@ -9547,7 +9692,8 @@ impl TargetCommon<'_> {
     /// defaults for the caller to set.
     fn target(&self, kind: TKind, pat: Vec<Statement>, raw: &[Statement]) -> Target {
         let params = self.params;
-        let specializable = branch_conditions_read_any(&pat, params);
+        let specializable = branch_conditions_read_any(&pat, params)
+            || (kind == TKind::Void && specializable_leading_concat(&pat, params, self.captures));
         let (truth_params, optional_params) = truth_tested_params(&pat, params, self.parameters);
         let mut locals: FxHashSet<RcLocal> = FxHashSet::default();
         collect_declared_locals(&pat, &mut locals);
@@ -10727,6 +10873,260 @@ mod tests {
         Statement::Call(Call::new(global("print"), vec![string("x")]))
     }
 
+    #[test]
+    fn stable_capture_snapshot_normalization_recovers_helper_calls() {
+        let (events, note, label) = (local("events"), local("note"), local("label"));
+        let snapshot = RcLocal::default();
+        let insert = |table: &RcLocal, value| Statement::Call(Call::new(
+            Index::new(global("table"), string("insert")).into(), vec![table.clone().into(), value]));
+        let mut declaration = helper_with(&note, std::slice::from_ref(&label), vec![
+            assign_local(&snapshot, events.clone().into(), true),
+            global_call("before", vec![]).into(),
+            insert(&snapshot, label.clone().into()),
+            global_call("after", vec![]).into(),
+        ]);
+        declaration.as_assign_mut().unwrap().right[0].as_closure_mut().unwrap()
+            .upvalues.push(Upvalue::Ref(events.clone()));
+        let mut body = Block(vec![
+            assign_local(&events, Table::default().into(), true), declaration,
+            global_call("before", vec![]).into(), insert(&events, string("entry")),
+            global_call("after", vec![]).into(),
+        ]);
+        deinline(&mut body);
+        let output = body.to_string();
+        assert!(output.contains("note(\"entry\") -- inferred equivalent call"), "{output}");
+        assert_eq!(count_local_reads(&body.0, &snapshot), 0);
+    }
+
+    #[test]
+    fn stable_capture_snapshot_normalization_keeps_import_and_effect_order() {
+        let (source, alias, callee, helper) = (local("source"), local("v"), local("callee"), local("helper"));
+        let mut declaration = helper_decl(&helper, vec![
+            assign_local(&alias, source.clone().into(), true),
+            assign_local(&callee, Index::new(global("table"), string("insert")).into(), true),
+            global_call("change", vec![]).into(),
+            Call::new(callee.clone().into(), vec![alias.clone().into(), string("entry")]).into(),
+        ]);
+        declaration.as_assign_mut().unwrap().right[0].as_closure_mut().unwrap()
+            .upvalues.push(Upvalue::Ref(source.clone()));
+        let mut body = Block(vec![assign_local(&source, Table::default().into(), true), declaration]);
+        let captures = crate::deinline_safety::CaptureSafety::new(&body);
+        assert!(normalize_stable_capture_snapshots(&mut body, &captures));
+        let output = body.to_string();
+        assert!(!output.contains("local v ="), "{output}");
+        assert!(output.find("local callee = table.insert").unwrap() < output.find("change()").unwrap(), "{output}");
+        assert!(output.contains("callee(source, \"entry\")"), "{output}");
+        let captures = crate::deinline_safety::CaptureSafety::new(&body);
+        assert!(!normalize_stable_capture_snapshots(&mut body, &captures));
+    }
+
+    #[test]
+    fn stable_capture_snapshot_normalization_preserves_unproved_snapshots() {
+        for mode in ["source_write", "closure_write", "copy_destination", "ref_destination",
+            "named", "protected", "multiple_reads", "multiple_writes", "import", "incomplete"] {
+            let (source, helper) = (local("source"), local("helper"));
+            let alias = if mode == "named" { local("saved") } else { RcLocal::default() };
+            if mode == "protected" { alias.0.0.lock().4.conditional_result = true; }
+            let initializer = if mode == "import" { global("external") } else { source.clone().into() };
+            let mut statements = vec![assign_local(&alias, initializer, true),
+                global_call("change", vec![]).into(), return_one(alias.clone().into())];
+            if mode == "multiple_reads" {
+                statements[2] = Return::new(vec![alias.clone().into(), alias.clone().into()]).into();
+            }
+            if mode == "multiple_writes" {
+                statements.insert(2, assign_local(&alias, string("changed"), false));
+            }
+            if mode == "closure_write" {
+                statements.insert(1, assign_local(&source, string("changed"), false));
+            }
+            if mode.ends_with("_destination") {
+                let capture = if mode == "copy_destination" { Upvalue::Copy(alias.clone()) } else { Upvalue::Ref(alias.clone()) };
+                statements[2] = return_one(Closure { node_origin: Default::default(),
+                    function: ByAddress(Arc::new(Mutex::new(Function {
+                        body: Block(vec![return_one(alias.clone().into())]), ..Function::default()
+                    }))), upvalues: vec![capture],
+                }.into());
+            }
+            let mut declaration = helper_decl(&helper, statements);
+            declaration.as_assign_mut().unwrap().right[0].as_closure_mut().unwrap()
+                .upvalues.push(Upvalue::Ref(source.clone()));
+            let mut body = Block(vec![assign_local(&source, Table::default().into(), true), declaration]);
+            if mode == "source_write" { body.0.push(assign_local(&source, Table::default().into(), false)); }
+            let captures = if mode == "incomplete" { crate::deinline_safety::CaptureSafety::exhausted_for_tests() }
+                else { crate::deinline_safety::CaptureSafety::new(&body) };
+            let before = body.to_string();
+            assert!(!normalize_stable_capture_snapshots(&mut body, &captures), "mode {mode}");
+            assert_eq!(body.to_string(), before, "mode {mode}");
+        }
+    }
+
+    #[test]
+    fn stable_capture_snapshot_normalization_skips_shared_and_cyclic_bodies() {
+        for cyclic in [false, true] {
+            let source = local("source");
+            let snapshot = RcLocal::default();
+            let function = ByAddress(Arc::new(Mutex::new(Function {
+                body: Block(vec![assign_local(&snapshot, source.clone().into(), true),
+                    return_one(snapshot.clone().into())]), ..Function::default()
+            })));
+            let closure = Closure { node_origin: Default::default(), function: function.clone(),
+                upvalues: vec![Upvalue::Ref(source.clone())] };
+            let mut body = Block(vec![assign_local(&source, Table::default().into(), true),
+                assign_local(&local("first"), closure.clone().into(), true)]);
+            if cyclic {
+                function.lock().body.0.push(return_one(closure.clone().into()));
+            } else {
+                body.0.push(assign_local(&local("second"), closure.clone().into(), true));
+            }
+            let captures = crate::deinline_safety::CaptureSafety::new(&body);
+            assert!(captures.complete());
+            assert!(!captures.unique_function_bodies());
+            let changed = normalize_stable_capture_snapshots(&mut body, &captures);
+            let retained = matches!(&function.lock().body[0], Statement::Assign(assign)
+                if assign.left[0].as_local() == Some(&snapshot));
+            // Release the test-only self-cycle before asserting or dropping it.
+            if cyclic { function.lock().body.0.pop(); }
+            assert!(!changed && retained, "cyclic={cyclic}");
+        }
+    }
+
+    #[test]
+    fn seeded_specialization_folds_proved_imports_without_mutating_the_helper() {
+        for (same_callee, orphan) in [(false, false), (true, false), (true, true)] {
+            let (note, label, error) = (local("note"), local("label"), local("raise"));
+            let helper = helper_with(&note, std::slice::from_ref(&label), vec![
+                global_call("record", vec![label.clone().into()]).into(),
+                if_stmt(bin(global("failure"), BinaryOperation::Equal, label.clone().into()), vec![
+                    assign_local(&error, global("error"), true),
+                    Call::new(error.into(), vec![bin(string("fault:"), BinaryOperation::Concat,
+                        label.clone().into()), number(0.0)]).into(),
+                ], vec![]),
+            ]);
+            let function = helper.as_assign().unwrap().right[0].as_closure().unwrap().function.clone();
+            {
+                let mut body = function.lock();
+                let record = body.body[0].as_call_mut().unwrap();
+                record.node_origin = crate::node_origins::Origin::synthesized("specialization_fixture");
+                record.reconstruction_event = 73;
+            }
+            let before = function.lock().body.to_string();
+            let mut orphans = Vec::new();
+            let mut body = Block::default();
+            if orphan {
+                orphans.push((note.clone(), helper.as_assign().unwrap().right[0].as_closure().unwrap().clone()));
+            } else {
+                body.0.push(helper);
+            }
+            body.0.extend([
+                global_call("record", vec![string("entry")]).into(),
+                if_stmt(bin(global("failure"), BinaryOperation::Equal, string("entry")), vec![
+                    global_call(if same_callee { "error" } else { "anotherError" }, vec![string("fault:entry"), number(0.0)]).into(),
+                ], vec![]),
+            ]);
+            if orphan { deinline_with_orphans(&mut body, &mut orphans); } else { deinline(&mut body); }
+            let output = body.to_string();
+            assert_eq!(output.contains("note(\"entry\") -- inferred equivalent call"), same_callee && !orphan, "{output}");
+            let function = function.lock();
+            assert_eq!(function.body.to_string(), before, "same_callee={same_callee}, orphan={orphan}");
+            let record = function.body[0].as_call().unwrap();
+            let origin = record.node_origin.0.as_ref().unwrap();
+            assert_eq!(record.reconstruction_event, 73);
+            assert_eq!(origin.synthesized, Some("specialization_fixture"));
+            assert!(!origin.cloned && !origin.inlined);
+        }
+    }
+
+    #[test]
+    fn specialized_concat_snapshot_recovers_discarded_calls_without_mutating_the_helper() {
+        let (events, f, parameter, snapshot) = (local("events"), local("f"), local("p"), RcLocal::default());
+        let concat = |value| bin(string("f"), BinaryOperation::Concat, value);
+        let insert = |value| Call::new(Index::new(global("table"), string("insert")).into(),
+            vec![events.clone().into(), value]);
+        let mut declaration = helper_with(&f, std::slice::from_ref(&parameter), vec![
+            assign_local(&snapshot, concat(parameter.clone().into()), true),
+            insert(snapshot.clone().into()).into(), return_one(parameter.clone().into()),
+        ]);
+        let closure = declaration.as_assign_mut().unwrap().right[0].as_closure_mut().unwrap();
+        closure.upvalues.push(Upvalue::Ref(events.clone()));
+        let function = closure.function.clone();
+        function.lock().body[1].as_call_mut().unwrap().reconstruction_event = 73;
+        let original = function.lock().body.to_string();
+        let mut body = Block(vec![assign_local(&events, Table::default().into(), true), declaration,
+            insert(concat(number(0.0))).into(), insert(concat(number(1.0))).into(),
+            return_one(events.clone().into())]);
+        deinline(&mut body);
+        let output = body.to_string();
+        for value in [0, 1] {
+            assert!(output.contains(&format!("f({value}) -- inferred equivalent call")), "{output}");
+        }
+        let function = function.lock();
+        assert_eq!(function.body.to_string(), original);
+        assert_eq!(function.body[1].as_call().unwrap().reconstruction_event, 73);
+    }
+
+    #[test]
+    fn specialized_concat_snapshot_refuses_unknown_and_observable_operands() {
+        let (parameter, snapshot, events) = (local("p"), RcLocal::default(), local("events"));
+        let concat = |value| bin(string("f"), BinaryOperation::Concat, value);
+        let insert = |value| Statement::Call(Call::new(Index::new(global("table"), string("insert")).into(),
+            vec![events.clone().into(), value]));
+        let pattern = vec![assign_local(&snapshot, concat(parameter.clone().into()), true), insert(snapshot.clone().into())];
+        let mut target = void_target(canon(&pattern), [snapshot].into_iter().collect());
+        target.params.insert(parameter.clone());
+        target.param_order = vec![parameter];
+        target.specializable = true;
+        target.captures = std::rc::Rc::new(crate::deinline_safety::CaptureSafety::new(&Block(pattern)));
+        assert!(try_unify_specialized_site(&target, &[insert(concat(number(7.0)))], None).is_some());
+        for value in [local("unknown").into(), Table::default().into(), Literal::Nil.into(), Literal::Boolean(true).into(),
+            global("external"), global_call("effect", vec![]).into(), number(std::f64::consts::PI),
+            number(f64::INFINITY), number(f64::NAN), Literal::Vector(1.0, 2.0, 3.0).into()]
+        {
+            assert!(try_unify_specialized_site(&target, &[insert(concat(value.clone()))], None).is_none(), "{value}");
+        }
+        // The fresh strict retry must still reject a different effect.
+        assert!(try_unify_specialized_site(&target,
+            &[global_call("anotherInsert", vec![events.into(), concat(number(7.0))]).into()], None).is_none());
+    }
+
+    #[test]
+    fn specialized_concat_snapshot_preserves_unproved_bindings_and_orphans() {
+        for mode in ["named", "protected", "copy", "ref", "reassigned", "multiple_reads", "orphan", "incomplete"] {
+            let parameter = local("p");
+            let snapshot = if mode == "named" { local("saved") } else { RcLocal::default() };
+            if mode == "protected" { snapshot.0.0.lock().4.conditional_result = true; }
+            let concat = |value| bin(string("f"), BinaryOperation::Concat, value);
+            let mut arguments = vec![snapshot.clone().into()];
+            if mode == "multiple_reads" { arguments.push(snapshot.clone().into()); }
+            let pattern = vec![assign_local(&snapshot, concat(parameter.clone().into()), true),
+                global_call("consume", arguments).into()];
+            let mut full = Block(pattern.clone());
+            if mode == "reassigned" { full.0.push(assign_local(&snapshot, string("later"), false)); }
+            if mode == "copy" || mode == "ref" {
+                full.0.push(return_one(Closure { node_origin: Default::default(),
+                    function: ByAddress(Arc::new(Mutex::new(Function {
+                        body: Block(vec![return_one(snapshot.clone().into())]), ..Function::default()
+                    }))), upvalues: vec![if mode == "copy" { Upvalue::Copy(snapshot.clone()) } else { Upvalue::Ref(snapshot.clone()) }],
+                }.into()));
+            }
+            let mut target = void_target(canon(&pattern), [snapshot].into_iter().collect());
+            target.params.insert(parameter.clone());
+            target.param_order = vec![parameter.clone()];
+            target.specializable = true;
+            target.captures = std::rc::Rc::new(if mode == "incomplete" {
+                crate::deinline_safety::CaptureSafety::exhausted_for_tests()
+            } else { crate::deinline_safety::CaptureSafety::new(&full) });
+            if mode == "orphan" { target.orphan = Some(None); }
+            let before = Block(target.pat.clone()).to_string();
+            let candidate = [global_call("consume", vec![concat(number(7.0))]).into()];
+            assert!(try_unify_specialized_site(&target, &candidate, None).is_none(), "{mode}");
+            assert_eq!(Block(target.pat.clone()).to_string(), before, "{mode}");
+            // Exercise the committed motion boundary even when seeding was refused.
+            let mut specialized = canon(&target.pat);
+            specialize_block(&mut specialized, &[(parameter, number(7.0))].into_iter().collect());
+            assert!(!fold_specialized_leading_concat(&target, &mut specialized), "{mode}");
+        }
+    }
+
     /// Plan E2: with a fold context, a pattern value computed from
     /// parameters only records an equation against a site number (or a
     /// call of a pure helper on constants) instead of failing; `^`, a
@@ -11047,8 +11447,9 @@ mod tests {
         };
 
         let output = rebuilt(helper_body(RValue::Literal(Literal::Nil)), site(leave(), Vec::new()));
-        // The value moves into the one statement reading it.
-        assert!(output.contains("print(findItem(list, key))"), "{output}");
+        // The helper must finish before the observable global print lookup.
+        assert!(output.contains("local found = findItem(list, key)"), "{output}");
+        assert!(output.contains("print(found)"), "{output}");
         assert!(!output.contains("break"), "{output}");
 
         // The helper's `return fallback` runs where the flag is still set.
@@ -11060,8 +11461,8 @@ mod tests {
             ))
         };
         let output = rebuilt(helper_body(string("none")), site(leave(), vec![fallback(&found)]));
-        // The value moves into the one statement reading it.
-        assert!(output.contains("print(findItem(list, key))"), "{output}");
+        assert!(output.contains("local found = findItem(list, key)"), "{output}");
+        assert!(output.contains("print(found)"), "{output}");
 
         // A store that keeps looping is not a `return`.
         let keeps_looping = vec![assign_local(&found, local_value(&x), false)];
@@ -11138,7 +11539,8 @@ mod tests {
             use_r(),
         ];
         let output = run(helper_body, site);
-        assert!(output.contains("print(classify(list))"), "{output}");
+        assert!(output.contains("local r = classify(list)"), "{output}");
+        assert!(output.contains("print(r)"), "{output}");
 
         // for i = 1, #list do if a(i) then return i end end (nothing after)
         let helper_body = vec![numeric(&i, vec![guard(test("a", &i), vec![return_one(local_value(&i))], vec![])])];
@@ -13089,6 +13491,30 @@ mod tests {
         ));
     }
 
+    #[test]
+    fn call_matching_retains_native_paths_and_required_callee_grouping() {
+        let params = FxHashSet::default();
+        let locals = FxHashSet::default();
+        let ctx = MatchCtx { params: &params, locals: &locals, captures: None, fold: None };
+        let call = |flags: u8| {
+            let mut call = Call::new(Index::new(global("Vector3"), string("new")).into(), vec![number(1.0), number(2.0), number(3.0)]);
+            call.vector_constructor_fastcall = flags & 1 != 0;
+            call.group_callee = flags & 2 != 0;
+            call
+        };
+        for left in 0..4 {
+            for right in 0..4 {
+                assert_eq!(unify_call(&ctx, &call(left), &call(right), &mut Bindings::default()).is_ok(), left == right);
+                for scalar in [false, true] {
+                    let value = |flags| if scalar { RValue::Select(Select::Call(call(flags))) } else { RValue::Call(call(flags)) };
+                    let (left_value, right_value) = (value(left), value(right));
+                    assert_eq!(rvalue_exact_eq(&left_value, &right_value), left == right);
+                    assert_eq!(unify_rvalue(&ctx, &left_value, &right_value, &mut Bindings::default()).is_ok(), left == right);
+                }
+            }
+        }
+    }
+
     /// F4 FIX 1 in the return-folding gate: an early `return +0.0` must not be
     /// treated as equal to a tail `return -0.0` (they differ as `1/x`).
     #[test]
@@ -14286,7 +14712,8 @@ mod tests {
         let is_function = || bin(call1(global("type"), local_value(&x)), BinaryOperation::Equal, string("function"));
         let is_nil = bin(local_value(&x), BinaryOperation::Equal, RValue::Literal(Literal::Nil));
         let output = run(bin(is_nil, BinaryOperation::Or, is_function()));
-        assert!(output.contains("print(x == nil or isCallable(x))"), "{output}");
+        assert!(output.contains("local r = x == nil or isCallable(x)"), "{output}");
+        assert!(output.contains("print(r)"), "{output}");
         // A field's value is no boolean: `t.flag or isCallable(x)` would be
         // that value where the copy stores `true`.
         let output = run(bin(field(global("t"), "flag"), BinaryOperation::Or, is_function()));
@@ -14307,6 +14734,54 @@ mod tests {
         deinline(&mut block);
         let output = block.to_string();
         assert!(output.contains("return isCallable(x)"), "{output}");
+    }
+
+    #[test]
+    fn embedded_helper_effects_cannot_move_after_an_import_lookup() {
+        let (cell, callee) = (local("cell"), local("callee"));
+        let import = || field(global("math"), "max");
+        let capture = return_one(RValue::Closure(Closure {
+            node_origin: Default::default(),
+            function: ByAddress(Arc::new(Mutex::new(Function {
+                body: Block(vec![return_one(local_value(&cell))]), ..Function::default()
+            }))),
+            upvalues: vec![Upvalue::Ref(cell.clone())],
+        }));
+        // The external environment's __index can observe either the call or
+        // the captured-cell store before fetching math.max.
+        for prefix in [print_x(), assign_local(&cell, number(9.0), false)] {
+            let body = [prefix.clone(), return_one(number(1.0))];
+            let mut target = value_prefix_target_k(&body);
+            target.captures = std::rc::Rc::new(crate::deinline_safety::CaptureSafety::new(&Block(vec![capture.clone(), prefix.clone()])));
+            for fetch in [import(), global("print"), local_value(&callee)] {
+                let safe = matches!(fetch, RValue::Local(_));
+                let site = [prefix.clone(), return_one(RValue::Call(Call::new(fetch, vec![number(1.0), number(2.0)])))];
+                let prefix_site = prefix_may_unify(&target, &site[..1]).expect("matching prefix");
+                let hit = match_embedded_value(&site, 0, 1, &target, None, false, &mut Liveness::default(), &prefix_site);
+                assert_eq!(hit.is_some(), safe);
+            }
+        }
+        // An uncaptured local store has no effect the lookup can observe.
+        let prefix = assign_local(&cell, number(9.0), false);
+        let target = value_prefix_target_k(&[prefix.clone(), return_one(number(1.0))]);
+        let site = [prefix, return_one(RValue::Call(Call::new(import(), vec![number(1.0), number(2.0)])))];
+        let prefix_site = prefix_may_unify(&target, &site[..1]).unwrap();
+        assert!(match_embedded_value(&site, 0, 1, &target, None, false, &mut Liveness::default(), &prefix_site).is_some());
+
+        // The lookup can also mutate a cell read by a pure prefix. Keep its
+        // snapshot before the lookup, including when two uses retain the copy.
+        let saved = local("saved");
+        let prefix = assign_local(&saved, local_value(&cell), true);
+        let sum = || bin(local_value(&saved), BinaryOperation::Add, local_value(&saved));
+        for captured in [false, true] {
+            let mut target = value_prefix_target_k(&[prefix.clone(), return_one(sum())]);
+            if captured {
+                target.captures = std::rc::Rc::new(crate::deinline_safety::CaptureSafety::new(&Block(vec![capture.clone()])));
+            }
+            let site = [prefix.clone(), return_one(RValue::Call(Call::new(import(), vec![sum(), number(2.0)])))];
+            let prefix_site = prefix_may_unify(&target, &site[..1]).unwrap();
+            assert_eq!(match_embedded_value(&site, 0, 1, &target, None, false, &mut Liveness::default(), &prefix_site).is_some(), !captured);
+        }
     }
 
     #[test]
@@ -14389,7 +14864,8 @@ mod tests {
         ]);
         deinline(&mut block);
         let output = block.to_string();
-        assert!(output.contains("print(f(v, true))"), "{output}");
+        assert!(output.contains("local out2 = f(input, true)"), "{output}");
+        assert!(output.contains("print(out2)"), "{output}");
     }
 
     #[test]

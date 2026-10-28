@@ -17,7 +17,8 @@ fn a_tree_rebuilds_around_a_scope_settled_before_its_capture() {
     let source = luau_lifter::try_decompile_bytecode_with_options(BYTECODE, 1, None, Default::default())
         .expect("fixture decompiles");
     assert!(source.contains(":New(\"Frame\")({"), "{source}");
-    let children = source.find("[Children] = {").expect("children field");
-    let first = source[children..].trim_start_matches("[Children] = {").trim_start();
+    // Its incoming key is read before either child's effects, even if O2 inlines this closure.
+    let children = source.find("[Children or Children] = {").expect("children field");
+    let first = source[children..].trim_start_matches("[Children or Children] = {").trim_start();
     assert!(first.starts_with("scope:New(\"UIScale\")"), "{source}");
 }

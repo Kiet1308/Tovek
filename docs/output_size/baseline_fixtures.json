@@ -64,6 +64,18 @@
       "bytes": 287,
       "lines": 18
     },
+    "semantic/binary_snapshot_timing__O0.luau": {
+      "bytes": 802,
+      "lines": 42
+    },
+    "semantic/binary_snapshot_timing__O1.luau": {
+      "bytes": 802,
+      "lines": 42
+    },
+    "semantic/binary_snapshot_timing__O2.luau": {
+      "bytes": 954,
+      "lines": 44
+    },
     "semantic/branch_tuple_helper__O0.luau": {
       "bytes": 801,
       "lines": 48
@@ -1324,6 +1336,18 @@
       "bytes": 797,
       "lines": 45
     },
+    "semantic/fastcall_alias_snapshot__O0.luau": {
+      "bytes": 616,
+      "lines": 29
+    },
+    "semantic/fastcall_alias_snapshot__O1.luau": {
+      "bytes": 616,
+      "lines": 29
+    },
+    "semantic/fastcall_alias_snapshot__O2.luau": {
+      "bytes": 606,
+      "lines": 29
+    },
     "semantic/fastcall_argument_order__O0.luau": {
       "bytes": 322,
       "lines": 12
@@ -1611,6 +1635,18 @@
     "semantic/import_lookup_may_raise__O2.luau": {
       "bytes": 374,
       "lines": 19
+    },
+    "semantic/incoming_operand_read_timing__O0.luau": {
+      "bytes": 4298,
+      "lines": 222
+    },
+    "semantic/incoming_operand_read_timing__O1.luau": {
+      "bytes": 4282,
+      "lines": 221
+    },
+    "semantic/incoming_operand_read_timing__O2.luau": {
+      "bytes": 4654,
+      "lines": 238
     },
     "semantic/inferred_call_comment_on_its_first_line__O0.luau": {
       "bytes": 895,
@@ -2979,6 +3015,18 @@
     "semantic/table_open_list_growth__O2.luau": {
       "bytes": 3120,
       "lines": 181
+    },
+    "semantic/table_open_list_incoming_key_timing__O0.luau": {
+      "bytes": 1696,
+      "lines": 72
+    },
+    "semantic/table_open_list_incoming_key_timing__O1.luau": {
+      "bytes": 1700,
+      "lines": 72
+    },
+    "semantic/table_open_list_incoming_key_timing__O2.luau": {
+      "bytes": 2320,
+      "lines": 106
     },
     "semantic/table_open_list_key_errors__O0.luau": {
       "bytes": 1297,

@@ -1,4 +1,4 @@
--- Incoming captured keys are read before value effects; owning-register recovery must not apply.
+-- Incoming captured keys must be read before value effects, including after helper inlining.
 local function invoke(callback, ...) return callback(...) end
 local function tail() print("tail"); return 21, nil, 23 end
 local function marker() print("later"); return 7 end

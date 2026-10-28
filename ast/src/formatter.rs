@@ -2061,7 +2061,7 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
             || match value {
                 RValue::Index(index) => Self::prefix_starts_with_parenthesis(&index.left),
                 RValue::Call(call) | RValue::Select(Select::Call(call)) => {
-                    Self::prefix_starts_with_parenthesis(&call.value)
+                    call.group_callee || Self::prefix_starts_with_parenthesis(&call.value)
                 }
                 RValue::MethodCall(method_call) | RValue::Select(Select::MethodCall(method_call)) => {
                     Self::prefix_starts_with_parenthesis(&method_call.value)
@@ -2072,7 +2072,7 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
 
     fn statement_starts_with_parenthesis(statement: &Statement) -> bool {
         match statement {
-            Statement::Call(call) => Self::prefix_starts_with_parenthesis(&call.value),
+            Statement::Call(call) => call.group_callee || Self::prefix_starts_with_parenthesis(&call.value),
             Statement::MethodCall(method_call) => Self::prefix_starts_with_parenthesis(&method_call.value),
             Statement::Assign(assign) if !assign.prefix => assign
                 .left
@@ -3214,7 +3214,7 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
             self.inferred_calls.call_printed();
         }
         let start = self.current_position();
-        let wrap = Self::should_wrap_left_rvalue(&call.value);
+        let wrap = call.group_callee || Self::should_wrap_left_rvalue(&call.value);
         if wrap {
             write!(self.output, "(")?;
         }

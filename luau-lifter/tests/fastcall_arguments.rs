@@ -1,20 +1,16 @@
-//! Arguments fold back into builtin calls.
+//! Open builtin arguments keep their evaluation order or are refused.
 //!
 //! The accompanying source was compiled with Luau c2ec0d4:
 //! `luau-compile --binary -O2 -g0 --fflags=false fastcall_arguments.luau`.
-//! A builtin call compiles to FASTCALL: its arguments are evaluated first and
-//! the callee is imported after them, for the fallback CALL. Treating that
-//! import as an ordering barrier left every argument in a temporary
-//! (`local v3 = depth + 1; table.insert(out, ("  "):rep(v3))`).
+//! Its spreading `:rep` call executes before the table.insert fallback lookup.
+//! Moving it into a call with an earlier callee snapshot changes errors/effects;
+//! truncating it to one result assumes the external callee's return arity.
 
 const BYTECODE: &[u8] = include_bytes!("fixtures/fastcall_arguments.luaubc");
 
 #[test]
-fn builtin_call_arguments_are_inlined() {
-    let source = luau_lifter::try_decompile_bytecode_with_options(BYTECODE, 1, None, Default::default())
-        .expect("fixture decompiles");
-    // `local out = {}` is the only local: no argument needs a temporary.
-    assert_eq!(source.matches("local ").count(), 1, "{source}");
-    assert!(source.contains("table.insert(v, (tostring(k)))"), "{source}");
-    assert!(source.contains("string.format(\"%q\", (tostring(item)))"), "{source}");
+fn spreading_builtin_arguments_require_a_tuple_order_proof() {
+    let error = luau_lifter::try_decompile_bytecode_with_options(BYTECODE, 1, None, Default::default())
+        .expect_err("an open call cannot cross the observable import lookup");
+    assert!(error.contains("cannot preserve open call results across an operation without a tuple-order proof"), "{error}");
 }

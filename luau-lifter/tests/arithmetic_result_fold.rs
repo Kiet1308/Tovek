@@ -14,7 +14,8 @@ const BYTECODE: &[u8] = include_bytes!("fixtures/arithmetic_result_fold.luaubc")
 fn arithmetic_results_fold_into_their_use() {
     let source = luau_lifter::try_decompile_bytecode_with_options(BYTECODE, 1, None, Default::default())
         .expect("fixture decompiles");
-    assert!(source.contains("return Color3.new(inverse("), "{source}");
+    // The original callee lookup precedes the helper calls and stays explicit.
+    assert!(source.contains("local new = Color3.new\n\treturn new(inverse("), "{source}");
     assert!(source.contains("return outBounce(p * 2 - 1) / 2 + 0.5"), "{source}");
-    assert!(!source.contains("local new"), "{source}");
+    assert_eq!(source.matches("inverse(data.").count(), 3, "{source}");
 }

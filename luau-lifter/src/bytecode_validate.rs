@@ -51,12 +51,16 @@ mod tests {
         Instruction::AD { op_code, a, d, aux }
     }
 
-    fn check(instructions: Vec<Instruction>, constants: Vec<Constant>) -> Result<(), String> {
-        validate(&Chunk { version: 9, main: 0, string_table: vec![], userdata_type_names: vec![],
+    fn chunk(instructions: Vec<Instruction>, constants: Vec<Constant>) -> Chunk<'static> {
+        Chunk { version: 9, main: 0, string_table: vec![], userdata_type_names: vec![],
             functions: vec![Function { max_stack_size: 8, num_parameters: 0, num_upvalues: 0,
                 is_vararg: true, flags: 0, instructions, constants, functions: vec![], line_defined: 0,
                 function_name: 0, line_gap_log2: None, line_info_delta: None, abs_line_info_delta: None,
-                has_debug_info: false, debug_locals: vec![], debug_upvalue_name_indices: vec![], type_info: None }] })
+                has_debug_info: false, debug_locals: vec![], debug_upvalue_name_indices: vec![], type_info: None }] }
+    }
+
+    fn check(instructions: Vec<Instruction>, constants: Vec<Constant>) -> Result<(), String> {
+        validate(&chunk(instructions, constants))
     }
 
     #[test]
@@ -105,6 +109,46 @@ mod tests {
         assert!(check(vec![bc(LOP_GETVARARGS, 1, 0, 0), bc(LOP_CALL, 0, 0, 0), bc(LOP_RETURN, 0, 0, 0)], vec![]).is_ok());
         assert!(check(vec![bc(LOP_GETVARARGS, 0, 0, 0), ad(LOP_JUMP, 0, 0, 0), bc(LOP_RETURN, 0, 0, 0)], vec![])
             .unwrap_err().contains("open result list"));
+    }
+
+    #[test]
+    fn open_calls_cannot_cross_operations_without_a_tuple_order_proof() {
+        let check = |code, constants| {
+            let chunk = chunk(code, constants);
+            validate(&chunk).expect("structurally valid bytecode");
+            admit_open_call_order(&chunk)
+        };
+        let nop = || bc(LOP_NOP, 0, 0, 0);
+        let ret = || bc(LOP_RETURN, 0, 0, 0);
+        let import = || ad(LOP_GETIMPORT, 0, 0, 1 << 30);
+        for operation in [import(), bc(LOP_GETGLOBAL, 0, 0, 0),
+            bc(LOP_GETTABLE, 0, 0, 1), bc(LOP_MOVE, 0, 1, 0)] {
+            let aux = matches!(operation, Instruction::AD { op_code: LOP_GETIMPORT, .. }
+                | Instruction::BC { op_code: LOP_GETGLOBAL, .. });
+            let mut code = vec![bc(LOP_CALL, 2, 1, 0), operation];
+            if aux { code.push(nop()); }
+            code.extend([bc(LOP_CALL, 0, 0, 0), ret()]);
+            assert!(check(code, vec![Constant::String(0)]).unwrap_err()
+                .contains("cannot preserve open call results across an operation without a tuple-order proof"));
+        }
+        // Pure varargs do not run code before the intervening lookup.
+        assert!(check(vec![bc(LOP_GETVARARGS, 2, 0, 0), import(), nop(),
+            bc(LOP_CALL, 0, 0, 0), ret()], vec![Constant::String(0)]).is_ok());
+        // An adjacent native consumer retains every result, including zero or nil.
+        for consumer in [bc(LOP_CALL, 0, 0, 0), ret(),
+            Instruction::BC { op_code: LOP_SETLIST, a: 0, b: 1, c: 0, aux: 1 }] {
+            let aux = matches!(consumer, Instruction::BC { op_code: LOP_SETLIST, .. });
+            let returns = matches!(consumer, Instruction::BC { op_code: LOP_CALL, .. });
+            let mut code = vec![bc(LOP_CALL, 2, 1, 0), consumer];
+            if aux { code.push(nop()); }
+            code.push(if returns { ret() } else { bc(LOP_RETURN, 0, 1, 0) });
+            assert!(check(code, vec![]).is_ok());
+        }
+        assert!(check(vec![bc(LOP_CALL, 2, 1, 0), bc(LOP_CLOSEUPVALS, 0, 0, 0),
+            bc(LOP_FASTCALL, 0, 0, 0), bc(LOP_CALL, 0, 0, 0), ret()], vec![]).is_ok());
+        // NAMECALL performs its lookup after the spreading argument in source too.
+        assert!(check(vec![bc(LOP_CALL, 2, 1, 0), bc(LOP_NAMECALL, 0, 1, 0), nop(),
+            bc(LOP_CALL, 0, 0, 0), ret()], vec![Constant::String(0)]).is_ok());
     }
 }
 
@@ -476,6 +520,53 @@ pub(crate) fn validate(chunk: &Chunk) -> Result<(), String> {
                 }
                 _ => {}
             }
+        }
+    }
+    Ok(())
+}
+
+/// Reject valid instruction sequences whose deferred open tuple has no proved
+/// source spelling. Structural validation must run first.
+pub(crate) fn admit_open_call_order(chunk: &Chunk) -> Result<(), String> {
+    for (id, function) in chunk.functions.iter().enumerate() {
+        let code = &function.instructions;
+        let mut open_call = false;
+        let mut pc = 0;
+        while pc < code.len() {
+            if open_call {
+                let native_consumer = matches!(code[pc],
+                    Instruction::BC { op_code: LOP_CALL | LOP_CALLFB | LOP_RETURN, b: 0, .. }
+                    | Instruction::BC { op_code: LOP_SETLIST, c: 0, .. });
+                let method_consumer = matches!(code[pc],
+                    Instruction::BC { op_code: LOP_NAMECALL | LOP_NAMECALLUDATA, .. })
+                    && matches!(code.get(pc + 2), Some(Instruction::BC { op_code: LOP_CALL | LOP_CALLFB, b: 0, .. }));
+                let inert = matches!(code[pc],
+                    Instruction::BC { op_code: LOP_NOP | LOP_NATIVECALL | LOP_CLOSEUPVALS
+                        | LOP_FASTCALL | LOP_FASTCALL1 | LOP_FASTCALL2 | LOP_FASTCALL2K
+                        | LOP_FASTCALL3 | LOP_FASTPCALL, .. }
+                    | Instruction::E { op_code: LOP_COVERAGE, .. });
+                // A pending call is emitted at its consumer; moving it across a
+                // lookup changes effects, while a scalar snapshot loses tuple arity.
+                // shortcut: register writes also stop recovery, until a bounded operand proof admits them.
+                if !native_consumer && !method_consumer && !inert {
+                    return Err(format!("prototype {id}, pc {pc}: cannot preserve open call results across an operation without a tuple-order proof"));
+                }
+            }
+            let op = match code[pc] {
+                Instruction::BC { op_code, .. } | Instruction::AD { op_code, .. }
+                | Instruction::E { op_code, .. } => op_code,
+            };
+            match code[pc] {
+                Instruction::BC { op_code: LOP_CALL | LOP_CALLFB, b, c, .. } => {
+                    if b == 0 { open_call = false; }
+                    if c == 0 { open_call = true; }
+                }
+                Instruction::BC { op_code: LOP_GETVARARGS, b: 0, .. }
+                | Instruction::BC { op_code: LOP_RETURN, .. }
+                | Instruction::BC { op_code: LOP_SETLIST, c: 0, .. } => open_call = false,
+                _ => {}
+            }
+            pc += 1 + usize::from(op.has_aux());
         }
     }
     Ok(())

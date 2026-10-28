@@ -12,14 +12,14 @@ pub(crate) struct CaptureSafety {
     /// while their declaring function runs a call.
     closure_written: FxHashSet<u64>,
     captured: FxHashSet<u64>,
-    /// Globals the module assigns somewhere.
-    written_globals: FxHashSet<Vec<u8>>,
     /// The module names `getfenv` or `setfenv` (`_G.setfenv` too).
     dynamic_environment: bool,
     /// How the module reaches `debug.info`, which reads call frames.
     frames: FrameReads,
     /// The locals each function reads as upvalues, by its identity.
     upvalues: FxHashMap<usize, FxHashSet<u64>>,
+    /// Shared function bodies whose closure occurrences disagree on incoming locals.
+    ambiguous_upvalues: FxHashSet<usize>,
     /// Value captures read a snapshot, not a later value of the same SSA-coalesced local.
     copied_upvalues: FxHashMap<usize, FxHashSet<u64>>,
     /// Who may run a function that assigns a cell (see [`Self::private_writers`]).
@@ -27,6 +27,8 @@ pub(crate) struct CaptureSafety {
     visited: FxHashSet<usize>,
     nodes: usize,
     literal_bytes: usize,
+    /// Read timing ignores literal contents and walks expression children iteratively.
+    read_timing: bool,
     exhausted: bool,
 }
 
@@ -90,12 +92,29 @@ impl CaptureSafety {
     }
 
     /// The captures alone: which locals closures capture, and each function's
-    /// upvalues. Only [`Self::uncaptured`] and [`Self::register_of`] are
+    /// upvalues. Only [`Self::uncaptured`], [`Self::register_of`] and [`Self::upvalue_of`] are
     /// answered; the traversal and its budget are the full census's, so
     /// [`Self::complete`] agrees with [`Self::new`] on the same body.
     pub(crate) fn captures(body: &Block) -> Self {
         let mut result = Self::default();
         result.block::<CAPTURES, 200_000>(&body.0, 0, &FxHashSet::default(), None);
+        result.visited.clear();
+        result
+    }
+
+    /// The capture identities needed by final read timing, without helper
+    /// literal/expression bounds; node and block/closure depth limits still apply.
+    pub(crate) fn captures_for_read_timing(body: &Block) -> Self {
+        let mut result = Self { read_timing: true, ..Default::default() };
+        result.block::<CAPTURES, 200_000>(&body.0, 0, &FxHashSet::default(), None);
+        result.visited.clear();
+        result
+    }
+
+    /// Capture identities and writes with the same bounds as read timing.
+    pub(crate) fn writes_for_read_timing(body: &Block) -> Self {
+        let mut result = Self { read_timing: true, ..Default::default() };
+        result.block::<FULL, 200_000>(&body.0, 0, &FxHashSet::default(), None);
         result.visited.clear();
         result
     }
@@ -218,6 +237,12 @@ impl CaptureSafety {
 
     pub(crate) fn complete(&self) -> bool { !self.exhausted }
 
+    /// The full census saw each function body once. Required before using
+    /// ordinary tree walkers that do not track repeated closure identities.
+    pub(crate) fn unique_function_bodies(&self) -> bool {
+        !self.exhausted && self.calls.closures.values().all(|&occurrences| occurrences == 1)
+    }
+
     /// A census that knows nothing, as one past its budget.
     #[cfg(test)]
     pub(crate) fn exhausted_for_tests() -> Self {
@@ -283,19 +308,6 @@ impl CaptureSafety {
     /// different things. Luau neither inlines nor imports in such a module.
     pub(crate) fn dynamic_environment(&self) -> bool { self.exhausted || self.dynamic_environment }
 
-    /// A global path no code the script runs can change and whose read
-    /// cannot raise, so it may be read at any point: a builtin global
-    /// (`print`, `workspace`) or a member of a fixed library table
-    /// (`math.clamp`, `Vector2.new`), never assigned in the module, in a
-    /// module with a fixed environment. Luau's own builtin calls assume the
-    /// same. Any other path is a read of a table someone may write
-    /// (`Shared.x`, `Foo.new`, `script.Parent`), of a global another chunk
-    /// may set, or one that may raise ([`import_cannot_raise`]).
-    pub(crate) fn constant_import(&self, value: &RValue) -> bool {
-        !self.dynamic_environment()
-            && import_root(value).is_some_and(|(name, _)| !self.written_globals.contains(name))
-            && import_cannot_raise(value)
-    }
     pub(crate) fn nodes(&self) -> usize { self.nodes }
 
     /// Whether `local`, read in `function` (`None`: the chunk), is one of its
@@ -306,6 +318,15 @@ impl CaptureSafety {
             && function.is_none_or(|function| {
                 self.upvalues.get(&function).is_some_and(|upvalues| !upvalues.contains(&local.stable_id()))
             })
+    }
+
+    /// A known incoming local with the same capture identities at every closure
+    /// occurrence; union membership alone cannot prove an eager GETUPVAL read.
+    pub(crate) fn upvalue_of(&self, local: &crate::RcLocal, function: Option<usize>) -> bool {
+        !self.exhausted && function.is_some_and(|function| {
+            !self.ambiguous_upvalues.contains(&function)
+                && self.upvalues.get(&function).is_some_and(|upvalues| upvalues.contains(&local.stable_id()))
+        })
     }
 
     pub(crate) fn stable(&self, value: &RValue) -> bool {
@@ -340,10 +361,10 @@ impl CaptureSafety {
                 if !self.closure_written.contains(&local.stable_id()) && self.register_of(local, function))
     }
 
-    /// A read the code a call runs cannot change: a literal, a local [`stable`]
-    /// here, or a [`constant_import`].
+    /// A read the code a call runs cannot change: a literal or a local [`stable`]
+    /// here. Even builtin lookups may run code in an externally supplied environment.
     pub(crate) fn unchanged_by_calls(&self, value: &RValue) -> bool {
-        matches!(value, RValue::Literal(_)) || self.stable(value) || self.constant_import(value)
+        matches!(value, RValue::Literal(_)) || self.stable(value)
     }
 
     fn spend<const NODE_LIMIT: usize>(&mut self, depth: usize) -> bool {
@@ -397,19 +418,6 @@ impl CaptureSafety {
             if FACTS >= FULL && let Statement::Assign(assign) = statement {
                 for left in &assign.left {
                     match left {
-                        LValue::Global(global) => {
-                            self.written_globals.insert(global.0.clone());
-                        }
-                        // `math.foo = f` replaces a library member.
-                        LValue::Index(index) => {
-                            let mut base = &*index.left;
-                            while let RValue::Index(inner) = base {
-                                base = &inner.left;
-                            }
-                            if let RValue::Global(global) = base {
-                                self.written_globals.insert(global.0.clone());
-                            }
-                        }
                         LValue::Local(local) if !assign.prefix => {
                             self.rebound.insert(local.stable_id());
                             if upvalues.contains(&local.stable_id()) {
@@ -454,6 +462,37 @@ impl CaptureSafety {
     }
 
     fn value<const FACTS: u8, const NODE_LIMIT: usize>(&mut self, value: &RValue, depth: usize, owner: Option<usize>) {
+        if !self.read_timing {
+            self.value_node::<FACTS, NODE_LIMIT>(value, depth, owner);
+            if !self.exhausted && !matches!(value, RValue::Closure(_)) {
+                value.visit_rvalues(&mut |child| {
+                    self.value::<FACTS, NODE_LIMIT>(child, depth + 1, owner);
+                    !self.exhausted
+                });
+            }
+            return;
+        }
+        let mut pending = vec![value];
+        while let Some(value) = pending.pop() {
+            self.value_node::<FACTS, NODE_LIMIT>(value, depth, owner);
+            if self.exhausted { return; }
+            if matches!(value, RValue::Closure(_)) { continue; }
+            let start = pending.len();
+            value.visit_rvalues(&mut |child| {
+                if pending.len() >= NODE_LIMIT.saturating_sub(self.nodes) {
+                    self.exhausted = true;
+                    return false;
+                }
+                pending.push(child);
+                true
+            });
+            if self.exhausted { return; }
+            // Keep the original census order, including shared closure occurrences.
+            pending[start..].reverse();
+        }
+    }
+
+    fn value_node<const FACTS: u8, const NODE_LIMIT: usize>(&mut self, value: &RValue, depth: usize, owner: Option<usize>) {
         if !self.spend::<NODE_LIMIT>(depth) { return; }
         let width = match value {
             RValue::Table(s) => s.0.len().saturating_mul(2),
@@ -497,7 +536,7 @@ impl CaptureSafety {
                 _ => {}
             }
         }
-        if let RValue::Literal(crate::Literal::String(bytes)) = value {
+        if !self.read_timing && let RValue::Literal(crate::Literal::String(bytes)) = value {
             self.literal_bytes = self.literal_bytes.saturating_add(bytes.len());
             if self.literal_bytes > 8 * 1024 * 1024 { self.exhausted = true; return; }
         }
@@ -507,11 +546,17 @@ impl CaptureSafety {
                 *self.calls.closures.entry(identity).or_default() += 1;
             }
             if FACTS >= CAPTURES {
-                let upvalues = self.upvalues.entry(identity).or_default();
-                upvalues.extend(closure.upvalues.iter().map(|capture| {
+                let incoming = closure.upvalues.iter().map(|capture| {
                     let (Upvalue::Ref(local) | Upvalue::Copy(local)) = capture;
                     local.stable_id()
-                }));
+                }).collect::<FxHashSet<_>>();
+                match self.upvalues.entry(identity) {
+                    std::collections::hash_map::Entry::Vacant(entry) => { entry.insert(incoming); }
+                    std::collections::hash_map::Entry::Occupied(mut entry) => {
+                        if entry.get() != &incoming { self.ambiguous_upvalues.insert(identity); }
+                        entry.get_mut().extend(incoming);
+                    }
+                }
             }
             for capture in &closure.upvalues {
                 if !self.spend::<NODE_LIMIT>(depth) { return; }
@@ -529,11 +574,6 @@ impl CaptureSafety {
                 let upvalues = if FACTS >= FULL { self.upvalues[&identity].clone() } else { FxHashSet::default() };
                 self.block::<FACTS, NODE_LIMIT>(&closure.function.0.lock().body.0, depth + 1, &upvalues, Some(identity));
             }
-        } else {
-            value.visit_rvalues(&mut |child| {
-                self.value::<FACTS, NODE_LIMIT>(child, depth + 1, owner);
-                !self.exhausted
-            });
         }
     }
 }
@@ -648,9 +688,8 @@ fn import_root(value: &RValue) -> Option<(&[u8], usize)> {
     root(value, 0)
 }
 
-/// A builtin global or a member of a fixed library (`print`, `math.max`,
-/// `Enum.KeyCode.E`): fetching it runs no code and, unless the script
-/// replaces the library, always gives the same value.
+/// Classify builtin/library names (`print`, `math.max`, `Enum.KeyCode.E`);
+/// an external environment can still make their lookup observable.
 pub fn library_import(value: &RValue) -> bool {
     import_root(value).is_some_and(|(name, fields)| if fields == 0 { builtin_global(name) } else { fixed_library(name) })
 }
@@ -672,8 +711,8 @@ pub struct ChunkGlobals {
 }
 
 impl ChunkGlobals {
-    /// A [`library_import`] this chunk cannot have replaced: fetching it runs
-    /// no script code.
+    /// A library name with no recorded environment/root write in this chunk;
+    /// this does not prove lookup purity or exclude replacement by outside code.
     pub fn fixed_library_import(&self, value: &RValue) -> bool {
         !self.dynamic_environment
             && library_import(value)
@@ -681,19 +720,7 @@ impl ChunkGlobals {
     }
 }
 
-/// A builtin global or a member of a fixed library table (`print`,
-/// `math.max`): GETIMPORT reads it without raising. A member's own field
-/// may not exist (`math.abs.missing` indexes a function), and `Enum`
-/// raises for a name it lacks (`Enum.KeyCode.E` included).
-fn import_cannot_raise(value: &RValue) -> bool {
-    import_root(value).is_some_and(|(name, fields)| match fields {
-        0 => builtin_global(name),
-        1 => fixed_library(name) && name != b"Enum",
-        _ => false,
-    })
-}
-
-/// Globals Luau and Roblox provide, whose binding a script does not change.
+/// Names of globals Luau and Roblox provide.
 fn builtin_global(name: &[u8]) -> bool {
     fixed_library(name)
         || matches!(
@@ -707,7 +734,7 @@ fn builtin_global(name: &[u8]) -> bool {
         )
 }
 
-/// Library tables whose members are fixed functions and constants.
+/// Names commonly used for library tables.
 fn fixed_library(name: &[u8]) -> bool {
     matches!(
         name,
@@ -755,6 +782,20 @@ impl SearchBudget {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn absent_environment_writes_do_not_make_import_lookups_inert() {
+        let local = crate::RcLocal::default();
+        let facts = CaptureSafety::new(&Block::default());
+        let global = RValue::from(crate::Global::from("math"));
+        let member = RValue::from(crate::Index::new(global.clone(), Literal::String(b"max".to_vec()).into()));
+        assert!(!facts.dynamic_environment());
+        for value in [global, member, crate::Global::from("print").into()] {
+            assert!(!facts.unchanged_by_calls(&value));
+        }
+        assert!(facts.unchanged_by_calls(&local.into()));
+        assert!(facts.unchanged_by_calls(&Literal::Number(2.0).into()));
+    }
     #[test]
     fn copied_upvalues_need_the_original_value_even_with_shared_closures() {
         let cell = crate::RcLocal::default();
@@ -779,6 +820,44 @@ mod tests {
             assert!(!CaptureSafety::new(&Block(vec![node])).copies_unchanged(identity));
         }
         assert!(!CaptureSafety::exhausted_for_tests().copies_unchanged(identity));
+    }
+
+    #[test]
+    fn incoming_upvalues_require_consistent_complete_capture_contexts() {
+        let [key, other, owned] = std::array::from_fn(|_| crate::RcLocal::default());
+        let function = by_address::ByAddress(triomphe::Arc::new(parking_lot::Mutex::new(crate::Function::default())));
+        let identity = triomphe::Arc::as_ptr(&function.0) as usize;
+        let closure = |upvalues| -> RValue { crate::Closure {
+            node_origin: Default::default(), function: function.clone(), upvalues,
+        }.into() };
+        for mismatch in [false, true] {
+            for reverse in [false, true] {
+                let mut values = vec![
+                    closure(vec![Upvalue::Copy(key.clone()), Upvalue::Ref(other.clone())]),
+                    closure(if mismatch { vec![Upvalue::Ref(key.clone())] } else {
+                        // Capture order, duplicates and Copy/Ref modes do not change read timing.
+                        vec![Upvalue::Copy(other.clone()), Upvalue::Ref(key.clone()), Upvalue::Copy(key.clone())]
+                    }),
+                ];
+                if reverse { values.reverse(); }
+                let body = Block(vec![crate::Return::new(values).into()]);
+                for mut safety in [CaptureSafety::captures(&body), CaptureSafety::new(&body),
+                    CaptureSafety::captures_for_read_timing(&body), CaptureSafety::writes_for_read_timing(&body)] {
+                    assert!(safety.complete());
+                    for incoming in [&key, &other] {
+                        assert_eq!(safety.upvalue_of(incoming, Some(identity)), !mismatch);
+                        assert!(!safety.register_of(incoming, Some(identity)));
+                    }
+                    assert!(safety.register_of(&owned, Some(identity)));
+                    assert!(!safety.upvalue_of(&owned, Some(identity)));
+                    assert!(!safety.upvalue_of(&key, None));
+                    assert!(!safety.upvalue_of(&key, Some(usize::MAX)));
+                    safety.exhausted = true;
+                    assert!(!safety.upvalue_of(&key, Some(identity)));
+                    assert!(!safety.register_of(&owned, Some(identity)));
+                }
+            }
+        }
     }
 
     #[test]
@@ -853,9 +932,83 @@ mod tests {
                 assert_eq!(full.uncaptured(local), captures.uncaptured(local));
                 for function in identities {
                     assert_eq!(full.register_of(local, function), captures.register_of(local, function));
+                    assert_eq!(full.upvalue_of(local, function), captures.upvalue_of(local, function));
                 }
             }
         }
+    }
+
+    #[test]
+    fn read_timing_census_keeps_facts_inside_deep_expressions_and_shared_cycles() {
+        let cell = crate::RcLocal::default();
+        let closure = crate::Closure {
+            node_origin: Default::default(),
+            function: by_address::ByAddress(triomphe::Arc::new(parking_lot::Mutex::new(crate::Function {
+                body: Block(vec![crate::Assign::new(vec![cell.clone().into()], vec![Literal::Nil.into()]).into()]),
+                ..Default::default()
+            }))),
+            upvalues: vec![Upvalue::Ref(cell.clone())],
+        };
+        let identity = triomphe::Arc::as_ptr(&closure.function.0) as usize;
+        let mut value: RValue = closure.clone().into();
+        for _ in 0..256 {
+            value = crate::Binary::new(Literal::Number(1.0).into(), value, crate::BinaryOperation::Add).into();
+        }
+        let body = Block(vec![crate::Return::new(vec![value, closure.clone().into()]).into()]);
+        assert!(!CaptureSafety::new(&body).complete());
+        assert!(!CaptureSafety::captures(&body).complete());
+        assert!(!CaptureSafety::helper_within_shape_budget(&body));
+        for safety in [CaptureSafety::captures_for_read_timing(&body), CaptureSafety::writes_for_read_timing(&body)] {
+            assert!(safety.complete());
+            assert!(safety.upvalue_of(&cell, Some(identity)));
+            assert!(!safety.uncaptured(&cell));
+        }
+        let safety = CaptureSafety::writes_for_read_timing(&body);
+        assert!(!safety.never_reassigned(&cell));
+        assert!(safety.closure_written(&cell));
+        assert_eq!(safety.calls.closures[&identity], 2);
+
+        closure.function.lock().body.0.push(crate::Return::new(vec![closure.clone().into()]).into());
+        for safety in [CaptureSafety::captures_for_read_timing(&body), CaptureSafety::writes_for_read_timing(&body)] {
+            assert!(safety.complete());
+            assert!(safety.upvalue_of(&cell, Some(identity)));
+        }
+        // Break the deliberately cyclic fixture's Arc ownership after checking the visited set.
+        closure.function.lock().body.0.pop();
+    }
+
+    #[test]
+    fn read_timing_census_retains_control_closure_and_node_limits() {
+        for closures in [false, true] {
+            let mut body = Block(vec![crate::Return::new(vec![Literal::Nil.into()]).into()]);
+            for _ in 0..130 {
+                body = if closures {
+                    Block(vec![crate::Return::new(vec![crate::Closure {
+                        node_origin: Default::default(),
+                        function: by_address::ByAddress(triomphe::Arc::new(parking_lot::Mutex::new(crate::Function {
+                            body, ..Default::default()
+                        }))),
+                        upvalues: vec![],
+                    }.into()]).into()])
+                } else {
+                    Block(vec![crate::If::new(Literal::Boolean(true).into(), body, Block::default()).into()])
+                };
+            }
+            assert!(!CaptureSafety::captures_for_read_timing(&body).complete());
+            assert!(!CaptureSafety::writes_for_read_timing(&body).complete());
+        }
+        for count in [199_999, 200_000] {
+            let body = Block(vec![crate::Return::new(vec![Literal::Nil.into(); count]).into()]);
+            for safety in [CaptureSafety::captures_for_read_timing(&body), CaptureSafety::writes_for_read_timing(&body)] {
+                assert_eq!(safety.complete(), count == 199_999);
+            }
+        }
+        // A tiny instance of the same node bound also limits pending children.
+        let value = crate::Table::new(vec![(None, Literal::Nil.into()); 4]);
+        let body = Block(vec![crate::Return::new(vec![value.into()]).into()]);
+        let mut safety = CaptureSafety { read_timing: true, ..Default::default() };
+        safety.block::<CAPTURES, 5>(&body.0, 0, &FxHashSet::default(), None);
+        assert!(!safety.complete());
     }
 
     #[test]
@@ -873,6 +1026,8 @@ mod tests {
         assert!(!budget.spend(0));
         let huge = Block(vec![crate::Return::new(vec![crate::Literal::String(vec![0; 8 * 1024 * 1024 + 1]).into()]).into()]);
         assert!(!CaptureSafety::new(&huge).complete());
+        assert!(!CaptureSafety::captures(&huge).complete());
+        assert!(CaptureSafety::captures_for_read_timing(&huge).complete());
     }
 
     /// `local total; local function bump() total += 1 end`: while `bump` is

@@ -2,13 +2,121 @@
 """Replay V2 fixture bytecode in analysis modes and verify lineage determinism."""
 import argparse
 import base64
+import collections
 import json
 import pathlib
 import sys
 import tempfile
 
 from provenance_audit import manifest, sidecar
-from roadmap_v2 import ROOT, checked, run, sha256
+from expected_refusals import refusal_evidence
+from roadmap_v2 import ROOT, checked, compiler_flags, fixture_path, run, sha256
+
+
+def select_audit_rows(fixtures, *, public):
+    rows = fixtures['rows' if public else 'cases']
+    if fixtures.get('schema_version') != 1 or not rows:
+        raise ValueError('unknown or empty source fixture report')
+    if any(row.get('status') not in ('passed', 'expected_refusal') for row in rows):
+        raise ValueError('source fixture report contains failed or unknown inputs')
+    path = pathlib.Path(fixtures['manifest_path'])
+    if sha256(path) != fixtures['manifest_sha256']:
+        raise ValueError('source fixture manifest hash differs')
+    spec = json.loads(path.read_text(encoding='utf-8'))
+    if spec.get('schema_version') != 1:
+        raise ValueError('unknown source fixture manifest schema')
+    entries = spec['sources' if public else 'cases']
+    by_key = {(entry['repo'], entry['file']) if public else entry['name']: entry for entry in entries}
+    if not entries or len(by_key) != len(entries):
+        raise ValueError('empty or duplicate source fixture manifest entries')
+    opts = spec['optimization_levels']
+    debugs = [spec['debug_level']] if public else spec['debug_levels']
+    if any(not levels or len(levels) != len(set(levels))
+           or any(type(level) is not int or level not in (0, 1, 2) for level in levels)
+           for levels in (opts, debugs)):
+        raise ValueError('invalid source fixture profile levels')
+    version = fixtures['bytecode_version']
+    lifter_args = fixtures['lifter_args']
+    if (type(version) is not int or version not in (9, 12, 14)
+            or not isinstance(lifter_args, list) or any(not isinstance(arg, str) for arg in lifter_args)):
+        raise ValueError('invalid source fixture compiler or lifter profile')
+    flags = compiler_flags(argparse.Namespace(bytecode_version=version))
+    if fixtures['compiler_flags'] != (flags if public else ['--binary', *flags]):
+        raise ValueError('source fixture compiler flags differ')
+    expected = {(key, opt, debug) for key in by_key for opt in opts for debug in debugs}
+    actual = set()
+    hashes = {key: entry['source_sha256'] if public else sha256(fixture_path(path.parent, entry['source']))
+              for key, entry in by_key.items()}
+    for row in rows:
+        key = (row['repo'], row['file']) if public else row['case']
+        debug = row.get('debug', spec['debug_level']) if public else row['debug']
+        profile = (key, row['opt'], debug)
+        if (type(row['opt']) is not int or type(debug) is not int
+                or profile not in expected or profile in actual):
+            raise ValueError('duplicate or unexpected source fixture profile')
+        actual.add(profile)
+        entry = by_key[key]
+        if row['source_sha256'] != hashes[key] or entry.get('source_sha256', hashes[key]) != hashes[key]:
+            raise ValueError('source fixture hash differs')
+        fields = ('split', 'groups') if public else ('group',)
+        if any(row.get(field) != entry.get(field) for field in fields):
+            raise ValueError('source fixture classification differs from manifest')
+    if actual != expected:
+        raise ValueError('source fixture report is missing manifest profiles')
+    if public:
+        summary = {}
+        for split in sorted({row['split'] for row in rows}):
+            subset = [row for row in rows if row['split'] == split]
+            summary[split] = dict(total=len(subset), status=dict(collections.Counter(row['status'] for row in subset)),
+                                  dataflow=dict(collections.Counter(row['dataflow']['status'] for row in subset)),
+                                  ast=dict(collections.Counter(row['source_fidelity']['status'] for row in subset)))
+        source_groups = {
+            group: dict(total=sum(group in row.get('groups', []) for row in rows),
+                        status=dict(collections.Counter(row['status'] for row in rows if group in row.get('groups', []))),
+                        dataflow=dict(collections.Counter(row['dataflow']['status'] for row in rows if group in row.get('groups', []))),
+                        ast=dict(collections.Counter(row['source_fidelity']['status'] for row in rows if group in row.get('groups', []))))
+            for group in sorted({group for row in rows for group in row.get('groups', [])})}
+        if json.dumps(fixtures['source_groups'], sort_keys=True) != json.dumps(source_groups, sort_keys=True):
+            raise ValueError('source fixture group summary differs from input rows')
+    else:
+        controls = fixtures['controls']
+        control_keys = [(row['case'], row['opt']) for row in controls]
+        expected_controls = {(case['case'], opt) for case in spec['negative_controls'] for opt in opts}
+        if (len(control_keys) != len(set(control_keys)) or set(control_keys) != expected_controls
+                or any(row.get('status') != 'passed' or type(row['opt']) is not int for row in controls)):
+            raise ValueError('source fixture controls are failed or incomplete')
+        summary = dict(total=len(rows), status=dict(collections.Counter(row['status'] for row in rows)),
+                       dataflow=dict(collections.Counter(row['dataflow']['status'] for row in rows)),
+                       controls=dict(collections.Counter(row['status'] for row in controls)),
+                       groups={group: dict(collections.Counter(row['status'] for row in rows if row['group'] == group))
+                               for group in sorted({row['group'] for row in rows})})
+    if json.dumps(fixtures['summary'], sort_keys=True) != json.dumps(summary, sort_keys=True):
+        raise ValueError('source fixture summary differs from input rows')
+    refused = [row for row in rows if row['status'] == 'expected_refusal']
+    for row in refused:
+        entry = by_key[(row['repo'], row['file']) if public else row['case']]
+        profile = dict(opt=row['opt'], debug=spec['debug_level'] if public else row['debug'],
+                       bytecode_version=version, compiler_flags=flags, lifter_args=lifter_args)
+        evidence = row.get('refusal', {})
+        outcome = {key: evidence.get(key) for key in ('exit_code', 'stdout', 'stderr')}
+        if (type(outcome['exit_code']) is not int or not isinstance(outcome['stdout'], str)
+                or not isinstance(outcome['stderr'], str)
+                or refusal_evidence(entry, row.get('source_sha256'), profile, outcome) != evidence):
+            raise ValueError('unvalidated expected refusal in source fixture report')
+        if ('output' in row or 'output_sha256' in row or row.get('output_bytes', 0) != 0
+                or 'recompile' in row or 'output' in row.get('runtime', {})):
+            raise ValueError('expected refusal contains partial output')
+        if (row['dataflow']['status'] != 'unavailable'
+                or row.get('source_fidelity', {}).get('status', 'unavailable') != 'unavailable'):
+            raise ValueError('expected refusal claims analyzed output')
+        output = (pathlib.Path(row['input']).with_suffix('.out.luau') if public else
+                  pathlib.Path(fixtures['work']) / f"{row['case']}_O{row['opt']}_g{row['debug']}" / 'output.luau')
+        if output.exists():
+            raise ValueError('expected refusal left an output artifact')
+    passed = [row for row in rows if row['status'] == 'passed']
+    if not passed or any('refusal' in row for row in passed):
+        raise ValueError('source fixture report has no successful inputs or conflicting refusal evidence')
+    return passed, dict(total=len(rows), audited=len(passed), expected_refusal=len(refused), refusals=refused)
 
 
 def main():
@@ -27,9 +135,10 @@ def main():
     args.lifter = args.lifter.resolve(strict=True)
     input_report = args.fixtures_report or args.public_report
     fixtures = json.loads(input_report.read_text(encoding='utf-8'))
-    rows = fixtures['cases'] if args.fixtures_report else fixtures['rows']
-    if not rows or any(r['status'] != 'passed' for r in rows):
-        parser.error('source fixture report must pass first')
+    try:
+        rows, coverage = select_audit_rows(fixtures, public=bool(args.public_report))
+    except (KeyError, TypeError, ValueError, OSError) as error:
+        parser.error(str(error))
     if sha256(args.lifter) != fixtures['tools']['lifter']['sha256']:
         parser.error('fixture and lineage binaries must be identical')
     args.keep.mkdir(parents=True, exist_ok=True)
@@ -126,6 +235,7 @@ def main():
               'input_report_sha256': sha256(input_report), 'work': str(work),
               'dataset': 'runtime_fixtures' if args.fixtures_report else 'pinned_public_sources',
               'input_summary': fixtures['summary'], 'lifter_args': fixtures.get('lifter_args', []),
+              'input_coverage': coverage,
               'mode_timings': measurements, 'metadata_deterministic_threads_1_4': identical, 'audit': audit}
     if emission_audit is not None:
         report['emission_audit'] = emission_audit
@@ -161,7 +271,7 @@ def main():
         report['compact_checks'] = compact_checks
     args.report.parent.mkdir(parents=True, exist_ok=True)
     args.report.write_text(json.dumps(report, indent=1) + '\n', encoding='utf-8', newline='\n')
-    print(json.dumps(audit['summary'], indent=2))
+    print(json.dumps(dict(audit=audit['summary'], input_coverage={k: v for k, v in coverage.items() if k != 'refusals'}), indent=2))
     return 0
 
 

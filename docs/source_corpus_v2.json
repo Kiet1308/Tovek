@@ -391,7 +391,30 @@
       "groups": [
         "UI",
         "module"
-      ]
+      ],
+      "expected_refusal": {
+        "reason": "cannot preserve open call results across an operation without a tuple-order proof",
+        "profiles": [
+          {
+            "opt": 1,
+            "debug": 1,
+            "bytecode_version": 9,
+            "compiler_flags": [
+              "--fflags=false"
+            ],
+            "lifter_args": []
+          },
+          {
+            "opt": 2,
+            "debug": 1,
+            "bytecode_version": 9,
+            "compiler_flags": [
+              "--fflags=false"
+            ],
+            "lifter_args": []
+          }
+        ]
+      }
     },
     {
       "repo": "Fusion",
@@ -404,7 +427,30 @@
       "groups": [
         "UI",
         "module"
-      ]
+      ],
+      "expected_refusal": {
+        "reason": "cannot preserve open call results across an operation without a tuple-order proof",
+        "profiles": [
+          {
+            "opt": 1,
+            "debug": 1,
+            "bytecode_version": 9,
+            "compiler_flags": [
+              "--fflags=false"
+            ],
+            "lifter_args": []
+          },
+          {
+            "opt": 2,
+            "debug": 1,
+            "bytecode_version": 9,
+            "compiler_flags": [
+              "--fflags=false"
+            ],
+            "lifter_args": []
+          }
+        ]
+      }
     },
     {
       "repo": "Fusion",
@@ -483,7 +529,30 @@
       "groups": [
         "UI",
         "module"
-      ]
+      ],
+      "expected_refusal": {
+        "reason": "cannot preserve open call results across an operation without a tuple-order proof",
+        "profiles": [
+          {
+            "opt": 1,
+            "debug": 1,
+            "bytecode_version": 9,
+            "compiler_flags": [
+              "--fflags=false"
+            ],
+            "lifter_args": []
+          },
+          {
+            "opt": 2,
+            "debug": 1,
+            "bytecode_version": 9,
+            "compiler_flags": [
+              "--fflags=false"
+            ],
+            "lifter_args": []
+          }
+        ]
+      }
     },
     {
       "repo": "Fusion",
@@ -497,7 +566,30 @@
         "UI",
         "module",
         "promise/event"
-      ]
+      ],
+      "expected_refusal": {
+        "reason": "cannot preserve open call results across an operation without a tuple-order proof",
+        "profiles": [
+          {
+            "opt": 1,
+            "debug": 1,
+            "bytecode_version": 9,
+            "compiler_flags": [
+              "--fflags=false"
+            ],
+            "lifter_args": []
+          },
+          {
+            "opt": 2,
+            "debug": 1,
+            "bytecode_version": 9,
+            "compiler_flags": [
+              "--fflags=false"
+            ],
+            "lifter_args": []
+          }
+        ]
+      }
     },
     {
       "repo": "Fusion",
@@ -510,7 +602,30 @@
       "groups": [
         "UI",
         "module"
-      ]
+      ],
+      "expected_refusal": {
+        "reason": "cannot preserve open call results across an operation without a tuple-order proof",
+        "profiles": [
+          {
+            "opt": 1,
+            "debug": 1,
+            "bytecode_version": 9,
+            "compiler_flags": [
+              "--fflags=false"
+            ],
+            "lifter_args": []
+          },
+          {
+            "opt": 2,
+            "debug": 1,
+            "bytecode_version": 9,
+            "compiler_flags": [
+              "--fflags=false"
+            ],
+            "lifter_args": []
+          }
+        ]
+      }
     },
     {
       "repo": "Fusion",
@@ -641,7 +756,30 @@
       "groups": [
         "UI",
         "module"
-      ]
+      ],
+      "expected_refusal": {
+        "reason": "cannot preserve open call results across an operation without a tuple-order proof",
+        "profiles": [
+          {
+            "opt": 1,
+            "debug": 1,
+            "bytecode_version": 9,
+            "compiler_flags": [
+              "--fflags=false"
+            ],
+            "lifter_args": []
+          },
+          {
+            "opt": 2,
+            "debug": 1,
+            "bytecode_version": 9,
+            "compiler_flags": [
+              "--fflags=false"
+            ],
+            "lifter_args": []
+          }
+        ]
+      }
     },
     {
       "repo": "Fusion",
@@ -990,7 +1128,30 @@
       "groups": [
         "UI",
         "module"
-      ]
+      ],
+      "expected_refusal": {
+        "reason": "cannot preserve open call results across an operation without a tuple-order proof",
+        "profiles": [
+          {
+            "opt": 1,
+            "debug": 1,
+            "bytecode_version": 9,
+            "compiler_flags": [
+              "--fflags=false"
+            ],
+            "lifter_args": []
+          },
+          {
+            "opt": 2,
+            "debug": 1,
+            "bytecode_version": 9,
+            "compiler_flags": [
+              "--fflags=false"
+            ],
+            "lifter_args": []
+          }
+        ]
+      }
     },
     {
       "repo": "roact",
@@ -1109,7 +1270,30 @@
       "groups": [
         "UI",
         "module"
-      ]
+      ],
+      "expected_refusal": {
+        "reason": "cannot preserve open call results across an operation without a tuple-order proof",
+        "profiles": [
+          {
+            "opt": 1,
+            "debug": 1,
+            "bytecode_version": 9,
+            "compiler_flags": [
+              "--fflags=false"
+            ],
+            "lifter_args": []
+          },
+          {
+            "opt": 2,
+            "debug": 1,
+            "bytecode_version": 9,
+            "compiler_flags": [
+              "--fflags=false"
+            ],
+            "lifter_args": []
+          }
+        ]
+      }
     },
     {
       "repo": "roact",
@@ -1255,7 +1439,30 @@
       "groups": [
         "UI",
         "module"
-      ]
+      ],
+      "expected_refusal": {
+        "reason": "cannot preserve open call results across an operation without a tuple-order proof",
+        "profiles": [
+          {
+            "opt": 1,
+            "debug": 1,
+            "bytecode_version": 9,
+            "compiler_flags": [
+              "--fflags=false"
+            ],
+            "lifter_args": []
+          },
+          {
+            "opt": 2,
+            "debug": 1,
+            "bytecode_version": 9,
+            "compiler_flags": [
+              "--fflags=false"
+            ],
+            "lifter_args": []
+          }
+        ]
+      }
     },
     {
       "repo": "roact",
@@ -1455,7 +1662,30 @@
         "module",
         "promise/event",
         "type-heavy"
-      ]
+      ],
+      "expected_refusal": {
+        "reason": "cannot preserve open call results across an operation without a tuple-order proof",
+        "profiles": [
+          {
+            "opt": 1,
+            "debug": 1,
+            "bytecode_version": 9,
+            "compiler_flags": [
+              "--fflags=false"
+            ],
+            "lifter_args": []
+          },
+          {
+            "opt": 2,
+            "debug": 1,
+            "bytecode_version": 9,
+            "compiler_flags": [
+              "--fflags=false"
+            ],
+            "lifter_args": []
+          }
+        ]
+      }
     },
     {
       "repo": "RbxUtil",
@@ -1816,7 +2046,30 @@
       "url": "https://github.com/Sleitnick/RbxUtil/blob/31f9120fca021e3dec275b42bc7047d626962082/modules/log/init.luau",
       "groups": [
         "module"
-      ]
+      ],
+      "expected_refusal": {
+        "reason": "cannot preserve open call results across an operation without a tuple-order proof",
+        "profiles": [
+          {
+            "opt": 1,
+            "debug": 1,
+            "bytecode_version": 9,
+            "compiler_flags": [
+              "--fflags=false"
+            ],
+            "lifter_args": []
+          },
+          {
+            "opt": 2,
+            "debug": 1,
+            "bytecode_version": 9,
+            "compiler_flags": [
+              "--fflags=false"
+            ],
+            "lifter_args": []
+          }
+        ]
+      }
     },
     {
       "repo": "RbxUtil",
@@ -1867,7 +2120,21 @@
       "groups": [
         "module",
         "type-heavy"
-      ]
+      ],
+      "expected_refusal": {
+        "reason": "cannot preserve open call results across an operation without a tuple-order proof",
+        "profiles": [
+          {
+            "opt": 1,
+            "debug": 1,
+            "bytecode_version": 9,
+            "compiler_flags": [
+              "--fflags=false"
+            ],
+            "lifter_args": []
+          }
+        ]
+      }
     },
     {
       "repo": "RbxUtil",
@@ -2251,7 +2518,30 @@
       "groups": [
         "module",
         "promise/event"
-      ]
+      ],
+      "expected_refusal": {
+        "reason": "cannot preserve open call results across an operation without a tuple-order proof",
+        "profiles": [
+          {
+            "opt": 1,
+            "debug": 1,
+            "bytecode_version": 9,
+            "compiler_flags": [
+              "--fflags=false"
+            ],
+            "lifter_args": []
+          },
+          {
+            "opt": 2,
+            "debug": 1,
+            "bytecode_version": 9,
+            "compiler_flags": [
+              "--fflags=false"
+            ],
+            "lifter_args": []
+          }
+        ]
+      }
     },
     {
       "repo": "Rodux",
@@ -2279,7 +2569,30 @@
         "OOP",
         "module",
         "promise/event"
-      ]
+      ],
+      "expected_refusal": {
+        "reason": "cannot preserve open call results across an operation without a tuple-order proof",
+        "profiles": [
+          {
+            "opt": 1,
+            "debug": 1,
+            "bytecode_version": 9,
+            "compiler_flags": [
+              "--fflags=false"
+            ],
+            "lifter_args": []
+          },
+          {
+            "opt": 2,
+            "debug": 1,
+            "bytecode_version": 9,
+            "compiler_flags": [
+              "--fflags=false"
+            ],
+            "lifter_args": []
+          }
+        ]
+      }
     },
     {
       "repo": "Rodux",

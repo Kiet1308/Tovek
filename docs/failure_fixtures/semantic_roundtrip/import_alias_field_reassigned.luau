@@ -1,6 +1,6 @@
 -- An alias of a script table's field keeps the old function after the field
 -- is reassigned; only fixed library members fold into their calls.
-loadstring("Shared = { fn = function() return 'old' end }")()
+-- The companion prelude initializes Shared in a separate chunk.
 local f = Shared.fn
 Shared.fn = function() return "new" end
 print(f())

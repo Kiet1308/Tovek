@@ -14,11 +14,16 @@ pub struct Call {
     pub reconstruction_event: u32,
     /// Lifted from a `FASTCALL` (builtin) or v14 `FASTPCALL` fallback: the
     /// compiler evaluated every argument first and fetched the callee last.
-    /// Source `table.insert(t, f(x))` compiles back to exactly that order, so
-    /// a pass may treat an importable callee (`tostring`, `table.insert`) as
-    /// read after its arguments. Not part of equality; rebuilt calls start
-    /// without it.
+    /// This records input order: recompiling at another optimization level can
+    /// fetch the callee first, so observable argument/callee snapshots must stay
+    /// explicit. Not part of equality; rebuilt calls start without it.
     pub callee_after_arguments: bool,
+    /// The input FASTCALL invokes the vector constructor intrinsic, regardless
+    /// of its configured source name. Its native path must survive grouping.
+    pub vector_constructor_fastcall: bool,
+    /// Parenthesize the callee so recompilation keeps the runtime call instead
+    /// of folding a builtin whose environment may have been replaced.
+    pub group_callee: bool,
     /// Rebuilt by a pass, and which kind: a de-inliner's equivalent call
     /// inferred from a copy Luau inlined (the uses that named its arguments
     /// now sit in the callee), or a call to a synthesized helper. The
@@ -36,16 +41,27 @@ pub struct Call {
 impl PartialEq for Call {
     fn eq(&self, other: &Self) -> bool {
         self.value == other.value && self.arguments == other.arguments
+            && self.same_execution(other)
     }
 }
 impl fmt::Debug for Call {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         // Preserve semantic debug fingerprints used by existing diagnostics.
-        f.debug_struct("Call").field("value", &self.value).field("arguments", &self.arguments).finish()
+        let mut debug = f.debug_struct("Call");
+        debug.field("value", &self.value).field("arguments", &self.arguments);
+        if self.group_callee { debug.field("group_callee", &true); }
+        if self.vector_constructor_fastcall { debug.field("vector_constructor_fastcall", &true); }
+        debug.finish()
     }
 }
 
 impl Call {
+    /// Semantic attributes for matchers that compare callees and arguments separately.
+    pub(crate) fn same_execution(&self, other: &Self) -> bool {
+        self.group_callee == other.group_callee
+            && self.vector_constructor_fastcall == other.vector_constructor_fastcall
+    }
+
     pub fn new(value: RValue, arguments: Vec<RValue>) -> Self {
         Self {
             node_origin: Default::default(),
@@ -53,6 +69,8 @@ impl Call {
             arguments,
             reconstruction_event: 0,
             callee_after_arguments: false,
+            vector_constructor_fastcall: false,
+            group_callee: false,
             rebuilt: None,
             one_result: false,
         }
@@ -70,6 +88,8 @@ impl Call {
             arguments,
             reconstruction_event: self.reconstruction_event,
             callee_after_arguments: self.callee_after_arguments,
+            vector_constructor_fastcall: self.vector_constructor_fastcall,
+            group_callee: self.group_callee,
             rebuilt: self.rebuilt,
             one_result: self.one_result,
         }
