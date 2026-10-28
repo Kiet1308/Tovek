@@ -14,6 +14,7 @@ import struct
 MODEL = 'luau-register-cfg-bisimulation-v2'
 PRIVATE_MODEL = 'luau-private-storage-cfg-v1'
 ADJACENT_PACK_MODEL = 'luau-private-adjacent-pack-cfg-v1'
+CLOSED_READ_MODEL = 'luau-private-closed-read-cfg-v1'
 
 
 class Unknown(Exception):
@@ -32,6 +33,7 @@ class Graph:
         self.exact_storage = False
         self._reference_context = False
         self._adjacent_packs = False
+        self._closed_reads = False
         self.stats = collections.Counter()
 
     def spend(self, count=1):
@@ -385,6 +387,8 @@ class Graph:
                 exact_storage = False
                 registers = {r: ('register', r) for r in range(proto.max_stack)}
         if self.private_copies and not exact_storage:
+            if self._closed_reads and not self.exact_storage:
+                nodes, facts, pcs = self.closed_read_graph(nodes, facts, pcs, code)
             nodes = self.private_copy_graph(nodes, facts, pcs, code, registers, proto.num_params)
         self.stats['instructions'] += len(nodes)
         self.stats['edges'] += sum(len(node[2]) for node in nodes)
@@ -441,6 +445,48 @@ class Graph:
             updated.append((reads | set(prefix), writes, kills, edge_writes, top_write, None, edge_kills, edge_tops))
         self.stats['adjacent_pack_pairs'] += len(producers)
         return result, updated
+
+    def closed_read_graph(self, nodes, facts, pcs, code):
+        """Keep the first closed-cell read in an otherwise empty truthy triangle."""
+        predecessors = [[] for _ in nodes]
+        for source, (_, _, edges) in enumerate(nodes):
+            for target in edges:
+                predecessors[target].append(source)
+        nodes, removed = list(nodes), set()
+        for index, (name, operands, edges) in enumerate(nodes):
+            self.spend()
+            if index in removed or name != 'GETUPVAL' or len(edges) != 1:
+                continue
+            branch = edges[0]
+            if (nodes[branch][0] not in ('JUMPIF', 'JUMPIFNOT')
+                    or predecessors[branch] != [index] or pcs[branch] != pcs[index] + 1):
+                continue
+            register, upvalue = code[pcs[index]][2:4]
+            if code[pcs[branch]][2] != register or len(nodes[branch][2]) != 2:
+                continue
+            join, reread = nodes[branch][2]
+            if join in (index, branch, reread) or nodes[reread][0] != 'GETUPVAL':
+                continue
+            if (pcs[reread] != pcs[branch] + 1 or code[pcs[reread]][2:4] != (register, upvalue)
+                    or predecessors[reread] != [branch] or nodes[reread][2] != (join,)):
+                continue
+            nodes[index] = name, operands, (join,)
+            removed.update((branch, reread))
+        self.stats['closed_read_triangles_removed'] += len(removed) // 2
+        labels, queue, output, output_facts, output_pcs = {0: 0}, [0], [], [], []
+        for index in queue:
+            self.spend()
+            name, operands, edges = nodes[index]
+            targets = []
+            for edge in edges:
+                if edge not in labels:
+                    labels[edge] = len(labels)
+                    queue.append(edge)
+                targets.append(labels[edge])
+            output.append((name, operands, tuple(targets)))
+            output_facts.append(facts[index])
+            output_pcs.append(pcs[index])
+        return output, output_facts, output_pcs
 
     def private_copy_graph(self, nodes, facts, pcs, code, registers, parameters):
         """Private storage only: preserve effects and normalize dead copy slots.
@@ -663,18 +709,29 @@ def compare_adjacent_pack_graph(original, rebuilt, *, budget=20000):
     return _compare_graph(original, rebuilt, budget=budget, private_copies=True, adjacent_packs=True)
 
 
-def _compare_graph(original, rebuilt, *, budget, private_copies, adjacent_packs=False):
+def compare_closed_read_graph(original, rebuilt, *, budget=20000):
+    """Private/adjacent-pack CFGs with a bounded closed-upvalue reread triangle.
+
+    The first read remains explicit; REF/main-upvalue chunks retain exact storage.
+    No other branch, read, or effect is removed by this certificate.
+    """
+    return _compare_graph(original, rebuilt, budget=budget, private_copies=True,
+                          adjacent_packs=True, closed_reads=True)
+
+
+def _compare_graph(original, rebuilt, *, budget, private_copies, adjacent_packs=False, closed_reads=False):
     graphs, summaries, reasons = [], [], {}
     for label, chunk in [('original', original), ('rebuilt', rebuilt)]:
         try:
             builder = Graph(chunk, budget, private_copies=private_copies)
             builder._adjacent_packs = adjacent_packs
+            builder._closed_reads = closed_reads
             graph, summary = builder.build()
             graphs.append(graph)
             summaries.append(summary)
         except (Unknown, RecursionError) as error:
             reasons[label] = str(error) or 'recursion budget'
-    model = ADJACENT_PACK_MODEL if adjacent_packs else PRIVATE_MODEL if private_copies else MODEL
+    model = CLOSED_READ_MODEL if closed_reads else ADJACENT_PACK_MODEL if adjacent_packs else PRIVATE_MODEL if private_copies else MODEL
     result = dict(model=model, status='unknown')
     if reasons:
         result['reasons'] = reasons

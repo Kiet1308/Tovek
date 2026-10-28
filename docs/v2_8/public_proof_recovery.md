@@ -42,7 +42,7 @@ Các nhãn là điểm model dừng đầu tiên, chưa phải root cause của 
 
 - [x] Fetch/đối chiếu remote, khóa 77 inputs và snapshot checker/binary baseline.
 - [x] Chia nghiên cứu độc lập theo bốn nhóm; có reviewer chuyên kiểm proof.
-- [x] Hoàn thiện mốc checker có guard: 145 bytecode tests, 343 Python tests;
+- [x] Hoàn thiện mốc checker có guard: 156 bytecode tests, 354 Python tests;
   replay đủ public/runtime và giữ 92/92 cùng 149/149 proofs đã có.
 - [ ] Sửa khác biệt FASTCALL thật đã tái hiện khi host thay `typeof` trong safeenv.
 - [ ] Hoàn thiện proof capture-read/branch và private-table cases.
@@ -58,16 +58,17 @@ cho toàn public corpus hoặc private frozen dumps trong môi trường này.
 
 [Contract và các guard](proof_validator.md) mô tả từng certificate cùng các
 false proof được sửa. Trên **output b08 đã khóa**, public vẫn đủ 513 inputs:
-486 output + 27 typed refusals; 141 `proved`, 174 `different`, 171 `unknown`.
+486 output + 27 typed refusals; 142 `proved`, 174 `different`, 170 `unknown`.
 Toàn bộ 92 proofs cũ được giữ. Runtime replay vẫn đủ 294 inputs, gồm 290 output
 + 4 refusals, giữ 149/149 proofs cũ. Graph self-controls qua đủ 486 và 290.
 
-Trong riêng 77 gaps: **43 proved, 22 different, 12 unknown**. Có 8/20
-`different` và 35/57 `unknown` được chứng minh; 12 output table nil cũ vẫn
+Trong riêng 77 gaps: **44 proved, 22 different, 11 unknown**. Có 8/20
+`different` và 36/57 `unknown` được chứng minh; 12 output table nil cũ vẫn
 `different`, 10 ca FASTCALL chuyển từ `unknown` sang `different` vì model mới
 giữ cả native và fallback. Đây là mốc checker, chưa phải kết quả của engine đã
-sửa. Không tính thay đổi nhãn thành runtime pass.
+sửa. Profile recursive 76 được chứng minh bằng certificate closed-read riêng;
+mutant đọc sai upvalue vẫn bị từ chối. Không tính thay đổi nhãn thành runtime pass.
 
-Receipts: `public-proof/checker-namecall-final-on-baseline-{public,runtime}.json`,
-`public-proof/review/final-review-receipt.{md,json}` dưới work root ở trên.
+Receipts: `public-proof/checker-closed-read-final-on-baseline-{public,runtime}.json`,
+`public-proof/review/final-review-receipt-closed-read.{md,json}` dưới work root ở trên.
 Full engine audit và replay 77 profiles trên output cuối vẫn đang thực hiện.

@@ -387,7 +387,8 @@ def compare_dataflow(original, rebuilt, *, budget=20000):
     result = compare_acyclic(original, rebuilt, budget=budget)
     if result['status'] != 'unknown':
         return result
-    from bytecode_graph import compare_graph, compare_private_graph, compare_adjacent_pack_graph
+    from bytecode_graph import (compare_graph, compare_private_graph,
+                                compare_adjacent_pack_graph, compare_closed_read_graph)
     graph = compare_graph(original, rebuilt, budget=budget)
     if graph['status'] == 'proved':
         return {**graph, 'acyclic_unknown': result['reasons']}
@@ -403,5 +404,10 @@ def compare_dataflow(original, rebuilt, *, budget=20000):
     if adjacent['status'] == 'proved':
         return {**adjacent, 'acyclic_unknown': result['reasons'], 'structural_unknown': graph,
                 'private_storage_unknown': private, 'reference_context_unknown': reference}
+    closed = compare_closed_read_graph(original, rebuilt, budget=budget)
+    if closed['status'] == 'proved':
+        return {**closed, 'acyclic_unknown': result['reasons'], 'structural_unknown': graph,
+                'private_storage_unknown': private, 'reference_context_unknown': reference,
+                'adjacent_packs_unknown': adjacent}
     return {**result, 'graph': graph, 'private_storage': private,
-            'reference_context': reference, 'adjacent_packs': adjacent}
+            'reference_context': reference, 'adjacent_packs': adjacent, 'closed_reads': closed}

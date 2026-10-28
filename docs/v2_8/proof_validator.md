@@ -14,6 +14,7 @@ Checker không thay đổi source hay loại input khó khỏi mẫu để tăng
 | `luau-private-storage-cfg-v1` | Chỉ bỏ adjacent lookup/MOVE khi nguồn đã chết và có một predecessor; liveness có budget giữ join, backedge và lifetime. |
 | `luau-guarded-reference-context-v1` | Giữ nguyên storage của mọi REF owner; từ chối owner có open pack, kiểm tra cell sống dưới frame của các lời gọi và từ chối FASTCALL khi REF đang mở. |
 | `luau-private-adjacent-pack-cfg-v1` | Chỉ xử lý producer/consumer kề nhau, không REF/external main upvalue; giữ prefix, arity, opcode và effects. |
+| `luau-private-closed-read-cfg-v1` | Trong domain main0/noREF, bỏ một truthy branch chỉ để đọc lại đúng cùng upvalue vào cùng destination; topology và predecessors phải khớp mẫu có budget. |
 
 Graph fallback chỉ chạy sau symbolic `unknown`; không ghi đè symbolic
 `different`. Mọi model từ chối khi vượt budget hoặc gặp transition chưa hỗ trợ.
