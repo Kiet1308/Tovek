@@ -26,6 +26,8 @@ CASES = {
                                    (ROOT / "docs/failure_fixtures/fastcall_open_result_error.driver.luau").read_text()),
     "builtin_constant_call": ((ROOT / "docs/failure_fixtures/builtin_constant_call.luau").read_text(),
                               (ROOT / "docs/failure_fixtures/builtin_constant_call.driver.luau").read_text()),
+    "native_scalar_inlining": ((ROOT / "docs/failure_fixtures/native_scalar_inlining.luau").read_text(),
+                               (ROOT / "docs/failure_fixtures/native_scalar_inlining.driver.luau").read_text()),
     "fastcall_fallback_prefix_write": ((ROOT / "docs/failure_fixtures/fastcall_fallback_prefix_write.luau").read_text(),
                                        (ROOT / "docs/failure_fixtures/fastcall_fallback_prefix_write.driver.luau").read_text()),
     "fastcall_fallback_prefix_read": ((ROOT / "docs/failure_fixtures/fastcall_fallback_prefix_read.luau").read_text(),
@@ -177,6 +179,8 @@ CROSS_OPT_FIXTURES = (
     'value_capture_written_after_closure', 'paren_call_truncates_multret',
     'parameter_hole_multret', 'snapshot_receiver_and_constructor_key',
     'deinline_returns_distributed_and_short_circuit', 'exact_fraction_constants',
+    'duptable_gc_placeholder', 'duptable_earlier_gc_placeholder', 'native_builtin_environment',
+    'native_builtin_literal_arguments',
 )
 CROSS_OPT_BASELINE = ROOT / 'docs/failure_fixtures/deep_review_cross_optimization_baseline.json'
 # Only these reviewed source/profile/options tuples admit the open-result refusal.

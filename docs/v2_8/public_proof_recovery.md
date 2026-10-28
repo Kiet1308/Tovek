@@ -71,4 +71,47 @@ mutant đọc sai upvalue vẫn bị từ chối. Không tính thay đổi nhãn
 
 Receipts: `public-proof/checker-closed-read-final-on-baseline-{public,runtime}.json`,
 `public-proof/review/final-review-receipt-closed-read.{md,json}` dưới work root ở trên.
-Full engine audit và replay 77 profiles trên output cuối vẫn đang thực hiện.
+## Mốc engine: GC placeholders và scalar native calls
+
+Binary `552f5553090429b9d9e895f785e0b90e196dea9e98503198598865f232a618e2`
+sửa hai lỗi runtime đã tái hiện: nil placeholder của DUPTABLE có thể bị GC
+biến thành dead key, và việc group callee làm mất FASTCALL khi host thay builtin
+trong safeenv. Giữ loader zero khi có thể collect; giữ actual scalar native call
+bằng mutable argument binding có guard về capture, shadowing và register budget.
+Các consumer metadata kiểm tra đúng producer/model và không coi local tổng hợp
+là input ancestry.
+
+Replay đủ 513 public inputs: 486 outputs + 27 refusals giữ nguyên; checker v3
+cho **165 proved, 151 different, 170 unknown**, giữ 92/92 proofs cũ. Riêng
+77 gaps là **60 proved, 6 different, 11 unknown**: toàn bộ 20 `different`
+ban đầu và 40/57 `unknown` đã được chứng minh. Cả 40 annotations cùng bốn
+helper sites của checkpoint trước được giữ. Không đếm runtime pass thay proof.
+
+Kiểm chứng mốc này: 1.791 Rust tests (2 manual probes ignored), 355 Python
+tests và đủ 33/33 fixture audit steps; semantic 846 = 811 passes + 35 refusals.
+Ma trận 1.800 gồm 1.724 passes,
+24 refusals và 52 compiler-sensitive profiles. Bốn compiler boundaries mới
+được tái hiện nguyên vẹn trên binary b08 và source gốc; giữ riêng khỏi passes.
+GC controls qua 54/54; metadata qua 63 outputs ở 7 modes và 44 producer controls.
+Native adversarial suite có 763/837 passes; 54 source-compiler boundaries và
+20 failures đều giữ nguyên observations của b08, không phải passes mới.
+
+Legacy bytecode-signature gate báo 20 per-file increases; review thêm một ca
+tăng so với b08 nhưng đã nằm trong threshold cũ. Cả 21 ca chỉ thêm mutable
+argument barriers/native spelling, giữ nguyên runtime; bốn fixture mới đều
+pass trên binary mới và fail trên b08. Comparator, refusal inventory và capture
+diagnostics không bị nới. Kết quả gate này không phải static certificate.
+Baseline chỉ nhận 20 increases và bốn fixture mới đã review, đồng thời siết 16
+entries đã cải thiện; tổng nonequiv đúng 528, bỏ 23 điểm headroom cũ.
+
+Receipts dưới work root: `public-final-v3.json`, `native-acceptance-v8/report.json`,
+`differences/final-{gc-552f,native-metadata-552f-fixed,20-552f}/results.json`,
+`legacy-oracle-review/baseline-update-recommendation.json` và
+`../audit-8/results.json`. Các lượt thiếu dung lượng được giữ riêng và chạy lại;
+evidence cũ được nén lossless, kiểm tra hash trước khi Python xóa bản chưa nén.
+
+Tiếp theo: sáu C2 sites còn lại cần argument barriers tại đúng declaration site;
+bốn profile `unknown` khác còn mất native dispatch. Các thử nghiệm source đã
+được review độc lập, nhưng chưa tính vào kết quả engine mốc này. Cả 11 unknown
+đã có per-profile disposition tại `loops/remaining-unknown/dispositions.json`;
+không bỏ guards REF/open-pack/CFG chỉ để nâng trạng thái proof.

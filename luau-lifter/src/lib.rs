@@ -1444,8 +1444,18 @@ fn decompile_bytecode_internal(
             let late_timer = prof::Timer::new(&prof::S_LATE);
             // Actual calls must survive folding; the constructor spellings of
             // bytecode constants below deliberately remain foldable.
-            ast::preserve_builtin_calls::preserve_builtin_calls(&mut body, options.assume_standard_libraries)
-                .map_err(DecompileFailure::message)?;
+            let mut native_constant_arguments = None;
+            if let Some(pass) = ast::preserve_builtin_calls::preserve_native_builtin_calls(&mut body, options.assume_standard_libraries)
+                .map_err(DecompileFailure::message)?
+            {
+                if emit_upvalue_analysis {
+                    native_constant_arguments = Some(serde_json::json!({
+                        "model": pass.rewrite_model, "introduced_locals": pass.introduced_locals,
+                        "introduced_bindings": pass.ledger,
+                    }));
+                }
+                if options.emit_binding_provenance { local_producers.push(pass); }
+            }
             // Repeating decimals as the fractions the compiler folded. Every
             // pass before this one sees the raw literals, as the de-inliner's
             // constant-folded argument recovery (E2) will need.
@@ -1592,6 +1602,7 @@ fn decompile_bytecode_internal(
                 analysis.capture_effects = Some(capture_effects.report());
                 analysis.conditional_lowering = conditional_lowering;
                 analysis.materialize_vectors = materialize_vectors;
+                analysis.native_constant_arguments = native_constant_arguments;
                 analysis.table_open_list_snapshots = table_open_list_snapshots;
                 if options.emit_binding_provenance {
                     analysis.binding_provenance = Some(source_recovery::provenance_report(function_traces, &mut body, emission_map, local_producers, call_origins.take_report()));
@@ -3348,7 +3359,8 @@ mod v11_fixtures {
             };
             build_chunk(6, 1, &[name], &[proto], 0)
         };
-        assert!(decompile(&chunk("type"), 1, None).unwrap().contains("(type)("));
+        let source = decompile(&chunk("type"), 1, None).unwrap();
+        assert!(source.replace("(type)", "type").contains("type("), "{source}");
         let error = decompile(&chunk("typ "), 1, None).unwrap_err();
         assert!(error.contains("a builtin call names another function"), "{error}");
         assert!(decompile(&chunk("typeof"), 1, None).is_err());

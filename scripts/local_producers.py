@@ -10,6 +10,7 @@ PASSES = {
                              {'scalar_select_result', 'short_circuit_result', 'evaluation_snapshot'}),
     'table_open_list_snapshots': ('private-prefix-snapshots-v1', {'constructor_initializer_snapshot'}),
     'materialize_vectors': ('entry_constructor_snapshot_v1', {'vector_constructor'}),
+    'native_constant_arguments': ('mutable_literal_argument_v1', {'evaluation_snapshot'}),
 }
 
 

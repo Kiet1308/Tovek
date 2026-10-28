@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "compiler_commit": "c2ec0d4e5ca50796ba174a7565298f59aa572268",
-  "description": "Observed cross-optimization limits at V2.7 4a8f457; these profiles are not semantic passes. Exact source, driver, compiler options and raw/normalized observations must match. New or changed mismatches fail.",
+  "description": "Observed cross-optimization limits at V2.7 4a8f457; these profiles are not semantic passes. Exact source, driver, compiler options and raw/normalized observations must match. New or changed mismatches fail. Four V2.8 native-literal closure-identity profiles independently reproduce the original source and accepted b08e output at the output optimization level; they remain nonpasses.",
   "profiles": [
     {
       "ca": "closure_identity_across_inlined_copies",
@@ -1440,6 +1440,126 @@
         "source_at_output_optimization": {
           "raw": "3aba36cdb8fb55f2b647840fbd0e498a2b911e99a280746eaf316ef0b730df76",
           "normalized": "90b54eb69d219c9e7bcc8724486f69ac9f23bddf2b5cde04fe3df11807b14e1f"
+        }
+      }
+    },
+    {
+      "ca": "native_builtin_literal_arguments",
+      "input_optimization": 0,
+      "output_optimization": 1,
+      "debug": 0,
+      "source_sha256": "f6b4c3a777d573e11e728b3d3d08a13e1b0c0d6c7cd9b06dbb003ef851d87d4a",
+      "driver_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "compiler_options": [
+        "--fflags=false",
+        "--vector-lib=vector",
+        "--vector-ctor=create"
+      ],
+      "driver_optimization": 1,
+      "driver_debug": 1,
+      "status": "compiler_sensitive",
+      "observations": {
+        "goc": {
+          "raw": "ec4f4aa8658880138643628248ba0e21288d9119f9ed51cde38b02acd30242d1",
+          "normalized": "8e7af35cda56cef2382cebd19e00012914d41fcf19ce019b40a2e29c6cc024ce"
+        },
+        "sau_sua": {
+          "raw": "58bb6001ee0cbbe84c6b65dafff8ad40e9560ab0e80aa100c4b5ac4a0066d5ef",
+          "normalized": "207a0edc0f8ee6a48415f263aa9ae6a819dfc44aebafd53d929a8a0e04e48a55"
+        },
+        "source_at_output_optimization": {
+          "raw": "58bb6001ee0cbbe84c6b65dafff8ad40e9560ab0e80aa100c4b5ac4a0066d5ef",
+          "normalized": "207a0edc0f8ee6a48415f263aa9ae6a819dfc44aebafd53d929a8a0e04e48a55"
+        }
+      }
+    },
+    {
+      "ca": "native_builtin_literal_arguments",
+      "input_optimization": 0,
+      "output_optimization": 2,
+      "debug": 0,
+      "source_sha256": "f6b4c3a777d573e11e728b3d3d08a13e1b0c0d6c7cd9b06dbb003ef851d87d4a",
+      "driver_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "compiler_options": [
+        "--fflags=false",
+        "--vector-lib=vector",
+        "--vector-ctor=create"
+      ],
+      "driver_optimization": 1,
+      "driver_debug": 1,
+      "status": "compiler_sensitive",
+      "observations": {
+        "goc": {
+          "raw": "ec4f4aa8658880138643628248ba0e21288d9119f9ed51cde38b02acd30242d1",
+          "normalized": "8e7af35cda56cef2382cebd19e00012914d41fcf19ce019b40a2e29c6cc024ce"
+        },
+        "sau_sua": {
+          "raw": "58bb6001ee0cbbe84c6b65dafff8ad40e9560ab0e80aa100c4b5ac4a0066d5ef",
+          "normalized": "207a0edc0f8ee6a48415f263aa9ae6a819dfc44aebafd53d929a8a0e04e48a55"
+        },
+        "source_at_output_optimization": {
+          "raw": "58bb6001ee0cbbe84c6b65dafff8ad40e9560ab0e80aa100c4b5ac4a0066d5ef",
+          "normalized": "207a0edc0f8ee6a48415f263aa9ae6a819dfc44aebafd53d929a8a0e04e48a55"
+        }
+      }
+    },
+    {
+      "ca": "native_builtin_literal_arguments",
+      "input_optimization": 1,
+      "output_optimization": 0,
+      "debug": 0,
+      "source_sha256": "f6b4c3a777d573e11e728b3d3d08a13e1b0c0d6c7cd9b06dbb003ef851d87d4a",
+      "driver_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "compiler_options": [
+        "--fflags=false",
+        "--vector-lib=vector",
+        "--vector-ctor=create"
+      ],
+      "driver_optimization": 1,
+      "driver_debug": 1,
+      "status": "compiler_sensitive",
+      "observations": {
+        "goc": {
+          "raw": "58bb6001ee0cbbe84c6b65dafff8ad40e9560ab0e80aa100c4b5ac4a0066d5ef",
+          "normalized": "207a0edc0f8ee6a48415f263aa9ae6a819dfc44aebafd53d929a8a0e04e48a55"
+        },
+        "sau_sua": {
+          "raw": "ec4f4aa8658880138643628248ba0e21288d9119f9ed51cde38b02acd30242d1",
+          "normalized": "8e7af35cda56cef2382cebd19e00012914d41fcf19ce019b40a2e29c6cc024ce"
+        },
+        "source_at_output_optimization": {
+          "raw": "ec4f4aa8658880138643628248ba0e21288d9119f9ed51cde38b02acd30242d1",
+          "normalized": "8e7af35cda56cef2382cebd19e00012914d41fcf19ce019b40a2e29c6cc024ce"
+        }
+      }
+    },
+    {
+      "ca": "native_builtin_literal_arguments",
+      "input_optimization": 2,
+      "output_optimization": 0,
+      "debug": 0,
+      "source_sha256": "f6b4c3a777d573e11e728b3d3d08a13e1b0c0d6c7cd9b06dbb003ef851d87d4a",
+      "driver_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "compiler_options": [
+        "--fflags=false",
+        "--vector-lib=vector",
+        "--vector-ctor=create"
+      ],
+      "driver_optimization": 1,
+      "driver_debug": 1,
+      "status": "compiler_sensitive",
+      "observations": {
+        "goc": {
+          "raw": "58bb6001ee0cbbe84c6b65dafff8ad40e9560ab0e80aa100c4b5ac4a0066d5ef",
+          "normalized": "207a0edc0f8ee6a48415f263aa9ae6a819dfc44aebafd53d929a8a0e04e48a55"
+        },
+        "sau_sua": {
+          "raw": "ec4f4aa8658880138643628248ba0e21288d9119f9ed51cde38b02acd30242d1",
+          "normalized": "8e7af35cda56cef2382cebd19e00012914d41fcf19ce019b40a2e29c6cc024ce"
+        },
+        "source_at_output_optimization": {
+          "raw": "ec4f4aa8658880138643628248ba0e21288d9119f9ed51cde38b02acd30242d1",
+          "normalized": "8e7af35cda56cef2382cebd19e00012914d41fcf19ce019b40a2e29c6cc024ce"
         }
       }
     }

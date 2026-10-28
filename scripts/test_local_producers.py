@@ -1,3 +1,4 @@
+import copy
 import unittest
 
 from local_producers import MODEL, PASSES, RECORD_LIMIT, introductions, validate_local_producers
@@ -21,6 +22,35 @@ def fixture(size=1, omitted=0, name='branch_constructors', role='constructor_pro
 
 
 class LocalProducerTests(unittest.TestCase):
+    def test_native_literal_snapshots_require_exact_model_role_and_report(self):
+        name = 'native_constant_arguments'
+        trace, metadata = fixture(name=name, role='evaluation_snapshot')
+        self.assertEqual(validate_local_producers(trace, metadata), [])
+        self.assertEqual(introductions(trace)['b0'], {
+            'pass': name, 'rewrite_model': 'mutable_literal_argument_v1', 'role': 'evaluation_snapshot'})
+        def group(d): return d['binding_provenance']['local_producers']['passes'][0]
+        mutations = [
+            lambda d: group(d).update(rewrite_model='entry_constructor_snapshot_v1'),
+            lambda d: group(d)['records'][0].update(role='vector_constructor'),
+            lambda d: d.pop(name),
+            lambda d: d[name].update(model='unknown'),
+            lambda d: d[name].update(introduced_locals=2),
+            lambda d: d['binding_provenance']['final_bindings'][0].update(lineage=['b123']),
+            lambda d: d['binding_provenance']['final_bindings'][0].update(incomplete=False),
+        ]
+        for index, mutate in enumerate(mutations):
+            changed = copy.deepcopy(metadata)
+            mutate(changed)
+            with self.subTest(index=index):
+                self.assertTrue(validate_local_producers(changed['binding_provenance'], changed))
+
+    def test_native_snapshot_ledger_uses_the_shared_record_budget(self):
+        trace, metadata = fixture(RECORD_LIMIT, 2, name='native_constant_arguments', role='evaluation_snapshot')
+        self.assertEqual(validate_local_producers(trace, metadata), [])
+        self.assertNotIn(f'b{RECORD_LIMIT}', introductions(trace))
+        trace['local_producers']['passes'][0]['omitted_records'] = 1
+        self.assertTrue(validate_local_producers(trace, metadata))
+
     def test_vector_snapshot_and_inline_models_have_distinct_binding_contracts(self):
         name = 'materialize_vectors'
         trace, metadata = fixture(name=name, role='vector_constructor')

@@ -23,7 +23,7 @@ fn guard_return_is_not_fused_into_and_or() {
     let source = decompile();
     assert!(!source.contains(" and 1 or "), "{source}");
     assert!(source.contains("\t\treturn 1\n\tend\n"), "{source}");
-    assert!(source.contains("\treturn 1 + (math.clamp)("), "{source}");
+    assert!(source.contains("\treturn 1 + math.clamp("), "{source}");
 }
 
 #[test]

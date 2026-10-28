@@ -1216,6 +1216,30 @@
       "bytes": 265,
       "lines": 9
     },
+    "semantic/duptable_earlier_gc_placeholder__O0.luau": {
+      "bytes": 576,
+      "lines": 43
+    },
+    "semantic/duptable_earlier_gc_placeholder__O1.luau": {
+      "bytes": 576,
+      "lines": 43
+    },
+    "semantic/duptable_earlier_gc_placeholder__O2.luau": {
+      "bytes": 578,
+      "lines": 43
+    },
+    "semantic/duptable_gc_placeholder__O0.luau": {
+      "bytes": 982,
+      "lines": 54
+    },
+    "semantic/duptable_gc_placeholder__O1.luau": {
+      "bytes": 982,
+      "lines": 54
+    },
+    "semantic/duptable_gc_placeholder__O2.luau": {
+      "bytes": 984,
+      "lines": 54
+    },
     "semantic/dynamic_environment__O0.luau": {
       "bytes": 168,
       "lines": 11
@@ -2139,6 +2163,30 @@
     "semantic/nan_sign_preserved__O2.luau": {
       "bytes": 304,
       "lines": 11
+    },
+    "semantic/native_builtin_environment__O0.luau": {
+      "bytes": 407,
+      "lines": 23
+    },
+    "semantic/native_builtin_environment__O1.luau": {
+      "bytes": 697,
+      "lines": 33
+    },
+    "semantic/native_builtin_environment__O2.luau": {
+      "bytes": 697,
+      "lines": 33
+    },
+    "semantic/native_builtin_literal_arguments__O0.luau": {
+      "bytes": 669,
+      "lines": 40
+    },
+    "semantic/native_builtin_literal_arguments__O1.luau": {
+      "bytes": 902,
+      "lines": 49
+    },
+    "semantic/native_builtin_literal_arguments__O2.luau": {
+      "bytes": 836,
+      "lines": 47
     },
     "semantic/native_function_attribute__O0.luau": {
       "bytes": 482,

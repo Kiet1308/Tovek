@@ -31,7 +31,7 @@ pub(crate) fn rebuild_with_captured(
 }
 
 /// A template's loader value need not appear in source when every path fills
-/// the slot before the private table can be observed or its keys can rehash.
+/// the slot before observation, rehash or GC can turn a nil-valued key dead.
 fn nil_unread_placeholders(block: &mut Block, captured: &rustc_hash::FxHashSet<RcLocal>) -> bool {
     let mut changed = false;
     for index in 0..block.0.len() {
@@ -44,6 +44,10 @@ fn nil_unread_placeholders(block: &mut Block, captured: &rustc_hash::FxHashSet<R
         if !matches!(table.2, crate::TableShape::Template { .. }) || table.0.len() > 32
             || !table.0.iter().all(|(key, _)| matches!(key,
                 Some(RValue::Literal(crate::Literal::String(name))) if crate::formatter::Formatter::<String>::is_valid_name(name)))
+            // DUPTABLE can preload literal values before earlier effectful
+            // fields run. An earlier collection can kill this nil key, or a
+            // different nil key whose later refill rehashes this slot.
+            || !table.0.iter().all(|(_, value)| cannot_collect(value))
         { continue; }
         for field in 0..table.0.len() {
             if matches!(table.0[field].1, RValue::Literal(crate::Literal::Number(0.0)))
@@ -57,6 +61,12 @@ fn nil_unread_placeholders(block: &mut Block, captured: &rustc_hash::FxHashSet<R
     changed
 }
 
+fn cannot_collect(value: &RValue) -> bool {
+    let summary = crate::effects::summarize(value, &|_| false);
+    !summary.exhausted && summary.effects.is_total_pure()
+        && !summary.effects.contains(crate::effects::Effects::ALLOCATION)
+}
+
 fn first_private_store(
     statements: &[Statement], object: &RcLocal, key: &RValue, table: &Table,
     budget: &mut usize, depth: usize,
@@ -66,7 +76,8 @@ fn first_private_store(
         if *budget == 0 { return Err(()); }
         *budget -= 1;
         if let Statement::If(branch) = statement {
-            if branch.condition.any_local_read(&mut |read| read == object) { return Err(()); }
+            if !cannot_collect(&branch.condition)
+                || branch.condition.any_local_read(&mut |read| read == object) { return Err(()); }
             let yes = first_private_store(&branch.then_block.lock(), object, key, table, budget, depth + 1)?;
             let no = first_private_store(&branch.else_block.lock(), object, key, table, budget, depth + 1)?;
             if yes && no { return Ok(true); }
@@ -75,14 +86,18 @@ fn first_private_store(
         if let Some((written_key, value)) = statement.as_assign()
             .and_then(|assign| field_assignment_parts(assign, object))
         {
-            if value.any_local_read(&mut |read| read == object) { return Err(()); }
+            if !cannot_collect(value) || value.any_local_read(&mut |read| read == object) { return Err(()); }
             if crate::same_table_key(written_key, key) { return Ok(true); }
             // Only an existing template key can change without a possible rehash.
             if !table.0.iter().any(|(listed, _)| listed.as_ref().is_some_and(|listed| crate::same_table_key(listed, written_key))) {
                 return Err(());
             }
-        } else if !matches!(statement, Statement::Assign(_) | Statement::Call(_) | Statement::MethodCall(_)
-                | Statement::Comment(_) | Statement::Empty(_))
+        } else if !match statement {
+            Statement::Assign(assign) => assign.left.iter().all(|value| matches!(value, LValue::Local(_)))
+                && assign.right.iter().all(cannot_collect),
+            Statement::Comment(_) | Statement::Empty(_) => true,
+            _ => false,
+        }
             || statement.any_local_read(&mut |read| read == object)
             || statement.any_local_write(&mut |written| written == object)
         {
@@ -1648,7 +1663,7 @@ mod tests {
         let table = Table(vec![(Some(string("Selected")), number(0.0)),
             (Some(string("Other")), number(0.0))], Default::default(), crate::TableShape::Template { keys: 2 });
         let mut block = Block(vec![declare(&object, table.into()),
-            If::new(global("condition"),
+            If::new(local_value(&local("condition")),
                 Block(vec![assign_field(&object, string("Selected"), number(1.0))]),
                 Block(vec![assign_field(&object, string("Selected"), number(2.0))])).into(),
             print(local_value(&object))]);
@@ -1683,6 +1698,76 @@ mod tests {
         let mut block = Block(vec![declare(&object, table.into()),
             assign_field(&object, string("Selected"), number(1.0))]);
         assert!(!super::nil_unread_placeholders(&mut block, &[object].into_iter().collect()));
+    }
+
+    #[test]
+    fn template_placeholder_keeps_zero_across_possible_collection() {
+        let object = local("object");
+        let temporary = local("temporary");
+        let table = Table(vec![(Some(string("Selected")), number(0.0))],
+            Default::default(), crate::TableShape::Template { keys: 1 });
+        let call = || RValue::Call(Call::new(global("collect"), vec![]));
+        let write = || assign_field(&object, string("Selected"), number(1.0));
+        let hazards = vec![
+            print(number(1.0)),
+            declare(&temporary, call()),
+            declare(&temporary, Table::new(vec![]).into()),
+            declare(&temporary, closure_capturing(&temporary)),
+            assign_field(&object, string("Selected"), call()),
+            If::new(call(), Block(vec![write()]), Block(vec![write()])).into(),
+            If::new(global("condition"), Block(vec![write()]), Block(vec![write()])).into(),
+        ];
+        for (index, hazard) in hazards.into_iter().enumerate() {
+            let mut block = Block(vec![declare(&object, table.clone().into()), hazard, write()]);
+            assert!(!super::nil_unread_placeholders(&mut block, &Default::default()), "hazard {index}");
+            assert_eq!(block[0].as_assign().unwrap().right[0].as_table().unwrap().0[0].1, number(0.0));
+        }
+    }
+
+    #[test]
+    fn template_placeholder_checks_all_constructor_values_and_keeps_safe_slots() {
+        let object = local("object");
+        for value in [RValue::Call(Call::new(global("collect"), vec![])), Table::new(vec![]).into()] {
+            for duplicate in [false, true] {
+                for earlier in [false, true] {
+                    let mut fields = vec![(Some(string("Selected")), number(0.0)),
+                        (Some(string(if duplicate { "Selected" } else { "Other" })), value.clone())];
+                    if earlier { fields.reverse(); }
+                    let table = Table(fields, Default::default(), crate::TableShape::Template { keys: 2 });
+                    let mut block = Block(vec![declare(&object, table.into()),
+                        assign_field(&object, string("Selected"), number(1.0))]);
+                    assert!(!super::nil_unread_placeholders(&mut block, &Default::default()));
+                }
+            }
+        }
+        let table = Table(vec![(Some(string("Before")), number(7.0)),
+            (Some(string("Selected")), number(0.0))], Default::default(), crate::TableShape::Template { keys: 2 });
+        let mut block = Block(vec![declare(&object, table.into()),
+            assign_field(&object, string("Selected"), number(1.0))]);
+        assert!(super::nil_unread_placeholders(&mut block, &Default::default()));
+        assert_eq!(block[0].as_assign().unwrap().right[0].as_table().unwrap().0[1].1, nil());
+    }
+
+    #[test]
+    fn template_placeholder_keeps_zero_when_an_earlier_dead_key_can_rehash() {
+        let object = local("object");
+        for value in [RValue::Call(Call::new(global("collect"), vec![])),
+            Table::new(vec![]).into(), closure_capturing(&local("captured"))]
+        {
+            let table = Table(vec![(Some(string("Earlier")), nil()),
+                (Some(string("Collector")), value),
+                (Some(string("Selected")), number(0.0))], Default::default(),
+                crate::TableShape::Template { keys: 3 });
+            let mut block = Block(vec![declare(&object, table.into()),
+                If::new(local_value(&local("condition")),
+                    Block(vec![assign_field(&object, string("Earlier"), number(1.0))]),
+                    Block(vec![assign_field(&object, string("Earlier"), number(2.0))])).into(),
+                assign_field(&object, string("Selected"), number(3.0))]);
+            assert!(!super::nil_unread_placeholders(&mut block, &Default::default()));
+            assert_eq!(block[0].as_assign().unwrap().right[0].as_table().unwrap().0[2].1, number(0.0));
+            block.0.remove(1);
+            assert!(!super::nil_unread_placeholders(&mut block, &Default::default()));
+        }
     }
 
     #[test]

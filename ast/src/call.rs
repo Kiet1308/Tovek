@@ -18,9 +18,9 @@ pub struct Call {
     /// fetch the callee first, so observable argument/callee snapshots must stay
     /// explicit. Not part of equality; rebuilt calls start without it.
     pub callee_after_arguments: bool,
-    /// The input FASTCALL invokes the vector constructor intrinsic, regardless
-    /// of its configured source name. Its native path must survive grouping.
-    pub vector_constructor_fastcall: bool,
+    /// Actual input FASTCALL builtin id and encoded fallback CALL result count C.
+    /// Keep native dispatch/result arity distinct from ordinary CALL and FASTPCALL.
+    pub builtin_fastcall: Option<(u8, u8)>,
     /// Parenthesize the callee so recompilation keeps the runtime call instead
     /// of folding a builtin whose environment may have been replaced.
     pub group_callee: bool,
@@ -50,7 +50,7 @@ impl fmt::Debug for Call {
         let mut debug = f.debug_struct("Call");
         debug.field("value", &self.value).field("arguments", &self.arguments);
         if self.group_callee { debug.field("group_callee", &true); }
-        if self.vector_constructor_fastcall { debug.field("vector_constructor_fastcall", &true); }
+        if let Some(builtin) = self.builtin_fastcall { debug.field("builtin_fastcall", &builtin); }
         debug.finish()
     }
 }
@@ -59,7 +59,7 @@ impl Call {
     /// Semantic attributes for matchers that compare callees and arguments separately.
     pub(crate) fn same_execution(&self, other: &Self) -> bool {
         self.group_callee == other.group_callee
-            && self.vector_constructor_fastcall == other.vector_constructor_fastcall
+            && self.builtin_fastcall == other.builtin_fastcall
     }
 
     pub fn new(value: RValue, arguments: Vec<RValue>) -> Self {
@@ -69,7 +69,7 @@ impl Call {
             arguments,
             reconstruction_event: 0,
             callee_after_arguments: false,
-            vector_constructor_fastcall: false,
+            builtin_fastcall: None,
             group_callee: false,
             rebuilt: None,
             one_result: false,
@@ -88,7 +88,7 @@ impl Call {
             arguments,
             reconstruction_event: self.reconstruction_event,
             callee_after_arguments: self.callee_after_arguments,
-            vector_constructor_fastcall: self.vector_constructor_fastcall,
+            builtin_fastcall: self.builtin_fastcall,
             group_callee: self.group_callee,
             rebuilt: self.rebuilt,
             one_result: self.one_result,

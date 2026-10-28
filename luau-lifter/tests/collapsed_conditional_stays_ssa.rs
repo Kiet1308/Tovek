@@ -14,8 +14,11 @@ const BYTECODE: &[u8] = include_bytes!("fixtures/collapsed_conditional_stays_ssa
 fn collapsed_conditional_keeps_both_counts() {
     let source = luau_lifter::try_decompile_bytecode_with_options(BYTECODE, 1, None, Default::default())
         .expect("fixture decompiles");
-    let min = source.lines().map(str::trim).find(|line| line.contains("(math.min)(")).expect(&source);
-    let arguments = min.split_once("(math.min)(").unwrap().1;
+    // Native scalar FASTCALLs keep their builtin spelling; grouping is unrelated
+    // to the SSA regression, which must still preserve two distinct arguments.
+    let normalized = source.replace("(math.min)(", "math.min(");
+    let min = normalized.lines().map(str::trim).find(|line| line.contains("math.min(")).expect(&source);
+    let arguments = min.split_once("math.min(").unwrap().1;
     let (first, second) = arguments.split_once(", ").expect(&source);
     assert_ne!(first, second.trim_end_matches(|c| c == ')'), "{source}");
 }

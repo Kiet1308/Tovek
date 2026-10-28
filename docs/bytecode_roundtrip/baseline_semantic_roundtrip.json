@@ -1,19 +1,19 @@
 {
  "provenance": {
   "compiler_commit": "c2ec0d4e5ca50796ba174a7565298f59aa572268",
-  "lifter_sha256": "778005572654c3edce6d243bfb99cc1a2d31692b2e36ffd4128e9ab80719bd8e",
-  "review": "V2.8 incoming-read checkpoint: retained builtin calls and eager snapshots change signatures; existing comparison rules are unchanged. Refusals remain separate from equivalence totals.",
-  "evidence": "docs/v2_8/incoming_read_timing.md; /workspace/work/v28/eager-key/baseline-review-final/release-oracle-review.json"
+  "lifter_sha256": "552f5553090429b9d9e895f785e0b90e196dea9e98503198598865f232a618e2",
+  "review": "V2.8 public-proof engine checkpoint: reviewed native argument barriers and GC placeholders; 20 per-file increases, 16 tightened entries and 4 new fixtures. Comparison rules and refusal evidence are unchanged.",
+  "evidence": "docs/v2_8/public_proof_recovery.md; /workspace/work/v28/public-proof/legacy-oracle-review/baseline-update-recommendation.json; /workspace/work/v28/public-proof/legacy-oracle-review/baseline-tightening-review.json"
  },
  "summary": {
-  "inputs": 278,
-  "protos": 1684,
-  "exact": 842,
-  "equiv": 336,
-  "differ": 449,
+  "inputs": 282,
+  "protos": 1703,
+  "exact": 843,
+  "equiv": 332,
+  "differ": 472,
   "missing": 40,
-  "extra": 17,
-  "equiv_ratio": 0.69952
+  "extra": 16,
+  "equiv_ratio": 0.68996
  },
  "files": [
   {
@@ -43,7 +43,7 @@
   {
    "file": "branch_tuple_helper",
    "status": "ok",
-   "nonequiv": 3,
+   "nonequiv": 1,
    "protos": 6
   },
   {
@@ -61,7 +61,7 @@
   {
    "file": "builtin_last_argument_kinds",
    "status": "ok",
-   "nonequiv": 7,
+   "nonequiv": 8,
    "protos": 12
   },
   {
@@ -139,7 +139,7 @@
   {
    "file": "captured_parameter_classes_interfere",
    "status": "ok",
-   "nonequiv": 5,
+   "nonequiv": 6,
    "protos": 6
   },
   {
@@ -151,7 +151,7 @@
   {
    "file": "captured_swap_before_generic_loop",
    "status": "ok",
-   "nonequiv": 3,
+   "nonequiv": 1,
    "protos": 10
   },
   {
@@ -187,7 +187,7 @@
   {
    "file": "cell_phi_other_variable",
    "status": "ok",
-   "nonequiv": 2,
+   "nonequiv": 4,
    "protos": 8
   },
   {
@@ -259,7 +259,7 @@
   {
    "file": "codefined_results_kept_apart_plain",
    "status": "ok",
-   "nonequiv": 2,
+   "nonequiv": 4,
    "protos": 8
   },
   {
@@ -455,7 +455,7 @@
   {
    "file": "deinline_constant_parameter_still_captured",
    "status": "ok",
-   "nonequiv": 4,
+   "nonequiv": 5,
    "protos": 6
   },
   {
@@ -497,7 +497,7 @@
   {
    "file": "deinline_helper_kept_beside_its_named_store",
    "status": "ok",
-   "nonequiv": 5,
+   "nonequiv": 4,
    "protos": 7
   },
   {
@@ -553,7 +553,7 @@
   {
    "file": "deinline_merged_result_branches",
    "status": "ok",
-   "nonequiv": 6,
+   "nonequiv": 5,
    "protos": 10
   },
   {
@@ -565,7 +565,7 @@
   {
    "file": "deinline_ordered_leading_reads",
    "status": "ok",
-   "nonequiv": 1,
+   "nonequiv": 2,
    "protos": 8
   },
   {
@@ -583,7 +583,7 @@
   {
    "file": "deinline_returned_cell",
    "status": "ok",
-   "nonequiv": 6,
+   "nonequiv": 7,
    "protos": 15
   },
   {
@@ -601,13 +601,13 @@
   {
    "file": "deinline_specialized_copies",
    "status": "ok",
-   "nonequiv": 4,
+   "nonequiv": 1,
    "protos": 9
   },
   {
    "file": "deinline_store_rebuilt_below_its_caller_copy",
    "status": "ok",
-   "nonequiv": 2,
+   "nonequiv": 3,
    "protos": 11
   },
   {
@@ -651,13 +651,13 @@
   {
    "file": "deinline_value_moves_into_its_reader",
    "status": "ok",
-   "nonequiv": 5,
+   "nonequiv": 8,
    "protos": 9
   },
   {
    "file": "deinline_value_sites_without_prefix_limit",
    "status": "ok",
-   "nonequiv": 4,
+   "nonequiv": 5,
    "protos": 11
   },
   {
@@ -688,6 +688,18 @@
    "file": "duplicate_local_multi_assign",
    "status": "ok",
    "nonequiv": 1,
+   "protos": 2
+  },
+  {
+   "file": "duptable_earlier_gc_placeholder",
+   "status": "ok",
+   "nonequiv": 0,
+   "protos": 4
+  },
+  {
+   "file": "duptable_gc_placeholder",
+   "status": "ok",
+   "nonequiv": 0,
    "protos": 2
   },
   {
@@ -741,7 +753,7 @@
   {
    "file": "exact_fraction_constants",
    "status": "ok",
-   "nonequiv": 1,
+   "nonequiv": 2,
    "protos": 3
   },
   {
@@ -963,7 +975,7 @@
   {
    "file": "incoming_operand_read_timing",
    "status": "ok",
-   "nonequiv": 16,
+   "nonequiv": 15,
    "protos": 45
   },
   {
@@ -1029,7 +1041,7 @@
   {
    "file": "locals_past_the_limit_take_if_expressions",
    "status": "ok",
-   "nonequiv": 2,
+   "nonequiv": 3,
    "protos": 11
   },
   {
@@ -1115,7 +1127,7 @@
   {
    "file": "loop_return_flag",
    "status": "ok",
-   "nonequiv": 0,
+   "nonequiv": 2,
    "protos": 4
   },
   {
@@ -1133,7 +1145,7 @@
   {
    "file": "loop_shapes",
    "status": "ok",
-   "nonequiv": 2,
+   "nonequiv": 8,
    "protos": 13
   },
   {
@@ -1151,7 +1163,7 @@
   {
    "file": "loop_swaps_of_captured_locals",
    "status": "ok",
-   "nonequiv": 1,
+   "nonequiv": 3,
    "protos": 6
   },
   {
@@ -1253,6 +1265,18 @@
    "protos": 1
   },
   {
+   "file": "native_builtin_environment",
+   "status": "ok",
+   "nonequiv": 5,
+   "protos": 6
+  },
+  {
+   "file": "native_builtin_literal_arguments",
+   "status": "ok",
+   "nonequiv": 6,
+   "protos": 9
+  },
+  {
    "file": "native_function_attribute",
    "status": "ok",
    "nonequiv": 1,
@@ -1347,7 +1371,7 @@
   {
    "file": "outer_local_helpers",
    "status": "ok",
-   "nonequiv": 1,
+   "nonequiv": 4,
    "protos": 8
   },
   {
@@ -1377,7 +1401,7 @@
   {
    "file": "promise_advancers_capture_their_handlers",
    "status": "ok",
-   "nonequiv": 2,
+   "nonequiv": 4,
    "protos": 10
   },
   {
@@ -1419,7 +1443,7 @@
   {
    "file": "recursive_local_function_in_loop",
    "status": "ok",
-   "nonequiv": 4,
+   "nonequiv": 2,
    "protos": 7
   },
   {
@@ -1503,7 +1527,7 @@
   {
    "file": "signed_zero_key_after_nil_slot",
    "status": "ok",
-   "nonequiv": 1,
+   "nonequiv": 0,
    "protos": 8
   },
   {
@@ -1665,7 +1689,7 @@
   {
    "file": "table_mixed_allocation_growth",
    "status": "ok",
-   "nonequiv": 2,
+   "nonequiv": 1,
    "protos": 2
   },
   {
@@ -1677,7 +1701,7 @@
   {
    "file": "table_newtable_move_nil",
    "status": "ok",
-   "nonequiv": 0,
+   "nonequiv": 1,
    "protos": 2
   },
   {
@@ -1719,7 +1743,7 @@
   {
    "file": "table_open_list_key_errors",
    "status": "ok",
-   "nonequiv": 4,
+   "nonequiv": 3,
    "protos": 5
   },
   {
@@ -1737,19 +1761,19 @@
   {
    "file": "table_open_list_positional_prefix",
    "status": "ok",
-   "nonequiv": 5,
+   "nonequiv": 4,
    "protos": 7
   },
   {
    "file": "table_open_list_split_prefix",
    "status": "ok",
-   "nonequiv": 5,
+   "nonequiv": 4,
    "protos": 6
   },
   {
    "file": "table_partial_array_keys",
    "status": "ok",
-   "nonequiv": 1,
+   "nonequiv": 0,
    "protos": 2
   },
   {
@@ -1773,13 +1797,13 @@
   {
    "file": "table_unobserved_placeholder",
    "status": "ok",
-   "nonequiv": 2,
+   "nonequiv": 0,
    "protos": 9
   },
   {
    "file": "template_repeated_key",
    "status": "ok",
-   "nonequiv": 2,
+   "nonequiv": 0,
    "protos": 2
   },
   {
@@ -1791,7 +1815,7 @@
   {
    "file": "typed_params",
    "status": "ok",
-   "nonequiv": 2,
+   "nonequiv": 3,
    "protos": 5
   },
   {
@@ -1809,7 +1833,7 @@
   {
    "file": "untruncated_arguments",
    "status": "ok",
-   "nonequiv": 1,
+   "nonequiv": 2,
    "protos": 6
   },
   {
@@ -1845,7 +1869,7 @@
   {
    "file": "value_capture_written_after_closure",
    "status": "ok",
-   "nonequiv": 2,
+   "nonequiv": 1,
    "protos": 8
   },
   {

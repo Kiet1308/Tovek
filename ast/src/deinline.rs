@@ -13687,7 +13687,7 @@ mod tests {
         let ctx = MatchCtx { params: &params, locals: &locals, captures: None, fold: None };
         let call = |flags: u8| {
             let mut call = Call::new(Index::new(global("Vector3"), string("new")).into(), vec![number(1.0), number(2.0), number(3.0)]);
-            call.vector_constructor_fastcall = flags & 1 != 0;
+            call.builtin_fastcall = (flags & 1 != 0).then_some((54, 2));
             call.group_callee = flags & 2 != 0;
             call
         };

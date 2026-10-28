@@ -985,7 +985,7 @@ impl<'a> Lifter<'a> {
                         let mut call = ast::Call::new(self.register(a as _).into(), arguments);
                         if let Some((_, builtin)) = fastcall_target.take_if(|(target, _)| *target == pc) {
                             call.callee_after_arguments = true;
-                            call.vector_constructor_fastcall = builtin == Some(54); // LBF_VECTOR
+                            call.builtin_fastcall = builtin.map(|builtin| (builtin, c));
                         }
 
                         if c != 0 {
@@ -2065,11 +2065,11 @@ mod tests {
     }
 
     #[test]
-    fn vector_constructor_identity_comes_from_the_matching_fastcall_builtin() {
+    fn builtin_identity_comes_from_the_matching_fastcall_only() {
         for opcode in [OpCode::LOP_FASTCALL, OpCode::LOP_FASTCALL1, OpCode::LOP_FASTCALL2,
             OpCode::LOP_FASTCALL2K, OpCode::LOP_FASTCALL3, OpCode::LOP_FASTPCALL]
         {
-            for builtin in [54, 55] {
+            for builtin in [40, 44, 54, 55] {
                 let register = if opcode == OpCode::LOP_FASTPCALL { builtin } else { 0 };
                 let mut proto = prototype(64, vec![
                     instruction(opcode, builtin, 0, 1),
@@ -2084,9 +2084,9 @@ mod tests {
                     .filter_map(|statement| statement.as_call()).collect::<Vec<_>>();
                 assert_eq!(calls.len(), 2);
                 assert!(calls[0].callee_after_arguments);
-                assert_eq!(calls[0].vector_constructor_fastcall, builtin == 54 && opcode != OpCode::LOP_FASTPCALL);
+                assert_eq!(calls[0].builtin_fastcall, (opcode != OpCode::LOP_FASTPCALL).then_some((builtin, 1)));
                 assert!(!calls[1].callee_after_arguments);
-                assert!(!calls[1].vector_constructor_fastcall);
+                assert_eq!(calls[1].builtin_fastcall, None);
             }
         }
     }

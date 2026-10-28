@@ -32,6 +32,24 @@ def sample():
 
 
 class ValueProvenanceTests(unittest.TestCase):
+    def test_native_argument_nodes_only_claim_their_synthesis_producer(self):
+        trace = sample()
+        report = trace['value_provenance']
+        report['node_input_limit'] = 16
+        report['output_regions'][0]['node_ancestry'] = dict(
+            inputs=[], inlined=False, cloned=False, synthesized_by='native_constant_arguments',
+            relation='synthesized_node', incomplete=False, exact_value_producer=False)
+        self.assertEqual(validate(trace, b'abc'), [])
+        for fields in (
+            dict(exact_value_producer=True),
+            dict(relation='retained_node_ancestry'),
+            dict(synthesized_by='unknown_native_argument_pass'),
+        ):
+            changed = copy.deepcopy(trace)
+            changed['value_provenance']['output_regions'][0]['node_ancestry'].update(fields)
+            with self.subTest(fields=fields):
+                self.assertTrue(validate(changed, b'abc'))
+
     def test_retained_node_origins_are_separate_from_storage_and_synthesis(self):
         trace = sample()
         report = trace['value_provenance']

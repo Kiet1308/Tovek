@@ -876,7 +876,7 @@ mod tests {
             for shape in 0..3 {
                 let ordinary = Call::new(global("callee"), vec![Literal::Number(1.0).into()]);
                 let mut distinct = ordinary.clone();
-                if grouped { distinct.group_callee = true; } else { distinct.vector_constructor_fastcall = true; }
+                if grouped { distinct.group_callee = true; } else { distinct.builtin_fastcall = Some((54, 2)); }
                 let statement = |call| match shape {
                     0 => Statement::Call(call),
                     1 => Return::new(vec![RValue::Call(call)]).into(),

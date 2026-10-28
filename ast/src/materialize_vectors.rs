@@ -119,7 +119,7 @@ pub fn materialize_vectors(
 /// Luau's table emitter reuses scratch for record fields and flushes list
 /// fields in batches of 16. Sibling fields and closure captures are not all
 /// live expression temporaries at once. Keep the conservative sum elsewhere.
-fn register_bound(value: &RValue) -> usize {
+pub(crate) fn register_bound(value: &RValue) -> usize {
     match value {
         RValue::Closure(_) => 1, // CAPTURE reads existing local/upvalue slots
         RValue::Literal(Literal::Vector(..) | Literal::VectorD(..)) => 5,

@@ -120,7 +120,7 @@ mod tests {
         call.node_origin = crate::node_origins::Origin::synthesized("layout_fixture");
         call.reconstruction_event = 73;
         call.callee_after_arguments = true;
-        call.vector_constructor_fastcall = true;
+        call.builtin_fastcall = Some((54, 2));
         let payload = NumericFor::new(call.into(), Literal::Number(-0.0).into(), Literal::Number(1.0).into(), local.clone(), Block::default());
         let debug = format!("NumericFor({payload:?})");
         let owners = (Arc::count(&local.0.0), Arc::strong_count(&function));
@@ -134,7 +134,7 @@ mod tests {
         assert!(copy_call.node_origin.0.as_ref().unwrap().cloned);
         assert!(!original_call.node_origin.0.as_ref().unwrap().cloned);
         assert_eq!(copy_call.node_origin.0.as_ref().unwrap().synthesized, Some("layout_fixture"));
-        assert_eq!((copy_call.reconstruction_event, copy_call.callee_after_arguments, copy_call.vector_constructor_fastcall), (73, true, true));
+        assert_eq!((copy_call.reconstruction_event, copy_call.callee_after_arguments, copy_call.builtin_fastcall), (73, true, Some((54, 2))));
         assert_eq!(copy_call.value.as_closure().unwrap().function, original_call.value.as_closure().unwrap().function);
         assert_eq!(copy_call.arguments[0].as_literal().unwrap().as_number().unwrap().to_bits(), 0x7ff8_0000_0000_00a5);
         drop(cloned);

@@ -133,7 +133,8 @@ def validate(trace, source=None):
                                  'synthesized_node' if node['synthesized_by'] else 'unknown')
             require(node['relation'] == expected_relation, 'unsupported node origin relation')
             require(node['synthesized_by'] in (None, 'statement_deinline', 'expression_deinline',
-                                             'arithmetic_deinline', 'terminal_synthesis'), 'unknown node synthesis producer')
+                                             'arithmetic_deinline', 'terminal_synthesis',
+                                             'native_constant_arguments'), 'unknown node synthesis producer')
             require(expected_relation != 'unknown' or node['incomplete'], 'missing node origin claimed complete')
             require(type(node['cloned']) is bool and type(node['inlined']) is bool, 'invalid node history flags')
             require(not (node['cloned'] or node['inlined']) or expected_relation != 'unknown' or node['incomplete'],
