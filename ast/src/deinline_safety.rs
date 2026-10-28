@@ -29,6 +29,8 @@ pub(crate) struct CaptureSafety {
     literal_bytes: usize,
     /// Read timing ignores literal contents and walks expression children iteratively.
     read_timing: bool,
+    /// The caller guarantees that numbers will not be respelled through libraries.
+    literal_numbers: bool,
     exhausted: bool,
 }
 
@@ -329,11 +331,18 @@ impl CaptureSafety {
         })
     }
 
+    pub(crate) fn with_literal_numbers(mut self, literal_numbers: bool) -> Self {
+        self.literal_numbers = literal_numbers;
+        self
+    }
+
+    pub(crate) fn literal_numbers(&self) -> bool { self.literal_numbers }
+
     pub(crate) fn stable(&self, value: &RValue) -> bool {
         match value {
             RValue::Literal(crate::Literal::Nil | crate::Literal::Boolean(_) | crate::Literal::String(_)) => true,
-            RValue::Literal(crate::Literal::Number(n)) => n.is_finite()
-                && n.abs().to_bits() != std::f64::consts::PI.to_bits(),
+            RValue::Literal(crate::Literal::Number(n)) => self.literal_numbers || (n.is_finite()
+                && n.abs().to_bits() != std::f64::consts::PI.to_bits()),
             // Bytecode vector constants are values, not constructor lookups.
             RValue::Literal(crate::Literal::Vector(x, y, z)) => [x, y, z].iter().all(|n| n.is_finite()),
             RValue::Literal(crate::Literal::VectorD(x, y, z)) => [x, y, z].iter().all(|n| n.is_finite()),
@@ -1009,6 +1018,22 @@ mod tests {
         let mut safety = CaptureSafety { read_timing: true, ..Default::default() };
         safety.block::<CAPTURES, 5>(&body.0, 0, &FxHashSet::default(), None);
         assert!(!safety.complete());
+    }
+
+    #[test]
+    fn literal_number_stability_requires_explicit_emission_proof() {
+        let exact = CaptureSafety::new(&Block::default()).with_literal_numbers(true);
+        assert!(exact.literal_numbers());
+        for number in [std::f64::consts::PI, -std::f64::consts::PI, f64::INFINITY, f64::NEG_INFINITY, f64::NAN] {
+            let value = Literal::Number(number).into();
+            assert!(exact.stable(&value) && exact.stable_at(&value, None));
+            assert!(!CaptureSafety::new(&Block::default()).stable(&value));
+        }
+        let lookup = crate::Index::new(crate::Global::from("math").into(), Literal::String(b"pi".to_vec()).into()).into();
+        assert!(!exact.stable(&lookup));
+        let conservative = exact.with_literal_numbers(false);
+        assert!(!conservative.literal_numbers());
+        assert!(!conservative.stable(&Literal::Number(std::f64::consts::PI).into()));
     }
 
     #[test]

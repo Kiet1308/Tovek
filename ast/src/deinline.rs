@@ -871,15 +871,15 @@ pub fn deinline_with_orphans(body: &mut Block, chunk_orphans: &mut Vec<(RcLocal,
 /// SSA cannot prove that an incoming cell is immutable across other functions,
 /// so helpers can retain `local snapshot = captured` where their inlined copies
 /// read `captured` directly. Normalize only that proved-stable scalar shape,
-/// before helper patterns and site windows are cached. In particular, neither
-/// an import lookup nor a closure's captured snapshot is a redundant alias.
+/// before helper patterns and site windows are cached. A single-use closure
+/// snapshot can move to an adjacent argument only when all its captures stay fixed.
 fn normalize_stable_capture_snapshots(body: &mut Block, captures: &crate::deinline_safety::CaptureSafety) -> bool {
     if !captures.unique_function_bodies() { return false; }
     let usage = crate::inline_temps::collect_usage(body);
     let mut aliases = FxHashMap::default();
     fn walk(body: &mut Block, captures: &crate::deinline_safety::CaptureSafety,
         usage: &FxHashMap<RcLocal, crate::inline_temps::Usage>, aliases: &mut FxHashMap<RcLocal, RcLocal>,
-        visited: &mut FxHashSet<FnPtr>) {
+        visited: &mut FxHashSet<FnPtr>) -> bool {
         body.0.retain(|statement| {
             let Statement::Assign(assign) = statement else { return true };
             let ([LValue::Local(snapshot)], [RValue::Local(source)]) =
@@ -896,19 +896,54 @@ fn normalize_stable_capture_snapshots(body: &mut Block, captures: &crate::deinli
             aliases.insert(snapshot.clone(), source.clone());
             false
         });
+        let mut changed = false;
+        let mut at = 0;
+        while at + 1 < body.len() {
+            let argument = (|| {
+                let (snapshot, value, argument) = leading_scalar_snapshot(&body.0[at..])?;
+                let RValue::Closure(closure) = value else { return None };
+                if !captures.uncaptured(snapshot) || !captures.never_reassigned(snapshot)
+                    || !usage.get(snapshot).is_some_and(|u| u.writes == 1 && u.reads == 1 && !u.captured)
+                    || closure.upvalues.iter().any(|capture| {
+                        let (Upvalue::Copy(local) | Upvalue::Ref(local)) = capture;
+                        local == snapshot || !captures.never_reassigned(local)
+                    })
+                { return None; }
+                // Keep prospective helper binders available to target discovery.
+                let function = closure.function.lock();
+                if function.name.is_some() || function.retain_for_reconstruction || function.inlined_by_compiler {
+                    return None;
+                }
+                drop(function);
+                let mutable = |local: &RcLocal| !captures.never_reassigned(local);
+                crate::evaluation_order::can_sink_with_summary(&body[at + 1], snapshot, value,
+                    &mutable, &|_| false, crate::effects::summarize(value, &mutable)).then_some(argument)
+            })();
+            if let Some(argument) = argument {
+                let Statement::Assign(mut declaration) = std::mem::replace(&mut body[at], Statement::Empty(crate::Empty {}))
+                    else { unreachable!() };
+                let Statement::Call(call) = &mut body[at + 1] else { unreachable!() };
+                call.arguments[argument] = declaration.right.pop().unwrap();
+                crate::node_origins::inlined(&mut call.arguments[argument]);
+                changed = true;
+            }
+            at += 1;
+        }
+        if changed { body.0.retain(|statement| !matches!(statement, Statement::Empty(_))); }
         for statement in &mut body.0 {
             crate::inline_temps::collect_closures_in_statement(statement, &mut |closure| {
                 if visited.insert(Arc::as_ptr(&closure.function.0)) {
-                    walk(&mut closure.function.lock().body, captures, usage, aliases, visited);
+                    changed |= walk(&mut closure.function.lock().body, captures, usage, aliases, visited);
                 }
             });
             for nested in nested_blocks(statement) {
-                walk(&mut nested.lock(), captures, usage, aliases, visited);
+                changed |= walk(&mut nested.lock(), captures, usage, aliases, visited);
             }
         }
+        changed
     }
-    walk(body, captures, &usage, &mut aliases, &mut FxHashSet::default());
-    if aliases.is_empty() { return false; }
+    let changed = walk(body, captures, &usage, &mut aliases, &mut FxHashSet::default());
+    if aliases.is_empty() { return changed; }
     // Sources are captured and destinations are not, so this map has no chains
     // and cannot redirect a write or alter a closure's Copy/Ref capture list.
     crate::replace_locals::replace_locals(body, &aliases);
@@ -918,6 +953,13 @@ fn normalize_stable_capture_snapshots(body: &mut Block, captures: &crate::deinli
 /// [`deinline_with_orphans`], where `nested` says whether a function of
 /// the chunk may hold orphans of its own (else none is looked for).
 pub fn deinline_orphans_in(body: &mut Block, chunk_orphans: &mut Vec<(RcLocal, Closure)>, nested: bool) {
+    deinline_orphans_in_with_literal_numbers(body, chunk_orphans, nested, false);
+}
+
+/// `literal_numbers` requires number constants to retain their literal spelling,
+/// rather than becoming optional environment reads such as `math.pi`.
+pub fn deinline_orphans_in_with_literal_numbers(body: &mut Block, chunk_orphans: &mut Vec<(RcLocal, Closure)>,
+    nested: bool, literal_numbers: bool) {
     let orphans = if nested || !chunk_orphans.is_empty() { collect_orphans(body, chunk_orphans, nested) } else { Vec::new() };
     // What line info shows of the inlined copies (E1), if the chunk has any.
     let copies = evidence::current();
@@ -927,14 +969,20 @@ pub fn deinline_orphans_in(body: &mut Block, chunk_orphans: &mut Vec<(RcLocal, C
         crate::telemetry::count("skipped_without_targets", 1);
         return;
     }
-    let mut captures = crate::deinline_safety::CaptureSafety::new(body);
+    let census = |body: &Block| crate::deinline_safety::CaptureSafety::new(body).with_literal_numbers(literal_numbers);
+    let mut captures = census(body);
     if !captures.complete() || captures.dynamic_environment() || captures.call_frames_untracked() {
         crate::telemetry::count("skipped_without_targets", 1);
         return;
     }
     // Detached orphan bodies are not part of this census's capture inventory.
-    if orphans.is_empty() && normalize_stable_capture_snapshots(body, &captures) {
-        captures = crate::deinline_safety::CaptureSafety::new(body);
+    if orphans.is_empty() {
+        if normalize_stable_capture_snapshots(body, &captures) {
+            captures = census(body);
+        }
+        if crate::fold_import_callees::fold_literal_number_import_callees(body, &captures) {
+            captures = census(body);
+        }
     }
     // What each literal captures, so no rewrite changes whether Luau shares
     // it (`literal_sharing`).
@@ -1041,7 +1089,7 @@ pub fn deinline_orphans_in(body: &mut Block, chunk_orphans: &mut Vec<(RcLocal, C
                 None => {
                     let captures = initial_captures.take().unwrap_or_else(|| {
                         let _span = crate::telemetry::Span::new("D_ROUND_CENSUS");
-                        std::rc::Rc::new(crate::deinline_safety::CaptureSafety::new(body))
+                        std::rc::Rc::new(census(body))
                     });
                     current_captures = Some(captures.clone());
                     if let Some(last) = last_targets.take() {
@@ -1239,7 +1287,7 @@ pub fn deinline_orphans_in(body: &mut Block, chunk_orphans: &mut Vec<(RcLocal, C
             let _span = crate::telemetry::Span::new("D_COLLAPSE_RESULTS");
             // The collapse reads the final tree's registers and stable values.
             let captures = current_captures
-                .unwrap_or_else(|| std::rc::Rc::new(crate::deinline_safety::CaptureSafety::new(body)));
+                .unwrap_or_else(|| std::rc::Rc::new(census(body)));
             let facts = Collapse { single_valued: &single_valued, captures: &captures, function: None };
             collapse_value_results(&mut body.0, &facts, &FxHashSet::default());
         }
@@ -2917,6 +2965,9 @@ fn unify_block(
     b: &mut Bindings,
 ) -> Result<(), ()> {
     if pat.len() != cand.len() {
+        if unify_guarded_select(t, pat, cand, b).is_ok() {
+            return Ok(());
+        }
         // Leaf elision: a block ending `return x` against the same block
         // without it, where `x` is what the result local already holds on
         // this path ([`is_elided_leaf`]): the identity parameter pre-bound
@@ -2936,6 +2987,55 @@ fn unify_block(
     for (p, c) in pat.iter().zip(cand) {
         unify_stmt(t, p, c, b)?;
     }
+    Ok(())
+}
+
+/// Match a private `local m = P and E; if m then T else return K end`
+/// against its explicit P guard; all paths return, so m has no live-out scope.
+fn unify_guarded_select(t: &Target, pat: &[Statement], cand: &[Statement], b: &mut Bindings) -> Result<(), ()> {
+    let ([Statement::Assign(declaration), guard @ Statement::If(branch)], [Statement::If(site)]) = (pat, cand) else {
+        return Err(());
+    };
+    let ([LValue::Local(local)], [RValue::Binary(select)]) = (declaration.left.as_slice(), declaration.right.as_slice()) else {
+        return Err(());
+    };
+    if t.kind != TKind::Value || !t.single_valued || t.orphan.is_some()
+        || !declaration.prefix || declaration.parallel || declaration.compound
+        || select.operation != BinaryOperation::And || !t.locals.contains(local)
+        || !matches!(&branch.condition, RValue::Local(read) if read == local)
+        || !t.captures.unique_function_bodies() || !t.captures.uncaptured(local)
+        || !t.captures.never_reassigned(local)
+    { return Err(()); }
+    if !charge_window(t, cand) || !t.search.spend(t.pat_nodes)
+        || !value_leaf_shape(pat)
+        || reads_local(&select.left, local) || reads_local(&select.right, local)
+    { return Err(()); }
+    let then = site.then_block.lock();
+    let [Statement::Assign(site_declaration), site_guard @ Statement::If(site_branch)] = then.0.as_slice() else {
+        return Err(());
+    };
+    let ([LValue::Local(site_local)], [site_value]) = (site_declaration.left.as_slice(), site_declaration.right.as_slice()) else {
+        return Err(());
+    };
+    if !site_declaration.prefix || site_declaration.parallel || site_declaration.compound
+        || !matches!(&site_branch.condition, RValue::Local(read) if read == site_local)
+        || !t.captures.uncaptured(site_local) || !t.captures.never_reassigned(site_local)
+        || reads_local(&site.condition, site_local) || reads_local(site_value, site_local)
+    { return Err(()); }
+    {
+        let otherwise = branch.else_block.lock();
+        if !matches!(otherwise.0.as_slice(), [Statement::Return(ret)] if matches!(ret.values.as_slice(), [RValue::Literal(_)])) {
+            return Err(());
+        }
+    }
+    let mut trial = b.clone();
+    let ctx = t.ctx();
+    unify_rvalue(&ctx, &select.left, &site.condition, &mut trial)?;
+    let declaration = Statement::Assign(Assign { right: vec![select.right.as_ref().clone()], ..declaration.clone() });
+    unify_assignment(t, &ctx, &declaration, site_declaration, true, &mut trial)?;
+    unify_stmt(t, guard, site_guard, &mut trial)?;
+    unify_block(t, &branch.else_block.lock().0, &site.else_block.lock().0, &mut trial)?;
+    *b = trial;
     Ok(())
 }
 
@@ -10921,6 +11021,95 @@ mod tests {
     }
 
     #[test]
+    fn stable_closure_snapshot_normalization_recovers_helper_calls() {
+        for (shared, orphan) in [(false, false), (true, false), (false, true)] {
+            let (events, refresh, target, first, second) =
+                (local("events"), local("refresh"), local("target"), local("first"), local("second"));
+            let snapshot = RcLocal::default();
+            let literal = |target: &RcLocal, event_capture| closure_of(73, shared,
+                vec![Upvalue::Copy(target.clone()), event_capture], vec![return_one(bin(
+                    target.clone().into(), BinaryOperation::Concat,
+                    RValue::Unary(Unary { node_origin: Default::default(), value: Box::new(events.clone().into()),
+                        operation: UnaryOperation::Length }),
+                ))]);
+            let insert = |value| Statement::Call(Call::new(
+                Index::new(global("table"), string("insert")).into(), vec![events.clone().into(), value]));
+            let mut closure = literal(&target, Upvalue::Ref(events.clone()));
+            closure.as_closure_mut().unwrap().node_origin = crate::node_origins::Origin::synthesized("closure_snapshot_fixture");
+            let child = closure.as_closure().unwrap().function.clone();
+            let child_before = child.lock().body.to_string();
+            let mut call = insert(snapshot.clone().into());
+            call.as_call_mut().unwrap().reconstruction_event = 73;
+            let mut declaration = helper_with(&refresh, std::slice::from_ref(&target), vec![
+                assign_local(&snapshot, closure, true), call,
+            ]);
+            let helper = declaration.as_assign_mut().unwrap().right[0].as_closure_mut().unwrap();
+            helper.upvalues.push(Upvalue::Ref(events.clone()));
+            let function = helper.function.clone();
+            let mut orphans = Vec::new();
+            let mut body = Block(vec![assign_local(&events, Table::default().into(), true)]);
+            if orphan { orphans.push((refresh.clone(), helper.clone())); }
+            else { body.0.push(declaration); }
+            for (target, value) in [(&first, "x"), (&second, "y")] {
+                body.0.push(assign_local(target, string(value), true));
+                body.0.push(insert(literal(target, Upvalue::Copy(events.clone()))));
+            }
+            deinline_with_orphans(&mut body, &mut orphans);
+            let rebuilt = body.0.iter().filter_map(Statement::as_call).filter(|call| {
+                call.rebuilt.is_some() && matches!(&*call.value, RValue::Local(local) if local == &refresh)
+            }).count();
+            assert_eq!(rebuilt, if !shared && !orphan { 2 } else { 0 }, "{body}");
+            assert_eq!(child.lock().body.to_string(), child_before);
+            let helper = function.lock();
+            if orphan {
+                assert_eq!(helper.body.len(), 2);
+            } else {
+                let [Statement::Call(call)] = helper.body.0.as_slice() else { panic!("{}", helper.body) };
+                assert_eq!(call.reconstruction_event, 73);
+                let closure = call.arguments[1].as_closure().unwrap();
+                assert!(Arc::ptr_eq(&closure.function.0, &child.0));
+                assert_eq!(closure.upvalues, vec![Upvalue::Copy(target.clone()), Upvalue::Ref(events.clone())]);
+                assert!(closure.node_origin.0.as_ref().unwrap().inlined);
+                assert_eq!(closure.function.lock().closure_constant.is_some(), shared);
+            }
+        }
+    }
+
+    #[test]
+    fn stable_closure_snapshot_normalization_preserves_unproved_snapshots() {
+        for mode in ["source_write", "closure_write", "named", "protected", "multiple_reads",
+            "multiple_writes", "captured", "intervening", "retained_helper", "incomplete"] {
+            let source = local("source");
+            let snapshot = if mode == "named" { local("callback") } else { RcLocal::default() };
+            if mode == "protected" { snapshot.0.0.lock().4.conditional_result = true; }
+            let closure = closure_of(73, false, vec![Upvalue::Copy(source.clone())],
+                vec![return_one(source.clone().into())]);
+            if mode == "retained_helper" {
+                closure.as_closure().unwrap().function.lock().retain_for_reconstruction = true;
+            }
+            let mut arguments = vec![snapshot.clone().into()];
+            if mode == "multiple_reads" { arguments.push(snapshot.clone().into()); }
+            let mut body = Block(vec![assign_local(&source, string("before"), true),
+                assign_local(&snapshot, closure, true), global_call("store", arguments).into()]);
+            match mode {
+                "source_write" => body.0.push(assign_local(&source, string("after"), false)),
+                "closure_write" => body.0.push(return_one(closure_of(74, false, vec![Upvalue::Ref(source.clone())],
+                    vec![assign_local(&source, string("after"), false)]))),
+                "multiple_writes" => body.0.push(assign_local(&snapshot, global("other"), false)),
+                "captured" => body.0.push(return_one(closure_of(74, false, vec![Upvalue::Copy(snapshot.clone())],
+                    vec![return_one(snapshot.clone().into())]))),
+                "intervening" => body.0.insert(2, global_call("change", vec![]).into()),
+                _ => {}
+            }
+            let captures = if mode == "incomplete" { crate::deinline_safety::CaptureSafety::exhausted_for_tests() }
+                else { crate::deinline_safety::CaptureSafety::new(&body) };
+            let before = body.to_string();
+            assert!(!normalize_stable_capture_snapshots(&mut body, &captures), "{mode}");
+            assert_eq!(body.to_string(), before, "{mode}");
+        }
+    }
+
+    #[test]
     fn stable_capture_snapshot_normalization_preserves_unproved_snapshots() {
         for mode in ["source_write", "closure_write", "copy_destination", "ref_destination",
             "named", "protected", "multiple_reads", "multiple_writes", "import", "incomplete"] {
@@ -14677,6 +14866,125 @@ mod tests {
                 vec![assign_local(r, boolean(false), false)],
             )],
         )
+    }
+
+    fn guarded_select_target_and_site() -> (Target, Vec<Statement>, [RcLocal; 5]) {
+        let (parameter, argument, m, n, result) =
+            (local("parameter"), local("argument"), local("m"), local("n"), local("result"));
+        let predicate = |value: &RcLocal| call1(global("predicate"), local_value(value));
+        let produce = |value: &RcLocal| call1(global("produce"), local_value(value));
+        let touch = |value: &RcLocal| Statement::Call(global_call("touch", vec![local_value(value)]));
+        let pattern = vec![
+            assign_local(&m, bin(predicate(&parameter), BinaryOperation::And, produce(&parameter)), true),
+            if_stmt(local_value(&m), vec![touch(&m), return_one(boolean(true))], vec![return_one(boolean(false))]),
+        ];
+        let site = vec![if_stmt(predicate(&argument), vec![
+            assign_local(&n, produce(&argument), true),
+            if_stmt(local_value(&n), vec![touch(&n), assign_local(&result, boolean(true), false)],
+                vec![assign_local(&result, boolean(false), false)]),
+        ], vec![assign_local(&result, boolean(false), false)])];
+        let mut target = value_prefix_target(&pattern);
+        target.params.insert(parameter.clone());
+        target.param_order = vec![parameter.clone()];
+        target.single_valued = true;
+        target.pat_nodes = target.pat.iter().map(dbg_stmt_node_count).sum();
+        target.captures = std::rc::Rc::new(crate::deinline_safety::CaptureSafety::new(
+            &Block(target.pat.iter().chain(&site).cloned().collect())));
+        (target, site, [parameter, argument, m, n, result])
+    }
+
+    #[test]
+    fn guarded_select_matches_effects_and_falsy_producers_without_mutating_bodies() {
+        for literal in [None, Some(Literal::Nil), Some(Literal::Boolean(false)), Some(Literal::Boolean(true))] {
+            let (mut target, mut site, [_, argument, _, n, result]) = guarded_select_target_and_site();
+            if let Some(literal) = literal {
+                let Statement::Assign(assign) = &mut target.pat[0] else { unreachable!() };
+                let RValue::Binary(select) = &mut assign.right[0] else { unreachable!() };
+                select.right = Box::new(literal.clone().into());
+                let Statement::If(branch) = &mut site[0] else { unreachable!() };
+                let mut then = branch.then_block.lock();
+                let Statement::Assign(assign) = &mut then[0] else { unreachable!() };
+                assign.right[0] = literal.into();
+            }
+            let before = (format!("{:?}", target.pat), format!("{site:?}"));
+            let unified = try_unify_site(&target, &site, None).expect("the guard keeps predicate/producer/touch order");
+            assert!(matches!(unified.args.as_slice(), [RValue::Local(read)] if read == &argument));
+            assert_eq!(unified.result, Some(result));
+            assert!(unified.callee_locals.contains(&n), "caller liveness must still track the removed binder");
+            assert_eq!(before, (format!("{:?}", target.pat), format!("{site:?}")));
+        }
+    }
+
+    #[test]
+    fn guarded_select_rejects_unproved_scope_bindings_arms_and_budget() {
+        for mode in ["fallthrough", "else_reads_temp", "or", "source_self_read", "site_self_read",
+            "source_reassigned", "site_reassigned", "source_copy", "source_ref", "site_copy", "site_ref",
+            "parallel", "compound", "site_reassignment", "outer_else", "call_metadata", "incomplete", "budget", "orphan"]
+        {
+            let (mut target, mut site, [_, _, m, n, _]) = guarded_select_target_and_site();
+            let mut extra = Vec::new();
+            match mode {
+                "fallthrough" | "else_reads_temp" => {
+                    let Statement::If(branch) = &target.pat[1] else { unreachable!() };
+                    if mode == "fallthrough" { branch.then_block.lock().0.pop(); }
+                    else { branch.else_block.lock().0 = vec![return_one(local_value(&m))]; }
+                }
+                "or" | "source_self_read" | "parallel" | "compound" => {
+                    let Statement::Assign(assign) = &mut target.pat[0] else { unreachable!() };
+                    if mode == "parallel" { assign.parallel = true; }
+                    else if mode == "compound" { assign.compound = true; }
+                    else {
+                        let RValue::Binary(select) = &mut assign.right[0] else { unreachable!() };
+                        if mode == "or" { select.operation = BinaryOperation::Or; }
+                        else { select.left = Box::new(local_value(&m)); }
+                    }
+                }
+                "site_self_read" | "site_reassignment" | "outer_else" | "call_metadata" => {
+                    let Statement::If(branch) = &mut site[0] else { unreachable!() };
+                    match mode {
+                        "site_self_read" => branch.condition = local_value(&n),
+                        "site_reassignment" => {
+                            let mut then = branch.then_block.lock();
+                            let Statement::Assign(assign) = &mut then[0] else { unreachable!() };
+                            assign.prefix = false;
+                        }
+                        "outer_else" => {
+                            let mut otherwise = branch.else_block.lock();
+                            let Statement::Assign(assign) = &mut otherwise[0] else { unreachable!() };
+                            assign.right[0] = boolean(true);
+                        }
+                        _ => {
+                            let RValue::Call(call) = &mut branch.condition else { unreachable!() };
+                            call.group_callee = true;
+                        }
+                    }
+                }
+                "source_reassigned" | "site_reassigned" => extra.push(assign_local(
+                    if mode == "source_reassigned" { &m } else { &n }, boolean(false), false)),
+                "source_copy" | "source_ref" | "site_copy" | "site_ref" => {
+                    let captured = if mode.starts_with("source") { &m } else { &n };
+                    extra.push(return_one(Closure {
+                        node_origin: Default::default(),
+                        function: ByAddress(Arc::new(Mutex::new(Function {
+                            body: Block(vec![return_one(local_value(captured))]), ..Function::default()
+                        }))),
+                        upvalues: vec![if mode.ends_with("copy") { Upvalue::Copy(captured.clone()) } else { Upvalue::Ref(captured.clone()) }],
+                    }.into()));
+                }
+                "budget" => { assert!(!target.search.spend(usize::MAX)); }
+                "orphan" => target.orphan = Some(None),
+                "incomplete" => {},
+                _ => unreachable!(),
+            }
+            target.captures = std::rc::Rc::new(if mode == "incomplete" {
+                crate::deinline_safety::CaptureSafety::exhausted_for_tests()
+            } else {
+                crate::deinline_safety::CaptureSafety::new(&Block(target.pat.iter().chain(&site).chain(&extra).cloned().collect()))
+            });
+            let mut bindings = Bindings::default();
+            assert!(unify_block(&target, &target.pat, &site, &mut bindings).is_err(), "{mode}");
+            assert!(bindings.params.is_empty() && bindings.locals.is_empty() && bindings.result.is_none(), "{mode}: failed fallback leaked bindings");
+        }
     }
 
     #[test]

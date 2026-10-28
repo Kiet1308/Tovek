@@ -1171,7 +1171,8 @@ fn decompile_bytecode_internal(
                 {
                     let _t = crate::prof::Timer::new(&crate::prof::S_DEINLINE);
                     let span = ast::telemetry::Span::ast("S_DEINLINE", &body, true);
-                    ast::deinline::deinline_orphans_in(&mut body, &mut chunk_orphans, nested_orphans);
+                    ast::deinline::deinline_orphans_in_with_literal_numbers(&mut body, &mut chunk_orphans,
+                        nested_orphans, !options.assume_standard_libraries);
                     span.finish_ast(&body, true);
                 }
                 // Replacing an inlined region by a call can make formerly

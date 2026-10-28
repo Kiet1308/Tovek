@@ -176,6 +176,7 @@ CROSS_OPT_FIXTURES = (
     'deinline_closure_factories', 'closure_constant_cached_by_another_copy',
     'value_capture_written_after_closure', 'paren_call_truncates_multret',
     'parameter_hole_multret', 'snapshot_receiver_and_constructor_key',
+    'deinline_returns_distributed_and_short_circuit', 'exact_fraction_constants',
 )
 CROSS_OPT_BASELINE = ROOT / 'docs/failure_fixtures/deep_review_cross_optimization_baseline.json'
 # Only these reviewed source/profile/options tuples admit the open-result refusal.
@@ -188,6 +189,8 @@ EXPECTED_INPUT_REFUSALS = {
          'd352150d50ed69efdb6edb6f6ae281d3ea3a115b9154a179b9aa17d28bb5ddb8', (1, 2), (0, 1, 2)),
         ('closure_constant_cached_by_another_copy',
          'c634332ae9d39e5d18b8cdc0ca39a3a80b3d8855a1b5f7b5a42f4e8b6bf5a74d', (1,), (0, 2)),
+        ('deinline_returns_distributed_and_short_circuit',
+         '6f086ea2feec7ac51539def54c1111b05cfba9074713453db120aab41784ac21', (1,), (0, 2)),
     )
     for optimization in optimizations for debug in debugs
 }

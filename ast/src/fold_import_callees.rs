@@ -8,7 +8,17 @@ pub fn fold_import_callees(body: &mut Block) {
     if census.dynamic_environment() {
         return;
     }
-    block(&mut body.0, &census, true);
+    block(&mut body.0, &census, true, false);
+}
+
+/// Normalize only imports newly admitted by the caller's exact-number spelling
+/// proof before helper patterns and candidate window lengths are cached.
+pub(crate) fn fold_literal_number_import_callees(body: &mut Block,
+    census: &crate::deinline_safety::CaptureSafety) -> bool {
+    if !census.literal_numbers() || !census.unique_function_bodies() || census.dynamic_environment() {
+        return false;
+    }
+    block(&mut body.0, census, true, true)
 }
 
 /// A specialized matching pattern owns its statement blocks, but closure
@@ -16,17 +26,18 @@ pub fn fold_import_callees(body: &mut Block) {
 /// untouched, and use the full module census for its remaining captured reads.
 pub(crate) fn fold_specialized_import_callees(stmts: &mut Vec<Statement>, census: &crate::deinline_safety::CaptureSafety) -> bool {
     if census.dynamic_environment() { return false; }
-    block(stmts, census, false)
+    block(stmts, census, false, false)
 }
 
-fn block(stmts: &mut Vec<Statement>, census: &crate::deinline_safety::CaptureSafety, descend_functions: bool) -> bool {
+fn block(stmts: &mut Vec<Statement>, census: &crate::deinline_safety::CaptureSafety,
+    descend_functions: bool, literal_only: bool) -> bool {
     let mut changed = false;
     for statement in stmts.iter_mut() {
-        nested_blocks(statement, &mut |nested| { changed |= block(nested, census, descend_functions); });
+        nested_blocks(statement, &mut |nested| { changed |= block(nested, census, descend_functions, literal_only); });
         if descend_functions {
             statement.traverse_rvalues(&mut |value| {
                 if let RValue::Closure(closure) = value {
-                    changed |= block(&mut closure.function.0.lock().body.0, census, true);
+                    changed |= block(&mut closure.function.0.lock().body.0, census, true, literal_only);
                 }
             });
         }
@@ -34,11 +45,12 @@ fn block(stmts: &mut Vec<Statement>, census: &crate::deinline_safety::CaptureSaf
     let mut i = 0;
     while i < stmts.len() {
         if let Some((alias, path)) = import_alias(&stmts[i])
+            && (!literal_only || !alias.preserve_binding())
             // shortcut: only cross comments/empty statements; extend with an explicit intervening-motion proof.
             && let Some(next) = (i + 1..stmts.len()).find(|&at| !matches!(stmts[at], Statement::Comment(_) | Statement::Empty(_)))
             && crate::deinline::count_local_reads(&stmts[i + 1..], &alias) == 1
             && !written(&stmts[i + 1..], &alias)
-            && crate::evaluation_order::can_sink(&stmts[next], &alias, &path, &|local| !census.uncaptured(local))
+            && can_fold(&stmts[next], &alias, &path, census, literal_only)
             && name_callee(&mut stmts[next], &alias, &path)
         {
             stmts.remove(i);
@@ -48,6 +60,15 @@ fn block(stmts: &mut Vec<Statement>, census: &crate::deinline_safety::CaptureSaf
         i += 1;
     }
     changed
+}
+
+fn can_fold(statement: &Statement, alias: &RcLocal, path: &RValue,
+    census: &crate::deinline_safety::CaptureSafety, literal_only: bool) -> bool {
+    let captured = |local: &RcLocal| !census.uncaptured(local);
+    let ordinary = crate::evaluation_order::can_sink(statement, alias, path, &captured);
+    if literal_only {
+        !ordinary && crate::evaluation_order::can_sink_with_literal_numbers(statement, alias, path, &captured)
+    } else { ordinary }
 }
 
 /// Restrict this presentation pass to builtin names; this is no purity proof.
@@ -135,6 +156,62 @@ mod tests {
         let value = Call::new(new.into(), vec![Literal::Number(1.0).into()]).into();
         let output = run(vec![declaration, Return::new(vec![value]).into()]);
         assert_eq!(output, "return Vector2.new(1)");
+    }
+
+    #[test]
+    fn literal_number_import_normalization_is_explicit_and_narrow() {
+        for literal_numbers in [false, true] {
+            for number in [1.0, std::f64::consts::PI, -std::f64::consts::PI, f64::INFINITY, f64::NEG_INFINITY, f64::NAN] {
+                let saved = RcLocal::default();
+                let path = Index::new(Global::from("string").into(), Literal::String(b"format".to_vec()).into()).into();
+                let mut declaration = Assign::new(vec![saved.clone().into()], vec![path]);
+                declaration.prefix = true;
+                let mut body = Block(vec![declaration.into(),
+                    Return::new(vec![Call::new(saved.into(), vec![Literal::Number(number).into()]).into()]).into()]);
+                let before = body.to_string();
+                let census = crate::deinline_safety::CaptureSafety::new(&body).with_literal_numbers(literal_numbers);
+                let expected = literal_numbers && number != 1.0;
+                assert_eq!(fold_literal_number_import_callees(&mut body, &census), expected);
+                if expected {
+                    assert_eq!(body.len(), 1);
+                    assert!(body.to_string().contains("return string.format("));
+                } else { assert_eq!(body.to_string(), before); }
+            }
+        }
+    }
+
+    #[test]
+    fn literal_number_import_normalization_keeps_unproved_snapshots() {
+        for mode in ["key_error", "effect", "protected", "reused", "written", "environment", "shared", "budget"] {
+            let saved = RcLocal::default();
+            if mode == "protected" { saved.0.0.lock().4.conditional_result = true; }
+            let path = Index::new(Global::from("string").into(), Literal::String(b"format".to_vec()).into()).into();
+            let mut declaration = Assign::new(vec![saved.clone().into()], vec![path]);
+            declaration.prefix = true;
+            let argument = match mode {
+                "key_error" => crate::Table::new(vec![(Some(Literal::Number(f64::NAN).into()), Literal::Nil.into())]).into(),
+                "effect" => Call::new(Global::from("change").into(), vec![]).into(),
+                _ => Literal::Number(std::f64::consts::PI).into(),
+            };
+            let mut body = Block(vec![declaration.into(),
+                Return::new(vec![Call::new(saved.clone().into(), vec![argument]).into()]).into()]);
+            match mode {
+                "reused" => body.0.push(Return::new(vec![saved.clone().into()]).into()),
+                "written" => body.0.push(Assign::new(vec![saved.into()], vec![Literal::Nil.into()]).into()),
+                "environment" => body.0.push(Call::new(Global::from("getfenv").into(), vec![]).into()),
+                "shared" => {
+                    let closure = Closure { node_origin: Default::default(),
+                        function: ByAddress(Arc::new(Mutex::new(Function::default()))), upvalues: vec![] };
+                    body.0.push(Return::new(vec![closure.clone().into(), closure.into()]).into());
+                }
+                _ => {}
+            }
+            let before = body.to_string();
+            let census = if mode == "budget" { crate::deinline_safety::CaptureSafety::exhausted_for_tests() }
+                else { crate::deinline_safety::CaptureSafety::new(&body) }.with_literal_numbers(true);
+            assert!(!fold_literal_number_import_callees(&mut body, &census), "{mode}");
+            assert_eq!(body.to_string(), before, "{mode}");
+        }
     }
 
     #[test]

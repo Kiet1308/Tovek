@@ -46,13 +46,19 @@ impl Effects {
 /// executed by construction. A caller supplies proven cell identities for the
 /// current SSA epoch; an empty predicate is not evidence that cells do not exist.
 pub fn intrinsic(value: &RValue, is_capture: &impl Fn(&RcLocal) -> bool) -> Effects {
+    intrinsic_with_literal_numbers(value, is_capture, false)
+}
+
+/// `literal_numbers` requires the caller to keep number literals free of later
+/// library spellings; vector constructors and every other effect stay unchanged.
+pub(crate) fn intrinsic_with_literal_numbers(value: &RValue, is_capture: &impl Fn(&RcLocal) -> bool,
+    literal_numbers: bool) -> Effects {
     use crate::{Literal, Select};
     match value {
         RValue::Local(local) if is_capture(local) => Effects::CAPTURE_READ,
-        // These AST constants are emitted through math/vector environment
-        // lookups. Motion must account for the source that will execute.
+        // Without an emission proof these constants may later use library lookups.
         RValue::Literal(Literal::Number(n))
-            if !n.is_finite() || n.abs().to_bits() == std::f64::consts::PI.to_bits() => Effects::DYNAMIC_CALL,
+            if !literal_numbers && (!n.is_finite() || n.abs().to_bits() == std::f64::consts::PI.to_bits()) => Effects::DYNAMIC_CALL,
         RValue::Literal(Literal::Vector(..) | Literal::VectorD(..)) => Effects::DYNAMIC_CALL,
         RValue::Local(_)
         | RValue::Literal(_)
@@ -117,7 +123,13 @@ pub struct Summary {
 /// failure sets UNKNOWN and every dynamic-call flag; it never implies purity.
 /// The walk retains no AST/local owners and never enters closure bodies.
 pub fn summarize(value: &RValue, is_capture: &impl Fn(&RcLocal) -> bool) -> Summary {
-    fn walk(value: &RValue, capture: &impl Fn(&RcLocal) -> bool, depth: usize, out: &mut Summary) {
+    summarize_with_literal_numbers(value, is_capture, false)
+}
+
+pub(crate) fn summarize_with_literal_numbers(value: &RValue, is_capture: &impl Fn(&RcLocal) -> bool,
+    literal_numbers: bool) -> Summary {
+    fn walk(value: &RValue, capture: &impl Fn(&RcLocal) -> bool, literal_numbers: bool,
+        depth: usize, out: &mut Summary) {
         let width = match value {
             RValue::Table(table) => table.0.len().saturating_mul(2),
             RValue::Call(call) | RValue::Select(crate::Select::Call(call)) => {
@@ -135,9 +147,9 @@ pub fn summarize(value: &RValue, is_capture: &impl Fn(&RcLocal) -> bool) -> Summ
             return;
         }
         out.nodes += 1;
-        out.effects = out.effects.union(intrinsic(value, capture));
+        out.effects = out.effects.union(intrinsic_with_literal_numbers(value, capture, literal_numbers));
         value.visit_rvalues(&mut |child| {
-            walk(child, capture, depth + 1, out);
+            walk(child, capture, literal_numbers, depth + 1, out);
             !out.exhausted
         });
     }
@@ -146,7 +158,7 @@ pub fn summarize(value: &RValue, is_capture: &impl Fn(&RcLocal) -> bool) -> Summ
         nodes: 0,
         exhausted: false,
     };
-    walk(value, is_capture, 0, &mut result);
+    walk(value, is_capture, literal_numbers, 0, &mut result);
     result
 }
 
@@ -234,14 +246,40 @@ mod tests {
     }
 
     #[test]
+    fn literal_number_proof_keeps_environment_key_and_capture_effects() {
+        for number in [std::f64::consts::PI, -std::f64::consts::PI, f64::INFINITY, f64::NEG_INFINITY, f64::NAN] {
+            let value = Literal::Number(number).into();
+            assert!(!summarize(&value, &|_| false).effects.is_total_pure());
+            let exact = summarize_with_literal_numbers(&value, &|_| false, true);
+            assert!(exact.effects.is_total_pure() && !exact.exhausted);
+            assert_eq!(exact.nodes, 1);
+        }
+        for key in [Literal::Nil, Literal::Number(f64::NAN)] {
+            let value = Table::new(vec![(Some(key.into()), Literal::Number(1.0).into())]).into();
+            let effects = summarize_with_literal_numbers(&value, &|_| false, true).effects;
+            assert!(effects.contains(Effects::MAY_THROW) && !effects.is_total_pure());
+        }
+        let math_pi = Index::new(crate::Global::from("math").into(), Literal::String(b"pi".to_vec()).into()).into();
+        assert!(summarize_with_literal_numbers(&math_pi, &|_| false, true).effects.has_order_dependency());
+        let vector = Literal::Vector(1.0, 2.0, 3.0).into();
+        assert!(summarize_with_literal_numbers(&vector, &|_| false, true).effects.contains(Effects::CALL));
+        let cell = RcLocal::default();
+        let read = RValue::Local(cell.clone());
+        assert!(summarize_with_literal_numbers(&read, &|local| local == &cell, true)
+            .effects.contains(Effects::CAPTURE_READ));
+    }
+
+    #[test]
     fn budget_exhaustion_keeps_unknown_barrier() {
         let mut value = Literal::Nil.into();
         for _ in 0..140 {
             value = crate::Unary::new(value, UnaryOperation::Not).into();
         }
-        let summary = summarize(&value, &|_| false);
-        assert!(summary.exhausted);
-        assert!(summary.effects.contains(Effects::UNKNOWN));
-        assert!(!summary.effects.is_total_pure());
+        for literal_numbers in [false, true] {
+            let summary = summarize_with_literal_numbers(&value, &|_| false, literal_numbers);
+            assert!(summary.exhausted);
+            assert!(summary.effects.contains(Effects::UNKNOWN));
+            assert!(!summary.effects.is_total_pure());
+        }
     }
 }

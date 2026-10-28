@@ -24,6 +24,7 @@ pub struct Order {
     pub events: Vec<Event>,
     pub exhausted: bool,
     nodes: usize,
+    literal_numbers: bool,
 }
 
 impl Order {
@@ -36,7 +37,7 @@ impl Order {
         self.nodes += 1;
         if self.exhausted || self.nodes > 4096 || depth >= 128 { self.exhausted = true; return; }
         match value {
-            RValue::Local(local) => self.event(position, effects::intrinsic(value, capture), Some(local.stable_id()), None, conditional),
+            RValue::Local(local) => self.event(position, effects::intrinsic_with_literal_numbers(value, capture, self.literal_numbers), Some(local.stable_id()), None, conditional),
             RValue::Call(call) | RValue::Select(Select::Call(call)) => {
                 self.value(&call.value, Position::Callee, conditional, depth + 1, capture);
                 for (i, arg) in call.arguments.iter().enumerate() {
@@ -60,7 +61,7 @@ impl Order {
                 self.value(&binary.left, position, conditional, depth + 1, capture);
                 let short = matches!(binary.operation, BinaryOperation::And | BinaryOperation::Or);
                 self.value(&binary.right, position, conditional || short, depth + 1, capture);
-                self.event(Position::Operation, effects::intrinsic(value, capture), None, None, conditional);
+                self.event(Position::Operation, effects::intrinsic_with_literal_numbers(value, capture, self.literal_numbers), None, None, conditional);
             }
             RValue::IfExpression(branch) => {
                 self.value(&branch.condition, position, conditional, depth + 1, capture);
@@ -90,7 +91,7 @@ impl Order {
             }
             _ => {
                 value.visit_rvalues(&mut |child| { self.value(child, position, conditional, depth + 1, capture); !self.exhausted });
-                self.event(position, effects::intrinsic(value, capture), None, None, conditional);
+                self.event(position, effects::intrinsic_with_literal_numbers(value, capture, self.literal_numbers), None, None, conditional);
             }
         }
     }
@@ -106,7 +107,12 @@ pub fn statement(statement: &Statement, capture: &impl Fn(&RcLocal) -> bool) -> 
 /// upvalue or any other address is evaluated before them.
 pub fn statement_with_registers(statement: &Statement, capture: &impl Fn(&RcLocal) -> bool,
     register: &impl Fn(&RcLocal) -> bool) -> Order {
-    let mut out = Order::default();
+    statement_with_literal_numbers(statement, capture, register, false)
+}
+
+fn statement_with_literal_numbers(statement: &Statement, capture: &impl Fn(&RcLocal) -> bool,
+    register: &impl Fn(&RcLocal) -> bool, literal_numbers: bool) -> Order {
+    let mut out = Order { literal_numbers, ..Default::default() };
     match statement {
         Statement::Assign(assign) => {
             let late = |value: &RValue| matches!(value, RValue::Local(local) if register(local));
@@ -609,10 +615,16 @@ fn is_import_path(value: &RValue) -> bool {
 /// argument evaluation can observe that lookup (including mutable captures).
 pub fn import_callee_conflict(statement: &Statement, local: &RcLocal, replacement: &RValue,
     capture: &impl Fn(&RcLocal) -> bool) -> bool {
+    import_callee_conflict_with_literal_numbers(statement, local, replacement, capture, false)
+}
+
+fn import_callee_conflict_with_literal_numbers(statement: &Statement, local: &RcLocal, replacement: &RValue,
+    capture: &impl Fn(&RcLocal) -> bool, literal_numbers: bool) -> bool {
     if !is_import_path(replacement) { return false; }
     let call_conflicts = |call: &crate::Call| {
         matches!(&*call.value, RValue::Local(read) if read == local)
-            && call.arguments.iter().any(|argument| effects::summarize(argument, capture).effects.has_order_dependency())
+            && call.arguments.iter().any(|argument|
+                effects::summarize_with_literal_numbers(argument, capture, literal_numbers).effects.has_order_dependency())
     };
     fn in_value(value: &RValue, conflicts: &impl Fn(&crate::Call) -> bool) -> bool {
         let here = match value {
@@ -632,6 +644,14 @@ pub fn import_callee_conflict(statement: &Statement, local: &RcLocal, replacemen
 pub fn can_sink(statement_: &Statement, local: &RcLocal, replacement: &RValue, capture: &impl Fn(&RcLocal) -> bool) -> bool {
     let candidate = effects::summarize(replacement, capture);
     can_sink_with_summary(statement_, local, replacement, capture, &|_| false, candidate)
+}
+
+/// As `can_sink`, with a caller-owned guarantee that numeric literals retain
+/// their literal spellings. No environment, key-error or capture proof is relaxed.
+pub(crate) fn can_sink_with_literal_numbers(statement_: &Statement, local: &RcLocal, replacement: &RValue,
+    capture: &impl Fn(&RcLocal) -> bool) -> bool {
+    let candidate = effects::summarize_with_literal_numbers(replacement, capture, true);
+    can_sink_with_summary_and_literal_numbers(statement_, local, replacement, capture, &|_| false, candidate, true)
 }
 
 /// A captured-cell snapshot can replace every direct read only when no earlier
@@ -665,10 +685,16 @@ pub fn can_reuse_capture(statement_: &Statement, local: &RcLocal, register: bool
 /// late only when that is a register too.
 pub(crate) fn can_sink_with_summary(statement_: &Statement, local: &RcLocal, replacement: &RValue,
     capture: &impl Fn(&RcLocal) -> bool, register: &impl Fn(&RcLocal) -> bool, candidate: effects::Summary) -> bool {
-    if import_callee_conflict(statement_, local, replacement, capture) { return false; }
+    can_sink_with_summary_and_literal_numbers(statement_, local, replacement, capture, register, candidate, false)
+}
+
+fn can_sink_with_summary_and_literal_numbers(statement_: &Statement, local: &RcLocal, replacement: &RValue,
+    capture: &impl Fn(&RcLocal) -> bool, register: &impl Fn(&RcLocal) -> bool, candidate: effects::Summary,
+    literal_numbers: bool) -> bool {
+    if import_callee_conflict_with_literal_numbers(statement_, local, replacement, capture, literal_numbers) { return false; }
     let replacement_register = matches!(replacement, RValue::Local(read) if register(read));
-    let order = statement_with_registers(statement_, capture,
-        &|read| if read == local { replacement_register } else { register(read) });
+    let order = statement_with_literal_numbers(statement_, capture,
+        &|read| if read == local { replacement_register } else { register(read) }, literal_numbers);
     if order.exhausted || candidate.exhausted { return false; }
     let reads = replacement.values_read();
     let mut found = false;
@@ -692,7 +718,7 @@ pub(crate) fn can_sink_with_summary(statement_: &Statement, local: &RcLocal, rep
         && matches!(replacement, RValue::Local(_))
         && candidate.effects.contains(Effects::CAPTURE_READ)
         && late_operand_conflict(statement_, local, &|operand| {
-            effects::summarize(operand, capture).effects.contains(Effects::CAPTURE_WRITE)
+            effects::summarize_with_literal_numbers(operand, capture, literal_numbers).effects.contains(Effects::CAPTURE_WRITE)
         })
     {
         return false;
@@ -830,6 +856,36 @@ mod tests {
         let stable = Return::new(vec![Call::new(callee.clone().into(), vec![cell.clone().into(), Literal::Number(2.0).into()]).into()]).into();
         assert!(can_sink(&stable, &callee, &import, &|_| false));
         assert!(can_sink(&stable, &callee, &local("already_read").into(), &|read| read == &cell));
+    }
+
+    #[test]
+    fn literal_number_motion_keeps_lookup_capture_and_key_error_order() {
+        let callee = local("format");
+        let path = Index::new(crate::Global::from("string").into(), Literal::String(b"format".to_vec()).into()).into();
+        let call = |argument| RValue::Call(Call::new(callee.clone().into(), vec![argument]));
+        for number in [std::f64::consts::PI, -std::f64::consts::PI, f64::INFINITY, f64::NEG_INFINITY, f64::NAN] {
+            for statement in [
+                Return::new(vec![call(Literal::Number(number).into())]).into(),
+                Return::new(vec![Literal::Number(number).into(), call(Literal::String(b"value".to_vec()).into())]).into(),
+            ] {
+                assert!(!can_sink(&statement, &callee, &path, &|_| false));
+                assert!(can_sink_with_literal_numbers(&statement, &callee, &path, &|_| false));
+            }
+        }
+        let cell = local("captured");
+        for value in [
+            RValue::Local(cell.clone()),
+            Index::new(crate::Global::from("math").into(), Literal::String(b"pi".to_vec()).into()).into(),
+            Call::new(crate::Global::from("change").into(), vec![]).into(),
+            Table::new(vec![(Some(Literal::Number(f64::NAN).into()), Literal::Nil.into())]).into(),
+        ] {
+            for statement in [
+                Return::new(vec![call(value.clone())]).into(),
+                Return::new(vec![value, call(Literal::Number(std::f64::consts::PI).into())]).into(),
+            ] {
+                assert!(!can_sink_with_literal_numbers(&statement, &callee, &path, &|read| read == &cell));
+            }
+        }
     }
 
     #[test]
