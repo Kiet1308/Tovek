@@ -1,9 +1,10 @@
 # V2.8: kiểm chứng chéo tối ưu và giảm từ chối bytecode hợp lệ
 
 Trạng thái: hoàn tất hai mục chủ repo đã chọn và đợt sửa lỗi/review tiếp theo.
-Code mới nhất `6f14911`; kết quả và giới hạn tại
-[incoming-read checkpoint](incoming_read_timing.md). Các checkpoint trước
-được giữ tại [owned-key recovery](owned_key_timing.md) và [ACCEPTANCE](ACCEPTANCE.md).
+Code mới nhất `d6ffc29`; đã khôi phục cả bốn helper sites còn lại tại
+[helper recovery checkpoint](helper_shape_recovery.md). Các checkpoint trước
+gồm [incoming-read checkpoint](incoming_read_timing.md),
+[owned-key recovery](owned_key_timing.md) và [ACCEPTANCE](ACCEPTANCE.md).
 Nhánh `v2.8-dev`, bắt đầu tại `4a8f457`; engine baseline `4880984`.
 Binary baseline SHA256:
 `7be28396f9edf542913189f985b1d85aa26e7f2d7c7e437cef185771a8b31819`.
@@ -127,5 +128,19 @@ không thuộc goal. Bounded runtime/oracle suites không chứng minh mọi byt
 Checkpoint ghi riêng coverage loss do giữ thứ tự an toàn: 14 matrix profiles
 trước đây pass nay bị từ chối; 35 semantic, 27 public và 2 residual profiles
 được từ chối có diagnostic đã review. Public/residual corpus chưa chạy trong
-Roblox. Bốn helper sites chưa khôi phục và 77 public static-proof gaps vẫn
-là giới hạn rõ ràng; không tính compiler limits/refusals thành runtime passes.
+Roblox. Bốn helper sites ở checkpoint này đã được xử lý trong đợt tiếp theo;
+77 public static-proof gaps vẫn giữ nguyên. Không tính compiler limits/refusals
+thành runtime passes.
+
+## Hoàn tất: bốn helper sites còn lại
+
+- [x] Khôi phục hai `refresh`, một `isCallable` và một `show("pi", …)` ở
+  chế độ mặc định, giữ guards về capture, truthiness, thứ tự gọi và emission.
+- [x] Rust 1.774 tests, Python 253 tests, 33/33 audit steps và 12.000 stress
+  profiles không có regression mới. Ma trận mở rộng 1.710 profiles gồm
+  1.638 runtime passes, 24 refusals đã biết và 48 compiler-sensitive profiles.
+- [x] Review độc lập source/metadata/oracle; giữ baseline và toàn bộ public /
+  residual output bytes. Code `d6ffc29` đã commit/push lên `v2.8-dev`.
+
+Chi tiết, numeric-library mode và giới hạn g1 closure identity tại
+[helper recovery checkpoint](helper_shape_recovery.md).

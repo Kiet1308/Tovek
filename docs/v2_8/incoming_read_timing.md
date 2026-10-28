@@ -97,14 +97,16 @@ chứng minh ổn định. Reassignment, captured writes, namespace bị shadow 
 alias chains không được dùng để đoán tên. Naming không di chuyển call hay
 đổi capture identity.
 
-Review cuối còn ghi nhận **4 sites chưa khôi phục helper** ngoài
+Review tại checkpoint `6f14911` còn ghi nhận **4 sites chưa khôi phục helper** ngoài
 220 CONCAT sites đã sửa: hai `refresh` sites trong
 `deinline_closure_factories__O2`, một `isCallable` site trong
 `deinline_returns_distributed_and_short_circuit__O2`, và một `show` site
 trong `exact_fraction_constants__O2`. Snapshot/guard layouts chưa khớp
 template nên giữ phần code mở rộng. Các fixture đó qua same-profile
 runtime trên binary cuối; đây là giới hạn recovery, không phải claim output
-giống baseline hoặc helper đã khôi phục.
+giống baseline hoặc helper đã khôi phục. Cả bốn sites đã được khôi phục ở
+chế độ mặc định trong [checkpoint tiếp theo](helper_shape_recovery.md),
+code `d6ffc29`; số liệu bên dưới giữ nguyên cho checkpoint lịch sử này.
 
 ## Oracle runtime và evidence cho refusals
 

@@ -1,8 +1,9 @@
 # V2.8: nghiệm thu hai mục decompiler đã chọn
 
-Cập nhật mới nhất: [incoming reads, thứ tự gọi và review cuối](incoming_read_timing.md),
-code `6f14911`. Bản mới đã qua 1.762 Rust tests, 253 Python tests và 33/33
-bước audit. Ma trận 1.674 profiles gồm 1.608 runtime passes, 18 expected
+Cập nhật mới nhất: [khôi phục bốn helper sites](helper_shape_recovery.md),
+code `d6ffc29`, tiếp tục [incoming-read checkpoint](incoming_read_timing.md).
+Bản mới đã qua 1.774 Rust tests, 253 Python tests và 33/33
+bước audit. Ma trận 1.710 profiles gồm 1.638 runtime passes, 24 expected
 refusals và 48 compiler-sensitive profiles; semantic VM gồm 799 runtime
 passes và 35 expected refusals. Giới hạn public/static proof được ghi riêng
 trong checkpoint mới. Số liệu bên dưới lưu checkpoint đầu `9d0636a`;
