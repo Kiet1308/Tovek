@@ -1,8 +1,9 @@
 # V2.8: kiểm chứng chéo tối ưu và giảm từ chối bytecode hợp lệ
 
-Trạng thái: hoàn tất hai mục chủ repo đã chọn. Code mới nhất `302f9a3`; kết quả và
-giới hạn tại [owned-key checkpoint](owned_key_timing.md), checkpoint đầu
-tại [ACCEPTANCE](ACCEPTANCE.md).
+Trạng thái: hoàn tất hai mục chủ repo đã chọn và đợt sửa lỗi/review tiếp theo.
+Code mới nhất `6f14911`; kết quả và giới hạn tại
+[incoming-read checkpoint](incoming_read_timing.md). Các checkpoint trước
+được giữ tại [owned-key recovery](owned_key_timing.md) và [ACCEPTANCE](ACCEPTANCE.md).
 Nhánh `v2.8-dev`, bắt đầu tại `4a8f457`; engine baseline `4880984`.
 Binary baseline SHA256:
 `7be28396f9edf542913189f985b1d85aa26e7f2d7c7e437cef185771a8b31819`.
@@ -100,3 +101,31 @@ không thuộc goal. Bounded runtime/oracle suites không chứng minh mọi byt
 
 [Chi tiết và giới hạn còn lại](owned_key_timing.md). Không đổi ngưỡng gate,
 58 sensitivity baselines hoặc chính sách tương thích đã chốt.
+
+## Hoàn tất: incoming reads, thứ tự gọi và O2 inlining
+
+- [x] Chứng minh incoming upvalue theo capture identities nhất quán, giữ
+  từ chối unknown/ambiguous/incomplete contexts và kiểm tra cả Copy/Ref.
+- [x] Khôi phục open-list constructors với key được đọc trước value effects.
+- [x] Sửa việc output O2 inline helper làm đổi early key read thành late read,
+  kể cả constructor hoàn chỉnh và saved copy bị mất ở input g0/g1.
+- [x] Giữ snapshot của logical operands và builtin aliases; bảo toàn thứ tự
+  lookup/arguments của FASTCALL fallback qua cả SSA và helper reconstruction.
+- [x] Giữ các counterexamples mới là failures cho đến khi sửa; không thêm
+  compiler-sensitive exemptions. Chạy lại ma trận, runtime/oracle và full CI.
+- [x] Giữ actual builtin/native-vector call identity; từ chối open tuples
+  chưa có proof thứ tự thay vì phát code sai arity hoặc thêm call frame.
+- [x] Khôi phục 220 CONCAT helper calls, readonly-capture/helper patterns
+  có proof và naming hints của saved iterator/API callees.
+- [x] Semantic oracle chạy đúng input bytecode; mọi refusal được khóa bằng
+  source/profile/diagnostic và kiểm tra đủ inventory ở các consumer.
+- [x] Rust 1.762 tests, Python 253 tests, 33/33 audit steps và 12.000 stress
+  profiles không có failure. Ma trận 1.674 = 1.608 runtime passes + 18
+  refusals + 48 compiler-sensitive profiles; bỏ 10 sensitivity entries đã sửa.
+- [x] Review độc lập, ghi bằng chứng và commit/push code `6f14911`.
+
+Checkpoint ghi riêng coverage loss do giữ thứ tự an toàn: 14 matrix profiles
+trước đây pass nay bị từ chối; 35 semantic, 27 public và 2 residual profiles
+được từ chối có diagnostic đã review. Public/residual corpus chưa chạy trong
+Roblox. Bốn helper sites chưa khôi phục và 77 public static-proof gaps vẫn
+là giới hạn rõ ràng; không tính compiler limits/refusals thành runtime passes.

@@ -1,8 +1,12 @@
 # V2.8: nghiệm thu hai mục decompiler đã chọn
 
-Cập nhật mới nhất: [captured-key recovery và stress review](owned_key_timing.md),
-code `302f9a3`. Số liệu bên dưới lưu checkpoint đầu `9d0636a`; bản mới có
-1.476 matrix profiles, 822 semantic profiles và 33/33 bước audit đạt.
+Cập nhật mới nhất: [incoming reads, thứ tự gọi và review cuối](incoming_read_timing.md),
+code `6f14911`. Bản mới đã qua 1.762 Rust tests, 253 Python tests và 33/33
+bước audit. Ma trận 1.674 profiles gồm 1.608 runtime passes, 18 expected
+refusals và 48 compiler-sensitive profiles; semantic VM gồm 799 runtime
+passes và 35 expected refusals. Giới hạn public/static proof được ghi riêng
+trong checkpoint mới. Số liệu bên dưới lưu checkpoint đầu `9d0636a`;
+checkpoint giữa là [owned-key recovery](owned_key_timing.md), code `302f9a3`.
 
 
 Hoàn tất ngày 28/10/2026 (UTC+7). Phạm vi: kiểm chứng chéo mức tối ưu và giảm từ chối bytecode hợp lệ có proof
