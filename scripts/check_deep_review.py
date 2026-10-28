@@ -181,6 +181,7 @@ CROSS_OPT_FIXTURES = (
     'deinline_returns_distributed_and_short_circuit', 'exact_fraction_constants',
     'duptable_gc_placeholder', 'duptable_earlier_gc_placeholder', 'native_builtin_environment',
     'native_builtin_literal_arguments',
+    'native_builtin_site_arguments',
 )
 CROSS_OPT_BASELINE = ROOT / 'docs/failure_fixtures/deep_review_cross_optimization_baseline.json'
 # Only these reviewed source/profile/options tuples admit the open-result refusal.

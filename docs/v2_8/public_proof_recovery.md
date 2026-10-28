@@ -5,6 +5,11 @@ Goal mở ngày 28/10/2026 (UTC+7), tiếp tục code `d6ffc29`, checkpoint
 `unknown`. Phạm vi gồm sửa lỗi decompiler được tái hiện và mở rộng static
 proof có guard, tests và evidence. G1, release và web changelog không thuộc goal.
 
+Đã hoàn tất nghiên cứu và kiểm chứng đủ nhóm 77 ca đã khóa: **66 proved,
+11 unknown, 0 different**. Đây là cohort được chọn, không phải toàn bộ các ca
+chưa có proof của public corpus. [Kết quả từng profile](public_proof_results.json)
+giữ input/output hashes, certificate hoặc kết luận chưa chứng minh được.
+
 ## Baseline đã khóa
 
 77 identities trong [manifest](../failure_fixtures/public_proof_gaps.json)
@@ -44,11 +49,12 @@ Các nhãn là điểm model dừng đầu tiên, chưa phải root cause của 
 - [x] Chia nghiên cứu độc lập theo bốn nhóm; có reviewer chuyên kiểm proof.
 - [x] Hoàn thiện mốc checker có guard: 156 bytecode tests, 354 Python tests;
   replay đủ public/runtime và giữ 92/92 cùng 149/149 proofs đã có.
-- [ ] Sửa khác biệt FASTCALL thật đã tái hiện khi host thay `typeof` trong safeenv.
-- [ ] Hoàn thiện proof capture-read/branch và private-table cases.
-- [ ] Hoàn thiện proof cho loop, forwarded captures, reference lifetime/recursion.
-- [ ] Kiểm lại 77 profiles trên output cuối và public corpus đầy đủ.
-- [ ] Chạy gates liên quan, review output/metadata và ghi giới hạn còn lại.
+- [x] Sửa các khác biệt FASTCALL đã tái hiện trong miền scalar có guard.
+- [x] Chứng minh đủ 20 ca capture-read/branch và private-table ban đầu `different`.
+- [x] Nghiên cứu loop, forwarded captures, reference lifetime/recursion;
+  chứng minh phần có certificate và ghi riêng 11 ca chưa được chứng minh.
+- [x] Kiểm lại đủ 77 profiles trên output cuối và toàn bộ 513 public inputs.
+- [x] Full gates, review độc lập output/metadata và ghi giới hạn còn lại.
 
 Evidence đang thu thập tại `/workspace/work/v28/public-proof/`; bản cũ tại
 `/workspace/work/v28/eager-key/final-public-proof-loss/`. Không có Roblox runtime
@@ -115,3 +121,77 @@ bốn profile `unknown` khác còn mất native dispatch. Các thử nghiệm so
 được review độc lập, nhưng chưa tính vào kết quả engine mốc này. Cả 11 unknown
 đã có per-profile disposition tại `loops/remaining-unknown/dispositions.json`;
 không bỏ guards REF/open-pack/CFG chỉ để nâng trạng thái proof.
+
+## Kết quả cuối: native argument sites và result reuse
+
+Binary cuối SHA-256
+`79a110d115fb87eaca87fbc6cfd27c5aa9543ad47a388c1a49197a2e2548cf44`
+giữ getter, vararg và callback tại đúng vị trí. Local không bị capture được
+tách declaration/assignment; local bị capture giữ nguyên declaration và dùng
+bản sao riêng trong cùng hàm. Chỉ actual `type`/`typeof` C2 với một đối số
+Local đi vào miền mở rộng này. Cả native path và fallback phải được giữ.
+
+Khi không còn headroom cho local mới, một phép gán trực tiếp ở thân hàm ngoài
+cùng có thể tái dùng biến kết quả chưa bị capture. Guard giữ census tối đa 192
+declarations/parameters, từ chối opaque protocol, shadowing và nested scopes.
+Phản ví dụ lồng vòng lặp chạm 255 register được giữ; không tăng giới hạn để làm
+test qua. Sáu lỗi của candidate `6356ff00…` biến mất trên **fixture nguyên gốc**.
+Metadata dùng model `native_argument_barrier_v2`, giữ report key cũ và đọc đúng
+legacy v1; result reuse không khai báo thêm local hoặc input ancestry giả.
+
+| Kiểm chứng cuối | Kết quả |
+|---|---|
+| Nhóm 77 ca | 20/20 `different` và 46/57 `unknown` ban đầu thành `proved`; còn 11 `unknown` |
+| Public 513 inputs | 486 outputs + 27 refusals; 177 proved / 139 different / 170 unknown; giữ 92/92 proofs cũ |
+| Runtime fixture replay | 294 inputs = 290 outputs + 4 refusals; giữ 149/149 proofs cũ |
+| Rust / Python / fixture audit | 1.802 passed + 2 manual ignored; 356 passed; 33/33 audit steps |
+| Cross optimization | 1.818 = 1.742 runtime passes + 24 refusals + 52 compiler boundaries |
+| Semantic fixtures | 849 = 814 runtime passes + 35 refusals |
+| Stress | 12.000 = 10.362 passes + 1.428 refusals + 210 invalid inputs; toàn bộ profile/status inventory khớp b08 |
+| Native site fixture | 75/81 passes + 6 source-compiler boundaries cũ; không còn genuine failure |
+| Module controls | 144/144 passes; sửa 24 safeenv mismatches của mốc 552f |
+| GC / metadata | 54/54 GC; 63 metadata outputs + 44 producer controls; zero-local reuse và corruption controls qua |
+
+Public giữ toàn bộ 40 rebuilt-call annotations và bốn helper sites đã khôi
+phục trước đó. Source bytes của toàn bộ 486 outputs cuối khớp candidate 6356;
+result reuse sửa fixture áp lực register mà không làm đổi public output khác.
+Baseline cuối chỉ thêm một fixture oracle (`nonequiv=9`, `protos=15`) và ba
+size entries mới; 282 oracle rows, các refusal records và size thresholds cũ
+giữ nguyên. Legacy oracle tổng 537 không phải số runtime failures hoặc proofs.
+
+Suite native rộng vẫn có 763/837 runtime passes, 54 source-compiler boundaries
+và 20 failures với observations giữ nguyên b08. Các controls riêng cho capacity
+cũng giữ rõ những nonpasses cũ ngoài miền được nhận. Không tuyên bố native-call
+recovery cho mọi arity, context hoặc mức register pressure. Fuzzer giữ chính
+sách chọn output optimization theo compiler regime; ma trận cross optimization
+phía trên kiểm tra riêng đầy đủ 9 tổ hợp. Refusals, invalid inputs và compiler
+boundaries không được cộng vào passes.
+
+Các module controls dùng wrapper/stubs và prelude; riêng witness loader nạp
+source sau khi thay builtin, khác controls frozen bytecode đã cache import.
+Chúng không chứng minh tương đương toàn public corpus trong Roblox. Không có
+Roblox runtime hoặc private frozen dumps để chạy trong môi trường này.
+
+## 11 ca còn chưa có certificate
+
+| IDs | Phần proof còn thiếu |
+|---|---|
+| 2 | Quan hệ storage/cell lifetime của REF owner và reread trong child |
+| 35, 36 | Value/copy relation qua loop và FASTCALL fallback; riêng 35 thêm open-pack join |
+| 46, 47 | Native dispatch đã sửa; live copies trong reference children chưa có whole-chunk certificate |
+| 50, 51 | Native dispatch đã sửa; live copies trong loop/capture chưa có whole-chunk certificate |
+| 55 | Ghép private-allocation proof của root với loop children trong cùng identity namespace |
+| 68–70 | Open CALL/CLOSE/RETURN có REF, đổi owner storage và reread trong child |
+
+Nghiên cứu riêng 36 bỏ được ba entry snapshots nhưng vẫn còn bốn fallback
+copies; quy tắc một phần ấy **không được đưa vào checker**. Không đổi `unknown`
+thành pass bằng runtime observations hoặc bỏ guard. Đây là công việc proof tiếp
+theo có input xác định, không phải backlog thiếu private dumps.
+
+Evidence cuối dưới work root: `result-reuse-release.json`,
+`public-result-reuse-v3.json`, `runtime-result-reuse-v3.json`, `stress-summary.json`,
+`../audit-10/results.json`, `result-reuse-79a1-fixture-review/`,
+`fastcall/result-slot-reuse/`, `fastcall/result-reuse-accounting/`,
+`fastcall/remaining-c2/result-reuse-public-module-runtime/`,
+`differences/native-site-draft/final-79a1/`, `differences/final-site-metadata-79a1/`,
+`differences/reuse-zero-metadata-79a1/`, `differences/final-gc-79a1/`.

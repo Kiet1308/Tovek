@@ -22,12 +22,12 @@ def fixture(size=1, omitted=0, name='branch_constructors', role='constructor_pro
 
 
 class LocalProducerTests(unittest.TestCase):
-    def test_native_literal_snapshots_require_exact_model_role_and_report(self):
+    def test_native_argument_snapshots_require_exact_model_role_and_report(self):
         name = 'native_constant_arguments'
         trace, metadata = fixture(name=name, role='evaluation_snapshot')
         self.assertEqual(validate_local_producers(trace, metadata), [])
         self.assertEqual(introductions(trace)['b0'], {
-            'pass': name, 'rewrite_model': 'mutable_literal_argument_v1', 'role': 'evaluation_snapshot'})
+            'pass': name, 'rewrite_model': 'native_argument_barrier_v2', 'role': 'evaluation_snapshot'})
         def group(d): return d['binding_provenance']['local_producers']['passes'][0]
         mutations = [
             lambda d: group(d).update(rewrite_model='entry_constructor_snapshot_v1'),
@@ -43,6 +43,22 @@ class LocalProducerTests(unittest.TestCase):
             mutate(changed)
             with self.subTest(index=index):
                 self.assertTrue(validate_local_producers(changed['binding_provenance'], changed))
+
+    def test_native_argument_models_remain_exact_and_legacy_reports_stay_readable(self):
+        name = 'native_constant_arguments'
+        for model in ('mutable_literal_argument_v1', 'native_argument_barrier_v2'):
+            for size in (0, 1):
+                trace, metadata = fixture(size, name=name, role='evaluation_snapshot')
+                group = trace['local_producers']['passes'][0]
+                group['rewrite_model'] = metadata[name]['model'] = model
+                self.assertEqual(validate_local_producers(trace, metadata), [])
+                self.assertEqual(len(introductions(trace)), size)
+                if size:
+                    self.assertEqual(introductions(trace)['b0']['rewrite_model'], model)
+                metadata[name]['model'] = 'native_argument_barrier_v2' if model == 'mutable_literal_argument_v1' else 'mutable_literal_argument_v1'
+                self.assertTrue(validate_local_producers(trace, metadata))
+        group['rewrite_model'] = metadata[name]['model'] = 'native_argument_barrier_v3'
+        self.assertTrue(validate_local_producers(trace, metadata))
 
     def test_native_snapshot_ledger_uses_the_shared_record_budget(self):
         trace, metadata = fixture(RECORD_LIMIT, 2, name='native_constant_arguments', role='evaluation_snapshot')

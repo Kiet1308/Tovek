@@ -77,3 +77,4 @@ Thumbs.db
 !/docs/output_size/baseline_fixtures.json
 !/docs/bytecode_roundtrip/baseline_residual_control_flow.json
 !/docs/bytecode_roundtrip/baseline_semantic_roundtrip.json
+!/docs/v2_8/public_proof_results.json

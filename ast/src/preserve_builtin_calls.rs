@@ -31,8 +31,8 @@ pub fn preserve_native_builtin_calls(block: &mut Block, assume_standard_librarie
     protect_native_constant_arguments(block, candidates)
 }
 
-/// A separate assignment prevents O2 from folding an actual native call and
-/// bypassing its unsafe-environment fallback. Only inert argument leaves move to entry.
+/// Separate assignments prevent folding an actual native call past its fallback.
+/// Only inert leaves move to entry; dynamic declarations keep their original site.
 fn protect_native_constant_arguments(
     body: &mut Block, candidates: FxHashSet<usize>,
 ) -> Result<Option<crate::local_producers::Pass>, &'static str> {
@@ -57,9 +57,11 @@ fn protect_native_constant_arguments(
         reserved: inventory.reserved, visited: FxHashSet::default(), protected: FxHashSet::default(),
         captured: inventory.captured, constants: FxHashSet::default(), locals: FxHashSet::default(),
         unsplittable: FxHashSet::default(), splittable: FxHashSet::default(), parameters: FxHashSet::default(),
+        site_locals: FxHashSet::default(), site_plans: FxHashMap::default(), duplicate_declarations: FxHashSet::default(),
+        reused_results: FxHashMap::default(), declaration_count: Some(0),
         candidates, safety,
         pass: crate::local_producers::Pass { pass: "native_constant_arguments",
-            rewrite_model: "mutable_literal_argument_v1", introduced_locals: 0, ledger: Default::default() },
+            rewrite_model: "native_argument_barrier_v2", introduced_locals: 0, ledger: Default::default() },
         changed: false,
     };
     state.function(body, &[]);
@@ -77,12 +79,65 @@ struct LiteralArguments {
     parameters: FxHashSet<u64>,
     candidates: FxHashSet<usize>,
     locals: FxHashSet<u64>,
+    site_locals: FxHashSet<u64>,
+    site_plans: FxHashMap<u64, Option<crate::RcLocal>>,
+    duplicate_declarations: FxHashSet<u64>,
+    reused_results: FxHashMap<u64, crate::RcLocal>,
+    declaration_count: Option<usize>,
     safety: CaptureSafety,
     pass: crate::local_producers::Pass,
     changed: bool,
 }
 
 impl LiteralArguments {
+    fn site_initializer(value: &RValue) -> bool {
+        fn contains_closure(value: &RValue) -> bool {
+            matches!(value, RValue::Closure(_)) || value.rvalues().into_iter().any(contains_closure)
+        }
+        match value {
+            RValue::Index(index) => matches!(&*index.left, RValue::Local(_))
+                && matches!(&*index.right, RValue::Local(_) | RValue::Literal(Literal::String(_))),
+            RValue::Local(_) | RValue::VarArg(_) | RValue::Select(Select::VarArg(_)) => true,
+            RValue::Call(_) | RValue::Select(Select::Call(_)) => !contains_closure(value),
+            _ => false,
+        }
+    }
+
+    fn find_duplicate_declarations(block: &Block, seen: &mut FxHashSet<u64>, duplicates: &mut FxHashSet<u64>) -> (usize, bool) {
+        let (mut declarations, mut opaque) = (0, false);
+        for statement in &block.0 {
+            if matches!(statement, Statement::Assign(assign) if assign.prefix)
+                || matches!(statement, Statement::NumericFor(_) | Statement::GenericFor(_))
+            {
+                statement.visit_local_writes(&mut |local| {
+                    declarations += 1;
+                    if !seen.insert(local.stable_id()) { duplicates.insert(local.stable_id()); }
+                    true
+                });
+            }
+            opaque |= matches!(statement, Statement::SetList(_) | Statement::NumForInit(_)
+                | Statement::NumForNext(_) | Statement::GenericForInit(_) | Statement::GenericForNext(_)
+                | Statement::Goto(_) | Statement::Label(_));
+            let mut visit = |block: &Block| {
+                let (count, hidden) = Self::find_duplicate_declarations(block, seen, duplicates);
+                declarations += count;
+                opaque |= hidden;
+            };
+            match statement {
+                Statement::If(node) => {
+                    visit(&node.then_block.lock());
+                    visit(&node.else_block.lock());
+                }
+                Statement::While(node) => visit(&node.block.lock()),
+                Statement::Repeat(node) => visit(&node.block.lock()),
+                Statement::NumericFor(node) => visit(&node.block.lock()),
+                Statement::GenericFor(node) => visit(&node.block.lock()),
+                _ => {}
+            }
+        }
+        (declarations, opaque)
+    }
+
     fn initializer_shadows(assign: &crate::Assign) -> bool {
         let names: FxHashSet<_> = assign.left.iter().filter_map(|left| match left {
             LValue::Local(local) => local.0.lock().0.clone(), _ => None,
@@ -103,17 +158,48 @@ impl LiteralArguments {
         let frame = crate::lower_conditionals::local_rewrite_frame_with_bound(
             body, parameters, 0, crate::materialize_vectors::register_bound);
         let outer_locals = std::mem::replace(&mut self.locals, frame.locals);
+        let outer_site_locals = std::mem::take(&mut self.site_locals);
+        let outer_site_plans = std::mem::take(&mut self.site_plans);
+        let outer_reused_results = std::mem::take(&mut self.reused_results);
+        let outer_duplicates = std::mem::take(&mut self.duplicate_declarations);
+        let mut declarations = parameters.iter().map(crate::RcLocal::stable_id).collect();
+        let (count, opaque) = Self::find_duplicate_declarations(body, &mut declarations, &mut self.duplicate_declarations);
+        let outer_count = std::mem::replace(&mut self.declaration_count, (!opaque).then_some(count + parameters.len()));
         let parameters: FxHashSet<_> = parameters.iter().filter(|local| self.safety.never_reassigned(local))
             .map(crate::RcLocal::stable_id).collect();
         self.constants.extend(parameters.iter().copied());
         let outer_parameters = std::mem::replace(&mut self.parameters, parameters);
         let mut headroom = frame.headroom;
         let mut prefix = Vec::new();
-        self.block(body, &mut prefix, &mut headroom);
+        self.block(body, &mut prefix, &mut headroom, true);
         self.split_literal_declarations(body);
         body.0.splice(0..0, prefix);
         self.locals = outer_locals;
         self.parameters = outer_parameters;
+        self.site_locals = outer_site_locals;
+        self.site_plans = outer_site_plans;
+        self.reused_results = outer_reused_results;
+        self.duplicate_declarations = outer_duplicates;
+        self.declaration_count = outer_count;
+    }
+
+    fn reuse_result(&mut self, assign: &mut crate::Assign, headroom: usize) {
+        // shortcut: nested result reuse needs a call-site register bound; outermost 192-local calls fit their scratch.
+        if headroom != 0 || !self.declaration_count.is_some_and(|count| count <= 192)
+            || !assign.prefix || Self::initializer_shadows(assign) { return; }
+        let [LValue::Local(result)] = &assign.left[..] else { return; };
+        if self.captured.contains(&result.stable_id()) || !self.safety.never_reassigned(result)
+            || self.duplicate_declarations.contains(&result.stable_id()) { return; }
+        let [RValue::Call(call) | RValue::Select(Select::Call(call))] = &mut assign.right[..] else { return; };
+        if !self.candidates.contains(&(call as *const Call as usize))
+            || !matches!(call.builtin_fastcall, Some((40 | 44, 2)))
+            || !matches!(&*call.value, RValue::Local(_) | RValue::Global(_)) { return; }
+        let [RValue::Local(source)] = &mut call.arguments[..] else { return; };
+        if !self.site_locals.contains(&source.stable_id()) || !self.captured.contains(&source.stable_id())
+            || self.site_plans.contains_key(&source.stable_id()) { return; }
+        self.reused_results.insert(result.stable_id(), source.clone());
+        *source = result.clone();
+        call.group_callee = false;
     }
 
     fn constant_expression(&self, value: &RValue) -> bool {
@@ -150,6 +236,28 @@ impl LiteralArguments {
         // These addresses were collected by the immediately preceding grouping walk;
         // bodies move only after all their candidate calls have been processed.
         if !self.candidates.contains(&(call as *const Call as usize)) { return; }
+        // shortcut: extend beyond one-argument type predicates only with an ordered-argument proof.
+        if matches!(call.builtin_fastcall, Some((40 | 44, 2)))
+            && let [RValue::Local(local)] = &mut call.arguments[..]
+            && self.site_locals.contains(&local.stable_id())
+        {
+            let id = local.stable_id();
+            if !self.site_plans.contains_key(&id) {
+                let snapshot = if self.captured.contains(&id) {
+                    if *headroom == 0 { return; }
+                    *headroom -= 1;
+                    let snapshot = crate::rehoist_constants::unique_local("builtinArgument", &mut self.reserved);
+                    self.pass.introduced_locals += 1;
+                    self.declaration_count = self.declaration_count.map(|count| count + 1);
+                    self.pass.ledger.record(&snapshot, crate::local_producers::Role::EvaluationSnapshot);
+                    Some(snapshot)
+                } else { None };
+                self.site_plans.insert(id, snapshot);
+            }
+            if let Some(snapshot) = &self.site_plans[&id] { *local = snapshot.clone(); }
+            call.group_callee = false;
+            return;
+        }
         if call.arguments.iter().any(|argument| matches!(argument, RValue::Local(local)
             if !self.safety.never_reassigned(local)))
         {
@@ -193,6 +301,7 @@ impl LiteralArguments {
         assign.node_origin = crate::node_origins::Origin::synthesized("native_constant_arguments");
         prefix.extend([declaration.into(), assign.into()]);
         self.pass.introduced_locals += 1;
+        self.declaration_count = self.declaration_count.map(|count| count + 1);
         self.changed = true;
         self.pass.ledger.record(&local, crate::local_producers::Role::EvaluationSnapshot);
     }
@@ -200,6 +309,46 @@ impl LiteralArguments {
     fn split_literal_declarations(&mut self, block: &mut Block) {
         let mut rewritten = Vec::with_capacity(block.0.len());
         for mut statement in std::mem::take(&mut block.0) {
+            if let Statement::Assign(assign) = &mut statement && assign.prefix
+                && let [LValue::Local(local)] = &assign.left[..]
+                && let Some(source) = self.reused_results.remove(&local.stable_id())
+            {
+                // A later predicate may also request this result's split; the reuse already supplies it.
+                self.site_plans.remove(&local.stable_id());
+                let mut declaration = crate::Assign::new(assign.left.clone(), vec![]);
+                declaration.prefix = true;
+                declaration.node_origin = crate::node_origins::Origin::synthesized("native_constant_arguments");
+                let mut copy = crate::Assign::new(assign.left.clone(), vec![source.into()]);
+                copy.node_origin = crate::node_origins::Origin::synthesized("native_constant_arguments");
+                assign.prefix = false;
+                rewritten.extend([declaration.into(), copy.into(), statement]);
+                self.changed = true;
+                continue;
+            }
+            if let Statement::Assign(assign) = &mut statement && assign.prefix
+                && let [LValue::Local(local)] = &assign.left[..]
+                && let Some(snapshot) = self.site_plans.remove(&local.stable_id())
+            {
+                let local = local.clone();
+                if let Some(snapshot) = snapshot {
+                    // Keep captured declarations immutable; only this function reads the private copy.
+                    rewritten.push(statement);
+                    let mut declaration = crate::Assign::new(vec![snapshot.clone().into()], vec![]);
+                    declaration.prefix = true;
+                    declaration.node_origin = crate::node_origins::Origin::synthesized("native_constant_arguments");
+                    let mut copy = crate::Assign::new(vec![snapshot.into()], vec![local.into()]);
+                    copy.node_origin = crate::node_origins::Origin::synthesized("native_constant_arguments");
+                    rewritten.extend([declaration.into(), copy.into()]);
+                } else {
+                    let mut declaration = crate::Assign::new(assign.left.clone(), vec![]);
+                    declaration.prefix = true;
+                    declaration.node_origin = crate::node_origins::Origin::synthesized("native_constant_arguments");
+                    assign.prefix = false;
+                    rewritten.extend([declaration.into(), statement]);
+                }
+                self.changed = true;
+                continue;
+            }
             if let Statement::Assign(assign) = &mut statement
                 && assign.prefix && assign.left.len() == assign.right.len()
                 && !Self::initializer_shadows(assign)
@@ -246,10 +395,17 @@ impl LiteralArguments {
         value.visit_rvalues_mut(&mut |child| { self.value(child, prefix, headroom); true });
     }
 
-    fn block(&mut self, block: &mut Block, prefix: &mut Vec<Statement>, headroom: &mut usize) {
+    fn block(&mut self, block: &mut Block, prefix: &mut Vec<Statement>, headroom: &mut usize, outermost: bool) {
+        let outer_site_locals = self.site_locals.clone();
         for statement in &mut block.0 {
+            let mut site_local = None;
             if let Statement::Assign(assign) = &*statement && assign.prefix {
                 let shadows = Self::initializer_shadows(assign);
+                if !shadows && let [LValue::Local(local)] = &assign.left[..]
+                    && let [value] = &assign.right[..] && Self::site_initializer(value)
+                    && self.safety.never_reassigned(local)
+                    && !self.duplicate_declarations.contains(&local.stable_id())
+                { site_local = Some(local.stable_id()); }
                 let can_split = !shadows && assign.left.len() == assign.right.len()
                     && assign.right.iter().all(|value| self.constant_expression(value))
                     && assign.left.iter().all(|left| matches!(left, LValue::Local(local)
@@ -264,23 +420,26 @@ impl LiteralArguments {
                     }
                 }
             }
+            if outermost && let Statement::Assign(assign) = statement { self.reuse_result(assign, *headroom); }
             if let Statement::Call(call) = statement { self.call(call, prefix, headroom); }
             statement.visit_lvalues_mut(&mut |left| {
                 left.visit_rvalues_mut(&mut |value| { self.value(value, prefix, headroom); true }); true
             });
             statement.visit_rvalues_mut(&mut |value| { self.value(value, prefix, headroom); true });
+            if let Some(id) = site_local { self.site_locals.insert(id); }
             match statement {
                 Statement::If(node) => {
-                    self.block(&mut node.then_block.lock(), prefix, headroom);
-                    self.block(&mut node.else_block.lock(), prefix, headroom);
+                    self.block(&mut node.then_block.lock(), prefix, headroom, false);
+                    self.block(&mut node.else_block.lock(), prefix, headroom, false);
                 }
-                Statement::While(node) => self.block(&mut node.block.lock(), prefix, headroom),
-                Statement::Repeat(node) => self.block(&mut node.block.lock(), prefix, headroom),
-                Statement::NumericFor(node) => self.block(&mut node.block.lock(), prefix, headroom),
-                Statement::GenericFor(node) => self.block(&mut node.block.lock(), prefix, headroom),
+                Statement::While(node) => self.block(&mut node.block.lock(), prefix, headroom, false),
+                Statement::Repeat(node) => self.block(&mut node.block.lock(), prefix, headroom, false),
+                Statement::NumericFor(node) => self.block(&mut node.block.lock(), prefix, headroom, false),
+                Statement::GenericFor(node) => self.block(&mut node.block.lock(), prefix, headroom, false),
                 _ => {}
             }
         }
+        self.site_locals = outer_site_locals;
     }
 }
 
@@ -790,6 +949,270 @@ mod tests {
         body.0.push(Return::new(vec![call.into()]).into());
         assert!(protect_native_constant_arguments(&mut body).unwrap().is_none());
         assert!(body.to_string().contains("return (type)(1)"));
+    }
+
+    fn native_kind(value: &RcLocal) -> Call {
+        let mut call = Call::new(Global::from("typeof").into(), vec![value.clone().into()]);
+        call.builtin_fastcall = Some((44, 2));
+        call
+    }
+
+    fn captured_reader(value: &RcLocal) -> Closure {
+        let closure = Closure { node_origin: Default::default(), function: Default::default(),
+            upvalues: vec![Upvalue::Copy(value.clone())] };
+        closure.function.lock().body = Block(vec![Return::new(vec![value.clone().into()]).into()]);
+        closure
+    }
+
+    #[test]
+    fn native_site_barriers_keep_scalar_initializers_after_prior_effects() {
+        let source = local("source");
+        for rhs in [
+            RValue::Index(Index::new(source.clone().into(), Literal::String(b"value".to_vec()).into())),
+            Index::new(source.clone().into(), local("key").into()).into(),
+            crate::VarArg.into(), Select::VarArg(crate::VarArg).into(), source.clone().into(),
+            Call::new(source.clone().into(), vec![number(1.0)]).into(),
+            Select::Call(Call::new(source.clone().into(), vec![number(1.0)])).into(),
+        ] {
+            let value = local("value");
+            let mut body = Block(vec![Call::new(Global::from("effect").into(), vec![]).into(),
+                declaration(&value, rhs.clone()), Return::new(vec![native_kind(&value).into()]).into()]);
+            let pass = protect_native_constant_arguments(&mut body).unwrap().unwrap();
+            assert_eq!(pass.rewrite_model, "native_argument_barrier_v2");
+            assert_eq!(pass.introduced_locals, 0);
+            assert!(pass.ledger.records.is_empty());
+            assert_eq!(body.0.len(), 4);
+            assert!(matches!(&body.0[0], Statement::Call(_)));
+            let Statement::Assign(declare) = &body.0[1] else { panic!() };
+            assert!(declare.prefix && declare.right.is_empty());
+            let Statement::Assign(assign) = &body.0[2] else { panic!() };
+            assert!(!assign.prefix && assign.right == vec![rhs]);
+            assert!(body.to_string().ends_with("return typeof(value)"));
+            let output = body.to_string();
+            assert!(protect_native_constant_arguments(&mut body).unwrap().is_none());
+            assert_eq!(body.to_string(), output);
+        }
+    }
+
+    #[test]
+    fn captured_site_barriers_reuse_one_private_copy_without_changing_captures() {
+        for rhs in [RValue::Index(Index::new(local("object").into(), local("key").into())),
+            crate::VarArg.into(), local("source").into(),
+            Call::new(local("callback").into(), vec![]).into()]
+        {
+            let value = local("value");
+            let reader = captured_reader(&value);
+            let mut body = Block(vec![declaration(&value, rhs.clone()),
+                Return::new(vec![native_kind(&value).into(), native_kind(&value).into(), reader.clone().into()]).into()]);
+            let pass = protect_native_constant_arguments(&mut body).unwrap().unwrap();
+            assert_eq!(pass.introduced_locals, 1);
+            assert_eq!(pass.ledger.records.len(), 1);
+            assert_eq!(body.0.len(), 4);
+            let Statement::Assign(assign) = &body.0[0] else { panic!() };
+            assert!(assign.prefix && assign.right == vec![rhs]);
+            let Statement::Assign(copy) = &body.0[2] else { panic!() };
+            assert!(!copy.prefix && copy.right == vec![value.clone().into()]);
+            assert!(matches!(&reader.upvalues[..], [Upvalue::Copy(local)] if local == &value));
+            assert_eq!(reader.function.lock().body.to_string(), "return value");
+            assert_eq!(body.to_string().matches("typeof(builtinArgument)").count(), 2);
+        }
+    }
+
+    #[test]
+    fn native_site_snapshots_are_not_captured_by_nested_functions() {
+        let value = local("value");
+        let child = captured_reader(&value);
+        child.function.lock().body = Block(vec![Return::new(vec![native_kind(&value).into()]).into()]);
+        let mut body = Block(vec![declaration(&value, Index::new(local("object").into(),
+            Literal::String(b"value".to_vec()).into()).into()),
+            Return::new(vec![native_kind(&value).into(), child.clone().into()]).into()]);
+        assert_eq!(protect_native_constant_arguments(&mut body).unwrap().unwrap().introduced_locals, 1);
+        assert_eq!(child.function.lock().body.to_string(), "return (typeof)(value)");
+        assert!(matches!(&child.upvalues[..], [Upvalue::Copy(local)] if local == &value));
+        assert!(body.to_string().contains("typeof(builtinArgument)"));
+    }
+
+    #[test]
+    fn native_site_facts_require_a_unique_dominating_declaration_in_the_same_scope() {
+        for shape in 0..4 {
+            let value = local("value");
+            let declare = || declaration(&value, Index::new(local("object").into(),
+                Literal::String(b"value".to_vec()).into()).into());
+            let ret = || Return::new(vec![native_kind(&value).into()]).into();
+            let mut body = match shape {
+                0 => Block(vec![ret(), declare()]),
+                1 => Block(vec![declare(), declare(), ret()]),
+                2 => Block(vec![crate::If::new(Global::from("flag").into(),
+                    Block(vec![declare()]), Block(vec![ret()])).into()]),
+                _ => Block(vec![crate::If::new(Global::from("flag").into(),
+                    Block(vec![declare()]), Block(vec![])).into(), ret()]),
+            };
+            assert!(protect_native_constant_arguments(&mut body).unwrap().is_none(), "shape {shape}");
+            assert!(body.to_string().contains("(typeof)(value)"));
+        }
+        let value = local("value");
+        let mut body = Block(vec![declaration(&value, crate::VarArg.into()),
+            crate::If::new(Global::from("flag").into(),
+                Block(vec![Return::new(vec![native_kind(&value).into()]).into()]), Block(vec![])).into()]);
+        assert_eq!(protect_native_constant_arguments(&mut body).unwrap().unwrap().introduced_locals, 0);
+        assert!(body.to_string().contains("typeof(value)"));
+    }
+
+    #[test]
+    fn native_site_initializers_keep_shadowed_names_and_nested_closures_unchanged() {
+        for shape in 0..4 {
+            let value = local("value");
+            let outer = local("value");
+            let rhs = match shape {
+                0 => outer.clone().into(),
+                1 => Index::new(outer.clone().into(), Literal::String(b"key".to_vec()).into()).into(),
+                2 => Index::new(local("object").into(), outer.clone().into()).into(),
+                _ => Call::new(local("callback").into(), vec![captured_reader(&outer).into()]).into(),
+            };
+            let mut body = Block(vec![declaration(&value, rhs), Return::new(vec![native_kind(&value).into()]).into()]);
+            assert!(protect_native_constant_arguments(&mut body).unwrap().is_none(), "shape {shape}");
+            assert_eq!(body.0.len(), 2);
+            let Statement::Assign(assign) = &body.0[0] else { panic!() };
+            assert!(assign.prefix && !assign.right.is_empty());
+            assert!(body.to_string().contains("return (typeof)(value)"));
+        }
+    }
+
+    #[test]
+    fn native_site_admission_keeps_the_single_argument_predicate_boundary() {
+        for shape in 0..5 {
+            let value = local("value");
+            let mut call = native_kind(&value);
+            match shape {
+                0 => call.builtin_fastcall = None,
+                1 => call.builtin_fastcall = Some((44, 0)),
+                2 => call.group_callee = true,
+                3 => call.arguments.push(number(1.0)),
+                _ => call.builtin_fastcall = Some((2, 2)),
+            }
+            let mut body = Block(vec![declaration(&value, crate::VarArg.into()),
+                Return::new(vec![call.into()]).into()]);
+            assert!(protect_native_constant_arguments(&mut body).unwrap().is_none(), "shape {shape}");
+            assert_eq!(body.0.len(), 2);
+            assert!(body.to_string().contains("return (typeof)(value"));
+        }
+    }
+
+    #[test]
+    fn native_site_snapshot_budget_failure_keeps_original_declaration_and_grouping() {
+        let value = local("value");
+        let reader = captured_reader(&value);
+        let mut body = Block((0..199).map(|i| declaration(&local(&format!("v{i}")), number(i as f64))).collect());
+        body.0.push(declaration(&value, crate::VarArg.into()));
+        body.0.push(Return::new(vec![native_kind(&value).into(), reader.into()]).into());
+        assert!(protect_native_constant_arguments(&mut body).unwrap().is_none());
+        assert_eq!(body.0.len(), 201);
+        let Statement::Assign(assign) = &body.0[199] else { panic!() };
+        assert!(assign.prefix && assign.right.len() == 1);
+        assert!(body.to_string().contains("return (typeof)(value)"));
+    }
+
+    fn pressured_result_body(select: bool, chained: bool) -> (Block, RcLocal, RcLocal) {
+        let value = local("value");
+        let observed = local("observed");
+        let call = native_kind(&value);
+        let mut body = Block(vec![declaration(&value, Index::new(local("object").into(),
+            Literal::String(b"field".to_vec()).into()).into()),
+            declaration(&local("reader"), captured_reader(&value).into()),
+            declaration(&observed, if select { Select::Call(call).into() } else { call.into() })]);
+        if chained { body.0.push(declaration(&local("chained"), native_kind(&observed).into())); }
+        body.0.push(Call::new(Global::from("consume").into(), vec![number(1.0); 240]).into());
+        body.0.push(Return::new(vec![observed.clone().into()]).into());
+        (body, value, observed)
+    }
+
+    #[test]
+    fn exhausted_scratch_reuses_a_private_result_without_adding_locals() {
+        for select in [false, true] {
+            let (mut body, value, observed) = pressured_result_body(select, true);
+            let pass = protect_native_constant_arguments(&mut body).unwrap().unwrap();
+            assert_eq!(pass.introduced_locals, 0);
+            assert!(pass.ledger.records.is_empty());
+            let Statement::Assign(original) = &body.0[0] else { panic!() };
+            assert!(original.prefix && matches!(&original.right[..], [RValue::Index(_)]));
+            let Statement::Assign(declare) = &body.0[2] else { panic!() };
+            assert!(declare.prefix && declare.left == vec![observed.clone().into()] && declare.right.is_empty());
+            let Statement::Assign(copy) = &body.0[3] else { panic!() };
+            assert!(!copy.prefix && copy.right == vec![value.into()]);
+            let Statement::Assign(call_assign) = &body.0[4] else { panic!() };
+            assert!(!call_assign.prefix);
+            let [RValue::Call(call) | RValue::Select(Select::Call(call))] = &call_assign.right[..] else { panic!() };
+            assert!(!call.group_callee && call.arguments == vec![observed.into()]);
+            let output = body.to_string();
+            assert_eq!(output.matches("local observed").count(), 1, "{output}");
+            assert!(output.contains("local chained = typeof(observed)"), "{output}");
+            assert!(!output.contains("builtinArgument"));
+            assert!(protect_native_constant_arguments(&mut body).unwrap().is_none());
+            assert_eq!(body.to_string(), output);
+        }
+    }
+
+    #[test]
+    fn result_reuse_preserves_captured_shadowed_and_explicitly_grouped_results() {
+        for shape in 0..6 {
+            let (mut body, value, observed) = pressured_result_body(false, false);
+            match shape {
+                0 => body.0.push(Return::new(vec![captured_reader(&observed).into()]).into()),
+                1 => observed.0.lock().0 = Some("typeof".into()),
+                2 => observed.0.lock().0 = Some("value".into()),
+                3 => {
+                    let Statement::Assign(assign) = &mut body.0[2] else { panic!() };
+                    let RValue::Call(call) = &mut assign.right[0] else { panic!() };
+                    call.group_callee = true;
+                }
+                4 => {
+                    let Statement::Assign(assign) = &mut body.0[2] else { panic!() };
+                    let RValue::Call(call) = &mut assign.right[0] else { panic!() };
+                    call.value = Box::new(Index::new(local("library").into(),
+                        Literal::String(b"kind".to_vec()).into()).into());
+                }
+                _ => {
+                    let Statement::Assign(assign) = &mut body.0[2] else { panic!() };
+                    assign.left.push(local("extra").into());
+                }
+            }
+            assert!(protect_native_constant_arguments(&mut body).unwrap().is_none(), "shape {shape}");
+            let Statement::Assign(assign) = &body.0[2] else { panic!() };
+            let RValue::Call(call) = &assign.right[0] else { panic!() };
+            assert!(assign.prefix && call.arguments == vec![value.into()]);
+        }
+    }
+
+    #[test]
+    fn result_reuse_rejects_nested_scopes_opaque_protocols_and_excess_declaration_occurrences() {
+        for shape in 0..3 {
+            let (mut body, _, _) = pressured_result_body(false, false);
+            match shape {
+                0 => {
+                    let statement = body.0.remove(2);
+                    body.0.insert(2, crate::NumericFor::new(number(1.0), number(1.0), number(1.0),
+                        local("i"), Block(vec![statement])).into());
+                }
+                1 => body.0.insert(2, crate::Label("opaque".into()).into()),
+                _ => {
+                    let repeated = local("repeated");
+                    body.0.splice(0..0, (0..190).map(|_| declaration(&repeated, Literal::Nil.into())));
+                }
+            }
+            assert!(protect_native_constant_arguments(&mut body).unwrap().is_none(), "shape {shape}");
+            assert!(body.to_string().contains("local observed = (typeof)(value)"));
+        }
+    }
+
+    #[test]
+    fn result_reuse_does_not_replace_available_private_snapshot_headroom() {
+        let (mut body, _, _) = pressured_result_body(false, false);
+        body.0.remove(3);
+        let pass = protect_native_constant_arguments(&mut body).unwrap().unwrap();
+        assert_eq!(pass.introduced_locals, 1);
+        let output = body.to_string();
+        assert!(output.contains("local observed = typeof(builtinArgument)"), "{output}");
+        assert!(!output.contains("observed = value"));
     }
 
     #[test]

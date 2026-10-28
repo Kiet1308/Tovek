@@ -10,7 +10,7 @@ PASSES = {
                              {'scalar_select_result', 'short_circuit_result', 'evaluation_snapshot'}),
     'table_open_list_snapshots': ('private-prefix-snapshots-v1', {'constructor_initializer_snapshot'}),
     'materialize_vectors': ('entry_constructor_snapshot_v1', {'vector_constructor'}),
-    'native_constant_arguments': ('mutable_literal_argument_v1', {'evaluation_snapshot'}),
+    'native_constant_arguments': ('native_argument_barrier_v2', {'evaluation_snapshot'}),
 }
 
 
@@ -45,6 +45,8 @@ def validate_local_producers(trace, metadata=None):
             model, roles = PASSES[name]
             if name == 'materialize_vectors' and group['rewrite_model'] == 'inline_constructor_v1':
                 model, roles = 'inline_constructor_v1', set()
+            if name == 'native_constant_arguments' and group['rewrite_model'] == 'mutable_literal_argument_v1':
+                model = 'mutable_literal_argument_v1'
             require(group['rewrite_model'] == model, 'unknown rewrite model')
             records = group['records']
             require(type(records) is list and len(records) <= RECORD_LIMIT, 'record budget exceeded')

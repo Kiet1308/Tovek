@@ -2188,6 +2188,18 @@
       "bytes": 836,
       "lines": 47
     },
+    "semantic/native_builtin_site_arguments__O0.luau": {
+      "bytes": 6024,
+      "lines": 508
+    },
+    "semantic/native_builtin_site_arguments__O1.luau": {
+      "bytes": 6094,
+      "lines": 514
+    },
+    "semantic/native_builtin_site_arguments__O2.luau": {
+      "bytes": 6874,
+      "lines": 552
+    },
     "semantic/native_function_attribute__O0.luau": {
       "bytes": 482,
       "lines": 26

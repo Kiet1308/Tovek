@@ -1,19 +1,19 @@
 {
  "provenance": {
   "compiler_commit": "c2ec0d4e5ca50796ba174a7565298f59aa572268",
-  "lifter_sha256": "552f5553090429b9d9e895f785e0b90e196dea9e98503198598865f232a618e2",
-  "review": "V2.8 public-proof engine checkpoint: reviewed native argument barriers and GC placeholders; 20 per-file increases, 16 tightened entries and 4 new fixtures. Comparison rules and refusal evidence are unchanged.",
-  "evidence": "docs/v2_8/public_proof_recovery.md; /workspace/work/v28/public-proof/legacy-oracle-review/baseline-update-recommendation.json; /workspace/work/v28/public-proof/legacy-oracle-review/baseline-tightening-review.json"
+  "lifter_sha256": "79a110d115fb87eaca87fbc6cfd27c5aa9543ad47a388c1a49197a2e2548cf44",
+  "review": "V2.8 native argument sites: add one reviewed fixture; all 282 existing rows and ten refusal records are unchanged. Comparison rules remain unchanged.",
+  "evidence": "docs/v2_8/public_proof_recovery.md; /workspace/work/v28/public-proof/result-reuse-79a1-fixture-review/baseline-addition-recommendation.json"
  },
  "summary": {
-  "inputs": 282,
-  "protos": 1703,
-  "exact": 843,
-  "equiv": 332,
-  "differ": 472,
+  "inputs": 283,
+  "protos": 1720,
+  "exact": 850,
+  "equiv": 333,
+  "differ": 480,
   "missing": 40,
-  "extra": 16,
-  "equiv_ratio": 0.68996
+  "extra": 17,
+  "equiv_ratio": 0.68779
  },
  "files": [
   {
@@ -1275,6 +1275,12 @@
    "status": "ok",
    "nonequiv": 6,
    "protos": 9
+  },
+  {
+   "file": "native_builtin_site_arguments",
+   "status": "ok",
+   "nonequiv": 9,
+   "protos": 15
   },
   {
    "file": "native_function_attribute",
