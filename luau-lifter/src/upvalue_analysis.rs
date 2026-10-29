@@ -303,9 +303,6 @@ pub struct ScriptUpvalueAnalysis {
     /// Vector constant spelling and any retained constructor binding.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub materialize_vectors: Option<serde_json::Value>,
-    /// Mutable literal arguments keep native builtin fallback calls from folding.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub native_constant_arguments: Option<serde_json::Value>,
 }
 
 pub(crate) fn reconcile_bindings(
@@ -653,7 +650,6 @@ pub(crate) fn reconcile_bindings(
         branch_constructors: None,
         table_open_list_snapshots: None,
         materialize_vectors: None,
-        native_constant_arguments: None,
     }
 }
 

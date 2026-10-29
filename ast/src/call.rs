@@ -57,9 +57,11 @@ impl fmt::Debug for Call {
 
 impl Call {
     /// Semantic attributes for matchers that compare callees and arguments separately.
+    /// The FASTCALL result count follows the call's context (a helper's `return`
+    /// against its inlined copy's assignment), so only the builtin is compared.
     pub(crate) fn same_execution(&self, other: &Self) -> bool {
         self.group_callee == other.group_callee
-            && self.builtin_fastcall == other.builtin_fastcall
+            && self.builtin_fastcall.map(|(builtin, _)| builtin) == other.builtin_fastcall.map(|(builtin, _)| builtin)
     }
 
     pub fn new(value: RValue, arguments: Vec<RValue>) -> Self {

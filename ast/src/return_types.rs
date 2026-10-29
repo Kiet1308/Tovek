@@ -85,7 +85,8 @@ fn returns(block: &Block, pack: &mut Option<Vec<u8>>) -> Option<bool> {
 fn annotation(block: &Block) -> Option<String> {
     let mut pack = None;
     if returns(block, &mut pack)? { merge(&mut pack, Vec::new())?; }
-    let types: Vec<_> = pack?.into_iter().map(|ty| {
+    // `: ()` on every function returning nothing is noise source never writes.
+    let types: Vec<_> = pack.filter(|pack| !pack.is_empty())?.into_iter().map(|ty| {
         [(NIL, "nil"), (BOOLEAN, "boolean"), (NUMBER, "number"), (STRING, "string")]
             .into_iter().filter_map(|(bit, name)| (ty & bit != 0).then_some(name))
             .collect::<Vec<_>>().join(" | ")
@@ -136,7 +137,7 @@ mod tests {
         let body = branch(returned(vec![number()]), returned(vec![Literal::String(b"one".to_vec()).into()]));
         assert_eq!(annotation(&body).as_deref(), Some("number | string"));
         assert_eq!(annotation(&returned(vec![number(), Literal::Nil.into()])).as_deref(), Some("(number, nil)"));
-        assert_eq!(annotation(&Block::default()).as_deref(), Some("()"));
+        assert!(annotation(&Block::default()).is_none());
         assert!(annotation(&branch(returned(vec![number()]), Block::default())).is_none());
         assert!(annotation(&branch(returned(vec![Literal::Nil.into()]), returned(vec![]))).is_none());
     }

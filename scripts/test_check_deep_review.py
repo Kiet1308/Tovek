@@ -32,6 +32,25 @@ def baseline(row):
 
 
 class DeepReviewTests(unittest.TestCase):
+    def test_cross_level_limits_need_their_exact_reviewed_runs_and_another_level(self):
+        def limit():
+            row = mismatch()
+            row['source_at_output_optimization'] = observed('source\n')
+            return row
+        row = limit()
+        review.classify_baseline(row, baseline(row) | dict(status='cross_level_limit'))
+        self.assertEqual(row['status'], 'cross_level_limit')
+        known = baseline(limit()) | dict(status='cross_level_limit')
+        row = limit()
+        row['sau_sua'].update(stdout='wrong\n')
+        review.classify_baseline(row, known)
+        self.assertEqual(row['status'], 'failed')
+        # The same level is never a limit: exactness is promised there.
+        row = limit()
+        row.update(output_optimization=0)
+        review.classify_baseline(row, baseline(row) | dict(status='cross_level_limit'))
+        self.assertEqual(row['status'], 'failed')
+
     def test_only_exact_reviewed_mismatches_are_compiler_sensitive(self):
         row = mismatch()
         known = baseline(row)

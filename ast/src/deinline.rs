@@ -4042,6 +4042,7 @@ fn deinline_block(
     }
 }
 
+#[cfg(test)]
 pub(crate) fn stmt_rvalues_mut(s: &mut Statement) -> Vec<&mut RValue> {
     match s {
         Statement::Assign(a) => {
@@ -6029,8 +6030,9 @@ fn match_embedded_value(
         Earlier::Value(value @ RValue::Local(local)) => {
             writes().contains(local) || (runs_code() && !t.captures.stable_at(value, function))
         }
-        // Even a builtin lookup can call an external environment's __index.
-        Earlier::Value(_) => conflicts_with_lookup(),
+        // A constant import is resolved when the script loads; any other
+        // lookup can run an `__index` the prefix may change.
+        Earlier::Value(value) => !t.captures.constant_import(value) && conflicts_with_lookup(),
     };
     visit_leading_values(&mut host, &register, &mut |value, evaluated_before, spread| {
         if value_kind(value) != root || evaluated_before.iter().any(&changed_by_prefix) {
@@ -11636,9 +11638,7 @@ mod tests {
         };
 
         let output = rebuilt(helper_body(RValue::Literal(Literal::Nil)), site(leave(), Vec::new()));
-        // The helper must finish before the observable global print lookup.
-        assert!(output.contains("local found = findItem(list, key)"), "{output}");
-        assert!(output.contains("print(found)"), "{output}");
+        assert!(output.contains("print(findItem(list, key))"), "{output}");
         assert!(!output.contains("break"), "{output}");
 
         // The helper's `return fallback` runs where the flag is still set.
@@ -11650,8 +11650,7 @@ mod tests {
             ))
         };
         let output = rebuilt(helper_body(string("none")), site(leave(), vec![fallback(&found)]));
-        assert!(output.contains("local found = findItem(list, key)"), "{output}");
-        assert!(output.contains("print(found)"), "{output}");
+        assert!(output.contains("print(findItem(list, key))"), "{output}");
 
         // A store that keeps looping is not a `return`.
         let keeps_looping = vec![assign_local(&found, local_value(&x), false)];
@@ -11728,8 +11727,7 @@ mod tests {
             use_r(),
         ];
         let output = run(helper_body, site);
-        assert!(output.contains("local r = classify(list)"), "{output}");
-        assert!(output.contains("print(r)"), "{output}");
+        assert!(output.contains("print(classify(list))"), "{output}");
 
         // for i = 1, #list do if a(i) then return i end end (nothing after)
         let helper_body = vec![numeric(&i, vec![guard(test("a", &i), vec![return_one(local_value(&i))], vec![])])];
@@ -15020,8 +15018,7 @@ mod tests {
         let is_function = || bin(call1(global("type"), local_value(&x)), BinaryOperation::Equal, string("function"));
         let is_nil = bin(local_value(&x), BinaryOperation::Equal, RValue::Literal(Literal::Nil));
         let output = run(bin(is_nil, BinaryOperation::Or, is_function()));
-        assert!(output.contains("local r = x == nil or isCallable(x)"), "{output}");
-        assert!(output.contains("print(r)"), "{output}");
+        assert!(output.contains("print(x == nil or isCallable(x))"), "{output}");
         // A field's value is no boolean: `t.flag or isCallable(x)` would be
         // that value where the copy stores `true`.
         let output = run(bin(field(global("t"), "flag"), BinaryOperation::Or, is_function()));
@@ -15045,9 +15042,9 @@ mod tests {
     }
 
     #[test]
-    fn embedded_helper_effects_cannot_move_after_an_import_lookup() {
+    fn embedded_helper_effects_cannot_move_after_a_lookup_that_runs_code() {
         let (cell, callee) = (local("cell"), local("callee"));
-        let import = || field(global("math"), "max");
+        let import = || field(global("Shared"), "max");
         let capture = return_one(RValue::Closure(Closure {
             node_origin: Default::default(),
             function: ByAddress(Arc::new(Mutex::new(Function {
@@ -15055,14 +15052,16 @@ mod tests {
             }))),
             upvalues: vec![Upvalue::Ref(cell.clone())],
         }));
-        // The external environment's __index can observe either the call or
-        // the captured-cell store before fetching math.max.
+        // A script table's __index can observe either the call or the
+        // captured-cell store before fetching Shared.max or a script global.
         for prefix in [print_x(), assign_local(&cell, number(9.0), false)] {
             let body = [prefix.clone(), return_one(number(1.0))];
             let mut target = value_prefix_target_k(&body);
             target.captures = std::rc::Rc::new(crate::deinline_safety::CaptureSafety::new(&Block(vec![capture.clone(), prefix.clone()])));
-            for fetch in [import(), global("print"), local_value(&callee)] {
-                let safe = matches!(fetch, RValue::Local(_));
+            // A constant import (math.max, print) is resolved when the script loads.
+            for fetch in [import(), global("handler"), local_value(&callee), field(global("math"), "max"), global("print")] {
+                let safe = !matches!(&fetch, RValue::Global(global) if global.0 == b"handler")
+                    && !matches!(&fetch, RValue::Index(index) if matches!(&*index.left, RValue::Global(g) if g.0 == b"Shared"));
                 let site = [prefix.clone(), return_one(RValue::Call(Call::new(fetch, vec![number(1.0), number(2.0)])))];
                 let prefix_site = prefix_may_unify(&target, &site[..1]).expect("matching prefix");
                 let hit = match_embedded_value(&site, 0, 1, &target, None, false, &mut Liveness::default(), &prefix_site);
@@ -15172,8 +15171,7 @@ mod tests {
         ]);
         deinline(&mut block);
         let output = block.to_string();
-        assert!(output.contains("local out2 = f(input, true)"), "{output}");
-        assert!(output.contains("print(out2)"), "{output}");
+        assert!(output.contains("print(f(v, true))"), "{output}");
     }
 
     #[test]

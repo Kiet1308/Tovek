@@ -66,7 +66,6 @@ pub mod expression_budget;
 pub mod effects;
 mod numeric_facts;
 pub mod evaluation_order;
-pub mod preserve_eager_reads;
 pub mod preserve_builtin_calls;
 pub mod factor_common_tails;
 pub mod flatten_guards;

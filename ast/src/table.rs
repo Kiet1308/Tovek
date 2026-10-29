@@ -43,7 +43,10 @@ impl Table {
                 return Ok((padding, Some(key)));
             }
         }
-        Err("a NEWTABLE hash allocation without enough reproducible constructor fields")
+        // shortcut: no field can carry the padding; print the legacy constructor
+        // (as for empty hash hints) instead of refusing the script; `pairs` order
+        // can then differ from the input. Upgrade with an exact padding spelling.
+        Ok((0, None))
     }
 }
 

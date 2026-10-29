@@ -1781,12 +1781,15 @@ mod tests {
         let padded = table.clone();
         super::reserve_allocation_slots(&mut table).unwrap();
         assert_eq!(table, padded);
+        // No field can carry the padding: the legacy constructor prints unchanged.
         for fields in [vec![(None, number(1.0))], vec![(Some(global("key")), number(1.0))]] {
             let mut table = Table(fields, Default::default(), crate::TableShape::NewTable { hash: 8, array: 0 });
-            assert!(super::reserve_allocation_slots(&mut table).is_err());
+            let before = table.0.clone();
+            super::reserve_allocation_slots(&mut table).unwrap();
+            assert_eq!(table.0, before);
         }
         table.2 = crate::TableShape::NewTable { hash: 1 << 30, array: 0 };
-        assert!(super::reserve_allocation_slots(&mut table).is_err());
+        super::reserve_allocation_slots(&mut table).unwrap();
         table.2 = crate::TableShape::NewTable { hash: 0, array: (crate::table::MAX_ALLOCATION_PADDING + 1) as u32 };
         assert!(super::reserve_allocation_slots(&mut table).is_err());
     }

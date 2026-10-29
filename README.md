@@ -253,18 +253,22 @@ proof is refused. Recovery covers mixed positional/keyed prefixes and preserves
 invalid-key errors before later field effects. A captured register key is
 snapshotted after its field value, preserving mutations made by a callback.
 Proved incoming captured keys are snapshotted before their field values;
-ambiguous capture contexts remain refused. Final output also preserves early
-upvalue reads when the compiler inlines a helper: expressions such as
-`key or key` intentionally force an early read. Explicit logical snapshots from the
-input retain that ordering, including for arithmetic, indexing and calls.
-Actual builtin calls may print as `(math.max)(...)` so recompilation keeps the
-call when an external environment replaces the builtin. Open call results that
-cross an operation without a tuple-order proof are refused: a scalar temporary
-would lose arbitrary return values, and a wrapper would add a call frame.
-Empty preallocated hash tables remain a compatibility exception:
-they can still emit `{}`, and `pairs`/`next` order is not guaranteed when compiling
-at a different optimization level. This exception does not justify folding
-populated constructors or matching helpers without a layout proof.
+ambiguous capture contexts remain refused. The output behaves like the input when
+compiled at the input's optimization level. Compiled at another level, Luau's own -O2
+inlining, builtin folding and FASTCALL arity change the timing of some reads and
+lookups, usually exactly as they would for the original source; where the bytecode
+cannot tell which of two spellings the source used, the output may differ from the
+source there too. Every such case known to the cross-optimization audit is reviewed. An actual builtin call prints as
+`(math.abs)(-17)` only where recompiling the plain spelling at the input's level
+would fold it (all arguments constant) or fast-call a builtin the input called
+plainly, either of which would bypass a replaced builtin. Open call results that
+cross an operation other than a FASTCALL fallback's callee load are refused: a
+scalar temporary would lose arbitrary return values, and a wrapper would add a call
+frame.
+Preallocated hash tables remain a compatibility exception: an empty one still
+emits `{}`, as does a constructor whose fields cannot carry the allocation, and
+`pairs`/`next` order is not guaranteed for them. This exception does not justify
+folding populated constructors or matching helpers without a layout proof.
 
 A table keeps its keys and values, and list items stay list items, but not always
 its internal layout: a constructor that takes later stores can size the table

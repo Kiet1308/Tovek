@@ -12,6 +12,8 @@ pub(crate) struct CaptureSafety {
     /// while their declaring function runs a call.
     closure_written: FxHashSet<u64>,
     captured: FxHashSet<u64>,
+    /// Globals the module assigns somewhere.
+    written_globals: FxHashSet<Vec<u8>>,
     /// The module names `getfenv` or `setfenv` (`_G.setfenv` too).
     dynamic_environment: bool,
     /// How the module reaches `debug.info`, which reads call frames.
@@ -99,15 +101,6 @@ impl CaptureSafety {
     /// [`Self::complete`] agrees with [`Self::new`] on the same body.
     pub(crate) fn captures(body: &Block) -> Self {
         let mut result = Self::default();
-        result.block::<CAPTURES, 200_000>(&body.0, 0, &FxHashSet::default(), None);
-        result.visited.clear();
-        result
-    }
-
-    /// The capture identities needed by final read timing, without helper
-    /// literal/expression bounds; node and block/closure depth limits still apply.
-    pub(crate) fn captures_for_read_timing(body: &Block) -> Self {
-        let mut result = Self { read_timing: true, ..Default::default() };
         result.block::<CAPTURES, 200_000>(&body.0, 0, &FxHashSet::default(), None);
         result.visited.clear();
         result
@@ -251,12 +244,6 @@ impl CaptureSafety {
         Self { exhausted: true, ..Self::default() }
     }
 
-    /// The module calls `debug.info`, whose answer depends on the call
-    /// frames running: the same code in a helper sees another frame.
-    pub(crate) fn reads_call_frames(&self) -> bool {
-        self.exhausted || self.frames.read || self.call_frames_untracked()
-    }
-
     /// `debug.info` (or the whole library, or a function calling it) may run
     /// under another name, so no code can be shown free of it.
     pub(crate) fn call_frames_untracked(&self) -> bool {
@@ -309,6 +296,20 @@ impl CaptureSafety {
     /// globals, so the same code in a helper and in its caller may mean
     /// different things. Luau neither inlines nor imports in such a module.
     pub(crate) fn dynamic_environment(&self) -> bool { self.exhausted || self.dynamic_environment }
+
+    /// A global path no code the script runs can change and whose read
+    /// cannot raise, so it may be read at any point: a builtin global
+    /// (`print`, `workspace`) or a member of a fixed library table
+    /// (`math.clamp`, `Vector2.new`), never assigned in the module, in a
+    /// module with a fixed environment. Luau's own builtin calls assume the
+    /// same (README, "Output and validation"). Any other path is a read of a
+    /// table someone may write (`Shared.x`, `Foo.new`, `script.Parent`), of a
+    /// global another chunk may set, or one that may raise ([`import_cannot_raise`]).
+    pub(crate) fn constant_import(&self, value: &RValue) -> bool {
+        !self.dynamic_environment()
+            && import_root(value).is_some_and(|(name, _)| !self.written_globals.contains(name))
+            && import_cannot_raise(value)
+    }
 
     pub(crate) fn nodes(&self) -> usize { self.nodes }
 
@@ -370,10 +371,10 @@ impl CaptureSafety {
                 if !self.closure_written.contains(&local.stable_id()) && self.register_of(local, function))
     }
 
-    /// A read the code a call runs cannot change: a literal or a local [`stable`]
-    /// here. Even builtin lookups may run code in an externally supplied environment.
+    /// A read the code a call runs cannot change: a literal, a local [`stable`]
+    /// here, or a [`constant_import`].
     pub(crate) fn unchanged_by_calls(&self, value: &RValue) -> bool {
-        matches!(value, RValue::Literal(_)) || self.stable(value)
+        matches!(value, RValue::Literal(_)) || self.stable(value) || self.constant_import(value)
     }
 
     fn spend<const NODE_LIMIT: usize>(&mut self, depth: usize) -> bool {
@@ -427,6 +428,19 @@ impl CaptureSafety {
             if FACTS >= FULL && let Statement::Assign(assign) = statement {
                 for left in &assign.left {
                     match left {
+                        LValue::Global(global) => {
+                            self.written_globals.insert(global.0.clone());
+                        }
+                        // `math.foo = f` replaces a library member.
+                        LValue::Index(index) => {
+                            let mut base = &*index.left;
+                            while let RValue::Index(inner) = base {
+                                base = &inner.left;
+                            }
+                            if let RValue::Global(global) = base {
+                                self.written_globals.insert(global.0.clone());
+                            }
+                        }
                         LValue::Local(local) if !assign.prefix => {
                             self.rebound.insert(local.stable_id());
                             if upvalues.contains(&local.stable_id()) {
@@ -699,6 +713,18 @@ fn import_root(value: &RValue) -> Option<(&[u8], usize)> {
 
 /// Classify builtin/library names (`print`, `math.max`, `Enum.KeyCode.E`);
 /// an external environment can still make their lookup observable.
+/// A builtin global or a member of a fixed library table (`print`,
+/// `math.max`): GETIMPORT reads it without raising. A member's own field
+/// may not exist (`math.abs.missing` indexes a function), and `Enum`
+/// raises for a name it lacks (`Enum.KeyCode.E` included).
+fn import_cannot_raise(value: &RValue) -> bool {
+    import_root(value).is_some_and(|(name, fields)| match fields {
+        0 => builtin_global(name),
+        1 => fixed_library(name) && name != b"Enum",
+        _ => false,
+    })
+}
+
 pub fn library_import(value: &RValue) -> bool {
     import_root(value).is_some_and(|(name, fields)| if fields == 0 { builtin_global(name) } else { fixed_library(name) })
 }
@@ -793,16 +819,23 @@ mod tests {
     use super::*;
 
     #[test]
-    fn absent_environment_writes_do_not_make_import_lookups_inert() {
-        let local = crate::RcLocal::default();
+    fn only_unassigned_builtin_imports_are_unchanged_by_calls() {
+        let math = || RValue::from(crate::Global::from("math"));
+        let max = || RValue::from(crate::Index::new(math(), Literal::String(b"max".to_vec()).into()));
+        let print = || RValue::from(crate::Global::from("print"));
         let facts = CaptureSafety::new(&Block::default());
-        let global = RValue::from(crate::Global::from("math"));
-        let member = RValue::from(crate::Index::new(global.clone(), Literal::String(b"max".to_vec()).into()));
-        assert!(!facts.dynamic_environment());
-        for value in [global, member, crate::Global::from("print").into()] {
-            assert!(!facts.unchanged_by_calls(&value));
+        for value in [math(), max(), print()] {
+            assert!(facts.unchanged_by_calls(&value));
         }
-        assert!(facts.unchanged_by_calls(&local.into()));
+        // A script table or global may run __index or be set by another chunk.
+        let shared = RValue::from(crate::Index::new(crate::Global::from("Shared").into(), Literal::String(b"max".to_vec()).into()));
+        assert!(!facts.unchanged_by_calls(&shared));
+        assert!(!facts.unchanged_by_calls(&crate::Global::from("handler").into()));
+        // `math.max = f` anywhere in the module replaces the member.
+        let write = crate::Assign::new(vec![LValue::Index(crate::Index::new(math(), Literal::String(b"max".to_vec()).into()))],
+            vec![Literal::Nil.into()]);
+        assert!(!CaptureSafety::new(&Block(vec![write.into()])).unchanged_by_calls(&max()));
+        assert!(facts.unchanged_by_calls(&crate::RcLocal::default().into()));
         assert!(facts.unchanged_by_calls(&Literal::Number(2.0).into()));
     }
     #[test]
@@ -851,7 +884,7 @@ mod tests {
                 if reverse { values.reverse(); }
                 let body = Block(vec![crate::Return::new(values).into()]);
                 for mut safety in [CaptureSafety::captures(&body), CaptureSafety::new(&body),
-                    CaptureSafety::captures_for_read_timing(&body), CaptureSafety::writes_for_read_timing(&body)] {
+                    CaptureSafety::writes_for_read_timing(&body)] {
                     assert!(safety.complete());
                     for incoming in [&key, &other] {
                         assert_eq!(safety.upvalue_of(incoming, Some(identity)), !mismatch);
@@ -967,7 +1000,7 @@ mod tests {
         assert!(!CaptureSafety::new(&body).complete());
         assert!(!CaptureSafety::captures(&body).complete());
         assert!(!CaptureSafety::helper_within_shape_budget(&body));
-        for safety in [CaptureSafety::captures_for_read_timing(&body), CaptureSafety::writes_for_read_timing(&body)] {
+        for safety in [CaptureSafety::writes_for_read_timing(&body)] {
             assert!(safety.complete());
             assert!(safety.upvalue_of(&cell, Some(identity)));
             assert!(!safety.uncaptured(&cell));
@@ -978,7 +1011,7 @@ mod tests {
         assert_eq!(safety.calls.closures[&identity], 2);
 
         closure.function.lock().body.0.push(crate::Return::new(vec![closure.clone().into()]).into());
-        for safety in [CaptureSafety::captures_for_read_timing(&body), CaptureSafety::writes_for_read_timing(&body)] {
+        for safety in [CaptureSafety::writes_for_read_timing(&body)] {
             assert!(safety.complete());
             assert!(safety.upvalue_of(&cell, Some(identity)));
         }
@@ -1003,12 +1036,11 @@ mod tests {
                     Block(vec![crate::If::new(Literal::Boolean(true).into(), body, Block::default()).into()])
                 };
             }
-            assert!(!CaptureSafety::captures_for_read_timing(&body).complete());
             assert!(!CaptureSafety::writes_for_read_timing(&body).complete());
         }
         for count in [199_999, 200_000] {
             let body = Block(vec![crate::Return::new(vec![Literal::Nil.into(); count]).into()]);
-            for safety in [CaptureSafety::captures_for_read_timing(&body), CaptureSafety::writes_for_read_timing(&body)] {
+            for safety in [CaptureSafety::writes_for_read_timing(&body)] {
                 assert_eq!(safety.complete(), count == 199_999);
             }
         }
@@ -1052,7 +1084,7 @@ mod tests {
         let huge = Block(vec![crate::Return::new(vec![crate::Literal::String(vec![0; 8 * 1024 * 1024 + 1]).into()]).into()]);
         assert!(!CaptureSafety::new(&huge).complete());
         assert!(!CaptureSafety::captures(&huge).complete());
-        assert!(CaptureSafety::captures_for_read_timing(&huge).complete());
+        assert!(CaptureSafety::writes_for_read_timing(&huge).complete());
     }
 
     /// `local total; local function bump() total += 1 end`: while `bump` is
@@ -1155,14 +1187,14 @@ mod tests {
     fn debug_info_is_tracked_by_its_calls() {
         let call = |callee: RValue| -> RValue { crate::Call::new(callee, vec![]).into() };
         let traceback = census(vec![call(member(global("debug"), "traceback"))]);
-        assert!(!traceback.reads_call_frames() && !traceback.call_frames_untracked());
+        assert!(!(traceback.exhausted || traceback.frames.read || traceback.call_frames_untracked()) && !traceback.call_frames_untracked());
         let traced = crate::Call::new(member(global("debug"), "traceback"), vec![]);
         assert!(traceback.reads_frames(&[crate::Return::new(vec![traced.into()]).into()]));
         let handler = census(vec![member(global("debug"), "traceback")]);
-        assert!(!handler.reads_call_frames());
+        assert!(!(handler.exhausted || handler.frames.read || handler.call_frames_untracked()));
         for direct in [member(global("debug"), "info"), member(member(global("_G"), "debug"), "info")] {
             let safety = census(vec![call(direct)]);
-            assert!(safety.reads_call_frames() && !safety.call_frames_untracked());
+            assert!((safety.exhausted || safety.frames.read || safety.call_frames_untracked()) && !safety.call_frames_untracked());
         }
         for escaped in [
             global("debug"),
@@ -1185,9 +1217,9 @@ mod tests {
         let number = |n: f64| RValue::Literal(Literal::Number(n));
         let string = |s: &str| RValue::Literal(Literal::String(s.as_bytes().to_vec()));
         let running = census(vec![info(vec![number(1.0), string("sl")])]);
-        assert!(!running.reads_call_frames() && !running.frames.functions);
+        assert!(!(running.exhausted || running.frames.read || running.call_frames_untracked()) && !running.frames.functions);
         let caller = census(vec![info(vec![number(2.0), string("sl")])]);
-        assert!(caller.reads_call_frames() && !caller.frames.functions);
+        assert!((caller.exhausted || caller.frames.read || caller.call_frames_untracked()) && !caller.frames.functions);
         assert!(census(vec![info(vec![number(1.0), string("f")])]).frames.functions);
         assert!(census(vec![info(vec![number(1.0), global("options")])]).frames.functions);
     }
@@ -1242,7 +1274,7 @@ mod tests {
         ] {
             for call in [error(arguments.clone()), through_g(arguments)] {
                 let safety = CaptureSafety::new(&Block(vec![call.clone().into()]));
-                assert!(!safety.reads_call_frames() && !safety.call_frames_untracked());
+                assert!(!(safety.exhausted || safety.frames.read || safety.call_frames_untracked()) && !safety.call_frames_untracked());
                 assert!(!safety.reads_frames(&[call.clone().into()]));
                 assert!(!safety.reads_frames(&[crate::Return::new(vec![call.into()]).into()]));
             }

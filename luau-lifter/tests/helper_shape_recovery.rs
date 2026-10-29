@@ -31,12 +31,13 @@ fn distributed_guard_recovers_run_without_rewriting_loose_truthiness() {
 }
 
 #[test]
-fn pi_argument_recovers_only_with_exact_numeric_spelling() {
+fn pi_argument_recovers_with_either_numeric_spelling() {
+    // `math.pi` is a constant import, read the same wherever the argument goes.
     for library_spelling in [false, true] {
         let options = DecompileOptions { assume_standard_libraries: library_spelling, ..Default::default() };
         let source = try_decompile_bytecode_with_options(include_bytes!("fixtures/helper_shape_number.luaubc"),
             1, None, options).unwrap();
-        assert_eq!(inferred_calls(&source, "show("), if library_spelling { 24 } else { 25 }, "{source}");
-        assert_eq!(source.contains("show(\"pi\","), !library_spelling, "{source}");
+        assert_eq!(inferred_calls(&source, "show("), 25, "{source}");
+        assert!(source.contains("show(\"pi\","), "{source}");
     }
 }

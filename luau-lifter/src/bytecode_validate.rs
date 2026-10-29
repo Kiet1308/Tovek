@@ -121,6 +121,7 @@ mod tests {
         let nop = || bc(LOP_NOP, 0, 0, 0);
         let ret = || bc(LOP_RETURN, 0, 0, 0);
         let import = || ad(LOP_GETIMPORT, 0, 0, 1 << 30);
+        let import_into = |register| ad(LOP_GETIMPORT, register, 0, 1 << 30);
         for operation in [import(), bc(LOP_GETGLOBAL, 0, 0, 0),
             bc(LOP_GETTABLE, 0, 0, 1), bc(LOP_MOVE, 0, 1, 0)] {
             let aux = matches!(operation, Instruction::AD { op_code: LOP_GETIMPORT, .. }
@@ -146,6 +147,11 @@ mod tests {
         }
         assert!(check(vec![bc(LOP_CALL, 2, 1, 0), bc(LOP_CLOSEUPVALS, 0, 0, 0),
             bc(LOP_FASTCALL, 0, 0, 0), bc(LOP_CALL, 0, 0, 0), ret()], vec![]).is_ok());
+        // `table.insert(t, f())`: the fallback loads only the consuming CALL's callee.
+        let fallback = |target| vec![bc(LOP_CALL, 2, 1, 0), bc(LOP_FASTCALL, 52, 0, 2), import_into(target), nop(),
+            bc(LOP_CALL, 0, 0, 0), ret()];
+        assert!(check(fallback(0), vec![Constant::String(0)]).is_ok());
+        assert!(check(fallback(1), vec![Constant::String(0)]).is_err());
         // NAMECALL performs its lookup after the spreading argument in source too.
         assert!(check(vec![bc(LOP_CALL, 2, 1, 0), bc(LOP_NAMECALL, 0, 1, 0), nop(),
             bc(LOP_CALL, 0, 0, 0), ret()], vec![Constant::String(0)]).is_ok());
@@ -525,6 +531,27 @@ pub(crate) fn validate(chunk: &Chunk) -> Result<(), String> {
     Ok(())
 }
 
+/// The open-argument CALL of a `FASTCALL` at `pc` whose fallback only loads
+/// that CALL's callee: GETIMPORT, MOVE or GETUPVAL (an alias), or GETGLOBAL
+/// then GETTABLEKS past 1023 constants. C is the offset to that CALL.
+fn fastcall_fallback_consumer(code: &[Instruction], pc: usize) -> Option<usize> {
+    let Instruction::BC { op_code: LOP_FASTCALL, c, .. } = code[pc] else { return None };
+    let consumer = pc + 1 + usize::from(c);
+    let Some(&Instruction::BC { op_code: LOP_CALL, a: callee, b: 0, .. }) = code.get(consumer) else { return None };
+    let mut at = pc + 1;
+    while at < consumer {
+        let loads_callee = match code[at] {
+            Instruction::AD { op_code: LOP_GETIMPORT, a, .. } | Instruction::BC { op_code: LOP_GETGLOBAL | LOP_MOVE | LOP_GETUPVAL, a, .. } => a == callee,
+            Instruction::BC { op_code: LOP_GETTABLEKS, a, b, .. } => a == callee && b == callee,
+            _ => false,
+        };
+        if !loads_callee { return None; }
+        let (Instruction::BC { op_code, .. } | Instruction::AD { op_code, .. } | Instruction::E { op_code, .. }) = code[at];
+        at += 1 + usize::from(op_code.has_aux());
+    }
+    (at == consumer).then_some(consumer)
+}
+
 /// Reject valid instruction sequences whose deferred open tuple has no proved
 /// source spelling. Structural validation must run first.
 pub(crate) fn admit_open_call_order(chunk: &Chunk) -> Result<(), String> {
@@ -533,6 +560,11 @@ pub(crate) fn admit_open_call_order(chunk: &Chunk) -> Result<(), String> {
         let mut open_call = false;
         let mut pc = 0;
         while pc < code.len() {
+            // `table.insert(t, f())` compiles to FASTCALL, then the fallback's
+            // callee load, then the consuming CALL: the source's own order.
+            if open_call && let Some(consumer) = fastcall_fallback_consumer(code, pc) {
+                pc = consumer;
+            }
             if open_call {
                 let native_consumer = matches!(code[pc],
                     Instruction::BC { op_code: LOP_CALL | LOP_CALLFB | LOP_RETURN, b: 0, .. }

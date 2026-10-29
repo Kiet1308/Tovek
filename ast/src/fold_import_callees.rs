@@ -1,6 +1,9 @@
-//! Name single-use builtin imports directly at adjacent call sites when the
-//! evaluation-order proof preserves their lookup. Enabling FASTCALL can move
-//! that lookup after arguments, so observable arguments keep the snapshot.
+//! A callee read into a local before the arguments run, because they may
+//! run code: `local new = Vector2.new; ...; return new(f(x), g(y))`. Luau
+//! resolves a global path the script never assigns once, when it loads
+//! (`deinline_safety::CaptureSafety::constant_import`), so the call may name
+//! it in place: `Vector2.new(f(x), g(y))`. Other builtin imports fold only at
+//! an adjacent call whose evaluation-order proof preserves their lookup.
 use crate::{Block, LValue, RValue, RcLocal, Select, Statement, Traverse};
 
 pub fn fold_import_callees(body: &mut Block) {
@@ -46,12 +49,17 @@ fn block(stmts: &mut Vec<Statement>, census: &crate::deinline_safety::CaptureSaf
     while i < stmts.len() {
         if let Some((alias, path)) = import_alias(&stmts[i])
             && (!literal_only || !alias.preserve_binding())
-            // shortcut: only cross comments/empty statements; extend with an explicit intervening-motion proof.
-            && let Some(next) = (i + 1..stmts.len()).find(|&at| !matches!(stmts[at], Statement::Comment(_) | Statement::Empty(_)))
             && crate::deinline::count_local_reads(&stmts[i + 1..], &alias) == 1
             && !written(&stmts[i + 1..], &alias)
-            && can_fold(&stmts[next], &alias, &path, census, literal_only)
-            && name_callee(&mut stmts[next], &alias, &path)
+            && if !literal_only && census.constant_import(&path) {
+                // Resolved once when the script loads, it names the same value at any later call.
+                stmts[i + 1..].iter_mut().any(|statement| name_callee(statement, &alias, &path))
+            } else {
+                // shortcut: only cross comments/empty statements; extend with an explicit intervening-motion proof.
+                (i + 1..stmts.len()).find(|&at| !matches!(stmts[at], Statement::Comment(_) | Statement::Empty(_)))
+                    .is_some_and(|next| can_fold(&stmts[next], &alias, &path, census, literal_only)
+                        && name_callee(&mut stmts[next], &alias, &path))
+            }
         {
             stmts.remove(i);
             changed = true;
@@ -163,7 +171,7 @@ mod tests {
         for literal_numbers in [false, true] {
             for number in [1.0, std::f64::consts::PI, -std::f64::consts::PI, f64::INFINITY, f64::NEG_INFINITY, f64::NAN] {
                 let saved = RcLocal::default();
-                let path = Index::new(Global::from("string").into(), Literal::String(b"format".to_vec()).into()).into();
+                let path = Index::new(Global::from("math").into(), Literal::String(b"max".to_vec()).into()).into();
                 let mut declaration = Assign::new(vec![saved.clone().into()], vec![path]);
                 declaration.prefix = true;
                 let mut body = Block(vec![declaration.into(),
@@ -174,7 +182,7 @@ mod tests {
                 assert_eq!(fold_literal_number_import_callees(&mut body, &census), expected);
                 if expected {
                     assert_eq!(body.len(), 1);
-                    assert!(body.to_string().contains("return string.format("));
+                    assert!(body.to_string().contains("return math.max("));
                 } else { assert_eq!(body.to_string(), before); }
             }
         }
@@ -215,10 +223,11 @@ mod tests {
     }
 
     #[test]
-    fn callee_snapshot_stays_before_effectful_or_captured_arguments() {
+    fn a_constant_import_is_named_past_effectful_or_captured_arguments() {
+        // Resolved when the script loads, the callee reads the same value after them.
         let (new, declaration) = alias("new");
         let output = run(vec![declaration, Return::new(vec![call(&new)]).into()]);
-        assert!(output.starts_with("local new = Vector2.new"), "{output}");
+        assert!(output.starts_with("return Vector2.new("), "{output}");
 
         let (new, declaration) = alias("new");
         let cell = RcLocal::new(Local::new(Some("cell".into())));
@@ -229,7 +238,7 @@ mod tests {
             function: ByAddress(Arc::new(Mutex::new(writer))), upvalues: vec![crate::Upvalue::Ref(cell.clone())] };
         let value = Call::new(new.into(), vec![cell.into()]).into();
         let output = run(vec![declaration, Return::new(vec![value, closure.into()]).into()]);
-        assert!(output.starts_with("local new = Vector2.new"), "{output}");
+        assert!(output.starts_with("return Vector2.new(cell)"), "{output}");
     }
 
     #[test]
@@ -242,11 +251,12 @@ mod tests {
             }))), upvalues: vec![crate::Upvalue::Ref(cell.clone())] };
         let module = Block(vec![Return::new(vec![writer.into()]).into()]);
         let census = crate::deinline_safety::CaptureSafety::new(&module);
+        // A constant import reads the same value past any argument.
         for (argument, allowed) in [
             (Literal::Number(1.0).into(), true),
-            (cell.into(), false),
-            (Global::from("external").into(), false),
-            (Call::new(Global::from("change").into(), vec![]).into(), false),
+            (cell.into(), true),
+            (Global::from("external").into(), true),
+            (Call::new(Global::from("change").into(), vec![]).into(), true),
         ] {
             let (new, declaration) = alias("new");
             let mut pattern = vec![declaration, Return::new(vec![Call::new(new.into(), vec![argument]).into()]).into()];
@@ -282,7 +292,7 @@ mod tests {
     }
 
     #[test]
-    fn callee_lookup_does_not_cross_statements_or_become_conditional() {
+    fn a_constant_import_crosses_statements_but_not_into_blocks_or_past_a_module_write() {
         for mode in ["lookup", "mutation", "branch"] {
             let (new, declaration) = alias("new");
             let result = Return::new(vec![Call::new(new.into(), vec![Literal::Number(1.0).into()]).into()]).into();
@@ -295,7 +305,8 @@ mod tests {
                 _ => vec![declaration, Call::new(Global::from("observe").into(), vec![]).into(), result],
             };
             let output = run(statements);
-            assert!(output.starts_with("local new = Vector2.new"), "{output}");
+            // shortcut: a call inside a nested block keeps its alias; fold there when it shows up in output.
+            assert_eq!(output.starts_with("local new = Vector2.new"), mode != "lookup", "{output}");
         }
     }
 

@@ -610,17 +610,12 @@ fn is_import_path(value: &RValue) -> bool {
     }
 }
 
-/// Forwarding an import into a call can enable FASTCALL, which fetches its
-/// fallback callee after the arguments. Keep an earlier callee snapshot when
+/// Forwarding a builtin import into a call can enable FASTCALL, which fetches
+/// its fallback callee after the arguments. Keep an earlier callee snapshot when
 /// argument evaluation can observe that lookup (including mutable captures).
-pub fn import_callee_conflict(statement: &Statement, local: &RcLocal, replacement: &RValue,
-    capture: &impl Fn(&RcLocal) -> bool) -> bool {
-    import_callee_conflict_with_literal_numbers(statement, local, replacement, capture, false)
-}
-
 fn import_callee_conflict_with_literal_numbers(statement: &Statement, local: &RcLocal, replacement: &RValue,
     capture: &impl Fn(&RcLocal) -> bool, literal_numbers: bool) -> bool {
-    if !is_import_path(replacement) { return false; }
+    if !crate::preserve_builtin_calls::fast_builtin_path(replacement) { return false; }
     let call_conflicts = |call: &crate::Call| {
         matches!(&*call.value, RValue::Local(read) if read == local)
             && call.arguments.iter().any(|argument|
@@ -860,8 +855,9 @@ mod tests {
 
     #[test]
     fn literal_number_motion_keeps_lookup_capture_and_key_error_order() {
-        let callee = local("format");
-        let path = Index::new(crate::Global::from("string").into(), Literal::String(b"format".to_vec()).into()).into();
+        // A fast-call builtin: its FASTCALL fallback fetches the callee after the arguments.
+        let callee = local("maximum");
+        let path = Index::new(crate::Global::from("math").into(), Literal::String(b"max".to_vec()).into()).into();
         let call = |argument| RValue::Call(Call::new(callee.clone().into(), vec![argument]));
         for number in [std::f64::consts::PI, -std::f64::consts::PI, f64::INFINITY, f64::NEG_INFINITY, f64::NAN] {
             for statement in [

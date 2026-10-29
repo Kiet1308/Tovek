@@ -1444,18 +1444,11 @@ fn decompile_bytecode_internal(
             let late_timer = prof::Timer::new(&prof::S_LATE);
             // Actual calls must survive folding; the constructor spellings of
             // bytecode constants below deliberately remain foldable.
-            let mut native_constant_arguments = None;
-            if let Some(pass) = ast::preserve_builtin_calls::preserve_native_builtin_calls(&mut body, options.assume_standard_libraries)
-                .map_err(DecompileFailure::message)?
-            {
-                if emit_upvalue_analysis {
-                    native_constant_arguments = Some(serde_json::json!({
-                        "model": pass.rewrite_model, "introduced_locals": pass.introduced_locals,
-                        "introduced_bindings": pass.ledger,
-                    }));
-                }
-                if options.emit_binding_provenance { local_producers.push(pass); }
-            }
+            let input_fastcalls = chunk.functions.iter().any(|function| function.instructions.iter().any(|instruction|
+                matches!(instruction, instruction::Instruction::BC { op_code: op_code::OpCode::LOP_FASTCALL
+                    | op_code::OpCode::LOP_FASTCALL1 | op_code::OpCode::LOP_FASTCALL2
+                    | op_code::OpCode::LOP_FASTCALL2K | op_code::OpCode::LOP_FASTCALL3, .. })));
+            ast::preserve_builtin_calls::preserve_builtin_calls(&mut body, options.assume_standard_libraries, input_fastcalls);
             // Repeating decimals as the fractions the compiler folded. Every
             // pass before this one sees the raw literals, as the de-inliner's
             // constant-folded argument recovery (E2) will need.
@@ -1539,9 +1532,6 @@ fn decompile_bytecode_internal(
                 let _span = ast::telemetry::Span::new("S_READABLE_CONDITIONALS");
                 ast::compact_conditionals::readable_conditionals(&mut body);
             }
-            // No cleanup may erase these eager reads before the final register check and emission.
-            ast::preserve_eager_reads::preserve_eager_upvalue_reads(&mut body)
-                .map_err(DecompileFailure::message)?;
             // Temporaries left apart for the folding passes may, where some
             // did not fold, push a huge function past the local or register
             // limit, as may source locals of `do` blocks the output flattens:
@@ -1602,7 +1592,6 @@ fn decompile_bytecode_internal(
                 analysis.capture_effects = Some(capture_effects.report());
                 analysis.conditional_lowering = conditional_lowering;
                 analysis.materialize_vectors = materialize_vectors;
-                analysis.native_constant_arguments = native_constant_arguments;
                 analysis.table_open_list_snapshots = table_open_list_snapshots;
                 if options.emit_binding_provenance {
                     analysis.binding_provenance = Some(source_recovery::provenance_report(function_traces, &mut body, emission_map, local_producers, call_origins.take_report()));
@@ -3482,7 +3471,7 @@ mod v11_fixtures {
         let strings = ["g", "h", "k", "pcall"];
         let blob = build_chunk(14, 3, &strings, &[fastpcall_proto(true)], 0);
         let out = decompile(&blob, 1, None).expect("v14 FASTPCALL chunk must decompile");
-        assert_eq!(out.trim(), "local g = g\nlocal k = h.k\nreturn pcall(g, k)");
+        assert_eq!(out.trim(), "return pcall(g, h.k)");
     }
 
     #[test]
