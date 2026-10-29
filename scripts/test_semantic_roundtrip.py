@@ -21,7 +21,7 @@ class SemanticOracleTests(unittest.TestCase):
             (fixtures / "case.luau").write_text("print('profile-dependent source')\n")
             if with_prelude:
                 (fixtures / "prelude").mkdir()
-                (fixtures / "prelude/case.luau").write_text("getfenv()\nShared = {}\n")
+                (fixtures / "prelude/case.luau").write_bytes(b"getfenv()\nShared = {}\n")
             tool = root / "tool"
             tool.write_bytes(b"test tool")
             work = root / "work"

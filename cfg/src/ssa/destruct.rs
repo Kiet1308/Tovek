@@ -2026,6 +2026,15 @@ impl<'a> Destructor<'a> {
                     until not p
                     return v2, v1
                     */
+                    // A for step's edge into a body it alone enters runs exactly
+                    // when the body does: its copies open the body, as a split
+                    // block between the step and its body has no source spelling.
+                    if !is_unconditional && self.is_for_next(pred)
+                        && self.function.graph().neighbors_directed(node, petgraph::Direction::Incoming).count() == 1
+                    {
+                        self.function.block_mut(node).unwrap().insert(0, parallel_assign.into());
+                        continue;
+                    }
                     if !is_unconditional {
                         assign_block = self.function.new_block();
                         if self.is_for_next(self.function.graph().edge_endpoints(edge).unwrap().0) {

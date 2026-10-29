@@ -28,6 +28,7 @@ CASES = {
                               (ROOT / "docs/failure_fixtures/builtin_constant_call.driver.luau").read_text()),
     "native_scalar_inlining": ((ROOT / "docs/failure_fixtures/native_scalar_inlining.luau").read_text(),
                                (ROOT / "docs/failure_fixtures/native_scalar_inlining.driver.luau").read_text()),
+    "generic_for_nested_inline_g2": ((ROOT / "docs/failure_fixtures/generic_for_nested_inline_g2.luau").read_text(), ""),
     "fastcall_fallback_prefix_write": ((ROOT / "docs/failure_fixtures/fastcall_fallback_prefix_write.luau").read_text(),
                                        (ROOT / "docs/failure_fixtures/fastcall_fallback_prefix_write.driver.luau").read_text()),
     "fastcall_fallback_prefix_read": ((ROOT / "docs/failure_fixtures/fastcall_fallback_prefix_read.luau").read_text(),

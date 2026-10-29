@@ -37,3 +37,14 @@ Theo quyết định của chủ repo, nghiệm thu phần decompiler đã tri�
 public suites hiện có và giữ riêng ba mục này trong backlog. Không coi việc
 thiếu dữ liệu là proof không còn bug; không thay đổi refusal policy để che
 các ca chưa rõ. [Báo cáo nghiệm thu](ACCEPTANCE.md) ghi phạm vi và giới hạn.
+
+## Cập nhật 30/10/2026: đã có dữ liệu cho cả ba mục
+
+Máy gốc vẫn giữ báo cáo và repro của đợt review V2.6
+(`v22-work/tmp/deinline-research/results/fr-*.md`, `v2-plan.md`, `v22-work/tmp/fr-*/repro/`):
+
+| Mục | Dữ liệu | Trạng thái |
+|---|---|---|
+| S1 "Handle splits without case (c)" | `v2-plan.md` §4.3 và §8: case (c) là phần **bị loại** của handle-preservation splits ("scope is not the chunk root" đảo ngược chính sách §2.2/D4). Chỉ (a) gộp đường dẫn GetService trùng và (b) slot constructor/template được nhận. | Không có việc gì để làm cho (c); đóng mục. |
+| `repeat` có `return` trong `if`, O2 | `fr-core/repro/F6_repeat_return_in_if.luau` (fr-core F6). Ở O2, `f(1)` được inline; `return g` trong vòng lặp thành gán kết quả rồi nhảy qua `r = -1`, nên vòng lặp có hai lối ra tới hai đích. | Vẫn từ chối ở O2 g1/g2 (g0 ra máy trạng thái). Cần trình dựng cấu trúc chép block kết thúc nhỏ (`r = -1`) vào lối ra `until` để vòng lặp chỉ còn một đích. |
+| Lời gọi inline lồng trong generic `for`, O2 g2 | `fr-dynamic/repro/g2_nested_inline_generic_for.luau` (fr-dynamic F4, seed 606825/606959/635109). Debug local -g2 giữ một phi thừa; destruct chèn block tách cạnh giữa bước `for` và thân, trình dựng cấu trúc báo `unowned-for-marker`. | Đã sửa: copy của cạnh bước `for` → thân (thân chỉ có một predecessor) mở đầu thân vòng lặp. Fixture `docs/failure_fixtures/generic_for_nested_inline_g2.luau` (generic + numeric) qua deep review ở O0/O1/O2 × g0/g2. Phi thừa vẫn để lại vài copy (`local amount = input`) trong output O2 g2. |
