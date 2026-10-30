@@ -262,7 +262,14 @@ fn reads_private_field(value: &RValue, name: &str) -> bool {
 
 fn index_hint(index: &Index) -> Option<String> {
     if let RValue::Literal(Literal::String(key)) = &*index.right {
-        return std::str::from_utf8(key).ok().and_then(sanitize);
+        let key = std::str::from_utf8(key).ok()?;
+        // `local create = vector.create`: a bare constructor verb names its library too.
+        if let (RValue::Global(library), "create" | "new") = (&*index.left, key)
+            && let Ok(library) = std::str::from_utf8(&library.0)
+        {
+            return sanitize(&format!("{key}{}", capitalize_first(library)));
+        }
+        return sanitize(key);
     }
     None
 }

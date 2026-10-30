@@ -60,6 +60,80 @@ pub fn reconstruct_short_circuit_expressions(block: &mut Block) {
     reconstruct_with_style(block, false, Scope { safety: &safety, function: None });
 }
 
+/// `local v = a; if v then v = b end` is `local v = a and b`, and `if not v
+/// then v = b end` is `local v = a or b`: `b` runs exactly where the operator
+/// evaluates it, and a store or an operand keeps one value of it alike. Luau
+/// compiles `a and f(x)` to the first shape, and a call rebuilt in the branch
+/// (`v = f(args)`) leaves it behind. `b` may not read `v`, which it would see
+/// before the store, nor make a closure.
+pub fn fold_self_guards(block: &mut Block) {
+    let mut index = 0;
+    while index + 1 < block.0.len() {
+        if let Some(folded) = self_guard(&block.0[index], &block.0[index + 1]) {
+            block.0[index] = folded;
+            block.0.remove(index + 1);
+            continue;
+        }
+        index += 1;
+    }
+    for statement in &mut block.0 {
+        let mut functions = Vec::new();
+        statement.post_traverse_rvalues(&mut |rvalue| -> Option<()> {
+            if let RValue::Closure(closure) = rvalue {
+                functions.push(closure.function.clone());
+            }
+            None
+        });
+        for function in functions {
+            fold_self_guards(&mut function.lock().body);
+        }
+        match statement {
+            Statement::If(r#if) => {
+                fold_self_guards(&mut r#if.then_block.lock());
+                fold_self_guards(&mut r#if.else_block.lock());
+            }
+            Statement::While(node) => fold_self_guards(&mut node.block.lock()),
+            Statement::Repeat(node) => fold_self_guards(&mut node.block.lock()),
+            Statement::NumericFor(node) => fold_self_guards(&mut node.block.lock()),
+            Statement::GenericFor(node) => fold_self_guards(&mut node.block.lock()),
+            _ => {}
+        }
+    }
+}
+
+fn self_guard(store: &Statement, guard: &Statement) -> Option<Statement> {
+    let Statement::Assign(store) = store else { return None };
+    let ([LValue::Local(local)], [first]) = (store.left.as_slice(), store.right.as_slice()) else { return None };
+    let Statement::If(branch) = guard else { return None };
+    if store.parallel || store.compound || !branch.else_block.lock().0.is_empty() {
+        return None;
+    }
+    let operation = match &branch.condition {
+        RValue::Local(tested) if tested == local => BinaryOperation::And,
+        RValue::Unary(unary) if unary.operation == UnaryOperation::Not
+            && matches!(&*unary.value, RValue::Local(tested) if tested == local) => BinaryOperation::Or,
+        _ => return None,
+    };
+    let then_block = branch.then_block.lock();
+    let [Statement::Assign(update)] = then_block.0.as_slice() else { return None };
+    let ([LValue::Local(updated)], [second]) = (update.left.as_slice(), update.right.as_slice()) else { return None };
+    let mut makes_closure = false;
+    second.traverse_rvalues_ref(&mut |value| makes_closure |= matches!(value, RValue::Closure(_)));
+    if updated != local
+        || update.prefix
+        || update.parallel
+        || update.compound
+        || makes_closure
+        || matches!(second, RValue::Closure(_))
+        || second.any_local_read(&mut |read| read == local)
+    {
+        return None;
+    }
+    let mut folded = store.clone();
+    folded.right = vec![Binary::new(first.clone(), second.clone(), operation).into()];
+    Some(folded.into())
+}
+
 /// Whether some block, in the chunk or any function, declares a candidate
 /// right before an `if` assigning it in both branches: the only shape
 /// [`reconstruct_current_block`] rewrites, and only after asking the census.
@@ -1211,6 +1285,38 @@ fn is_generated_temp(local: &RcLocal) -> bool {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn self_guards_fold_into_and_or() {
+        use crate::{Assign, Block, Call, Global, If, LValue, RValue, RcLocal, Statement, Unary, UnaryOperation};
+        let local = RcLocal::default();
+        let declare = |value: RValue| {
+            let mut assign = Assign::new(vec![LValue::Local(local.clone())], vec![value]);
+            assign.prefix = true;
+            Statement::from(assign)
+        };
+        let update = |value: RValue| Block(vec![Assign::new(vec![LValue::Local(local.clone())], vec![value]).into()]);
+        let call = |name: &str, arguments: Vec<RValue>| RValue::from(Call::new(Global::from(name).into(), arguments));
+        for (condition, operator) in [
+            (RValue::Local(local.clone()), "and"),
+            (Unary::new(RValue::Local(local.clone()), UnaryOperation::Not).into(), "or"),
+        ] {
+            let mut block = Block(vec![
+                declare(call("first", vec![])),
+                If::new(condition, update(call("second", vec![])), Block::default()).into(),
+            ]);
+            super::fold_self_guards(&mut block);
+            assert_eq!(block.0.len(), 1, "{block}");
+            assert!(block.to_string().contains(&format!("first() {operator} second()")), "{block}");
+        }
+        // The second value reads the local: it would see it before the store.
+        let mut block = Block(vec![
+            declare(call("first", vec![])),
+            If::new(RValue::Local(local.clone()), update(call("second", vec![RValue::Local(local.clone())])), Block::default()).into(),
+        ]);
+        super::fold_self_guards(&mut block);
+        assert_eq!(block.0.len(), 2, "{block}");
+    }
+
     use super::reconstruct_conditional_expressions;
     use crate::{
         Assign, Binary, BinaryOperation, Block, Call, Global, If, Index, LValue, Literal, Local,

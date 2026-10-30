@@ -360,6 +360,14 @@ pub struct Destructor<'a> {
     /// targets. Recorded in [`Self::build_def_use`]: coalescing removes
     /// emptied statements, so positions looked up later would be stale.
     value_captures: FxHashSet<(u64, usize, usize)>,
+    /// Where closures copy each local: block and statement, recorded with
+    /// `local_defs` so positions compare ([`Self::breaks_copy_capture`]).
+    copy_captures: FxHashMap<RcLocal, Vec<(NodeIndex, usize)>>,
+    /// The blocks reachable from a block, filled as copies need them.
+    reach: FxHashMap<NodeIndex, FxHashSet<NodeIndex>>,
+    /// Value classes a trivial block parameter shares with its one incoming
+    /// value ([`Self::alias_trivial_param_values`]), by class address.
+    value_alias: FxHashMap<usize, usize>,
 }
 
 /// Terminal SSA still needs copy/capture coalescing and sequentialization,
@@ -513,6 +521,9 @@ impl<'a> Destructor<'a> {
             captured: None,
             unstable_cells: FxHashSet::default(),
             value_captures: FxHashSet::default(),
+            copy_captures: FxHashMap::default(),
+            reach: FxHashMap::default(),
+            value_alias: FxHashMap::default(),
         }
     }
 
@@ -681,6 +692,9 @@ impl<'a> Destructor<'a> {
 
         let phase = ast::telemetry::Span::new("SSA_VALUE_INTERFERENCE");
         self.compute_value_interference();
+        if !self.copy_captures.is_empty() {
+            self.alias_trivial_param_values();
+        }
         drop(phase);
 
         let phase = ast::telemetry::Span::new("SSA_COALESCE_MANDATORY");
@@ -1082,9 +1096,12 @@ impl<'a> Destructor<'a> {
                 // A closure at any depth counts: `x = keep(function() ... end)`
                 // stores the closure before it can run, as `x = function() ...
                 // end` does.
-                if writes_local && self.function.may_hold_closures {
+                if self.function.may_hold_closures {
                     visit_value_captures(stat, &mut |local| {
-                        self.value_captures.insert((local.stable_id(), dominator_index, stat_index));
+                        if writes_local {
+                            self.value_captures.insert((local.stable_id(), dominator_index, stat_index));
+                        }
+                        self.copy_captures.entry(local.clone()).or_default().push((node, stat_index));
                     });
                 }
 
@@ -1546,6 +1563,9 @@ impl<'a> Destructor<'a> {
         red: &Rc<RefCell<CongruenceClass>>,
         blue: &Rc<RefCell<CongruenceClass>>,
     ) -> bool {
+        if self.breaks_copy_capture(red, blue) {
+            return true;
+        }
         let mut local_a = red.borrow().values().next().unwrap().clone();
         let mut local_b = blue.borrow().values().next().unwrap().clone();
         // assumes one of the blocks dominates the other
@@ -1609,11 +1629,137 @@ impl<'a> Destructor<'a> {
         }
     }
 
+    /// Whether joining `red` and `blue` gives a local a closure copies
+    /// another value later on the way out of the copy. Luau copies only a
+    /// variable nothing assigns again; printed with that write, the closure
+    /// would capture a cell and see it (`local final = cframe`, then `final
+    /// = cframe * offset`, joined to the copied `cframe`). A write in a loop
+    /// around the copy is the next iteration's, which the copy's own
+    /// snapshot local shows (`materialize_value_captures`).
+    fn breaks_copy_capture(&mut self, red: &Rc<RefCell<CongruenceClass>>, blue: &Rc<RefCell<CongruenceClass>>) -> bool {
+        if self.copy_captures.is_empty() {
+            return false;
+        }
+        let copies = |class: &Rc<RefCell<CongruenceClass>>| class.borrow().values().any(|local| self.copy_captures.contains_key(local));
+        if !copies(red) && !copies(blue) {
+            return false;
+        }
+        // A block parameter writes nothing: each edge's transport, a member
+        // too, writes its value, so neither it nor a copy of it is checked.
+        let merged_params = red.borrow().values().chain(blue.borrow().values())
+            .filter(|member| matches!(self.local_defs.get(*member), Some((_, _, ParamOrStatIndex::Param(_)))))
+            .filter_map(|member| self.copy_value(member))
+            .collect::<FxHashSet<_>>();
+        for (class, other) in [(red, blue), (blue, red)] {
+            let copied = class.borrow().values().filter(|local| self.copy_captures.contains_key(*local)).cloned().collect_vec();
+            for local in copied {
+                let value = self.copy_value(&local);
+                let others = other.borrow().values()
+                    .filter(|member| {
+                        let member_value = self.copy_value(member);
+                        (value.is_none() || member_value != value)
+                            && !member_value.is_some_and(|member_value| merged_params.contains(&member_value))
+                    })
+                    .cloned()
+                    .collect_vec();
+                for member in others {
+                    if self.defined_after_copy(&member, &local) {
+                        return true;
+                    }
+                }
+            }
+        }
+        false
+    }
+
+    /// The value `local` holds, seen through trivial block parameters.
+    fn copy_value(&self, local: &RcLocal) -> Option<usize> {
+        let mut value = self.values.get(local).map(|class| Rc::as_ptr(class) as usize)?;
+        while let Some(&next) = self.value_alias.get(&value) {
+            value = next;
+        }
+        Some(value)
+    }
+
+    /// A block parameter every edge fills with one value or itself (a loop's
+    /// own version of a register it leaves alone, `φ(x, φ)`) holds that
+    /// value. Without this, a copied parameter could not join its loop
+    /// version ([`Self::breaks_copy_capture`]) and would print as a copy.
+    fn alias_trivial_param_values(&mut self) {
+        let blocks = self.function.graph().node_indices().collect_vec();
+        loop {
+            let mut changed = false;
+            for &node in &blocks {
+                let mut incoming = FxHashMap::<RcLocal, Vec<Option<RcLocal>>>::default();
+                for (_, edge) in self.function.edges_to_block(node) {
+                    for (param, argument) in &edge.arguments {
+                        incoming.entry(param.clone()).or_default().push(argument.as_local().cloned());
+                    }
+                }
+                for (param, arguments) in incoming {
+                    let Some(own) = self.copy_value(&param).filter(|_| !self.in_unstable_cell(&param)) else { continue };
+                    let mut value = None;
+                    let trivial = arguments.iter().all(|argument| {
+                        let Some(argument) = argument.as_ref().filter(|argument| !self.in_unstable_cell(argument)) else { return false };
+                        match self.copy_value(argument) {
+                            Some(found) if found == own => true,
+                            Some(found) if value.is_none_or(|value| value == found) => { value = Some(found); true }
+                            _ => false,
+                        }
+                    });
+                    if trivial && let Some(value) = value {
+                        self.value_alias.insert(own, value);
+                        changed = true;
+                    }
+                }
+            }
+            if !changed {
+                break;
+            }
+        }
+    }
+
+    fn reachable_from(&mut self, node: NodeIndex) -> &FxHashSet<NodeIndex> {
+        if !self.reach.contains_key(&node) {
+            let mut reach = FxHashSet::default();
+            let mut stack = self.function.successor_blocks(node).collect_vec();
+            while let Some(next) = stack.pop() {
+                if reach.insert(next) {
+                    stack.extend(self.function.successor_blocks(next));
+                }
+            }
+            self.reach.insert(node, reach);
+        }
+        &self.reach[&node]
+    }
+
+    /// Whether `member` is defined after a closure copies `copied`, outside
+    /// any loop around both: later in the copying statement's block (the
+    /// statement itself included, as its closure reads what it wrote), or in
+    /// a block reachable from it that cannot reach it back.
+    fn defined_after_copy(&mut self, member: &RcLocal, copied: &RcLocal) -> bool {
+        let Some(&(_, block, position)) = self.local_defs.get(member) else { return true };
+        for (node, statement) in self.copy_captures[copied].clone() {
+            let later = if node == block {
+                matches!(position, ParamOrStatIndex::Stat(index) if index >= statement)
+            } else {
+                self.reachable_from(node).contains(&block)
+            };
+            if later && !self.reachable_from(block).contains(&node) {
+                return true;
+            }
+        }
+        false
+    }
+
     fn check_interfere(
         &mut self,
         red: &Rc<RefCell<CongruenceClass>>,
         blue: &Rc<RefCell<CongruenceClass>>,
     ) -> bool {
+        if self.breaks_copy_capture(red, blue) {
+            return true;
+        }
         let mut dom = Vec::<(&RcLocal, RedOrBlue)>::new();
 
         let red = red.borrow();

@@ -325,3 +325,34 @@ fn reference_captures_are_not_value_captures() {
         assert_eq!(destructor.value_captures.len(), usize::from(by_value));
     }
 }
+
+/// `f = function() p end; local x = p + 1` then `last = phi(x, p)`: the
+/// copied `p` stays apart from `last`, which takes a later value on the way
+/// out of the copy. Printed as one variable, `p = p + 1` would be a write the
+/// closure sees.
+#[test]
+fn copy_keeps_its_variable_apart_from_a_later_value() {
+    let (p, flag, other, f, x, last) = (RcLocal::default(), RcLocal::default(), RcLocal::default(),
+        RcLocal::default(), RcLocal::default(), RcLocal::default());
+    let function = diamond(
+        vec![p.clone(), flag.clone(), other],
+        &flag,
+        (
+            vec![
+                Assign::new(vec![f.into()], vec![closure(vec![Upvalue::Copy(p.clone())])]).into(),
+                Assign::new(vec![x.clone().into()], vec![Binary::new(p.clone().into(), number(1.0), BinaryOperation::Add).into()]).into(),
+            ],
+            vec![(last.clone(), x.into())],
+        ),
+        (vec![], vec![(last.clone(), p.into())]),
+        vec![last.into()],
+    );
+    let function = destruct_preserving(function, &inputs());
+    let statements = closure_statements(&function);
+    let captured = &statements[0].1[0];
+    for (_, block) in function.blocks() {
+        for statement in block.iter() {
+            assert!(!statement.values_written().contains(&captured), "{captured} written by {statement}");
+        }
+    }
+}

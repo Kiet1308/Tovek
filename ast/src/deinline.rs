@@ -444,6 +444,8 @@ pub(crate) struct Bindings {
     /// The site returns the helper's value itself: each `return X` of the
     /// pattern stands for a `return X` of the site ([`match_returned_value`]).
     returning: bool,
+    /// The site's loop exits were given back as returns ([`exit_result_loops`]).
+    loop_exits: bool,
     /// `result` is a local the site declared without a value and that only
     /// the leaves store into: a pattern block that only returns `nil`
     /// stands for an empty site block, on whose path the result keeps that
@@ -1517,8 +1519,14 @@ fn collapse_value_results(stmts: &mut Vec<Statement>, facts: &Collapse, live_out
     // b)` is `h(f(), g())`). `kept` holds the statements kept so far, last
     // first, each with the last original statement it covers.
     let mut kept: Vec<(Statement, usize)> = Vec::with_capacity(n);
+    // A literal's declaration between the call and its use runs nothing the
+    // call could see or change (`local v2 = f(x); local v3 = nil; g(v2, v3)`).
+    let inert = |statement: &Statement| is_match_trivia(statement) || matches!(statement, Statement::Assign(a)
+        if a.prefix && !a.parallel && a.left.len() == 1 && matches!(a.right.as_slice(), [RValue::Literal(_)]));
     for (i, statement) in taken.into_iter().enumerate().rev() {
-        if let Some((next, covers)) = kept.last()
+        let at = kept.iter().rposition(|(kept, _)| !inert(kept));
+        if let Some(at) = at
+            && let Some((next, covers)) = kept.get(at)
             && let Statement::Assign(a) = &statement
             && let Some((v, call)) = value_call_decl(a)
             && count_local_reads(std::slice::from_ref(next), &v) == 1
@@ -1532,9 +1540,7 @@ fn collapse_value_results(stmts: &mut Vec<Statement>, facts: &Collapse, live_out
         {
             // The rebuilt call now lives inside `collapsed`, still carrying
             // its `rebuilt` attribute for the formatter's site comment.
-            let covers = *covers;
-            kept.pop();
-            kept.push((collapsed, covers));
+            kept[at] = (collapsed, *covers);
         } else {
             kept.push((statement, i));
         }
@@ -1737,6 +1743,11 @@ fn returns_exactly_one(body: &[Statement]) -> bool {
         match stmts.iter().rev().find(|statement| !is_match_trivia(statement)) {
             Some(Statement::Return(_)) => true,
             Some(Statement::If(f)) => always_returns(&f.then_block.lock().0) && always_returns(&f.else_block.lock().0),
+            // A loop nothing but a `return` leaves never runs past its end.
+            Some(Statement::While(w)) => matches!(w.condition, RValue::Literal(Literal::Boolean(true)))
+                && !has_owned_break(&w.block.lock().0),
+            Some(Statement::Repeat(r)) => matches!(r.condition, RValue::Literal(Literal::Boolean(false)))
+                && !has_owned_break(&r.block.lock().0),
             _ => false,
         }
     }
@@ -3133,7 +3144,7 @@ fn unify_stmt(t: &Target, p: &Statement, c: &Statement, b: &mut Bindings) -> Res
             // A value helper's `return x` from inside its loop, which
             // `unflag_value_loop` gives back from the site's `r = x; flag =
             // false; break` (a site window has no `return` of its own).
-            ([pattern], [site]) if t.loop_exit_at.is_some() => unify_returned_value(&ctx, pattern, site, b),
+            ([pattern], [site]) if t.loop_exit_at.is_some() || b.loop_exits => unify_returned_value(&ctx, pattern, site, b),
             // A copy returning the helper's value from the caller: the same
             // value, taken the same way.
             ([pattern], [site]) if b.returning => unify_rvalue(&ctx, pattern, site, b),
@@ -5137,6 +5148,15 @@ fn match_value(
                 _ => (Window::default(), None),
             },
         ];
+        // A helper returning from its loop: the copy stores and breaks.
+        let seed = Bindings { elide_nil: true, ..Bindings::default() };
+        if let Some(u) = unify_loop_exits(t, region, &r, seed, current_func)
+            && !u.callee_locals.contains(&r)
+            && !block_reads_local(region, &r)
+            && !tail_has_live(last_occ, stmts, i, body_start + w, &u.callee_locals)
+        {
+            record_site(&mut site, &mut ambiguous, w, &u, None);
+        }
         for (idx, (cw, rewritten)) in attempts.iter().enumerate() {
             if (idx == 0 && cw.is_empty()) || (idx == 1 && rewritten.is_none()) {
                 continue;
@@ -5464,6 +5484,14 @@ fn match_assigned_value(
             continue;
         }
         let Some(result) = terminal_store(region) else { continue };
+        let seed = Bindings { assigned: true, ..Bindings::default() };
+        if let Some(u) = unify_loop_exits(t, region, &result, seed, current_func)
+            && !u.callee_locals.contains(&result)
+            && !tail_has_live(last_occ, stmts, i, i + w, &u.callee_locals)
+        {
+            record_site(&mut site, &mut ambiguous, w, &u, None);
+            continue;
+        }
         if !plain_kinds_may_match(t, region) {
             continue;
         }
@@ -8885,7 +8913,8 @@ fn any_structural_target(body: &Block, copies: Option<&evidence::Copies>) -> boo
         if pattern.is_empty() {
             return;
         }
-        let loop_exit = kind == TKind::Value && !value_leaf_shape(&pattern) && loop_return_split(&pattern).is_some();
+        let loop_exit = kind == TKind::Value && !value_leaf_shape(&pattern)
+            && (loop_return_split(&pattern).is_some() || loop_exit_shape(&pattern));
         // Below the floor only where line info shows copies (E1).
         if anchor_score(&pattern, &g.parameters) + LOOP_EXIT_ANCHORS * usize::from(loop_exit) < 2
             && !g.bytecode_proto_id.is_some_and(|proto| copies.is_some_and(|copies| copies.inlined_anywhere(proto)))
@@ -8914,7 +8943,240 @@ fn pattern_body<'a>(body: &'a [Statement], parameters: &[RcLocal]) -> (std::borr
     if let Some((lowered, returned)) = straight_tuple_return(body, parameters) {
         return (std::borrow::Cow::Owned(lowered), returned);
     }
+    if let Some(lowered) = return_from_tail_loop(body).filter(|_| !value_leaf_shape(&canon(body))) {
+        return (std::borrow::Cow::Owned(lowered), Vec::new());
+    }
     (std::borrow::Cow::Borrowed(body), Vec::new())
+}
+
+/// `while true do ... break ... end; return t` ending a helper: each `break`
+/// of the loop leads straight to the `return`, so the loop may return there
+/// (`if found then return i end`), the shape [`loop_exit_shape`] admits.
+fn return_from_tail_loop(body: &[Statement]) -> Option<Vec<Statement>> {
+    fn owns_break(stmts: &[Statement]) -> bool {
+        stmts.iter().any(|statement| match statement {
+            Statement::Break(_) => true,
+            Statement::If(branch) => owns_break(&branch.then_block.lock().0) || owns_break(&branch.else_block.lock().0),
+            _ => false,
+        })
+    }
+    fn returning(stmts: &[Statement], ret: &Return) -> Vec<Statement> {
+        stmts.iter().map(|statement| match statement {
+            Statement::Break(_) => Statement::Return(ret.clone()),
+            Statement::If(branch) => If::new(
+                branch.condition.clone(),
+                Block(returning(&branch.then_block.lock().0, ret)),
+                Block(returning(&branch.else_block.lock().0, ret)),
+            ).into(),
+            other => other.clone(),
+        }).collect()
+    }
+    let (Statement::Return(ret), rest) = body.split_last()? else { return None };
+    let (Statement::While(node), prefix) = rest.split_last()? else { return None };
+    let looped = node.block.lock();
+    if !matches!(node.condition, RValue::Literal(Literal::Boolean(true)))
+        || !matches!(ret.values.as_slice(), [value] if is_truncatable_return_value(value))
+        || !owns_break(&looped.0)
+    {
+        return None;
+    }
+    let mut out = prefix.to_vec();
+    out.push(While::new(node.condition.clone(), Block(returning(&looped.0, ret))).into());
+    Some(out)
+}
+
+/// A value helper whose every `return` ends it, on each path: a leaf, as
+/// in [`value_leaf_shape`], or a loop returning from inside, then what its
+/// normal exit runs (nothing after a `while true` it leaves only by
+/// returning). Its copies store the value and leave the loop by a `break`,
+/// past the rest under a flag where there is a rest ([`exit_result_loops`]).
+fn loop_exit_shape(stmts: &[Statement]) -> bool {
+    if let Some(at) = stmts.iter().position(|statement| loop_body(statement).is_some() && statement_has_return(statement)) {
+        let looped = loop_body(&stmts[at]).expect("a loop");
+        let mut found = false;
+        if block_has_return(&stmts[..at]) || !exits_once(&looped.lock().0, &mut found) || !found {
+            return false;
+        }
+        let rest = &stmts[at + 1..];
+        return if rest.iter().all(is_match_trivia) {
+            matches!(&stmts[at], Statement::While(node) if matches!(node.condition, RValue::Literal(Literal::Boolean(true))))
+                && !has_owned_break(&looped.lock().0)
+        } else {
+            loop_exit_shape(rest)
+        };
+    }
+    let Some((last, prefix)) = stmts.split_last() else { return false };
+    if block_has_return(prefix) {
+        return false;
+    }
+    match last {
+        Statement::Return(ret) => matches!(ret.values.as_slice(), [value] if is_truncatable_return_value(value)),
+        Statement::If(branch) => {
+            let else_block = branch.else_block.lock();
+            !else_block.0.is_empty() && loop_exit_shape(&else_block.0) && loop_exit_shape(&branch.then_block.lock().0)
+        }
+        _ => false,
+    }
+}
+
+fn loop_body(statement: &Statement) -> Option<&Arc<Mutex<Block>>> {
+    match statement {
+        Statement::While(node) => Some(&node.block),
+        Statement::Repeat(node) => Some(&node.block),
+        Statement::NumericFor(node) => Some(&node.block),
+        Statement::GenericFor(node) => Some(&node.block),
+        _ => None,
+    }
+}
+
+fn has_owned_break(stmts: &[Statement]) -> bool {
+    stmts.iter().any(|statement| match statement {
+        Statement::Break(_) => true,
+        Statement::If(branch) => has_owned_break(&branch.then_block.lock().0) || has_owned_break(&branch.else_block.lock().0),
+        _ => false,
+    })
+}
+
+/// Every `return` of `stmts` gives one value, none inside a nested loop.
+fn exits_once(stmts: &[Statement], found: &mut bool) -> bool {
+    stmts.iter().all(|statement| match statement {
+        Statement::Return(ret) => {
+            *found = true;
+            ret.values.len() == 1 && is_truncatable_return_value(&ret.values[0])
+        }
+        Statement::If(branch) => {
+            exits_once(&branch.then_block.lock().0, found) && exits_once(&branch.else_block.lock().0, found)
+        }
+        // A `return` two loops deep leaves through two flags.
+        other => !statement_has_return(other),
+    })
+}
+
+/// A copy of a [`loop_exit_shape`] helper storing into `result`, unified
+/// with its loops' exits given back as returns ([`exit_result_loops`]):
+/// plainly, then with a loop's opening exit as its test.
+fn unify_loop_exits(t: &Target, region: &[Statement], result: &RcLocal, seed: Bindings, current_func: Option<FnPtr>) -> Option<Unified> {
+    if t.loop_exit_at.is_some() || value_leaf_shape(&t.pat) || !loop_exit_shape(&t.pat) {
+        return None;
+    }
+    [false, true].into_iter().find_map(|tested| {
+        let window = exit_result_loops(region, result, tested)?;
+        if canon_top_len(&window, true) != t.pat.len() || !charge_window(t, &window) || !charge_unify(t, &window) {
+            return None;
+        }
+        let seed = Bindings { loop_exits: true, result: Some(result.clone()), ..seed.clone() };
+        try_unify_seeded(t, &canon_recurse(canon_top(&window, true), true), current_func, seed)
+            .filter(|unified| unified.result.as_ref() == Some(result))
+    })
+}
+
+/// A copy of a [`loop_exit_shape`] helper after its result declaration,
+/// given back with the helper's returns: in each `while true` loop ending a
+/// path of `region`, `r = x; break` is `return x`. Every break of such a loop
+/// must store `r` right before it, and the loop may not read or otherwise
+/// write `r`. With `tested`, a loop opening with `if c then return x end`
+/// is `while not c do ... end; return x`, the form of the helper's `while`
+/// whose exit the copy stores before its `break`.
+fn exit_result_loops(region: &[Statement], r: &RcLocal, tested: bool) -> Option<Vec<Statement>> {
+    fn store(statement: &Statement, r: &RcLocal) -> Option<RValue> {
+        let Statement::Assign(assign) = statement else { return None };
+        (is_plain_local_write(assign, r) && !assign.compound).then(|| assign.right[0].clone())
+    }
+    fn exits(stmts: &[Statement], r: &RcLocal) -> Option<Vec<Statement>> {
+        let mut out = Vec::with_capacity(stmts.len());
+        let mut index = 0;
+        while index < stmts.len() {
+            match &stmts[index] {
+                Statement::Break(_) => return None,
+                Statement::If(branch) => out.push(If::new(
+                    branch.condition.clone(),
+                    Block(exits(&branch.then_block.lock().0, r)?),
+                    Block(exits(&branch.else_block.lock().0, r)?),
+                ).into()),
+                statement => match (store(statement, r), stmts.get(index + 1)) {
+                    (Some(value), Some(Statement::Break(_))) => {
+                        out.push(Return::new(vec![value]).into());
+                        index += 1;
+                    }
+                    _ => out.push(statement.clone()),
+                },
+            }
+            index += 1;
+        }
+        Some(out)
+    }
+    /// `local ok = true; LOOP; if ok then REST end` ending a path
+    /// ([`unflag_value_loop`]).
+    fn flagged(stmts: &[Statement], r: &RcLocal) -> Option<Vec<Statement>> {
+        let real = (0..stmts.len()).filter(|&n| !is_match_trivia(&stmts[n])).collect::<Vec<_>>();
+        let (decl, looped, guard) = match real[..] {
+            [.., decl, looped, guard] if loop_body(&stmts[looped]).is_some() => (decl, looped, Some(guard)),
+            [.., decl, looped] if loop_body(&stmts[looped]).is_some() => (decl, looped, None),
+            _ => return None,
+        };
+        let flag = flag_decl(&stmts[decl])?;
+        if guard.is_some_and(|guard| !matches!(&stmts[guard], Statement::If(branch)
+            if matches!(&branch.condition, RValue::Local(read) if *read == flag)))
+        {
+            return None;
+        }
+        unflag_value_loop(&stmts[..decl], &stmts[looped], guard.map(|guard| &stmts[guard]), r, &flag)
+    }
+    /// `if c then return x end` opening a loop body: its test and exit.
+    fn opening_exit(stmts: &[Statement]) -> Option<(usize, RValue, Return)> {
+        let at = stmts.iter().position(|statement| !is_match_trivia(statement))?;
+        let Statement::If(branch) = &stmts[at] else { return None };
+        if !branch.else_block.lock().0.is_empty() {
+            return None;
+        }
+        let then = branch.then_block.lock();
+        let mut real = then.0.iter().filter(|statement| !is_match_trivia(statement));
+        let (Some(Statement::Return(ret)), None) = (real.next(), real.next()) else { return None };
+        Some((at, branch.condition.clone(), ret.clone()))
+    }
+    fn ending(stmts: &[Statement], r: &RcLocal, tested: bool, converted: &mut bool) -> Option<Vec<Statement>> {
+        if let Some(window) = flagged(stmts, r) {
+            *converted = true;
+            return Some(window);
+        }
+        let mut out = stmts.to_vec();
+        let at = out.iter().rposition(|statement| !is_match_trivia(statement))?;
+        let mut tail = None;
+        let replaced: Statement = match &out[at] {
+            Statement::If(branch) => {
+                // Each guard ends with its `let`: an arm left as it is locks again.
+                let then_block = ending(&branch.then_block.lock().0, r, tested, converted);
+                let else_block = ending(&branch.else_block.lock().0, r, tested, converted);
+                If::new(
+                    branch.condition.clone(),
+                    Block(then_block.unwrap_or_else(|| branch.then_block.lock().0.clone())),
+                    Block(else_block.unwrap_or_else(|| branch.else_block.lock().0.clone())),
+                ).into()
+            }
+            Statement::While(node) if matches!(node.condition, RValue::Literal(Literal::Boolean(true))) => {
+                let mut looped = exits(&node.block.lock().0, r)?;
+                if block_writes_local(&looped, r) || block_reads_local(&looped, r) {
+                    return None;
+                }
+                *converted = true;
+                match opening_exit(&looped).filter(|_| tested) {
+                    Some((exit_at, condition, ret)) => {
+                        looped.remove(exit_at);
+                        tail = Some(Statement::from(ret));
+                        While::new(negate_canon(condition), Block(looped)).into()
+                    }
+                    None => While::new(node.condition.clone(), Block(looped)).into(),
+                }
+            }
+            _ => return Some(out),
+        };
+        out[at] = replaced;
+        out.extend(tail);
+        Some(out)
+    }
+    let mut converted = false;
+    let window = ending(region, r, tested, &mut converted)?;
+    converted.then_some(window)
 }
 
 /// A helper ending with one `return e1, e2, ...` of two or more values, not
@@ -9427,9 +9689,10 @@ fn analyze_helper(
             }
         }
         // value: every leaf must be a single value-return (the result),
-        // or a return from inside a loop (`loop_return_split`).
+        // or a return from inside a loop (`loop_return_split`,
+        // `loop_exit_shape`).
         TKind::Value => {
-            if !value_leaf_shape(&pat) && loop_exit_at.is_none() {
+            if !value_leaf_shape(&pat) && loop_exit_at.is_none() && !loop_exit_shape(&pat) {
                 return Err(HelperAnalysis::RefusedLater(RejectReason::UnsupportedReturnShape));
             }
         }
@@ -9455,7 +9718,8 @@ fn analyze_helper(
     // Below the readability floor, a helper is matched only where line
     // info shows its copies, all of them in a function or none (E1).
     let inlined = g.bytecode_proto_id.is_some_and(|proto| lines.is_some_and(|lines| lines.copies.inlined_anywhere(proto)));
-    let evidence = anchor_score(&pat, &g.parameters) + LOOP_EXIT_ANCHORS * usize::from(loop_exit_at.is_some()) < 2;
+    let exits_loop = loop_exit_at.is_some() || kind == TKind::Value && !value_leaf_shape(&pat);
+    let evidence = anchor_score(&pat, &g.parameters) + LOOP_EXIT_ANCHORS * usize::from(exits_loop) < 2;
     if evidence && !inlined {
         return Err(HelperAnalysis::RefusedLater(RejectReason::LowAnchorScore));
     }
@@ -9524,7 +9788,7 @@ fn analyze_helper(
     // The parameters a value leaf hands back as they are, and the one
     // every leaf does, if any.
     let mut leaves = Vec::new();
-    if kind == TKind::Value && loop_exit_at.is_none() {
+    if kind == TKind::Value && loop_exit_at.is_none() && value_leaf_shape(&pat) {
         value_leaves(&pat, &mut leaves);
     }
     let returned_param = |leaf: &RValue| match leaf {
@@ -10037,7 +10301,7 @@ fn classify_returns(body: &[Statement]) -> Option<(TKind, bool)> {
     }
     if !has_void {
         let pattern = canon(body);
-        if value_leaf_shape(&pattern) || loop_return_split(&pattern).is_some() {
+        if value_leaf_shape(&pattern) || loop_return_split(&pattern).is_some() || loop_exit_shape(&pattern) {
             return Some((TKind::Value, false));
         }
     }
@@ -10058,19 +10322,6 @@ const LOOP_EXIT_ANCHORS: usize = 2;
 /// (`value_leaf_shape`). Returns the loop's index in `pattern`. Its copies
 /// store the value and leave the loop through a flag ([`match_value_loop`]).
 fn loop_return_split(pattern: &[Statement]) -> Option<usize> {
-    fn exits_once(stmts: &[Statement], found: &mut bool) -> bool {
-        stmts.iter().all(|statement| match statement {
-            Statement::Return(ret) => {
-                *found = true;
-                ret.values.len() == 1 && is_truncatable_return_value(&ret.values[0])
-            }
-            Statement::If(branch) => {
-                exits_once(&branch.then_block.lock().0, found) && exits_once(&branch.else_block.lock().0, found)
-            }
-            // A `return` two loops deep leaves through two flags.
-            other => !statement_has_return(other),
-        })
-    }
     let at = pattern.iter().position(|statement| {
         matches!(statement, Statement::GenericFor(_) | Statement::NumericFor(_) | Statement::While(_))
             && statement_has_return(statement)

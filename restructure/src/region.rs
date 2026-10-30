@@ -4967,11 +4967,16 @@ impl<'a> Builder<'a> {
             }
             let mut body = result.block;
             strip_trailing_continues(&mut body);
+            let mut next = (info.join != info.header).then_some(info.join);
+            if !ends_with_break_test(&body) && let Some(ret) = next.and_then(|join| self.join_return(join, info)) {
+                breaks_as(&mut body, &ret);
+                next = None;
+            }
             return Some(PathResult {
                 block: Block::from(vec![
                     ast::While::new(Literal::Boolean(true).into(), body).into(),
                 ]),
-                next: (info.join != info.header).then_some(info.join),
+                next,
             });
         }
         let condition = info.while_condition.clone()?;
@@ -5110,6 +5115,11 @@ impl<'a> Builder<'a> {
             guarded.extend(body.0);
             body = guarded;
             loop_condition = Literal::Boolean(true).into();
+            if !ends_with_break_test(&body) && let Some(ret) = self.join_return(info.join, info) {
+                breaks_as(&mut body, &ret);
+                output.push(ast::While::new(loop_condition, body).into());
+                return Some(PathResult { block: output, next: None });
+            }
         } else {
             output.extend(prefix.0);
         }
@@ -5118,6 +5128,24 @@ impl<'a> Builder<'a> {
             block: output,
             next: Some(info.join),
         })
+    }
+
+    /// The value `return` a `while true` loop's exits all lead straight to,
+    /// reached from nowhere else: each exit may return there (`if found then
+    /// return i end`) rather than `break` before a `return` after the loop.
+    /// A bare `return`, the end of the function, stays a `break`; a return
+    /// other code shares stays the join it is.
+    fn join_return(&mut self, join: NodeIndex, info: &LoopInfo) -> Option<Statement> {
+        if info.nodes.contains(&join)
+            || !is_return_block(self.function, join)
+            || !self.function.predecessor_blocks(join).all(|predecessor| info.nodes.contains(&predecessor))
+        {
+            return None;
+        }
+        let statement = self.function.block(join)?.iter()
+            .find(|statement| matches!(statement, Statement::Return(ret) if !ret.values.is_empty()))?.clone();
+        self.visited.insert(join);
+        Some(self.rewrite_statement(statement))
     }
 
     /// The false header edge may run an adapter before the shared join. Put
@@ -8202,6 +8230,29 @@ fn block_ends_terminal(block: &Block) -> bool {
                 && block_ends_terminal(&else_block)
         }
         _ => false,
+    }
+}
+
+/// A body ending `if c then break end`: the test of a `repeat ... until c`,
+/// which reads better than returning from inside the loop.
+fn ends_with_break_test(block: &Block) -> bool {
+    matches!(block.0.iter().rev().find(|statement| !is_ignorable(statement)), Some(Statement::If(branch))
+        if branch.else_block.lock().is_empty()
+            && matches!(branch.then_block.lock().0.as_slice(), [Statement::Break(_)]))
+}
+
+/// Replace the `break`s of the loop `block` is the body of, outside loops
+/// nested in it, with `ret`.
+fn breaks_as(block: &mut Block, ret: &Statement) {
+    for statement in &mut block.0 {
+        match statement {
+            Statement::Break(_) => *statement = ret.clone(),
+            Statement::If(branch) => {
+                breaks_as(&mut branch.then_block.lock(), ret);
+                breaks_as(&mut branch.else_block.lock(), ret);
+            }
+            _ => {}
+        }
     }
 }
 

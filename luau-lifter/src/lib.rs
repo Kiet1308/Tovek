@@ -1267,6 +1267,9 @@ fn decompile_bytecode_internal(
                 ptime!(S_RECOVER_METHODS);
                 ast::recover_methods::recover_methods(&mut body);
             }
+            // `local v = a; if v then v = f(x) end`, left by a call rebuilt in
+            // the branch, as `local v = a and f(x)` before temps fold.
+            ast::conditional_expressions::fold_self_guards(&mut body);
             {
                 ptime!(S_INLINE_TEMPS_1);
                 ast::inline_temps::inline_single_use_temps(&mut body);

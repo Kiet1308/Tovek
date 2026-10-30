@@ -111,12 +111,14 @@ fn materialize_in_block(
                         let mutated = nested_loop(&repeat.block.lock(), &[]);
                         materialize_in_block(&mut repeat.block.lock(), &mutated, &chain)
                     }
+                    // A `for` binds its variables anew on every trip, as a
+                    // `local` does: only writes in its body change them.
                     Statement::NumericFor(numeric_for) => {
-                        let mutated = nested_loop(&numeric_for.block.lock(), &[numeric_for.counter.clone()]);
+                        let mutated = nested_loop(&numeric_for.block.lock(), &[]);
                         materialize_in_block(&mut numeric_for.block.lock(), &mutated, &chain)
                     }
                     Statement::GenericFor(generic_for) => {
-                        let mutated = nested_loop(&generic_for.block.lock(), &generic_for.res_locals);
+                        let mutated = nested_loop(&generic_for.block.lock(), &[]);
                         materialize_in_block(&mut generic_for.block.lock(), &mutated, &chain)
                     }
                     _ => unreachable!(),
@@ -444,19 +446,24 @@ mod tests {
         Literal::Number(value).into()
     }
 
+    /// `local x; for i = 1, 3 do x = i; for j = 1, 3 do slot = function()
+    /// return x end end end`: `x` outlives the outer loop, which writes it, so
+    /// the inner closure snapshots it. A `for` variable itself is new on every
+    /// trip and is copied as it is ([`a_for_variable_needs_no_snapshot`]).
     #[test]
     fn nested_loop_preserves_enclosing_mutated_capture_snapshot() {
         let outer_counter = local("i");
+        let carried = local("x");
         let inner_counter = local("j");
         let destination = local("slot");
         let function = Arc::new(Mutex::new(Function {
-            body: Block(vec![Return::new(vec![RValue::Local(outer_counter.clone())]).into()]),
+            body: Block(vec![Return::new(vec![RValue::Local(carried.clone())]).into()]),
             ..Function::default()
         }));
         let closure = RValue::Closure(Closure {
             node_origin: Default::default(),
             function: ByAddress(function),
-            upvalues: vec![Upvalue::Copy(outer_counter.clone())],
+            upvalues: vec![Upvalue::Copy(carried.clone())],
         });
         let inner = NumericFor::new(
             number(1.0),
@@ -472,7 +479,10 @@ mod tests {
             number(3.0),
             number(1.0),
             outer_counter.clone(),
-            Block(vec![Statement::NumericFor(Box::new(inner)).into()]),
+            Block(vec![
+                Assign::new(vec![LValue::Local(carried.clone())], vec![RValue::Local(outer_counter)]).into(),
+                Statement::NumericFor(Box::new(inner)).into(),
+            ]),
         );
         let mut block = Block(vec![Statement::NumericFor(Box::new(outer)).into()]);
 
@@ -480,7 +490,7 @@ mod tests {
 
         let outer = block[0].as_numeric_for().unwrap();
         let outer_body = outer.block.lock();
-        let inner = outer_body[0].as_numeric_for().unwrap();
+        let inner = outer_body[1].as_numeric_for().unwrap();
         let inner_body = inner.block.lock();
         let Statement::Assign(snapshot) = &inner_body[0] else {
             panic!("expected a snapshot declaration before the closure assignment");
@@ -489,7 +499,7 @@ mod tests {
             panic!("expected the snapshot to declare a local");
         };
         assert!(snapshot.prefix);
-        assert_eq!(snapshot.right, vec![RValue::Local(outer_counter)]);
+        assert_eq!(snapshot.right, vec![RValue::Local(carried)]);
         let Statement::Assign(assignment) = &inner_body[1] else {
             panic!("expected the closure assignment after the snapshot");
         };
@@ -501,6 +511,29 @@ mod tests {
             closure.function.lock().body[0],
             Statement::Return(ref ret) if ret.values == vec![RValue::Local(snapshot_local.clone())]
         ));
+    }
+
+    /// `for i = 1, 3 do slot = function() return i end end`: Luau gives every
+    /// trip its own `i` (the closures return 1, 2, 3), so the copy needs no
+    /// snapshot.
+    #[test]
+    fn a_for_variable_needs_no_snapshot() {
+        let counter = local("i");
+        let destination = local("slot");
+        let function = Arc::new(Mutex::new(Function {
+            body: Block(vec![Return::new(vec![RValue::Local(counter.clone())]).into()]),
+            ..Function::default()
+        }));
+        let closure = RValue::Closure(Closure {
+            node_origin: Default::default(),
+            function: ByAddress(function),
+            upvalues: vec![Upvalue::Copy(counter.clone())],
+        });
+        let looped = NumericFor::new(number(1.0), number(3.0), number(1.0), counter,
+            Block(vec![Assign::new(vec![LValue::Local(destination)], vec![closure]).into()]));
+        let mut block = Block(vec![Statement::NumericFor(Box::new(looped)).into()]);
+        materialize_value_captures(&mut block);
+        assert_eq!(block[0].as_numeric_for().unwrap().block.lock().len(), 1);
     }
 
     /// `for i = 1, 3 do local function h() end; slot = function() return h
@@ -548,20 +581,24 @@ mod tests {
     #[test]
     fn an_unshared_body_is_renamed_in_place() {
         let counter = local("i");
+        let carried = local("x");
         let unused = local("unused");
         let slot = local("slot");
         let function = Arc::new(Mutex::new(Function {
             parameters: vec![unused.clone()],
-            body: Block(vec![Return::new(vec![RValue::Local(counter.clone())]).into()]),
+            body: Block(vec![Return::new(vec![RValue::Local(carried.clone())]).into()]),
             ..Function::default()
         }));
         let identity = Arc::as_ptr(&function) as usize;
         let closure = RValue::Closure(Closure {
             node_origin: Default::default(),
             function: ByAddress(function),
-            upvalues: vec![Upvalue::Copy(counter.clone())],
+            upvalues: vec![Upvalue::Copy(carried.clone())],
         });
-        let body = Block(vec![Assign::new(vec![LValue::Local(slot)], vec![closure]).into()]);
+        let body = Block(vec![
+            Assign::new(vec![LValue::Local(carried)], vec![RValue::Local(counter.clone())]).into(),
+            Assign::new(vec![LValue::Local(slot)], vec![closure]).into(),
+        ]);
         let loop_statement = NumericFor::new(number(1.0), number(2.0), number(1.0), counter, body);
         let mut block = Block(vec![Statement::NumericFor(Box::new(loop_statement)).into()]);
 
@@ -569,7 +606,7 @@ mod tests {
 
         let outer = block[0].as_numeric_for().unwrap();
         let body = outer.block.lock();
-        let RValue::Closure(closure) = &body[1].as_assign().unwrap().right[0] else {
+        let RValue::Closure(closure) = &body[2].as_assign().unwrap().right[0] else {
             panic!("expected the closure after its snapshot");
         };
         assert_eq!(Arc::as_ptr(&closure.function.0) as usize, identity);
@@ -578,7 +615,8 @@ mod tests {
 
     #[test]
     fn shared_nested_closure_bodies_are_cloned_before_snapshot_rename() {
-        let counter = local("i");
+        let loop_counter = local("i");
+        let counter = local("x");
         let first_slot = local("first");
         let second_slot = local("second");
         let nested_function = Arc::new(Mutex::new(Function {
@@ -604,6 +642,7 @@ mod tests {
             })
         };
         let loop_body = Block(vec![
+            Assign::new(vec![LValue::Local(counter.clone())], vec![RValue::Local(loop_counter.clone())]).into(),
             Assign::new(vec![LValue::Local(first_slot)], vec![make_closure()]).into(),
             Assign::new(vec![LValue::Local(second_slot)], vec![make_closure()]).into(),
         ]);
@@ -611,7 +650,7 @@ mod tests {
             number(1.0),
             number(2.0),
             number(1.0),
-            counter.clone(),
+            loop_counter,
             loop_body,
         );
         let mut block = Block(vec![Statement::NumericFor(Box::new(loop_statement)).into()]);
@@ -620,8 +659,8 @@ mod tests {
 
         let outer = block[0].as_numeric_for().unwrap();
         let body = outer.block.lock();
-        let first = body[1].as_assign().unwrap();
-        let second = body[3].as_assign().unwrap();
+        let first = body[2].as_assign().unwrap();
+        let second = body[4].as_assign().unwrap();
         let RValue::Closure(first_outer) = &first.right[0] else {
             panic!("expected first outer closure");
         };

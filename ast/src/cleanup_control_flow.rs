@@ -53,6 +53,17 @@ fn break_guard(statement: &Statement) -> bool {
         && branch.else_block.lock().0.iter().all(trivia)
 }
 
+/// `if c then return x end`: the `return`.
+fn return_guard(statement: &Statement) -> Option<Statement> {
+    let Statement::If(branch) = statement else { return None; };
+    let then = branch.then_block.lock();
+    let mut real = then.0.iter().filter(|statement| !trivia(statement));
+    match (real.next(), real.next()) {
+        (Some(ret @ Statement::Return(_)), None) if branch.else_block.lock().0.iter().all(trivia) => Some(ret.clone()),
+        _ => None,
+    }
+}
+
 fn cleanup_value(value: &mut RValue) {
     if let RValue::Closure(closure) = value {
         cleanup_block(&mut closure.function.lock().body, false);
@@ -72,6 +83,7 @@ fn cleanup_block(block: &mut Block, else_arm: bool) -> Flow {
             cleanup_value(value);
             true
         });
+        let mut after_loop = None;
         match &mut statement {
             Statement::If(branch) => {
                 let then_flow = cleanup_block(&mut branch.then_block.lock(), false);
@@ -111,6 +123,15 @@ fn cleanup_block(block: &mut Block, else_arm: bool) -> Flow {
                             .chain(branch.else_block.lock().0.iter().filter(|s| trivia(s)).cloned())
                             .collect::<Vec<_>>();
                         body.0.splice(head..head, comments);
+                    } else if body_flow.breaks == 0
+                        && let Some(head) = body.0.iter().position(|statement| !trivia(statement))
+                        && let Some(ret) = return_guard(&body.0[head])
+                    {
+                        // Leaving only by returns, nothing after the loop runs
+                        // but this exit: `while c do ... end; return x`.
+                        let Statement::If(branch) = body.0.remove(head) else { unreachable!() };
+                        node.condition = crate::flatten_guards::negate(branch.condition);
+                        after_loop = Some(ret);
                     }
                 }
                 if matches!(node.condition, RValue::Literal(Literal::Boolean(true)))
@@ -162,6 +183,7 @@ fn cleanup_block(block: &mut Block, else_arm: bool) -> Flow {
             _ => {}
         }
         output.push(statement);
+        output.extend(after_loop);
     }
     block.0 = output;
     flow

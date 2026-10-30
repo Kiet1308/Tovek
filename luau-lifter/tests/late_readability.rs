@@ -11,6 +11,23 @@ const VECTOR: &[u8] = include_bytes!("fixtures/deinline_vector_arguments.luaubc"
 const COPY_CAPTURE: &[u8] = include_bytes!("fixtures/deinline_copy_capture_rebound.luaubc");
 const COPY_BEFORE_CAPTURE: &[u8] = include_bytes!("fixtures/deinline_copy_written_before_capture.luaubc");
 const COPY_PER_SITE: &[u8] = include_bytes!("fixtures/deinline_copy_per_site.luaubc");
+const LOOP_EXIT_HELPERS: &[u8] = include_bytes!("fixtures/deinline_loop_exit_helpers.luaubc");
+
+#[test]
+fn helpers_returning_from_a_loop_after_a_guard_are_rebuilt() {
+    let source = luau_lifter::try_decompile_bytecode_with_options(
+        LOOP_EXIT_HELPERS, 1, None, Default::default(),
+    ).expect("loop-exit helpers decompile");
+    // Each copy stores and breaks (or clears a flag) where the helper returns.
+    for line in ["print(repeated(1), repeated(2), repeated(3))", "print(tested(1), tested(2), tested(3))",
+        "print(find(v, true), nil, find({}, 1))"]
+    {
+        assert!(source.contains(line), "{line}
+{source}");
+    }
+    // The helper's loop returns where the source does, not `break` and a return after it.
+    assert!(!source.contains("break"), "{source}");
+}
 
 #[test]
 fn a_value_capture_written_only_before_any_closure_keeps_its_helper_calls() {
@@ -36,9 +53,11 @@ fn a_value_capture_is_not_the_current_value_after_register_reuse() {
     let source = luau_lifter::try_decompile_bytecode_with_options(
         COPY_CAPTURE, 1, None, Default::default(),
     ).expect("copied capture regression decompiles");
-    // The helper returns the creation-time snapshot. The later inlined region
-    // returns the phi-selected input, even though SSA coalesced their locals.
-    assert_eq!(source.matches("captured()").count(), 1, "{source}");
+    // The helper returns the creation-time snapshot: its one call is rebuilt
+    // where the source makes it. The later inlined region returns the
+    // phi-selected input and stays a select, not a second `captured()`.
+    assert_eq!(source.matches("captured()").count(), 2, "{source}");
+    assert!(source.contains("if p2 then v else p"), "{source}");
 }
 
 #[test]

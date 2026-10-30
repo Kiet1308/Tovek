@@ -74,17 +74,19 @@ pub fn materialize_vectors(
         Ok(Some(inventory)) => Some(inventory),
         Err(_) => None,
     };
-    let has_headroom = inventory.is_some()
-        && crate::lower_conditionals::local_rewrite_frame_with_bound(body, &[], 0, register_bound)
-            .headroom
-            != 0
-        && captures_fit(body);
+    let existing = existing_constructor(body).filter(|_| captures_fit(body));
+    let has_headroom = existing.is_some()
+        || inventory.is_some()
+            && crate::lower_conditionals::local_rewrite_frame_with_bound(body, &[], 0, register_bound)
+                .headroom
+                != 0
+            && captures_fit(body);
     if !has_headroom && !constructor_fixed(body) {
         return Err("no local/register or upvalue headroom for the vector constructor binding");
     }
-    let constructor = inventory.filter(|_| has_headroom).map(|mut inventory| {
+    let constructor = existing.clone().or_else(|| inventory.filter(|_| has_headroom).map(|mut inventory| {
         crate::rehoist_constants::unique_local("createVector", &mut inventory.reserved)
-    });
+    }));
     let mut context = Context {
         constructor,
         functions: FxHashMap::default(),
@@ -100,6 +102,14 @@ pub fn materialize_vectors(
             ledger: Default::default(),
         }));
     };
+    if existing.is_some() {
+        return Ok(Some(crate::local_producers::Pass {
+            pass: "materialize_vectors",
+            rewrite_model: "existing_constructor_binding_v1",
+            introduced_locals: 0,
+            ledger: Default::default(),
+        }));
+    }
     let mut declaration = Assign::new(
         vec![constructor.clone().into()],
         vec![vector_create()],
@@ -185,6 +195,22 @@ mod tests {
         assert!(text.contains("global = createVector"), "{text}");
     }
 
+    #[test]
+    fn the_chunks_own_constructor_binding_is_reused() {
+        let alias = RcLocal::new(Local::new(Some("createVector".to_string())));
+        let mut declaration = Assign::new(vec![alias.into()], vec![vector_create()]);
+        declaration.prefix = true;
+        let mut body = Block(vec![
+            declaration.into(),
+            crate::Return::new(vec![Literal::Vector(1.0, 2.0, 3.0).into()]).into(),
+        ]);
+        let report = materialize_vectors(&mut body).unwrap().unwrap();
+        assert_eq!(report.introduced_locals, 0);
+        let text = body.to_string();
+        assert_eq!(text.matches("vector.create").count(), 1, "{text}");
+        assert!(text.contains("return createVector(1, 2, 3)"), "{text}");
+    }
+
     /// 200 top-level locals (Luau's limit), then `return VECTOR`.
     fn full_frame(mut prefix: Vec<Statement>) -> Block {
         for i in 0..200 {
@@ -215,6 +241,25 @@ mod tests {
     }
 }
 
+/// The chunk's own `local X = vector.create`, which every constant can name
+/// instead of a second binding: a top-level declaration no constant comes
+/// before, never assigned again, read before anything else runs or in a chunk
+/// that keeps `vector` fixed ([`constructor_fixed`]).
+fn existing_constructor(body: &Block) -> Option<crate::RcLocal> {
+    let index = body.0.iter().position(|statement| matches!(statement, Statement::Assign(assign)
+        if assign.prefix && matches!(assign.left.as_slice(), [crate::LValue::Local(_)])
+            && matches!(assign.right.as_slice(), [value] if *value == vector_create())))?;
+    let Statement::Assign(assign) = &body.0[index] else { return None };
+    let crate::LValue::Local(local) = &assign.left[0] else { return None };
+    let mut writes = FxHashMap::default();
+    crate::expr_deinline::collect_write_counts(&body.0, &mut writes);
+    let before = &body.0[..index];
+    (writes.get(local) == Some(&1)
+        && !vector_block(before, &mut FxHashMap::default(), &mut true)
+        && (before.is_empty() || constructor_fixed(body)))
+        .then(|| local.clone())
+}
+
 /// Luau's upvalue limit per function.
 const MAX_UPVALUES: usize = 200;
 
@@ -222,6 +267,14 @@ const MAX_UPVALUES: usize = 200;
 /// using a vector constant, or enclosing one that does) can capture it
 /// without exceeding [`MAX_UPVALUES`].
 fn captures_fit(body: &Block) -> bool {
+    let mut fits = true;
+    vector_block(&body.0, &mut FxHashMap::default(), &mut fits);
+    fits
+}
+
+/// Whether `statements` use a vector constant, closures included; clears
+/// `fits` when a closure using one has no upvalue left for the constructor.
+fn vector_block(statements: &[Statement], functions: &mut FxHashMap<usize, bool>, fits: &mut bool) -> bool {
     fn visit(value: &RValue, functions: &mut FxHashMap<usize, bool>, fits: &mut bool) -> bool {
         match value {
             RValue::Literal(Literal::Vector(..) | Literal::VectorD(..)) => true,
@@ -231,7 +284,7 @@ fn captures_fit(body: &Block) -> bool {
                     Some(&used) => used,
                     None => {
                         functions.insert(id, false);
-                        let used = block(&closure.function.lock().body, functions, fits);
+                        let used = vector_block(&closure.function.lock().body.0, functions, fits);
                         functions.insert(id, used);
                         used
                     }
@@ -251,29 +304,24 @@ fn captures_fit(body: &Block) -> bool {
             }
         }
     }
-    fn block(body: &Block, functions: &mut FxHashMap<usize, bool>, fits: &mut bool) -> bool {
-        let mut used = false;
-        for statement in &body.0 {
-            crate::deinline::visit_stmt_rvalues(statement, &mut |rvalue| {
-                used |= visit(rvalue, functions, fits);
-                true
-            });
-            used |= match statement {
-                Statement::If(node) => {
-                    block(&node.then_block.lock(), functions, fits) | block(&node.else_block.lock(), functions, fits)
-                }
-                Statement::While(node) => block(&node.block.lock(), functions, fits),
-                Statement::Repeat(node) => block(&node.block.lock(), functions, fits),
-                Statement::NumericFor(node) => block(&node.block.lock(), functions, fits),
-                Statement::GenericFor(node) => block(&node.block.lock(), functions, fits),
-                _ => false,
-            };
-        }
-        used
+    let mut used = false;
+    for statement in statements {
+        crate::deinline::visit_stmt_rvalues(statement, &mut |rvalue| {
+            used |= visit(rvalue, functions, fits);
+            true
+        });
+        used |= match statement {
+            Statement::If(node) => {
+                vector_block(&node.then_block.lock().0, functions, fits) | vector_block(&node.else_block.lock().0, functions, fits)
+            }
+            Statement::While(node) => vector_block(&node.block.lock().0, functions, fits),
+            Statement::Repeat(node) => vector_block(&node.block.lock().0, functions, fits),
+            Statement::NumericFor(node) => vector_block(&node.block.lock().0, functions, fits),
+            Statement::GenericFor(node) => vector_block(&node.block.lock().0, functions, fits),
+            _ => false,
+        };
     }
-    let mut fits = true;
-    block(body, &mut FxHashMap::default(), &mut fits);
-    fits
+    used
 }
 
 /// Whether `vector.create` read anywhere in the chunk is the library's: the
@@ -400,7 +448,9 @@ impl Context {
                 self.functions.insert(id, used);
                 used
             };
-            if let (true, Some(constructor)) = (used, &self.constructor) {
+            if let (true, Some(constructor)) = (used, &self.constructor)
+                && !closure.upvalues.iter().any(|upvalue| matches!(upvalue, Upvalue::Copy(local) | Upvalue::Ref(local) if local == constructor))
+            {
                 closure.upvalues.push(Upvalue::Copy(constructor.clone()));
             }
             return used;

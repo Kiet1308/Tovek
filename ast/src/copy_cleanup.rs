@@ -46,11 +46,43 @@ fn cleanup_in_block(block: &mut Block, captured: &mut FxHashSet<RcLocal>, functi
     cleanup_current_block(block, captured, function_root, upvalues);
 }
 
+/// `local y = x; ...; x = y`, where what runs between only copies locals
+/// and constants into other locals: the last store gives `x` the value it
+/// holds, so it is dropped, which leaves `y` a plain alias of `x`.
+fn drop_restoring_copies(block: &mut Block) {
+    fn copy(statement: &Statement) -> Option<(&RcLocal, &RcLocal)> {
+        let Statement::Assign(assign) = statement else { return None };
+        match (assign.left.as_slice(), assign.right.as_slice()) {
+            ([LValue::Local(to)], [RValue::Local(from)]) if !assign.parallel && !assign.compound && to != from => Some((to, from)),
+            _ => None,
+        }
+    }
+    // Copies into other locals, which run no code.
+    let inert = |statement: &Statement, x: &RcLocal, y: &RcLocal| matches!(statement, Statement::Assign(assign)
+        if !assign.compound
+            && assign.left.iter().all(|left| matches!(left, LValue::Local(local) if local != x && local != y))
+            && assign.right.iter().all(|value| matches!(value, RValue::Local(_) | RValue::Literal(_))));
+    let mut index = 1;
+    while index < block.len() {
+        let restores = matches!(&block[index], Statement::Assign(assign) if !assign.prefix)
+            && copy(&block[index]).is_some_and(|(x, y)| {
+                let before = (0..index).rev().find(|&at| !inert(&block[at], x, y));
+                before.and_then(|at| copy(&block[at])).is_some_and(|(to, from)| to == y && from == x)
+            });
+        if restores {
+            block.0.remove(index);
+        } else {
+            index += 1;
+        }
+    }
+}
+
 /// Alias substitution changes counts only for the two bindings. Preserve
 /// source-order decisions with an ordered queue, and replace only statements
 /// indexed under the removed binding, keeping positions stable until the end.
 fn cleanup_current_block(block: &mut Block, captured: &mut FxHashSet<RcLocal>, function_root: bool,
     upvalues: &FxHashSet<u64>) {
+    drop_restoring_copies(block);
     let mut pending: BTreeSet<_> = block.iter().enumerate()
         .filter_map(|(index, statement)| candidate_copy(statement).map(|_| index)).collect();
     if pending.is_empty() { return; }
