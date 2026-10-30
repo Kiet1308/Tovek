@@ -7193,6 +7193,11 @@ fn finish_unified(
 ) -> Option<Unified> {
     // A fold variant's equations, proven: the parameters they solve are
     // the call's constant arguments.
+    // A copied upvalue keeps its creation-time value: the helper's and the
+    // site's copies must be taken with no write between them.
+    if !t.captures.copies_agree_at(t.func_ptr as usize, current_func.map(|function| function as usize)) {
+        return refused("copy_capture_changed");
+    }
     if let Err(reason) = resolve_equations(t, &mut b, current_func) {
         return reason.and_then(refused);
     }
@@ -9241,9 +9246,9 @@ fn helper_targets(
     };
     match entry.analysis {
         HelperAnalysis::Refused(reason) => deinline_reject!(reason, f_local, g.name.as_deref().unwrap_or("<anon>")),
-        // A copied upvalue keeps its creation-time value; a reconstructed
-        // call also adds a frame. Both proofs read the current module census.
-        _ if !captures.copies_unchanged(Arc::as_ptr(func) as usize) || captures.reads_frames(&g.body.0) => {
+        // A reconstructed call adds a frame. The proof reads the current
+        // module census, as each site's copy proof does ([`finish_unified`]).
+        _ if captures.reads_frames(&g.body.0) => {
             deinline_reject!(RejectReason::UnsafeBody, f_local, g.name.as_deref().unwrap_or("<anon>"))
         }
         HelperAnalysis::RefusedLater(reason) => deinline_reject!(reason, f_local, g.name.as_deref().unwrap_or("<anon>")),

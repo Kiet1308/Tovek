@@ -9,6 +9,27 @@ const WHILE: &[u8] = include_bytes!("fixtures/while_inlined_condition.luaubc");
 const EVENT: &[u8] = include_bytes!("fixtures/event_parameter_roles.luaubc");
 const VECTOR: &[u8] = include_bytes!("fixtures/deinline_vector_arguments.luaubc");
 const COPY_CAPTURE: &[u8] = include_bytes!("fixtures/deinline_copy_capture_rebound.luaubc");
+const COPY_BEFORE_CAPTURE: &[u8] = include_bytes!("fixtures/deinline_copy_written_before_capture.luaubc");
+const COPY_PER_SITE: &[u8] = include_bytes!("fixtures/deinline_copy_per_site.luaubc");
+
+#[test]
+fn a_value_capture_written_only_before_any_closure_keeps_its_helper_calls() {
+    let source = luau_lifter::try_decompile_bytecode_with_options(
+        COPY_BEFORE_CAPTURE, 1, None, Default::default(),
+    ).expect("copy written before capture decompiles");
+    // The inlined `ensure` assigns `scale` twice, both before any closure
+    // copies it: every copy holds the value `tweenTo` captured.
+    assert_eq!(source.matches("tweenTo(").count(), 5, "{source}");
+}
+
+#[test]
+fn a_site_copying_with_no_write_since_the_helper_rebuilds_its_call() {
+    let source = luau_lifter::try_decompile_bytecode_with_options(
+        COPY_PER_SITE, 1, None, Default::default(),
+    ).expect("per-site copy proof decompiles");
+    // `cframe` is written after both closures copy it, never between them.
+    assert!(source.contains("Origin = originFor("), "{source}");
+}
 
 #[test]
 fn a_value_capture_is_not_the_current_value_after_register_reuse() {

@@ -149,6 +149,9 @@ fn peel_trailing_guards(body: &mut Vec<Statement>) {
                         // a lone `continue`/`break`/`return` is already the
                         // idiomatic form — nothing to hoist, keep it
                         && !is_bare_terminator(&then.0)
+                        // `if c then r = -1 break end` is the loop's exit: as a
+                        // guard the body would seem to always end in `break`
+                        && !matches!(then.0.last(), Some(Statement::Break(_) | Statement::Return(_)))
                         // never entangle with goto/label structure
                         && !contains_goto_or_label(&then.0)
                         && heuristics_fire(&r#if.condition, &then.0)
@@ -809,25 +812,18 @@ mod tests {
     }
 
     #[test]
-    fn multi_statement_body_ending_in_return_converts() {
+    fn multi_statement_body_ending_in_return_stays_an_exit() {
         let a = local("a");
         let b = local("b");
         let mut block = Block(vec![gen_for(vec![if_then(
             and(lv(&a), lv(&b)),
             vec![call_stmt("prep"), Return::default().into()],
         )])]);
+        let before = block.to_string();
 
         recover_guard_continue(&mut block);
 
-        let body = loop_body(&block);
-        assert_eq!(
-            body.len(),
-            3,
-            "one folded guard + prep + return:\n{}",
-            block
-        );
-        assert!(is_continue_guard(&body[0]));
-        assert!(matches!(&body[2], Statement::Return(_)));
+        assert_eq!(before, block.to_string(), "`if c then prep() return end` is the loop's exit");
     }
 
     #[test]

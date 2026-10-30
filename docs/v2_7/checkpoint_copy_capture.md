@@ -27,3 +27,16 @@ Unit tests bao gồm stable Copy, reassigned Copy, Ref, nhiều closure dùng ch
 - Oracle: 238 inputs, 1.540 prototypes; toàn bộ 237 dòng baseline cũ giữ nguyên status/nonequiv/protos. Fixture mới có 5 prototypes đều exact/equivalent, nonequiv tổng vẫn 295. Output-size và oracle baseline gates đã chạy lại, đều passed.
 
 Không có bốn private frozen dumps hoặc timing trên máy Windows gốc. Checkpoint này không đóng toàn bộ goal v2.7; M6 và các mục mở khác tiếp tục trong GOAL.md.
+
+## Thu hẹp proof (30/10/2026, v2.8-dev)
+
+Proof cũ từ chối mọi local bị chụp bằng Copy mà có bị gán lại ở bất kỳ đâu, kể cả lần gán xảy ra trước mọi closure. Trên 4 dump thật nó làm mất 39 lời gọi (ví dụ `VoidShop.tweenTo`: `scale` do `ensure` inline gán hai lần rồi mới bị chụp).
+
+Census giờ đánh số câu lệnh theo thứ tự chạy:
+- Mỗi local ghi lại lần ghi và lần chụp trong hàm khai báo nó. Trong vòng lặp không chứa khai báo, lần ghi tính ở cuối vòng lặp và lần chụp tính ở đầu.
+- `f = function() f() end` tính lần ghi trước lần tự chụp, vì NEWCLOSURE lưu closure trước khi chạy CAPTURE.
+- Chụp bằng Ref cũng là một lần chụp, vì closure đó có thể chụp lại bằng Copy vào lúc bất kỳ.
+
+Helper qua được proof module khi không có lần ghi nào sau lần chụp đầu tiên. Nếu không qua, từng chỗ gọi vẫn qua được khi không có lần ghi nào giữa lúc tạo closure của helper và lúc tạo closure chứa chỗ gọi (`copies_agree_at`). Điều kiện: cả hai được tạo một lần, ở đúng độ sâu vòng lặp của khai báo, và mọi closure trên đường đi đều chụp bằng Copy. Chỗ gọi đọc trực tiếp trong hàm khai báo vẫn dùng proof module.
+
+Seed 7388 vẫn bị từ chối. Fixture `deinline_copy_written_before_capture` (dạng VoidShop) và `deinline_copy_per_site` (dạng Part_Icles) có trong deep review, kèm test bytecode cố định. Dump: 8,466 → 8,505 lời gọi, bằng số khi bỏ hẳn proof.

@@ -24,6 +24,17 @@ pub(crate) struct CaptureSafety {
     ambiguous_upvalues: FxHashSet<usize>,
     /// Value captures read a snapshot, not a later value of the same SSA-coalesced local.
     copied_upvalues: FxHashMap<usize, FxHashSet<u64>>,
+    /// When each local is written and copied, in statement order (see [`Self::copies_unchanged`]).
+    copy_timing: FxHashMap<u64, CopyTiming>,
+    /// Each function's closure: the function creating it, the order of that
+    /// statement, and the loops around it there ([`Self::copies_agree_at`]).
+    created: FxHashMap<usize, (Option<usize>, u32, usize)>,
+    /// The order of the statement being walked, counting from the module's first.
+    order: u32,
+    statement_order: u32,
+    /// The loops around it in its function: the loop statement's order, and
+    /// the locals declared outside it that it writes.
+    loops: Vec<(u32, Vec<u64>)>,
     /// Who may run a function that assigns a cell (see [`Self::private_writers`]).
     calls: CallGraph,
     visited: FxHashSet<usize>,
@@ -85,6 +96,27 @@ struct CallGraph {
 const SHAPE: u8 = 0;
 const CAPTURES: u8 = 1;
 const FULL: u8 = 2;
+
+/// A local's writes against the closures capturing it, within its declaring
+/// function: every copy holds its final value when no write follows a
+/// capture. A loop runs again, so in a loop the local outlives, writes count
+/// at its end and captures at its start.
+struct CopyTiming {
+    owner: Option<usize>,
+    loop_depth: usize,
+    last_write: Option<u32>,
+    /// Every write, as the orders it may run between.
+    writes: Vec<(u32, u32)>,
+    first_capture: u32,
+    /// Written by another function, or a loop variable: no order holds.
+    unordered: bool,
+}
+
+impl CopyTiming {
+    fn unordered() -> Self {
+        Self { owner: None, loop_depth: 0, last_write: None, writes: Vec::new(), first_capture: u32::MAX, unordered: true }
+    }
+}
 
 impl CaptureSafety {
     pub(crate) fn new(body: &Block) -> Self {
@@ -218,12 +250,103 @@ impl CaptureSafety {
         !self.exhausted && !self.rebound.contains(&local.stable_id())
     }
 
-    /// The helper's by-value captures still agree with reads at a call site.
-    /// shortcut: reject a rebound copy even before its write; refine only with
-    /// a proof covering every path from closure creation to the matched site.
+    /// The helper's by-value captures still agree with reads at a call site:
+    /// no write to them follows a closure capturing them ([`CopyTiming`]).
     pub(crate) fn copies_unchanged(&self, function: usize) -> bool {
-        !self.exhausted && self.copied_upvalues.get(&function)
-            .is_none_or(|locals| locals.is_disjoint(&self.rebound))
+        !self.exhausted && self.copied_upvalues.get(&function).is_none_or(|locals| locals.iter().all(|local| {
+            !self.rebound.contains(local) || self.copy_timing.get(local).is_some_and(|timing| {
+                !timing.unordered && timing.last_write.is_none_or(|write| write < timing.first_capture)
+            })
+        }))
+    }
+
+    /// [`Self::copies_unchanged`] at one site, in `site`'s function: the
+    /// helper's copies agree with the site's own when no write runs between
+    /// the two closures' creation in the function declaring the local. A
+    /// site there itself reads the local directly, and one in a closure
+    /// capturing it by reference reads it whenever that runs: those keep the
+    /// module-wide proof.
+    pub(crate) fn copies_agree_at(&self, helper: usize, site: Option<usize>) -> bool {
+        if self.copies_unchanged(helper) {
+            return true;
+        }
+        !self.exhausted && self.copied_upvalues.get(&helper).is_none_or(|locals| locals.iter().all(|local| {
+            if !self.rebound.contains(local) {
+                return true;
+            }
+            let Some(timing) = self.copy_timing.get(local).filter(|timing| !timing.unordered) else { return false };
+            if timing.last_write.is_none_or(|write| write < timing.first_capture) {
+                return true;
+            }
+            let (Some(helper), Some(site)) = (self.creation_in(Some(helper), *local, timing), self.creation_in(site, *local, timing)) else {
+                return false;
+            };
+            let (low, high) = (helper.min(site), helper.max(site));
+            !timing.writes.iter().any(|&(start, end)| start < high && end > low)
+        }))
+    }
+
+    /// The order of the statement creating `function`'s closure, or the one
+    /// around it, in `timing`'s function, when it is created there once and
+    /// every closure on the way copies `local`.
+    fn creation_in(&self, mut function: Option<usize>, local: u64, timing: &CopyTiming) -> Option<u32> {
+        while function != timing.owner {
+            let identity = function?;
+            if self.calls.closures.get(&identity) != Some(&1)
+                || !self.copied_upvalues.get(&identity).is_some_and(|copied| copied.contains(&local))
+            {
+                return None;
+            }
+            let &(owner, order, loop_depth) = self.created.get(&identity)?;
+            if owner == timing.owner {
+                return (loop_depth == timing.loop_depth).then_some(order);
+            }
+            function = owner;
+        }
+        None
+    }
+
+    fn declare(&mut self, local: u64, owner: Option<usize>) {
+        let loop_depth = self.loops.len();
+        self.copy_timing.entry(local)
+            .and_modify(|timing| timing.unordered = true)
+            .or_insert(CopyTiming { owner, loop_depth, last_write: None, writes: Vec::new(), first_capture: u32::MAX, unordered: false });
+    }
+
+    fn written(&mut self, local: u64, owner: Option<usize>, order: u32) {
+        let timing = self.copy_timing.entry(local).or_insert_with(CopyTiming::unordered);
+        if timing.owner != owner {
+            timing.unordered = true;
+        } else if let Some((_, written)) = self.loops.get_mut(timing.loop_depth) {
+            written.push(local);
+        } else {
+            timing.last_write = timing.last_write.max(Some(order));
+            timing.writes.push((order, order));
+        }
+    }
+
+    fn captured_at(&mut self, local: u64, owner: Option<usize>) {
+        let order = self.statement_order;
+        let timing = self.copy_timing.entry(local).or_insert_with(CopyTiming::unordered);
+        // A capture inside another function runs after its creator's own one.
+        if timing.owner == owner {
+            let order = self.loops.get(timing.loop_depth).map_or(order, |(start, _)| *start);
+            timing.first_capture = timing.first_capture.min(order);
+        }
+    }
+
+    /// Walk a loop's body: its writes to locals declared outside it count at its end.
+    fn loop_body<const FACTS: u8, const NODE_LIMIT: usize>(&mut self, statements: &[Statement], depth: usize, upvalues: &FxHashSet<u64>, owner: Option<usize>) {
+        if FACTS >= FULL { self.loops.push((self.statement_order, Vec::new())); }
+        self.block::<FACTS, NODE_LIMIT>(statements, depth, upvalues, owner);
+        if FACTS >= FULL && let Some((start, written)) = self.loops.pop() {
+            for local in written {
+                if let Some(timing) = self.copy_timing.get_mut(&local) {
+                    timing.last_write = timing.last_write.max(Some(self.order));
+                    timing.writes.push((start, self.order));
+                }
+            }
+        }
     }
 
     pub(crate) fn uncaptured(&self, local: &crate::RcLocal) -> bool {
@@ -399,6 +522,9 @@ impl CaptureSafety {
                 _ => 0,
             };
             if width > 200_000usize.saturating_sub(self.nodes) { self.exhausted = true; return; }
+            let statement_order = self.order + 1;
+            self.order = statement_order;
+            self.statement_order = statement_order;
             if FACTS >= FULL {
                 match statement {
                     Statement::NumericFor(node) => { self.rebound.insert(node.counter.stable_id()); }
@@ -411,6 +537,7 @@ impl CaptureSafety {
                         for left in &assign.left {
                             if let LValue::Local(local) = left {
                                 self.calls.declared_in.insert(local.stable_id(), owner);
+                                self.declare(local.stable_id(), owner);
                             }
                         }
                         if let ([LValue::Local(name)], [RValue::Closure(closure)]) = (assign.left.as_slice(), assign.right.as_slice()) {
@@ -443,6 +570,12 @@ impl CaptureSafety {
                         }
                         LValue::Local(local) if !assign.prefix => {
                             self.rebound.insert(local.stable_id());
+                            // NEWCLOSURE stores the closure before running its
+                            // captures, so `f = function() f() end` captures the new `f`.
+                            let self_capture = matches!(assign.right.as_slice(), [RValue::Closure(closure)]
+                                if assign.left.len() == 1 && closure.upvalues.iter().any(|capture|
+                                    matches!(capture, Upvalue::Ref(captured) | Upvalue::Copy(captured) if captured == local)));
+                            self.written(local.stable_id(), owner, statement_order - u32::from(self_capture));
                             if upvalues.contains(&local.stable_id()) {
                                 self.closure_written.insert(local.stable_id());
                                 if let Some(owner) = owner {
@@ -459,13 +592,14 @@ impl CaptureSafety {
                     self.block::<FACTS, NODE_LIMIT>(&s.then_block.lock().0, depth + 1, upvalues, owner);
                     self.block::<FACTS, NODE_LIMIT>(&s.else_block.lock().0, depth + 1, upvalues, owner);
                 }
-                Statement::While(s) => self.block::<FACTS, NODE_LIMIT>(&s.block.lock().0, depth + 1, upvalues, owner),
-                Statement::Repeat(s) => self.block::<FACTS, NODE_LIMIT>(&s.block.lock().0, depth + 1, upvalues, owner),
-                Statement::NumericFor(s) => self.block::<FACTS, NODE_LIMIT>(&s.block.lock().0, depth + 1, upvalues, owner),
-                Statement::GenericFor(s) => self.block::<FACTS, NODE_LIMIT>(&s.block.lock().0, depth + 1, upvalues, owner),
+                Statement::While(s) => self.loop_body::<FACTS, NODE_LIMIT>(&s.block.lock().0, depth + 1, upvalues, owner),
+                Statement::Repeat(s) => self.loop_body::<FACTS, NODE_LIMIT>(&s.block.lock().0, depth + 1, upvalues, owner),
+                Statement::NumericFor(s) => self.loop_body::<FACTS, NODE_LIMIT>(&s.block.lock().0, depth + 1, upvalues, owner),
+                Statement::GenericFor(s) => self.loop_body::<FACTS, NODE_LIMIT>(&s.block.lock().0, depth + 1, upvalues, owner),
                 _ => {}
             }
             if self.exhausted { return; }
+            self.statement_order = statement_order;
             crate::deinline::visit_stmt_rvalues(statement, &mut |value| {
                 self.value::<FACTS, NODE_LIMIT>(value, depth + 1, owner);
                 !self.exhausted
@@ -567,6 +701,7 @@ impl CaptureSafety {
             let identity = triomphe::Arc::as_ptr(&closure.function.0) as usize;
             if FACTS >= FULL {
                 *self.calls.closures.entry(identity).or_default() += 1;
+                self.created.entry(identity).or_insert((owner, self.statement_order, self.loops.len()));
             }
             if FACTS >= CAPTURES {
                 let incoming = closure.upvalues.iter().map(|capture| {
@@ -588,14 +723,27 @@ impl CaptureSafety {
                     self.captured.insert(local.stable_id());
                     if let Upvalue::Ref(local) = capture { self.references.insert(local.stable_id()); }
                 }
-                if FACTS >= FULL && let Upvalue::Copy(local) = capture {
-                    self.copied_upvalues.entry(identity).or_default().insert(local.stable_id());
+                if FACTS >= FULL {
+                    let (Upvalue::Ref(local) | Upvalue::Copy(local)) = capture;
+                    if matches!(capture, Upvalue::Copy(_)) {
+                        self.copied_upvalues.entry(identity).or_default().insert(local.stable_id());
+                    }
+                    // A cell's closure may copy it into a nested one at any later time.
+                    self.captured_at(local.stable_id(), owner);
                 }
             }
             if self.visited.insert(identity) {
                 // Only the full census reads a function's upvalues (writes to them).
                 let upvalues = if FACTS >= FULL { self.upvalues[&identity].clone() } else { FxHashSet::default() };
-                self.block::<FACTS, NODE_LIMIT>(&closure.function.0.lock().body.0, depth + 1, &upvalues, Some(identity));
+                let (loops, statement_order) = (std::mem::take(&mut self.loops), self.statement_order);
+                let function = closure.function.0.lock();
+                if FACTS >= FULL {
+                    for parameter in &function.parameters {
+                        self.declare(parameter.stable_id(), Some(identity));
+                    }
+                }
+                self.block::<FACTS, NODE_LIMIT>(&function.body.0, depth + 1, &upvalues, Some(identity));
+                (self.loops, self.statement_order) = (loops, statement_order);
             }
         }
     }
@@ -862,6 +1010,37 @@ mod tests {
             assert!(!CaptureSafety::new(&Block(vec![node])).copies_unchanged(identity));
         }
         assert!(!CaptureSafety::exhausted_for_tests().copies_unchanged(identity));
+    }
+
+    #[test]
+    fn copies_hold_the_final_value_when_every_write_precedes_every_capture() {
+        let cell = crate::RcLocal::default();
+        let function = by_address::ByAddress(triomphe::Arc::new(parking_lot::Mutex::new(crate::Function::default())));
+        let identity = triomphe::Arc::as_ptr(&function.0) as usize;
+        let closure = |upvalue| RValue::from(crate::Closure {
+            node_origin: Default::default(), function: function.clone(), upvalues: vec![upvalue],
+        });
+        let capture = |upvalue| Statement::from(crate::Return::new(vec![closure(upvalue)]));
+        let copy = || capture(Upvalue::Copy(cell.clone()));
+        let mut declare = crate::Assign::new(vec![cell.clone().into()], vec![Literal::Number(1.0).into()]);
+        declare.prefix = true;
+        let declare = Statement::from(declare);
+        let write = || Statement::from(crate::Assign::new(vec![cell.clone().into()], vec![Literal::Number(2.0).into()]));
+        let in_loop = |body| Statement::from(crate::While::new(Literal::Boolean(true).into(), Block(body)));
+        let unchanged = |body| CaptureSafety::new(&Block(body)).copies_unchanged(identity);
+        // `local x = 1; x = 2; f = function() x end`: every copy sees 2.
+        assert!(unchanged(vec![declare.clone(), write(), copy()]));
+        assert!(!unchanged(vec![declare.clone(), copy(), write()]));
+        // A later iteration writes after this one's copy, unless the loop declares the local.
+        assert!(!unchanged(vec![declare.clone(), in_loop(vec![write(), copy()])]));
+        assert!(unchanged(vec![in_loop(vec![declare.clone(), write(), copy()])]));
+        assert!(unchanged(vec![declare.clone(), in_loop(vec![write()]), copy()]));
+        // A cell's closure may copy it into a nested closure while it runs.
+        assert!(!unchanged(vec![declare.clone(), capture(Upvalue::Ref(cell.clone())), write(), copy()]));
+        // `f = function() f() end` captures the closure it stores.
+        let store_self = Statement::from(crate::Assign::new(vec![cell.clone().into()], vec![closure(Upvalue::Copy(cell.clone()))]));
+        assert!(unchanged(vec![declare.clone(), store_self.clone()]));
+        assert!(!unchanged(vec![declare, copy(), store_self]));
     }
 
     #[test]

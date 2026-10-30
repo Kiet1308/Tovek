@@ -2961,6 +2961,26 @@ fn is_return_block(function: &Function, node: NodeIndex) -> bool {
     matches!((statements.next(), statements.next()), (Some(Statement::Return(_)), None))
 }
 
+/// A block that stores one value and jumps on (`r = -1`): an inlined
+/// helper's `return -1`. Like a shared return, every path reaching it may run
+/// its own copy, so a loop exit that lands in it beside an outside branch can
+/// `r = -1; break` instead of failing the function.
+fn is_copyable_store_block(function: &Function, node: NodeIndex) -> bool {
+    let Some(block) = function.block(node) else { return false };
+    let mut statements = block.iter().filter(|statement| !is_ignorable(statement));
+    let (Some(statement @ Statement::Assign(store)), None) = (statements.next(), statements.next()) else {
+        return false;
+    };
+    // Copies of a closure would share one body (see the v0.5 scope bug).
+    let mut has_closure = false;
+    statement.traverse_rvalues_ref(&mut |value| has_closure |= matches!(value, RValue::Closure(_)));
+    let mut edges = function.edges(node);
+    !store.prefix
+        && !has_closure
+        && matches!((edges.next(), edges.next()), (Some(edge), None)
+            if edge.weight().branch_type == BranchType::Unconditional && edge.weight().arguments.is_empty())
+}
+
 fn common_postdominator(
     targets: &[NodeIndex],
     post_dominators: &PostDominators,
@@ -6713,7 +6733,10 @@ impl<'a> Builder<'a> {
             // A shared return can be reached by sequential loops as well as
             // sibling branches. It has no continuation or declarations to
             // claim twice, so each incoming path may emit its own return.
-            if !self.visited.insert(current) && !is_return_block(self.function, current) {
+            if !self.visited.insert(current)
+                && !is_return_block(self.function, current)
+                && !is_copyable_store_block(self.function, current)
+            {
                 self.trace_unsupported("revisited-node", current, stop);
                 return None;
             }
@@ -7040,7 +7063,8 @@ impl<'a> Builder<'a> {
         let mut path_nodes = Vec::new();
         while current != join {
             let shared = context.shared_adapters.contains(&current);
-            if context.info.nodes.contains(&current) || (self.visited.contains(&current) && !shared) {
+            let copyable = is_copyable_store_block(self.function, current);
+            if context.info.nodes.contains(&current) || (self.visited.contains(&current) && !shared && !copyable) {
                 return None;
             }
             let predecessors = self
@@ -7088,7 +7112,7 @@ impl<'a> Builder<'a> {
                         || statement.values_read().into_iter().any(|read| context.results.contains(read))
                         || statement_captures_any(statement, context.results)
                 });
-            if !trivia_or_nil && !linear_tail && !shared_copy {
+            if !trivia_or_nil && !linear_tail && !shared_copy && !copyable {
                 return None;
             }
             let successors = self.function.successor_blocks(current).collect_vec();

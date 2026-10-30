@@ -2089,6 +2089,11 @@ struct LocalUsage {
     /// invalidating write flag mirroring the counter facts.
     accumulator_updates: u32,
     accumulator_invalid_write: bool,
+    /// Some write starts it at a zero vector ([`is_zero_vector`]).
+    zero_vector_start: bool,
+    /// Written `sum / #list`, by the local divided: a mean when that local
+    /// is a running sum.
+    mean_of: Option<usize>,
     /// `#local` was taken — the local is a sequence.
     length_taken: bool,
     /// `local[<number literal>]` / `local[<numeric-for counter>]` — indexed
@@ -2230,6 +2235,28 @@ fn is_accumulator_update(local: &RcLocal, value: &RValue) -> bool {
         || (is_self(&binary.right) && !is_number(&binary.left, 1.0))
 }
 
+/// A zero vector (`Vector3.zero`, `vector.create(0, 0, 0)`, `Vector3.new()`,
+/// through a local alias too, or the constant Luau folds it to): a sum
+/// starts from it as from `0`.
+fn is_zero_vector(value: &RValue, aliases: &FxHashMap<usize, RValue>) -> bool {
+    const VECTORS: [(Option<&str>, &str); 3] = [(Some("Vector3"), "new"), (Some("Vector2"), "new"), (Some("vector"), "create")];
+    match value {
+        RValue::Literal(Literal::Vector(x, y, z)) => [x, y, z].iter().all(|component| **component == 0.0),
+        RValue::Literal(Literal::VectorD(x, y, z)) => [x, y, z].iter().all(|component| **component == 0.0),
+        RValue::Index(index) => matches!(static_callee_of(value), Some((Some("Vector3" | "Vector2" | "vector"), "zero")))
+            && matches!(&*index.left, RValue::Global(_)),
+        RValue::Call(call) | RValue::Select(Select::Call(call)) => {
+            let callee = match &*call.value {
+                RValue::Local(local) => aliases.get(&local_ptr(local)).unwrap_or(&call.value),
+                callee => callee,
+            };
+            static_callee_of(callee).is_some_and(|name| VECTORS.contains(&name))
+                && call.arguments.iter().all(|argument| is_number(argument, 0.0))
+        }
+        _ => false,
+    }
+}
+
 fn keeps_assignment_role(local: &RcLocal, value: &RValue) -> bool {
     let is_self = |value: &RValue| matches!(value, RValue::Local(source) if source == local);
     match value {
@@ -2269,8 +2296,17 @@ fn note_local_write(local: &RcLocal, value: &RValue, aliases: &FxHashMap<usize, 
     } else if !is_number(value, 0.0) {
         entry.counter_invalid_write = true;
     }
+    if let RValue::Binary(binary) = value
+        && binary.operation == BinaryOperation::Div
+        && let (RValue::Local(sum), RValue::Unary(length)) = (&*binary.left, &*binary.right)
+        && length.operation == UnaryOperation::Length
+    {
+        entry.mean_of = Some(local_ptr(sum));
+    }
     if is_accumulator_update(local, value) {
         entry.accumulator_updates += 1;
+    } else if is_zero_vector(value, aliases) {
+        entry.zero_vector_start = true;
     } else if !matches!(value, RValue::Literal(Literal::Number(_)))
         && !is_counter_update(local, value)
     {
@@ -3727,7 +3763,15 @@ impl Namer {
             // A numeric cell that only ever accumulates (`v = v + dt`) is a
             // running sum; a unit-step-only cell stays `count` (above).
             if usage.accumulator_updates > 0 && !usage.accumulator_invalid_write {
-                candidates.push((ptr, "total".to_string(), 40, "accumulator_updates"));
+                // `Vector3.zero` names only a type; summing into it names the role.
+                let score = if usage.zero_vector_start { 61 } else { 40 };
+                candidates.push((ptr, "total".to_string(), score, "accumulator_updates"));
+            }
+            if usage.assignment_sources == 1
+                && usage.mean_of.and_then(|sum| self.usage.get(&sum))
+                    .is_some_and(|sum| sum.accumulator_updates > 0 && !sum.accumulator_invalid_write)
+            {
+                candidates.push((ptr, "average".to_string(), 45, "mean_of_running_sum"));
             }
             if usage.boolean_writes > 0 && usage.boolean_guarded && !usage.boolean_invalid_write {
                 candidates.push((ptr, "flag".to_string(), 38, "boolean_guard"));
@@ -11252,6 +11296,23 @@ mod tests {
         ]);
         name_locals(&mut block, true);
         assert_eq!(name_of(&total), "total");
+
+        // Summing into `vector.create(0, 0, 0)` names the role, not the type.
+        let sum = RcLocal::default();
+        let update = Assign::new(
+            vec![LValue::Local(sum.clone())],
+            vec![RValue::Binary(Binary::new(RValue::Local(sum.clone()), global("offset"), BinaryOperation::Add))],
+        );
+        let zero = lib_call("vector", "create", vec![number(0.0), number(0.0), number(0.0)]);
+        let mean = RcLocal::default();
+        let length = RValue::Unary(Unary::new(global("points"), UnaryOperation::Length));
+        let mut block = Block(vec![
+            declare(&sum, zero), update.into(),
+            declare(&mean, RValue::Binary(Binary::new(RValue::Local(sum.clone()), length, BinaryOperation::Div))),
+            use_local(&mean),
+        ]);
+        name_locals(&mut block, true);
+        assert_eq!((name_of(&sum).as_str(), name_of(&mean).as_str()), ("total", "average"));
     }
 
     /// A bytecode-type hint names an otherwise anonymous local (`vector`), is
