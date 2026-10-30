@@ -61,7 +61,7 @@ def context_of(occurrence, contexts):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--baseline", type=pathlib.Path, required=True, help="frozen binary folder output with analysis")
-    parser.add_argument("--current", type=pathlib.Path, required=True, help="new folder output with source_recovery analysis")
+    parser.add_argument("--current", type=pathlib.Path, required=True, help="new folder output with source_recovery analysis (--emit-binding-provenance)")
     parser.add_argument("--ast", type=pathlib.Path, required=True)
     parser.add_argument("--expected-queue", type=int, default=457)
     parser.add_argument("--report", type=pathlib.Path, required=True)

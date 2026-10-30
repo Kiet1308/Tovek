@@ -1254,7 +1254,7 @@ fn decompile_bytecode_internal(
                         dont_reuse_var: options.dont_reuse_var,
                         vector_spelling,
                     },
-                    emit_upvalue_analysis,
+                    emit_upvalue_analysis && options.emit_binding_provenance,
                 )
             };
             dump_stage("named", &body);
@@ -1525,7 +1525,7 @@ fn decompile_bytecode_internal(
                 ptime!(S_REFINE_NAMES);
                 ast::refine_names::refine_final_names(&body, ast::refine_names::Options {
                     dont_reuse_var: options.dont_reuse_var,
-                    emit_report: emit_upvalue_analysis,
+                    emit_report: emit_upvalue_analysis && options.emit_binding_provenance,
                     ..Default::default()
                 })
             };
@@ -1590,8 +1590,12 @@ fn decompile_bytecode_internal(
                     &out,
                     &source_occurrences,
                 );
-                analysis.source_recovery = Some(source_recovery::audit(&chunk, &mut body, &analysis.functions));
-                analysis.name_inference = Some(source_recovery::naming_report(name_inference, legacy_naming));
+                // The name audits are detailed reports, as binding provenance
+                // is: a sidecar holds the upvalue facts a tool asks for.
+                if options.emit_binding_provenance {
+                    analysis.source_recovery = Some(source_recovery::audit(&chunk, &mut body, &analysis.functions));
+                    analysis.name_inference = Some(source_recovery::naming_report(name_inference, legacy_naming));
+                }
                 analysis.capture_effects = Some(capture_effects.report());
                 analysis.conditional_lowering = conditional_lowering;
                 analysis.materialize_vectors = materialize_vectors;

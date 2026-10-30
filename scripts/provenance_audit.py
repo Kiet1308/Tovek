@@ -122,7 +122,8 @@ def main():
             rows.append(row | {'status': 'missing_metadata'})
             continue
         left, right = sidecar(args.before, a[key]), sidecar(args.after, b[key])
-        ignored = {'binding_provenance', 'analysis_id', 'decompile_option_bits'}
+        # The detailed reports exist only with --emit-binding-provenance.
+        ignored = {'binding_provenance', 'source_recovery', 'name_inference', 'analysis_id', 'decompile_option_bits'}
         if {k: v for k, v in left.items() if k not in ignored} != {k: v for k, v in right.items() if k not in ignored}:
             row['status'] = 'prior_metadata_changed'
         if left['decompile_option_bits'] & ~16 != right['decompile_option_bits'] & ~16:
@@ -155,7 +156,7 @@ def main():
               'after_manifest_sha256': sha256(args.after / '.tovek-analysis/manifest.json'),
               'changed_sources': changed_sources, 'rows': rows, 'examples': examples,
               'value_coverage': dict(value_totals),
-              'contract': 'Exact source bytes and all prior sidecar fields except analysis identity/options are preserved. Trace checks cover PC bounds, write slots, ID uniqueness and bidirectional ancestry. No semantic proof is inferred from storage lineage.'}
+              'contract': 'Exact source bytes and all prior sidecar fields except analysis identity/options and the detailed name reports are preserved. Trace checks cover PC bounds, write slots, ID uniqueness and bidirectional ancestry. No semantic proof is inferred from storage lineage.'}
     args.report.parent.mkdir(parents=True, exist_ok=True)
     args.report.write_text(json.dumps(report, indent=1) + '\n', encoding='utf-8', newline='\n')
     print(json.dumps(report['summary'], indent=2))

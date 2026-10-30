@@ -91,6 +91,7 @@ pub fn run_with_cache(
         }
     };
     let locked_out_root = generation_lock.output_root();
+    let _held_directories = crate::decompile_core::HeldDirectories::new(locked_out_root);
     // Every check that can refuse the run (the cache, the output directories)
     // comes before the previous generation's manifest is invalidated: a
     // refused run leaves it intact.
@@ -499,6 +500,28 @@ struct CorpusAuditMetadata {
     parser_failures: Vec<String>,
 }
 
+/// A SHA-256 of what is written to it.
+#[derive(Default)]
+struct HashWriter(sha2::Sha256);
+
+impl HashWriter {
+    fn hex(&self) -> String {
+        use sha2::Digest;
+        format!("{:x}", self.0.clone().finalize())
+    }
+}
+
+impl std::io::Write for HashWriter {
+    fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+        sha2::Digest::update(&mut self.0, bytes);
+        Ok(bytes.len())
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
+}
+
 fn hash_corpus_inputs<'a>(
     work: &[crate::decompile_core::Work],
     records: impl Iterator<Item = Option<&'a (u64, String)>>,
@@ -606,14 +629,20 @@ fn write_analysis_manifest_with_audit(
         .iter()
         .filter(|script| script.status == luau_lifter::upvalue_analysis::AnalysisStatus::Partial)
         .count();
-    let results_material = serde_json::to_vec(&(&generated_sources, &scripts, &diagnostics))
+    // Hashed as they serialize: the results of a large dump, or the binary,
+    // never sit whole in memory.
+    let mut results = HashWriter::default();
+    serde_json::to_writer(std::io::BufWriter::with_capacity(1 << 16, &mut results), &(&generated_sources, &scripts, &diagnostics))
         .map_err(|error| error.to_string())?;
+    let results_sha256 = results.hex();
     let tool_path = std::env::current_exe()
         .ok()
         .and_then(|path| std::fs::canonicalize(path).ok())
         .unwrap_or_else(|| PathBuf::from("unknown"));
-    let tool_sha256 = std::fs::read(&tool_path)
-        .map(|bytes| sha256_hex(&bytes))
+    let mut tool = HashWriter::default();
+    let tool_sha256 = std::fs::File::open(&tool_path)
+        .and_then(|mut file| std::io::copy(&mut file, &mut tool))
+        .map(|_| tool.hex())
         .unwrap_or_else(|_| "unknown".to_string());
     let repo_head = std::process::Command::new("git")
         .args(["rev-parse", "HEAD"])
@@ -691,7 +720,7 @@ fn write_analysis_manifest_with_audit(
             tool_path: tool_path.to_string_lossy().replace('\\', "/"),
             tool_version: env!("CARGO_PKG_VERSION"),
             tool_sha256,
-            results_sha256: format!("sha256:{}", sha256_hex(&results_material)),
+            results_sha256: format!("sha256:{results_sha256}"),
             // The batch binary does not bundle the external official Luau
             // compiler. Keep an explicit status so an empty failure list is
             // never mistaken for a parser audit having run.
@@ -705,7 +734,7 @@ fn write_analysis_manifest_with_audit(
     // generation id used to bind them.  Results and output-affecting options
     // are the canonical identity inputs instead.
     let generation_material = serde_json::to_vec(&(
-        &results_material,
+        &results_sha256,
         output_extension,
         options.bits(),
         &inventory.manifest_sha256,
@@ -728,7 +757,7 @@ fn write_analysis_manifest_with_audit(
         volt_export_manifest_sha256: inventory.manifest_sha256.as_deref(),
     };
     let mut provenance_bytes =
-        serde_json::to_vec_pretty(&provenance).map_err(|error| error.to_string())?;
+        serde_json::to_vec(&provenance).map_err(|error| error.to_string())?;
     provenance_bytes.push(b'\n');
     let output_root = analysis_root.parent().ok_or_else(|| {
         format!(
@@ -744,7 +773,7 @@ fn write_analysis_manifest_with_audit(
     )
     .map_err(|error| format!("publish source-write provenance: {error}"))?;
 
-    let mut bytes = serde_json::to_vec_pretty(&manifest).map_err(|error| error.to_string())?;
+    let mut bytes = serde_json::to_vec(&manifest).map_err(|error| error.to_string())?;
     bytes.push(b'\n');
     atomic_write_contained(
         output_root,

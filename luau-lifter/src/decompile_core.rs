@@ -1460,7 +1460,7 @@ fn decode_preloaded(
     if bytecode.is_empty() && w.kind == WorkKind::RawBytecode {
         if write_skipped {
             let write_result = if analysis_root.is_some() || w.volt_export.is_some() {
-                atomic_write_contained(&w.output_root, &w.output, b"", w.volt_export.is_none())
+                publish_contained(&w.output_root, &w.output, b"", w.volt_export.is_none())
             } else {
                 write_fresh(&w.output, b"")
             };
@@ -1478,7 +1478,7 @@ fn decode_preloaded(
 
     if w.kind == WorkKind::SourceFallback {
         let write_result = if analysis_root.is_some() || w.volt_export.is_some() {
-            atomic_write_contained(
+            publish_contained(
                 &w.output_root,
                 &w.output,
                 &bytecode,
@@ -1546,7 +1546,7 @@ fn decode_preloaded(
     };
     source_bytes.push(b'\n');
     let write_result = if analysis_root.is_some() || w.volt_export.is_some() {
-        atomic_write_contained(
+        publish_contained(
             &w.output_root,
             &w.output,
             &source_bytes,
@@ -1630,7 +1630,9 @@ fn write_analysis_sidecar(
     source_bytes: &[u8],
     analysis: &luau_lifter::upvalue_analysis::ScriptUpvalueAnalysis,
 ) -> Result<AnalysisManifestEntry, String> {
-    let scripts_root = validate_analysis_scripts_root(analysis_root)?;
+    // The contained writer keeps the sidecar inside the root; the run checked
+    // the root itself once.
+    let scripts_root = analysis_root.join("scripts");
     let export_id = work
         .volt_export
         .as_ref()
@@ -1667,7 +1669,7 @@ fn write_analysis_sidecar(
         volt_export: work.volt_export.as_ref(),
         analysis,
     };
-    let mut json = serde_json::to_vec_pretty(&sidecar).map_err(|error| error.to_string())?;
+    let mut json = serde_json::to_vec(&sidecar).map_err(|error| error.to_string())?;
     json.push(b'\n');
     let sidecar_sha256 = sha256_hex(&json);
     let sidecar_rel = format!(".tovek-analysis/scripts/{sidecar_sha256}.json");
@@ -1787,7 +1789,7 @@ fn write_content_addressed_file_contained(
     bytes: &[u8],
     expected_sha256: &str,
 ) -> Result<(), String> {
-    match atomic_write_contained(root, path, bytes, false) {
+    match publish_contained(root, path, bytes, false) {
         Ok(()) => Ok(()),
         Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {
             let existing = std::fs::read(path).map_err(|read_error| {
@@ -1796,7 +1798,15 @@ fn write_content_addressed_file_contained(
                     path.display()
                 )
             })?;
-            verify_content_addressed_bytes(path, &existing, bytes, expected_sha256)
+            if verify_content_addressed_bytes(path, &existing, bytes, expected_sha256).is_ok() {
+                return Ok(());
+            }
+            // The name pins the content: anything else there is a write an
+            // earlier run did not finish (it was killed mid-file), replaced
+            // whole so it cannot fail every later run.
+            publish_contained(root, path, bytes, true).map_err(|error| {
+                format!("replace torn content-addressed artifact {}: {error}", path.display())
+            })
         }
         Err(error) => Err(format!(
             "publish contained content-addressed artifact {} without replacement: {error}",
@@ -1942,6 +1952,39 @@ pub(crate) fn atomic_write_contained(
     atomic_write_contained_guarded(root, path, bytes, replace_existing, || Ok(()))
 }
 
+/// Directories a folder run publishes into, held open until it ends so each
+/// write reuses their checked handles (Windows; elsewhere nothing to hold).
+pub(crate) struct HeldDirectories(PathBuf);
+
+impl HeldDirectories {
+    pub(crate) fn new(root: &Path) -> Self {
+        #[cfg(windows)]
+        windows_contained_fs::hold_directories();
+        Self(std::fs::canonicalize(root).unwrap_or_else(|_| root.to_path_buf()))
+    }
+}
+
+impl Drop for HeldDirectories {
+    fn drop(&mut self) {
+        #[cfg(windows)]
+        windows_contained_fs::release_directories(&self.0);
+    }
+}
+
+/// [`atomic_write_contained`] without flushing the file to disk first: one
+/// script's source or sidecar, which readers trust only through the run's
+/// manifest of hashes, written durably last. A killed run or a power loss can
+/// leave a file short; the manifest does not vouch for it. A flush per file
+/// cost most of an analysis run.
+pub(crate) fn publish_contained(
+    root: &Path,
+    path: &Path,
+    bytes: &[u8],
+    replace_existing: bool,
+) -> std::io::Result<()> {
+    atomic_write_contained_flushing(root, path, bytes, replace_existing, false, || Ok(()))
+}
+
 /// Write/sync the temporary file before acquiring a publication guard. Cache
 /// writers can prepare files concurrently while quota changes and the final
 /// atomic rename remain serialized and protected by the same guard.
@@ -1952,9 +1995,20 @@ pub(crate) fn atomic_write_contained_guarded<G>(
     replace_existing: bool,
     before_publish: impl FnOnce() -> std::io::Result<G>,
 ) -> std::io::Result<G> {
+    atomic_write_contained_flushing(root, path, bytes, replace_existing, true, before_publish)
+}
+
+fn atomic_write_contained_flushing<G>(
+    root: &Path,
+    path: &Path,
+    bytes: &[u8],
+    replace_existing: bool,
+    flush: bool,
+    before_publish: impl FnOnce() -> std::io::Result<G>,
+) -> std::io::Result<G> {
     #[cfg(windows)]
     {
-        windows_contained_fs::atomic_write(root, path, bytes, replace_existing, before_publish)
+        windows_contained_fs::atomic_write(root, path, bytes, replace_existing, flush, before_publish)
     }
     #[cfg(not(windows))]
     {
@@ -1996,7 +2050,7 @@ pub(crate) fn atomic_write_contained_guarded<G>(
                 .unwrap_or("artifact");
             let (temp_path, mut file) =
                 create_atomic_temp_file(parent, file_name, &ATOMIC_WRITE_TEMP_ID)?;
-            if let Err(error) = file.write_all(bytes).and_then(|()| file.sync_all()) {
+            if let Err(error) = file.write_all(bytes).and_then(|()| if flush { file.sync_all() } else { Ok(()) }) {
                 drop(file);
                 let _ = std::fs::remove_file(&temp_path);
                 return Err(error);
@@ -2009,7 +2063,9 @@ pub(crate) fn atomic_write_contained_guarded<G>(
             let result = publish_new_file(&temp_path, path);
             let _ = std::fs::remove_file(&temp_path);
             result?;
-            sync_parent_directory(&canonical_parent)?;
+            if flush {
+                sync_parent_directory(&canonical_parent)?;
+            }
             return Ok(guard);
         }
         atomic_write_with_guard(path, bytes, before_publish)
@@ -2021,6 +2077,75 @@ mod windows_contained_fs {
     use super::*;
     #[cfg(test)]
     use std::cell::RefCell;
+    use std::ffi::OsString;
+    use std::sync::{Arc, Mutex};
+
+    /// A directory of the output tree opened and checked once for a run,
+    /// holding the directories above it open too. Opened without
+    /// `FILE_SHARE_DELETE`, none of them can be renamed, deleted or swapped
+    /// for a link while held, so every file the run publishes there lands in
+    /// the root without opening and checking the whole chain again.
+    struct HeldDirectory {
+        handle: File,
+        _parent: Option<Arc<HeldDirectory>>,
+    }
+
+    type HeldKey = (PathBuf, Vec<OsString>);
+
+    /// The directories held by the runs in progress ([`hold_directories`]).
+    static HELD: Mutex<Option<(usize, std::collections::HashMap<HeldKey, Arc<HeldDirectory>>)>> = Mutex::new(None);
+
+    /// Hold the directories a run publishes into until it ends.
+    pub(super) fn hold_directories() {
+        let mut held = HELD.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+        held.get_or_insert_with(|| (0, Default::default())).0 += 1;
+    }
+
+    /// Close what the run under `root` held; the last run drops the cache.
+    pub(super) fn release_directories(root: &Path) {
+        let mut held = HELD.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+        if let Some((runs, directories)) = held.as_mut() {
+            directories.retain(|(held_root, _), _| !held_root.starts_with(root));
+            *runs -= 1;
+            if *runs == 0 {
+                *held = None;
+            }
+        }
+    }
+
+    /// The held directory `root/components`, opening and checking what of
+    /// its chain no write of the run has yet; `None` outside a run.
+    fn held_parent(root: &Path, components: &[&OsStr]) -> io::Result<Option<Arc<HeldDirectory>>> {
+        let mut held = HELD.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
+        let Some((_, directories)) = held.as_mut() else { return Ok(None) };
+        let key = |depth: usize| -> HeldKey {
+            (root.to_path_buf(), components[..depth].iter().map(|component| component.to_os_string()).collect())
+        };
+        let mut depth = components.len();
+        let mut current = loop {
+            if let Some(found) = directories.get(&key(depth)) {
+                break found.clone();
+            }
+            if depth == 0 {
+                let mut chain = open_directory_chain(root, &[], false)?;
+                let root_directory = Arc::new(HeldDirectory {
+                    handle: chain.handles.pop().expect("directory chain contains root"),
+                    _parent: None,
+                });
+                directories.insert(key(0), root_directory.clone());
+                break root_directory;
+            }
+            depth -= 1;
+        };
+        for (index, component) in components.iter().enumerate().skip(depth) {
+            let child = nt_open_relative_directory(&current.handle, component, true)?;
+            reject_reparse(&child)?;
+            let child = Arc::new(HeldDirectory { handle: child, _parent: Some(current) });
+            directories.insert(key(index + 1), child.clone());
+            current = child;
+        }
+        Ok(Some(current))
+    }
     use std::ffi::{OsStr, c_void};
     use std::io;
     use std::mem::{offset_of, size_of};
@@ -2187,15 +2312,48 @@ mod windows_contained_fs {
         path: &Path,
         bytes: &[u8],
         replace_existing: bool,
+        flush: bool,
         before_publish: impl FnOnce() -> io::Result<G>,
     ) -> io::Result<G> {
         let (components, file_name) = split_contained_path(root, path)?;
-        let chain = open_directory_chain(root, &components, true)
+        let held = held_parent(root, &components)
             .map_err(|error| contextual("open contained parent", error))?;
-        let parent = chain.parent();
+        let chain;
+        let parent = match &held {
+            Some(directory) => &directory.handle,
+            None => {
+                chain = open_directory_chain(root, &components, true)
+                    .map_err(|error| contextual("open contained parent", error))?;
+                chain.parent()
+            }
+        };
+        // A new file needs no temporary when the run's manifest, written last,
+        // vouches for it: there is nothing to keep whole, and FILE_CREATE
+        // neither follows a link nor opens what is there. An existing file is
+        // replaced through a temporary, never written through.
+        if !flush {
+            match nt_create_relative(
+                parent,
+                file_name,
+                GENERIC_WRITE | DELETE | FILE_READ_ATTRIBUTES | SYNCHRONIZE,
+                FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+                FILE_CREATE,
+                FILE_NON_DIRECTORY_FILE | FILE_SYNCHRONOUS_IO_NONALERT | FILE_OPEN_REPARSE_POINT,
+            ) {
+                Ok(mut file) => {
+                    if let Err(error) = file.write_all(bytes) {
+                        let _ = delete_open_file(&file);
+                        return Err(error);
+                    }
+                    return before_publish();
+                }
+                Err(error) if error.kind() == io::ErrorKind::AlreadyExists && replace_existing => {}
+                Err(error) => return Err(error),
+            }
+        }
         let (mut temp, _) = create_temp(parent, file_name)
             .map_err(|error| contextual("create contained temporary file", error))?;
-        if let Err(error) = temp.write_all(bytes).and_then(|()| temp.sync_all()) {
+        if let Err(error) = temp.write_all(bytes).and_then(|()| if flush { temp.sync_all() } else { Ok(()) }) {
             let _ = delete_open_file(&temp);
             return Err(error);
         }
@@ -2214,7 +2372,6 @@ mod windows_contained_fs {
             return Err(contextual("rename contained temporary file", error));
         }
         drop(temp);
-        drop(chain);
         Ok(guard)
     }
 
@@ -3284,6 +3441,21 @@ mod tests {
         let error = write_content_addressed_file(&path, bytes, &digest).unwrap_err();
         assert!(error.contains("does not match its expected SHA-256"));
         assert_eq!(std::fs::read(&path).unwrap(), b"corrupt");
+    }
+
+    #[test]
+    fn torn_contained_content_addressed_file_is_replaced_whole() {
+        let temp = TestDir::new("content-addressed-torn");
+        let root = std::fs::canonicalize(&temp.0).unwrap();
+        let path = root.join("sidecar.json");
+        let bytes = b"{\"schema_version\":2}
+";
+        let digest = sha256_hex(bytes);
+        std::fs::write(&path, &bytes[..7]).unwrap();
+        write_content_addressed_file_contained(&root, &path, bytes, &digest).unwrap();
+        assert_eq!(std::fs::read(&path).unwrap(), bytes);
+        write_content_addressed_file_contained(&root, &path, bytes, &digest).unwrap();
+        assert_eq!(std::fs::read(&path).unwrap(), bytes);
     }
 
     #[test]
