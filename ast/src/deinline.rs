@@ -4954,9 +4954,96 @@ fn match_void(
     if ambiguous {
         return None;
     }
-    let site = site?;
-    let results = site.unified.returned.clone();
+    let Some(site) = site else {
+        return match_assigned_results(stmts, start, t, is_func_body_top, last_occ, current_func);
+    };
+    // Results nothing reads after the call are left out (`local a = f()`,
+    // not `local a, _ = f()`); the call still computes them.
+    let mut results = site.unified.returned.clone();
+    while results.len() > 1
+        && !tail_has_live(last_occ, stmts, start, start + site.width, &FxHashSet::from_iter([results.last().unwrap().clone()]))
+    {
+        results.pop();
+    }
     Some(Hit { tail_ret: site.tail_ret, ..Hit::call(t, (start - i) + site.width, site.unified, results) })
+}
+
+/// A helper returning several values whose results go into locals the
+/// caller already has: `v19, v18 = perpBasis(v)`, or `v6 = perpBasis(v)`,
+/// whose copy still evaluates the values nothing takes into dead locals.
+/// The copy stores each result taken where the declared form declares it:
+/// read as declarations, those stores unify as that form. Rebuilt as
+/// `r1, ..., rk = f(args)`, the results taken first and the dead rest
+/// dropped. A local taking a result is read nowhere in the window before
+/// its store and captured by no closure, so nothing sees it change before
+/// the call returns.
+fn match_assigned_results(
+    stmts: &[Statement],
+    start: usize,
+    t: &Target,
+    is_func_body_top: bool,
+    last_occ: &mut Liveness,
+    current_func: Option<FnPtr>,
+) -> Option<Hit> {
+    if t.returns.is_empty() {
+        return None;
+    }
+    let kc = t.pat.len();
+    let max_w = raw_width_for_effective(stmts, start, t.pat_spine_len + 1);
+    let mut found = None;
+    for w in kc..=max_w {
+        if is_func_body_top && start == 0 && start + w == stmts.len() {
+            continue;
+        }
+        let raw = &stmts[start..start + w];
+        if canon_top_len(raw, true) != kc || block_has_return(raw) {
+            continue;
+        }
+        let mut declared = FxHashSet::default();
+        collect_declared_locals(raw, &mut declared);
+        let mut taken: Vec<(usize, RcLocal)> = Vec::new();
+        let window: Vec<Statement> = raw
+            .iter()
+            .enumerate()
+            .map(|(at, statement)| match statement {
+                Statement::Assign(store)
+                    if !store.prefix
+                        && !store.parallel
+                        && !store.compound
+                        && let ([LValue::Local(local)], [_]) = (store.left.as_slice(), store.right.as_slice())
+                        && !declared.contains(local)
+                        && !taken.iter().any(|(_, other)| other == local) =>
+                {
+                    taken.push((at, local.clone()));
+                    Assign { prefix: true, ..store.clone() }.into()
+                }
+                other => other.clone(),
+            })
+            .collect();
+        if taken.is_empty() || !charge_window(t, &window) {
+            continue;
+        }
+        let window = canon_recurse(canon_top(&window, true), true);
+        let Some(u) = try_unify_site_any(t, &window, current_func) else { continue };
+        let assigned = u.returned.iter().take_while(|result| taken.iter().any(|(_, local)| local == *result)).count();
+        let honest = assigned == taken.len()
+            && taken.iter().all(|(at, local)| {
+                t.captures.uncaptured(local)
+                    && !block_reads_local(&raw[..*at], local)
+                    && !matches!(&raw[*at], Statement::Assign(store) if reads_local(&store.right[0], local))
+            })
+            && !tail_has_live(last_occ, stmts, start, start + w, &u.returned[assigned..].iter().cloned().collect())
+            && !tail_has_live(last_occ, stmts, start, start + w, &u.callee_locals);
+        if !honest {
+            continue;
+        }
+        if found.is_some() {
+            return None;
+        }
+        let results = u.returned[..assigned].to_vec();
+        found = Some(Hit { assign: true, ..Hit::call(t, w, u, results) });
+    }
+    found
 }
 
 /// Whether [`continues_as_returns`] gives a body, read without copying one:
@@ -5582,7 +5669,7 @@ fn absorb_arguments(
     is_func_body_top: bool,
 ) -> Option<Hit> {
     let end = i + hit.consume;
-    let result: Option<RcLocal> = if hit.assign {
+    let result: Option<RcLocal> = if hit.assign && hit.results.len() == 1 {
         hit.results.first().cloned()
     } else if hit.results.is_empty() && hit.host.is_none() {
         t.returns_parameter
@@ -7400,10 +7487,8 @@ fn finish_unified(
             unstable.push((&t.param_order[idx], matches!(a, RValue::Local(_))));
             first_moved.get_or_insert(idx);
         }
-        for r in a.values_read() {
-            if region_writes.contains(r) {
-                return refused("argument_reads_region_write");
-            }
+        if reads_on_evaluation(a).iter().any(|read| region_writes.contains(*read)) {
+            return refused("argument_reads_region_write");
         }
     }
     if !t.leading().admits(unstable) {
@@ -8879,10 +8964,27 @@ fn specialized_truth(value: &RValue) -> Option<bool> {
 fn specialize_block(stmts: &mut Vec<Statement>, bindings: &FxHashMap<RcLocal, RValue>) {
     let mut output = Vec::with_capacity(stmts.len());
     for mut statement in std::mem::take(stmts) {
-        statement.visit_rvalues_mut(&mut |value| {
-            specialize_rvalue(value, bindings);
-            true
-        });
+        // A condition a constant reached reads only its truth: `not (false
+        // or not v)` is `v` there, as the copy's canon spells it.
+        let condition = match &mut statement {
+            Statement::If(node) => Some(&mut node.condition),
+            Statement::While(node) => Some(&mut node.condition),
+            Statement::Repeat(node) => Some(&mut node.condition),
+            _ => None,
+        };
+        match condition {
+            Some(condition) => {
+                if specialize_rvalue(condition, bindings) {
+                    *condition = std::mem::replace(condition, RValue::Literal(Literal::Nil)).reduce_condition();
+                }
+            }
+            None => {
+                statement.visit_rvalues_mut(&mut |value| {
+                    specialize_rvalue(value, bindings);
+                    true
+                });
+            }
+        }
 
         match &mut statement {
             Statement::If(node) => {
@@ -11212,6 +11314,31 @@ pub(crate) fn collect_written(stmts: &[Statement], out: &mut FxHashSet<RcLocal>)
             true
         });
     }
+}
+
+/// The locals evaluating `value` reads the values of: a closure captures by
+/// reference a cell, read when the closure runs, so only its copies count
+/// (`{ Disconnect = function() done = true end }` reads no `done`).
+fn reads_on_evaluation(value: &RValue) -> Vec<&RcLocal> {
+    let mut by_reference: FxHashMap<RcLocal, usize> = FxHashMap::default();
+    let mut count = |value: &RValue| {
+        if let RValue::Closure(closure) = value {
+            for upvalue in &closure.upvalues {
+                if let Upvalue::Ref(local) = upvalue {
+                    *by_reference.entry(local.clone()).or_default() += 1;
+                }
+            }
+        }
+    };
+    count(value);
+    value.traverse_rvalues_ref(&mut count);
+    value.values_read().into_iter().filter(|read| match by_reference.get_mut(*read) {
+        Some(left) if *left > 0 => {
+            *left -= 1;
+            false
+        }
+        _ => true,
+    }).collect()
 }
 
 fn collect_written_in_closures(rv: &RValue, out: &mut FxHashSet<RcLocal>) {

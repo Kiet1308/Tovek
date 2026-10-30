@@ -16,6 +16,7 @@ const TABLE_SHAPE: &[u8] = include_bytes!("fixtures/table_shape_from_stores.luau
 const OVER_PADDING: &[u8] = include_bytes!("fixtures/table_shape_over_padding_limit.luaubc");
 const SCOPED_OVER_LIMIT: &[u8] = include_bytes!("fixtures/scoped_declarations_over_limit.luaubc");
 const FOLDED_ARGUMENTS: &[u8] = include_bytes!("fixtures/deinline_folded_constant_arguments.luaubc");
+const STORED_AND_FOLDED: &[u8] = include_bytes!("fixtures/deinline_stored_and_folded_sites.luaubc");
 
 fn decompile(bytecode: &[u8]) -> String {
     luau_lifter::try_decompile_bytecode_with_options(bytecode, 1, None, Default::default())
@@ -40,6 +41,21 @@ fn copies_folded_for_constant_arguments_are_calls_again() {
         "local v2 = collect(\"x\", \"y\", \"z\") -- inferred equivalent call",
         "local v3 = fill(3) -- inferred equivalent call",
         "local v4 = counted(4) -- inferred equivalent call"]
+    {
+        assert!(source.contains(call), "{call}\n{source}");
+    }
+}
+
+#[test]
+fn stored_results_reference_captures_and_folded_flags_are_calls_again() {
+    let source = decompile(STORED_AND_FOLDED);
+    // The argument's closure writes the caller's local it captures by
+    // reference; `update(false)` folded to `if v then ... end`; results go
+    // into locals the caller has, or into one nothing reads after.
+    for call in ["\ttrack({ -- inferred equivalent call\n",
+        "\t\t\tupdate(false) -- inferred equivalent call\n",
+        "\tv3, v2 = basis(-i, i + 1) -- inferred equivalent call\n",
+        "\tprint(basis(i, 3), v2) -- inferred equivalent call\n"]
     {
         assert!(source.contains(call), "{call}\n{source}");
     }
