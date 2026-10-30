@@ -19,7 +19,7 @@ use petgraph::{
     visit::{EdgeRef, NodeIndexable},
 };
 use rustc_hash::{FxHashMap, FxHashSet};
-use std::{cell::OnceCell, collections::VecDeque, fmt};
+use std::{cell::OnceCell, fmt};
 
 /// A proof obligation whose failure makes it unsafe to try a weaker
 /// source-shaping matcher on the same CFG.
@@ -108,31 +108,106 @@ struct NumericLoopInfo {
     step: RValue,
 }
 
-/// Live-in/live-out sets of the reachable blocks, as dense bit rows.
+/// Live-in/live-out sets of the reachable blocks, per local on its first
+/// query: a block × local matrix is quadratic in a long function.
+///
+/// * LiveIn(B) = uses(B) ⋃ [LiveOut(B) ∖ defs(B)], with `uses` the reads
+///   before any write in the block;
+/// * LiveOut(B) = ⋃ over each edge B → T of [LiveIn(T) ∖ dests(edge)] ⋃
+///   sources(edge), the edge's arguments being one parallel copy.
 struct Liveness {
     ids: FxHashMap<u64, u32>,
     slot: FxHashMap<NodeIndex, usize>,
-    words: usize,
-    live_in: Vec<u64>,
-    #[cfg_attr(not(test), allow(dead_code))]
-    live_out: Vec<u64>,
+    /// Per slot, its reachable incoming edges: (source slot, edge).
+    incoming: Vec<Vec<(usize, usize)>>,
+    /// `(local, slot)` facts sorted by local: upward-exposed reads, writes and
+    /// the reads of the arguments a block passes on; `(local, edge)` for the
+    /// locals an edge assigns.
+    uses: Vec<(u32, u32)>,
+    defs: Vec<(u32, u32)>,
+    sources: Vec<(u32, u32)>,
+    destinations: Vec<(u32, u32)>,
+    /// Per local, the ascending slots it is live into and out of.
+    rows: Vec<OnceCell<(Box<[u32]>, Box<[u32]>)>>,
+    scratch: std::cell::RefCell<LivenessScratch>,
+}
+
+/// Per slot (or edge), the last local (plus one) found there: no clearing
+/// between locals.
+struct LivenessScratch {
+    defined: Vec<u32>,
+    assigned: Vec<u32>,
+    entered: Vec<u32>,
+    exited: Vec<u32>,
+    work: Vec<usize>,
+}
+
+/// The slots (or edges) of `local`'s facts.
+fn local_facts(facts: &[(u32, u32)], local: u32) -> impl Iterator<Item = usize> + '_ {
+    facts[facts.partition_point(|&(id, _)| id < local)..].iter()
+        .take_while(move |&&(id, _)| id == local)
+        .map(|&(_, at)| at as usize)
 }
 
 impl Liveness {
-    fn contains(&self, rows: &[u64], node: NodeIndex, local: &RcLocal) -> bool {
+    fn contains(&self, node: NodeIndex, local: &RcLocal, out: bool) -> bool {
         let (Some(&slot), Some(&id)) = (self.slot.get(&node), self.ids.get(&local.stable_id())) else {
             return false;
         };
-        rows[slot * self.words + id as usize / 64] & (1 << (id % 64)) != 0
+        let (live_in, live_out) = self.rows[id as usize].get_or_init(|| self.walk(id));
+        if out { live_out } else { live_in }.binary_search(&(slot as u32)).is_ok()
     }
 
     fn live_in(&self, node: NodeIndex, local: &RcLocal) -> bool {
-        self.contains(&self.live_in, node, local)
+        self.contains(node, local, false)
     }
 
     #[cfg(test)]
     fn live_out(&self, node: NodeIndex, local: &RcLocal) -> bool {
-        self.contains(&self.live_out, node, local)
+        self.contains(node, local, true)
+    }
+
+    /// The blocks `local` is live into and out of: back from its reads to its
+    /// writes, not across an edge assigning it.
+    fn walk(&self, local: u32) -> (Box<[u32]>, Box<[u32]>) {
+        let mut scratch = self.scratch.borrow_mut();
+        let LivenessScratch { defined, assigned, entered, exited, work } = &mut *scratch;
+        let mark = local + 1;
+        for slot in local_facts(&self.defs, local) {
+            defined[slot] = mark;
+        }
+        for edge in local_facts(&self.destinations, local) {
+            assigned[edge] = mark;
+        }
+        let (mut live_in, mut live_out) = (Vec::new(), Vec::new());
+        let mut exit = |slot: usize, work: &mut Vec<usize>| {
+            if exited[slot] != mark {
+                exited[slot] = mark;
+                live_out.push(slot as u32);
+                if defined[slot] != mark {
+                    work.push(slot);
+                }
+            }
+        };
+        for slot in local_facts(&self.sources, local) {
+            exit(slot, work);
+        }
+        work.extend(local_facts(&self.uses, local));
+        while let Some(slot) = work.pop() {
+            if entered[slot] == mark {
+                continue;
+            }
+            entered[slot] = mark;
+            live_in.push(slot as u32);
+            for &(source, edge) in &self.incoming[slot] {
+                if assigned[edge] != mark {
+                    exit(source, work);
+                }
+            }
+        }
+        live_in.sort_unstable();
+        live_out.sort_unstable();
+        (live_in.into(), live_out.into())
     }
 }
 
@@ -1382,102 +1457,63 @@ impl Analysis {
             *ids.entry(local.stable_id()).or_insert(next)
         };
         let slot = nodes.iter().enumerate().map(|(index, &node)| (node, index)).collect::<FxHashMap<_, _>>();
-        // Upward-exposed reads and definitions per block, and per reachable
-        // edge its target slot, parallel-copy destinations and sources.
-        let mut uses = Vec::with_capacity(nodes.len());
-        let mut defs = Vec::with_capacity(nodes.len());
-        let mut edges = Vec::with_capacity(nodes.len());
-        for &node in nodes {
-            let mut node_uses = Vec::new();
-            let mut node_defs = FxHashSet::default();
+        let (mut uses, mut defs, mut sources, mut destinations) = (Vec::new(), Vec::new(), Vec::new(), Vec::new());
+        let mut incoming = vec![Vec::new(); nodes.len()];
+        let mut edges = 0;
+        for (index, &node) in nodes.iter().enumerate() {
+            let at = index as u32;
             if let Some(block) = function.block(node) {
+                let mut written = FxHashSet::default();
                 for statement in block.iter() {
                     statement.visit_local_reads(&mut |read| {
                         let read = id(read);
-                        if !node_defs.contains(&read) {
-                            node_uses.push(read);
+                        if !written.contains(&read) {
+                            uses.push((read, at));
                         }
                         true
                     });
-                    statement.visit_local_writes(&mut |written| {
-                        node_defs.insert(id(written));
+                    statement.visit_local_writes(&mut |local| {
+                        let local = id(local);
+                        written.insert(local);
+                        defs.push((local, at));
                         true
                     });
                 }
             }
-            let mut node_edges = Vec::new();
             for edge in function.edges(node).filter(|edge| reachable.contains(&edge.target())) {
-                let destinations = edge.weight().arguments.iter()
-                    .map(|(destination, _)| id(destination)).collect::<Vec<_>>();
-                let mut sources = Vec::new();
-                for (_, value) in &edge.weight().arguments {
+                for (destination, value) in &edge.weight().arguments {
+                    destinations.push((id(destination), edges as u32));
                     value.visit_local_reads(&mut |read| {
-                        sources.push(id(read));
+                        sources.push((id(read), at));
                         true
                     });
                 }
-                node_edges.push((slot[&edge.target()], destinations, sources));
-            }
-            uses.push(node_uses);
-            defs.push(node_defs.into_iter().collect::<Vec<_>>());
-            edges.push(node_edges);
-        }
-        let words = ids.len().div_ceil(64).max(1);
-        fn set(bits: &mut [u64], id: u32) { bits[id as usize / 64] |= 1 << (id % 64); }
-        fn clear(bits: &mut [u64], id: u32) { bits[id as usize / 64] &= !(1 << (id % 64)); }
-        let mut use_bits = vec![0u64; nodes.len() * words];
-        let mut keep_bits = vec![!0u64; nodes.len() * words];
-        for index in 0..nodes.len() {
-            for &read in &uses[index] {
-                set(&mut use_bits[index * words..(index + 1) * words], read);
-            }
-            for &written in &defs[index] {
-                clear(&mut keep_bits[index * words..(index + 1) * words], written);
+                incoming[slot[&edge.target()]].push((index, edges));
+                edges += 1;
             }
         }
-        let mut live_in = vec![0u64; nodes.len() * words];
-        let mut live_out = vec![0u64; nodes.len() * words];
-        let mut work = nodes.iter().rev().map(|node| slot[node]).collect::<VecDeque<_>>();
-        let mut queued = vec![true; nodes.len()];
-        let mut next_out = vec![0u64; words];
-        let mut transfer = vec![0u64; words];
-        while let Some(index) = work.pop_front() {
-            queued[index] = false;
-            next_out.fill(0);
-            for (target, destinations, sources) in &edges[index] {
-                transfer.copy_from_slice(&live_in[target * words..(target + 1) * words]);
-                for &destination in destinations {
-                    clear(&mut transfer, destination);
-                }
-                for (out, bits) in next_out.iter_mut().zip(&transfer) {
-                    *out |= bits;
-                }
-                for &source in sources {
-                    set(&mut next_out, source);
-                }
-            }
-            let row = index * words..(index + 1) * words;
-            let mut changed = live_out[row.clone()] != next_out[..];
-            for word in 0..words {
-                let at = row.start + word;
-                let value = use_bits[at] | (next_out[word] & keep_bits[at]);
-                changed |= live_in[at] != value;
-                live_in[at] = value;
-            }
-            if changed {
-                live_out[row].copy_from_slice(&next_out);
-                for predecessor in function.predecessor_blocks(nodes[index])
-                    .filter(|predecessor| reachable.contains(predecessor))
-                {
-                    let predecessor = slot[&predecessor];
-                    if !queued[predecessor] {
-                        queued[predecessor] = true;
-                        work.push_back(predecessor);
-                    }
-                }
-            }
+        for facts in [&mut uses, &mut defs, &mut sources, &mut destinations] {
+            facts.sort_unstable();
+            facts.dedup();
         }
-        Liveness { ids, slot, words, live_in, live_out }
+        let scratch = LivenessScratch {
+            defined: vec![0; nodes.len()],
+            assigned: vec![0; edges],
+            entered: vec![0; nodes.len()],
+            exited: vec![0; nodes.len()],
+            work: Vec::new(),
+        };
+        Liveness {
+            rows: (0..ids.len()).map(|_| OnceCell::new()).collect(),
+            ids,
+            slot,
+            incoming,
+            uses,
+            defs,
+            sources,
+            destinations,
+            scratch: std::cell::RefCell::new(scratch),
+        }
     }
 
     #[cfg(test)]
@@ -1514,7 +1550,7 @@ impl Analysis {
             .map(|node| (node, FxHashSet::default()))
             .collect::<FxHashMap<_, _>>();
         let mut live_out = live_in.clone();
-        let mut work = VecDeque::from(nodes.iter().rev().copied().collect_vec());
+        let mut work = std::collections::VecDeque::from(nodes.iter().rev().copied().collect_vec());
         let mut queued = nodes.iter().copied().collect::<FxHashSet<_>>();
         while let Some(node) = work.pop_front() {
             queued.remove(&node);

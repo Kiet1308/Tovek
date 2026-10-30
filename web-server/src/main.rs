@@ -75,6 +75,8 @@ const QUEUE_LIMIT_ENV: &str = "TOVEK_QUEUE_LIMIT";
 /// How long a request may wait for a job slot before it is turned away.
 const DEFAULT_QUEUE_TIMEOUT: Duration = Duration::from_secs(120);
 const QUEUE_TIMEOUT_ENV: &str = "TOVEK_QUEUE_TIMEOUT_SECS";
+/// Decompile threads; unset or 0 means one per CPU ([`decompile_threads`]).
+const THREADS_ENV: &str = "TOVEK_THREADS";
 /// Seconds a client that was turned away should wait before retrying.
 const RETRY_AFTER_SECS: &str = "1";
 
@@ -165,6 +167,15 @@ fn parse_queue_limit(value: &str) -> io::Result<usize> {
         format!("{QUEUE_LIMIT_ENV} must be a non-negative 32-bit integer")))
 }
 
+/// `TOVEK_THREADS`, else 0: one thread per CPU. Each running thread holds
+/// the working memory of the script it decompiles (about 6 MiB in a large
+/// batch), so fewer threads trade speed for peak memory.
+fn decompile_threads() -> io::Result<usize> {
+    env_setting(THREADS_ENV, 0, |value| value.parse::<usize>().map_err(|_| io::Error::new(
+        io::ErrorKind::InvalidInput,
+        format!("{THREADS_ENV} must be a non-negative integer"))))
+}
+
 /// An unset variable means the default; a set but invalid one stops startup.
 fn env_setting<T>(name: &str, default: T, parse: impl FnOnce(&str) -> io::Result<T>) -> io::Result<T> {
     match std::env::var(name) {
@@ -204,7 +215,7 @@ fn main() -> Result<(), io::Error> {
     // Every decompile runs on a blocking thread and rayon's workers: both get
     // the decompile stack, or a long `elseif` chain overflows it and aborts
     // the server (a 900-arm chain did with the default 2 MiB).
-    let _ = luau_lifter::configure_thread_pool(0);
+    let _ = luau_lifter::configure_thread_pool(decompile_threads()?);
     tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .thread_stack_size(luau_lifter::DECOMPILE_STACK_BYTES)
@@ -241,6 +252,7 @@ async fn serve() -> Result<(), io::Error> {
     // Run the web server
     let listener = TcpListener::bind(BIND_ADDR).await?;
     info!("🚀 Listening on {}", listener.local_addr()?);
+    info!("Decompiling on {} threads ({THREADS_ENV} to change).", rayon::current_num_threads());
     axum::serve(listener, app).await
 }
 

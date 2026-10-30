@@ -430,6 +430,9 @@ set `TOVEK_UPLOAD_TIMEOUT_SECS` to a positive integer to change it. An expired
 upload receives HTTP `408` with `Connection: close` and releases its slot.
 Completed uploads are not subject to this deadline while decompilation runs;
 CPU work retains its slot until it finishes, even if the client disconnects.
+Decompilation uses one thread per CPU; each running thread holds the working
+memory of its script, so `TOVEK_THREADS` set lower trades speed for peak memory.
+Once no request is running, the server returns the memory it freed.
 
 - **Raw** (`/decompile/raw`): send the bytecode bytes verbatim — no base64 encode/decode.
   Use `Content-Type: application/octet-stream`, the optional `X-Script-Name` header, and an
