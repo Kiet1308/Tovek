@@ -66,6 +66,19 @@ fn compound_assign_target_matches(target: &LValue, binary_left: &RValue) -> bool
     }
 }
 
+/// Whether `assign` prints as `target op= value` (see `format_assign`).
+pub(crate) fn prints_as_compound(assign: &Assign) -> bool {
+    !assign.prefix
+        && !assign.parallel
+        && assign.left.len() == 1
+        && assign.right.len() == 1
+        && matches!(&assign.right[0], RValue::Binary(binary)
+            if compound_assignment_operator(binary.operation).is_some()
+                // A `compound` assignment's base is evaluated once and must
+                // never be expanded (`compound_bases`).
+                && (assign.compound || compound_assign_target_matches(&assign.left[0], binary.left.as_ref())))
+}
+
 /// Whether an index base/key can be repeated without observing any operation
 /// between its evaluations. A field read can invoke __index; arithmetic, length
 /// and unary operators can invoke metamethods or throw. Bytecode type hints are
@@ -934,7 +947,7 @@ mod tests {
 
         assert_eq!(
             block.to_string(),
-            "function Collision.DisableCollision(_, folder)\n\tif true then\n\t\treturn _\n\tend\nend\n\nCollision:DisableCollision(target)"
+            "function Collision.DisableCollision(_, folder)\n\tdo\n\t\treturn _\n\tend\nend\n\nCollision:DisableCollision(target)"
         );
     }
 
@@ -3490,7 +3503,11 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
 
     pub(crate) fn format_if(&mut self, r#if: &If) -> fmt::Result {
         let outer = self.begin_header_site(r#if);
-        self.format_condition_header("if", &r#if.condition, Some("then"))?;
+        if r#if.is_scope() {
+            write!(self.output, "do")?;
+        } else {
+            self.format_condition_header("if", &r#if.condition, Some("then"))?;
+        }
         self.end_site(outer)?;
         writeln!(self.output)?;
 
@@ -3506,7 +3523,7 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
         let else_block = r#if.else_block.lock();
         if !else_block.is_empty() {
             self.indent()?;
-            if let Some(else_if) = else_block.iter().exactly_one().ok().and_then(|s| s.as_if()) {
+            if let Some(else_if) = else_block.iter().exactly_one().ok().and_then(|s| s.as_if()).filter(|r#if| !r#if.is_scope()) {
                 write!(self.output, "else")?;
                 return self.format_if(else_if);
             }
@@ -3595,15 +3612,9 @@ impl<'a, W: fmt::Write> Formatter<'a, W> {
         // The whole binary RHS is grouped by `<op>=`, so the right operand is
         // emitted as a standalone expression (`format_rvalue`) with no extra
         // parentheses — `x -= a - b` means `x = x - (a - b)`, exactly the AST.
-        if !assign.prefix
-            && !assign.parallel
-            && assign.left.len() == 1
-            && assign.right.len() == 1
+        if prints_as_compound(assign)
             && let RValue::Binary(binary) = &assign.right[0]
             && let Some(op) = compound_assignment_operator(binary.operation)
-            // A `compound` assignment's base is evaluated once and must never
-            // be expanded (`compound_bases`).
-            && (assign.compound || compound_assign_target_matches(&assign.left[0], binary.left.as_ref()))
         {
             self.format_lvalue(&assign.left[0])?;
             write!(self.output, " {} ", op)?;

@@ -1516,11 +1516,25 @@ fn decompile_bytecode_internal(
                     }
                     ast::rebuild_table_literals::reserve_unfolded_table_slots(&mut body)
                         .map_err(DecompileFailure::message)?;
+                } else if reservation == Err(ast::rebuild_table_literals::LARGE_ALLOCATION)
+                    && !globals.dynamic_environment
+                    && !globals.unspellable
+                    && !globals.written.contains(b"table".as_slice())
+                {
+                    ast::rebuild_table_literals::create_large_allocations(&mut body);
+                    ast::rebuild_table_literals::reserve_unfolded_table_slots(&mut body)
+                        .map_err(DecompileFailure::message)?;
                 } else {
                     reservation.map_err(DecompileFailure::message)?;
                 }
             }
             drop(late_timer);
+            // Source `do` blocks the output flattened go back where a function
+            // has more locals at once than Luau allows, before the final names
+            // see their scopes.
+            if ast::coalesce_locals::declared_locals_exceed_limit(&body) {
+                ast::coalesce_locals::scope_declarations_over_limit(&mut body);
+            }
             let name_inference = {
                 ptime!(S_REFINE_NAMES);
                 ast::refine_names::refine_final_names(&body, ast::refine_names::Options {

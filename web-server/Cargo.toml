@@ -17,6 +17,9 @@ luau-lifter = { path = "../luau-lifter" }
 # output. The allocator MUST live in the binary, not the library (the library is
 # shared with the wasm `luau-worker`, which can't build mimalloc's C source).
 mimalloc = "0.1.52"
+# mi_collect: an idle server returns what its decompile threads freed.
+libmimalloc-sys = { version = "0.1.49", features = ["extended"] }
+rayon = "1.5.3"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 thiserror = "2.0"

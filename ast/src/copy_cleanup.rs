@@ -833,7 +833,7 @@ mod tests {
 
         copy_cleanup(&mut block);
 
-        assert_eq!(block.to_string(), "if true then\n\tprint(v9.floors)\nend");
+        assert_eq!(block.to_string(), "do\n\tprint(v9.floors)\nend");
     }
 
     #[test]

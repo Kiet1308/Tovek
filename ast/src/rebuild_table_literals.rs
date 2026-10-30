@@ -467,11 +467,16 @@ pub fn reserve_unfolded_table_slots(block: &mut Block) -> Result<(), &'static st
     }
     for index in 0..block.0.len() {
         let (head, rest) = block.0.split_at_mut(index + 1);
+        // The constructor the compiler sizes from the stores keeps no padding.
+        let mut sized = false;
         if let Some(object) = table_constructor_local(&head[index])
             && let Statement::Assign(assign) = &mut head[index]
             && let RValue::Table(table) = &mut assign.right[0]
         {
-            reserve_allocation_slots(table)?;
+            sized = sized_by_stores(table, rest, &object);
+            if !sized {
+                reserve_allocation_slots(table)?;
+            }
             reserve_list_slots(table, rest, &object)?;
         }
         let statement = &mut block.0[index];
@@ -480,6 +485,8 @@ pub fn reserve_unfolded_table_slots(block: &mut Block) -> Result<(), &'static st
             if nested.is_ok() {
                 nested = match value {
                     RValue::Closure(closure) => reserve_unfolded_table_slots(&mut closure.function.lock().body),
+                    // The first table is the constructor itself.
+                    RValue::Table(_) if std::mem::take(&mut sized) => Ok(()),
                     RValue::Table(table) => reserve_allocation_slots(table),
                     _ => Ok(()),
                 };
@@ -499,6 +506,54 @@ pub fn reserve_unfolded_table_slots(block: &mut Block) -> Result<(), &'static st
         }
     }
     Ok(())
+}
+
+/// An array allocation no `nil` items spell ([`create_large_allocations`]).
+pub const LARGE_ALLOCATION: &str = "a NEWTABLE array allocation without enough reproducible constructor items";
+
+/// `table.create(n)` for an empty constructor whose array part is past what
+/// `nil` items may spell: Luau allocates the same table (`lua_createtable(L,
+/// n, 0)`). Only where `table` is the builtin library: the chunk never
+/// assigns it and has a fixed environment. The hash part of an empty
+/// constructor is not kept elsewhere either ([`Table::hash_padding`]).
+pub fn create_large_allocations(block: &mut Block) {
+    for index in 0..block.0.len() {
+        // A constructor its stores size keeps `{}`.
+        let (head, rest) = block.0.split_at(index + 1);
+        let mut sized = table_constructor_local(&head[index]).is_some_and(|object| {
+            matches!(&head[index], Statement::Assign(assign)
+                if matches!(&assign.right[0], RValue::Table(table) if sized_by_stores(table, rest, &object)))
+        });
+        let statement = &mut block.0[index];
+        statement.traverse_rvalues(&mut |value| match value {
+            RValue::Closure(closure) => create_large_allocations(&mut closure.function.lock().body),
+            RValue::Table(_) if std::mem::take(&mut sized) => {}
+            RValue::Table(table)
+                if table.0.is_empty()
+                    && matches!(table.2, crate::TableShape::NewTable { array, .. }
+                        if array as usize > crate::table::MAX_ALLOCATION_PADDING) =>
+            {
+                let crate::TableShape::NewTable { array, .. } = table.2 else { unreachable!() };
+                let create = Index::new(
+                    crate::Global::new(b"table".to_vec()).into(),
+                    crate::Literal::String(b"create".to_vec()).into(),
+                );
+                *value = crate::Call::new(create.into(), vec![crate::Literal::Number(f64::from(array)).into()]).into();
+            }
+            _ => {}
+        });
+        match statement {
+            Statement::If(node) => {
+                create_large_allocations(&mut node.then_block.lock());
+                create_large_allocations(&mut node.else_block.lock());
+            }
+            Statement::While(node) => create_large_allocations(&mut node.block.lock()),
+            Statement::Repeat(node) => create_large_allocations(&mut node.block.lock()),
+            Statement::NumericFor(node) => create_large_allocations(&mut node.block.lock()),
+            Statement::GenericFor(node) => create_large_allocations(&mut node.block.lock()),
+            _ => {}
+        }
+    }
 }
 
 /// Late recovery for effectful prefix fields. The pipeline's final local and
@@ -722,13 +777,119 @@ fn lower_array_keys(table: &mut Table) -> Result<usize, &'static str> {
     Ok(slots)
 }
 
+/// Whether Luau gives the printed `local object = {}` the array part the
+/// bytecode allocated without any `nil` items: it sizes an empty constructor
+/// declared alone from the stores to the local that follow (`TableShape.cpp`).
+fn sized_by_stores(table: &Table, rest: &[Statement], object: &RcLocal) -> bool {
+    let crate::TableShape::NewTable { array, .. } = table.2 else { return false };
+    array > 0
+        && table.0.is_empty()
+        && !rest.iter().any(|statement| matches!(statement, Statement::SetList(list) if &list.object_local == object))
+        && {
+            let mut prediction = ArrayPrediction { object, size: 0, loops: Default::default() };
+            prediction.block(rest);
+            prediction.size == array
+        }
+}
+
+/// Luau's `predictTableShapes` for one table, over the printed statements in
+/// source order, nested blocks and closures included: `object[n] = v` grows
+/// the array part when `n` is the next index; `object[i] = v` in a
+/// `for i = 1, k` loop (`k <= 16`, no step) sizes a still-empty one to `k`.
+/// Compound assignments and declarations never count.
+struct ArrayPrediction<'a> {
+    object: &'a RcLocal,
+    size: u32,
+    loops: rustc_hash::FxHashMap<RcLocal, u32>,
+}
+
+impl ArrayPrediction<'_> {
+    fn block(&mut self, statements: &[Statement]) {
+        for statement in statements {
+            self.statement(statement);
+        }
+    }
+
+    fn statement(&mut self, statement: &Statement) {
+        match statement {
+            Statement::Assign(assign) if !assign.prefix && !crate::formatter::prints_as_compound(assign) => {
+                for left in &assign.left {
+                    if let LValue::Index(Index { left: box RValue::Local(base), right: key, .. }) = left
+                        && base == self.object
+                    {
+                        match &**key {
+                            RValue::Literal(crate::Literal::Number(index)) if *index == f64::from(self.size) + 1.0 => {
+                                self.size += 1;
+                            }
+                            RValue::Local(counter) if self.size == 0 => {
+                                if let Some(&bound) = self.loops.get(counter) {
+                                    self.size = bound;
+                                }
+                            }
+                            _ => {}
+                        }
+                    }
+                }
+                for right in &assign.right {
+                    self.closures(right);
+                }
+                return;
+            }
+            Statement::NumericFor(node) => {
+                for value in [&node.initial, &node.limit, &node.step] {
+                    self.closures(value);
+                }
+                if let (
+                    RValue::Literal(crate::Literal::Number(initial)),
+                    RValue::Literal(crate::Literal::Number(limit)),
+                    RValue::Literal(crate::Literal::Number(step)),
+                ) = (&node.initial, &node.limit, &node.step)
+                    && *initial == 1.0
+                    && *step == 1.0
+                    && (1.0..=16.0).contains(limit)
+                {
+                    self.loops.insert(node.counter.clone(), *limit as u32);
+                }
+                self.block(&node.block.lock());
+                return;
+            }
+            _ => {}
+        }
+        statement.traverse_rvalues_ref(&mut |value| {
+            if let RValue::Closure(closure) = value {
+                self.block(&closure.function.lock().body);
+            }
+        });
+        match statement {
+            Statement::If(node) => {
+                self.block(&node.then_block.lock());
+                self.block(&node.else_block.lock());
+            }
+            Statement::While(node) => self.block(&node.block.lock()),
+            Statement::Repeat(node) => self.block(&node.block.lock()),
+            Statement::GenericFor(node) => self.block(&node.block.lock()),
+            _ => {}
+        }
+    }
+
+    fn closures(&mut self, value: &RValue) {
+        let mut visit = |value: &RValue| {
+            if let RValue::Closure(closure) = value {
+                self.block(&closure.function.lock().body);
+            }
+        };
+        visit(value);
+        value.traverse_rvalues_ref(&mut visit);
+    }
+}
+
 fn reserve_allocation_slots(table: &mut Table) -> Result<(), &'static str> {
     let crate::TableShape::NewTable { array, .. } = table.2 else { return Ok(()); };
     let slots = lower_array_keys(table)?;
     let missing = (array as usize).saturating_sub(slots);
     if missing > 0 {
         if missing > crate::table::MAX_ALLOCATION_PADDING || table.0.last().is_some_and(|(key, value)| key.is_none() && expands(value)) {
-            return Err("a NEWTABLE array allocation without enough reproducible constructor items");
+            return Err(LARGE_ALLOCATION);
         }
         pad_array_slots(table, slots, array as usize)?;
     }

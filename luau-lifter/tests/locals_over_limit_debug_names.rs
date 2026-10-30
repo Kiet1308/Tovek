@@ -7,7 +7,8 @@
 //! name (`same_name`) or a name per block (`distinct_names`). At -g2 every
 //! `a` carries its own debug interval, which kept it out of the shared
 //! storage temporaries get: the output declared 220 locals and did not
-//! compile ("Out of local registers").
+//! compile ("Out of local registers"). The output puts the `do` blocks back,
+//! each local in its own scope under its own name.
 
 const SAME_NAME: &[u8] = include_bytes!("fixtures/locals_over_limit_same_name.luaubc");
 const DISTINCT_NAMES: &[u8] = include_bytes!("fixtures/locals_over_limit_distinct_names.luaubc");
@@ -17,23 +18,24 @@ fn decompile(bytecode: &[u8]) -> String {
         .expect("fixture decompiles")
 }
 
-fn declarations(source: &str) -> usize {
-    source.lines().filter(|line| line.trim_start().starts_with("local ")).count()
+/// The top-level declarations: those of the `do` blocks are scoped.
+fn top_level_declarations(source: &str) -> usize {
+    source.lines().filter(|line| line.starts_with("local ")).count()
 }
 
 #[test]
-fn locals_of_one_name_share_that_name() {
+fn locals_of_one_name_keep_that_name_in_do_blocks() {
     let source = decompile(SAME_NAME);
-    assert!(declarations(&source) < 200, "{source}");
-    assert!(source.contains("\na = f(1)\n"), "{source}");
+    assert!(top_level_declarations(&source) < 200, "{source}");
+    assert!(source.contains("\ndo\n\tlocal a = f(1)\n\tt[1] = g(1) + a\nend\n"), "{source}");
+    assert!(source.contains("\ndo\n\tlocal a = f(219)\n"), "{source}");
 }
 
 #[test]
-fn locals_of_many_names_share_an_inferred_one() {
+fn locals_of_many_names_keep_their_names_in_do_blocks() {
     let source = decompile(DISTINCT_NAMES);
-    assert!(declarations(&source) < 200, "{source}");
-    // One slot holding every `itemN` takes none of their names.
-    assert!(!source.contains("item1 "), "{source}");
+    assert!(top_level_declarations(&source) < 200, "{source}");
+    assert!(source.contains("\ndo\n\tlocal item1 = f(1)\n\tt[1] = g(1) + item1\nend\n"), "{source}");
 }
 
 #[test]

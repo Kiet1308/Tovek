@@ -402,6 +402,185 @@ pub fn declared_locals_exceed_limit(block: &Block) -> bool {
     scope(&block.0, 0)
 }
 
+/// Scopes the declarations of every function over Luau's local limit with
+/// `do ... end`, the way the source did before the output flattened its `do`
+/// blocks (`do local u = i; local function c() ... end; t[i] = c end`): each
+/// run of statements from a declaration to the last statement using what the
+/// run declares, unless the run already ends its block.
+// shortcut: runs are found by rescanning from each declaration, quadratic in
+// a block of long-lived declarations; only functions over the limit pay it.
+pub fn scope_declarations_over_limit(block: &mut Block) {
+    scope_function(block, 0);
+}
+
+fn scope_function(body: &mut Block, parameters: usize) {
+    // The function's own block first; nested blocks only if that is not enough.
+    if own_locals_exceed_limit(&body.0, parameters) {
+        scope_runs(body, None);
+        if own_locals_exceed_limit(&body.0, parameters) {
+            scope_nested_runs(body);
+        }
+    }
+    for_each_closure(body, &mut |function| {
+        let parameters = function.parameters.len();
+        scope_function(&mut function.body, parameters);
+    });
+}
+
+/// [`declared_locals_exceed_limit`] for one function, its closures apart.
+fn own_locals_exceed_limit(statements: &[Statement], mut active: usize) -> bool {
+    statements.iter().any(|statement| {
+        let nested = match statement {
+            Statement::Assign(assign) if assign.prefix => {
+                active += assign.left.len();
+                false
+            }
+            Statement::If(node) => own_locals_exceed_limit(&node.then_block.lock().0, active)
+                || own_locals_exceed_limit(&node.else_block.lock().0, active),
+            Statement::While(node) => own_locals_exceed_limit(&node.block.lock().0, active),
+            Statement::Repeat(node) => own_locals_exceed_limit(&node.block.lock().0, active),
+            Statement::NumericFor(node) => own_locals_exceed_limit(&node.block.lock().0, active + 1),
+            Statement::GenericFor(node) => own_locals_exceed_limit(&node.block.lock().0, active + node.res_locals.len()),
+            _ => false,
+        };
+        nested || active > LOCAL_LIMIT
+    })
+}
+
+/// Every closure of the function `body` belongs to, nested blocks included.
+fn for_each_closure(body: &mut Block, visit: &mut impl FnMut(&mut crate::Function)) {
+    for statement in &mut body.0 {
+        statement.traverse_rvalues(&mut |value| {
+            if let RValue::Closure(closure) = value {
+                visit(&mut closure.function.lock());
+            }
+        });
+        for_each_nested_block(statement, &mut |block| for_each_closure(block, visit));
+    }
+}
+
+fn for_each_nested_block(statement: &mut Statement, visit: &mut impl FnMut(&mut Block)) {
+    match statement {
+        Statement::If(node) => {
+            visit(&mut node.then_block.lock());
+            visit(&mut node.else_block.lock());
+        }
+        Statement::While(node) => visit(&mut node.block.lock()),
+        Statement::Repeat(node) => visit(&mut node.block.lock()),
+        Statement::NumericFor(node) => visit(&mut node.block.lock()),
+        Statement::GenericFor(node) => visit(&mut node.block.lock()),
+        _ => {}
+    }
+}
+
+/// Every local `statement` reads or writes, its nested blocks included (a
+/// closure reads what it captures).
+fn for_each_reference(statement: &Statement, visit: &mut impl FnMut(&RcLocal)) {
+    statement.visit_local_reads(&mut |local| { visit(local); true });
+    statement.visit_local_writes(&mut |local| { visit(local); true });
+    let mut block = |block: &Block| block.0.iter().for_each(|statement| for_each_reference(statement, visit));
+    match statement {
+        Statement::If(node) => {
+            block(&node.then_block.lock());
+            block(&node.else_block.lock());
+        }
+        Statement::While(node) => block(&node.block.lock()),
+        Statement::Repeat(node) => block(&node.block.lock()),
+        Statement::NumericFor(node) => block(&node.block.lock()),
+        Statement::GenericFor(node) => block(&node.block.lock()),
+        _ => {}
+    }
+}
+
+/// [`scope_runs`] in every block nested in `block`, closures apart.
+fn scope_nested_runs(block: &mut Block) {
+    for statement in &mut block.0 {
+        if let Statement::Repeat(node) = statement {
+            let mut body = node.block.lock();
+            scope_runs(&mut body, Some(&node.condition));
+            scope_nested_runs(&mut body);
+        } else {
+            for_each_nested_block(statement, &mut |block| {
+                scope_runs(block, None);
+                scope_nested_runs(block);
+            });
+        }
+    }
+}
+
+/// Wraps the runs of `block` in scopes. `trailing` reads after the block's
+/// last statement (a `repeat` condition).
+fn scope_runs(block: &mut Block, trailing: Option<&RValue>) {
+    let count = block.0.len();
+    let mut last_use = FxHashMap::<RcLocal, usize>::default();
+    for (index, statement) in block.0.iter().enumerate() {
+        for_each_reference(statement, &mut |local| { last_use.insert(local.clone(), index); });
+    }
+    if let Some(condition) = trailing {
+        condition.visit_local_reads(&mut |local| { last_use.insert(local.clone(), count); true });
+    }
+    let declared_until = |statement: &Statement| match statement {
+        Statement::Assign(assign) if assign.prefix => assign.left.iter()
+            .filter_map(|left| left.as_local())
+            .filter_map(|local| last_use.get(local).copied())
+            .max(),
+        _ => None,
+    };
+    let mut runs = Vec::new();
+    let mut index = 0;
+    while index < count {
+        let Some(mut end) = declared_until(&block.0[index]) else {
+            index += 1;
+            continue;
+        };
+        let start = index;
+        let mut next = start;
+        while next < end {
+            next += 1;
+            end = end.max(declared_until(&block.0[next]).unwrap_or(next));
+        }
+        if end + 1 < count && !block.0[start..=end].iter().any(jumps) {
+            runs.push(start..end + 1);
+            index = end + 1;
+        } else {
+            // A run reaching the block's end (`local M = {}` returned last)
+            // can still hold runs of its own.
+            index += 1;
+        }
+    }
+    if !runs.is_empty() {
+        let mut runs = runs.into_iter().peekable();
+        let mut scoped = Vec::with_capacity(count);
+        let mut body = Vec::new();
+        for (index, statement) in std::mem::take(&mut block.0).into_iter().enumerate() {
+            let Some(run) = runs.peek().filter(|run| run.contains(&index)) else {
+                scoped.push(statement);
+                continue;
+            };
+            body.push(statement);
+            if index + 1 == run.end {
+                runs.next();
+                let scope = crate::If::new(crate::Literal::Boolean(true).into(), Block(std::mem::take(&mut body)), Block::default());
+                scoped.push(scope.into());
+            }
+        }
+        block.0 = scoped;
+    }
+}
+
+/// Whether control can leave `statement` for a label: a scope would hide it.
+fn jumps(statement: &Statement) -> bool {
+    matches!(statement, Statement::Goto(_) | Statement::Label(_))
+        || match statement {
+            Statement::If(node) => node.then_block.lock().0.iter().any(jumps) || node.else_block.lock().0.iter().any(jumps),
+            Statement::While(node) => node.block.lock().0.iter().any(jumps),
+            Statement::Repeat(node) => node.block.lock().0.iter().any(jumps),
+            Statement::NumericFor(node) => node.block.lock().0.iter().any(jumps),
+            Statement::GenericFor(node) => node.block.lock().0.iter().any(jumps),
+            _ => false,
+        }
+}
+
 /// A temporary later passes fold into its one use, which a storage slot
 /// shared with other temporaries would forbid, leaving one local reassigned
 /// throughout (`Players = game:GetService("ReplicatedStorage")`): a value

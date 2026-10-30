@@ -12,6 +12,53 @@ const COPY_CAPTURE: &[u8] = include_bytes!("fixtures/deinline_copy_capture_rebou
 const COPY_BEFORE_CAPTURE: &[u8] = include_bytes!("fixtures/deinline_copy_written_before_capture.luaubc");
 const COPY_PER_SITE: &[u8] = include_bytes!("fixtures/deinline_copy_per_site.luaubc");
 const LOOP_EXIT_HELPERS: &[u8] = include_bytes!("fixtures/deinline_loop_exit_helpers.luaubc");
+const TABLE_SHAPE: &[u8] = include_bytes!("fixtures/table_shape_from_stores.luaubc");
+const OVER_PADDING: &[u8] = include_bytes!("fixtures/table_shape_over_padding_limit.luaubc");
+const SCOPED_OVER_LIMIT: &[u8] = include_bytes!("fixtures/scoped_declarations_over_limit.luaubc");
+
+fn decompile(bytecode: &[u8]) -> String {
+    luau_lifter::try_decompile_bytecode_with_options(bytecode, 1, None, Default::default())
+        .expect("fixture decompiles")
+}
+
+#[test]
+fn a_table_its_later_stores_size_prints_empty() {
+    let source = decompile(TABLE_SHAPE);
+    // Luau sizes `local t = {}` from the stores after it: no `nil` items.
+    assert!(source.contains("local function collect(p, p2, p3)
+	local v = {}
+"), "{source}");
+    assert!(source.contains("local function fill(p)
+	local v2 = {}
+"), "{source}");
+    assert!(source.contains("local function shuffled(p)"), "{source}");
+    assert!(source.contains("	local v3 = {}
+	v3[2] = p
+"), "{source}");
+}
+
+#[test]
+fn an_allocation_past_nil_padding_is_spelled_table_create() {
+    let source = decompile(OVER_PADDING);
+    assert!(source.starts_with("local function build(p)
+	local v = {}
+"), "{source}");
+    // The call Luau inlined with a constant `false` allocates and stores nothing.
+    assert!(source.contains("print(#table.create(4100))"), "{source}");
+}
+
+#[test]
+fn flattened_do_blocks_come_back_over_the_local_limit() {
+    let source = decompile(SCOPED_OVER_LIMIT);
+    assert_eq!(source.matches("
+do
+").count(), 210, "{source}");
+    assert!(source.contains("
+do
+	local v3 = v + 209
+	local function c209(p)
+"), "{source}");
+}
 
 #[test]
 fn helpers_returning_from_a_loop_after_a_guard_are_rebuilt() {

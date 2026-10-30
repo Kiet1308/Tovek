@@ -23,6 +23,12 @@ impl PartialEq for If {
 }
 
 impl If {
+    /// A `do ... end` block: `if true then ... end` with no `else` runs its
+    /// block once in a scope of its own, as `do` does.
+    pub fn is_scope(&self) -> bool {
+        matches!(self.condition, RValue::Literal(crate::Literal::Boolean(true))) && self.else_block.lock().is_empty()
+    }
+
     pub fn new(condition: RValue, then_block: Block, else_block: Block) -> Self {
         Self {
             node_origin: Default::default(),

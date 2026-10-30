@@ -51,12 +51,6 @@ impl LastUses {
     }
 }
 
-#[derive(PartialEq, Eq)]
-enum RedOrBlue {
-    Red,
-    Blue,
-}
-
 /// Whether two congruence classes have members defined at the same point.
 fn share_definition_point(a: &CongruenceClass, b: &CongruenceClass) -> bool {
     let (small, large) = if a.members.len() <= b.members.len() { (a, b) } else { (b, a) };
@@ -331,6 +325,7 @@ pub struct Destructor<'a> {
     local_last_use: FxHashMap<RcLocal, LastUses>,
     /// Dominator-tree children per node index, in CFG node order.
     dominator_children: Vec<Vec<NodeIndex>>,
+    dominator_parent: Vec<Option<NodeIndex>>,
     // Half-open DFS intervals provide ancestor queries in O(1), with O(V)
     // storage instead of copying every ancestor on a deep dominator chain.
     /// Dominator-tree preorder interval per node index.
@@ -509,6 +504,7 @@ impl<'a> Destructor<'a> {
             local_defs: FxHashMap::with_capacity_and_hasher(local_count, Default::default()),
             local_last_use: FxHashMap::default(),
             dominator_children: Vec::new(),
+            dominator_parent: Vec::new(),
             dominators: Vec::new(),
             liveness: Liveness::default(),
             undesirable_blocks: FxHashSet::default(),
@@ -1024,9 +1020,11 @@ impl<'a> Destructor<'a> {
             let dominators = crate::dominators::Dominators::new(self.function.graph(), self.function.entry().unwrap());
             let bound = self.function.graph().node_bound();
             self.dominator_children = vec![Vec::new(); bound];
+            self.dominator_parent = vec![None; bound];
             for node in self.function.graph().node_indices() {
                 if let Some(dominator) = dominators.immediate_dominator(node) {
                     self.dominator_children[dominator.index()].push(node);
+                    self.dominator_parent[node.index()] = Some(dominator);
                 }
             }
             self.dominators = vec![(0, 0); bound];
@@ -1760,8 +1758,6 @@ impl<'a> Destructor<'a> {
         if self.breaks_copy_capture(red, blue) {
             return true;
         }
-        let mut dom = Vec::<(&RcLocal, RedOrBlue)>::new();
-
         let red = red.borrow();
         let blue = blue.borrow();
         // The walk below compares each member with the nearest member that
@@ -1790,75 +1786,102 @@ impl<'a> Destructor<'a> {
             }
             return false;
         }
-        let mut red_iter = red.iter().peekable();
-        let mut blue_iter = blue.iter().peekable();
-        let mut red_count = 0;
-        let mut blue_count = 0;
-
-        self.equal_ancestor_out.remove(red_iter.peek().unwrap().1);
-        self.equal_ancestor_out.remove(blue_iter.peek().unwrap().1);
-        // Keep the old per-iteration counter only as a test oracle. Release
-        // profiling derives exactly the consumed items from iterator lengths.
+        self.equal_ancestor_out.remove(red.values().next().unwrap());
+        self.equal_ancestor_out.remove(blue.values().next().unwrap());
+        // Members of both classes in dominator preorder, each compared with
+        // the nearest member that dominates it (the top of `dom`).
+        //
+        // Out-state made during this walk sits only on members some member
+        // of the smaller class dominates. So with none at the start, a member
+        // of the larger class met while no smaller-class member is on the
+        // stack is compared with its own class through absent out-state:
+        // nothing found, nothing changed. Those runs are skipped; a
+        // smaller-class member then takes the deepest larger-class member
+        // dominating it as its comparand, as the full walk would. A class
+        // grown one version or one small web at a time (a long `if` chain's
+        // phi web) is thus walked in its dominator depth, not its size.
+        let classes: [&CongruenceClass; 2] = [&red, &blue];
         #[cfg(test)]
-        let mut reference_visits = 0;
+        let skips = !copy_sharing_regressions::FULL_WALK.get();
+        #[cfg(not(test))]
+        let skips = true;
+        let small = (skips && self.equal_ancestor_out.is_empty() && !self.dominators.is_empty())
+            .then(|| usize::from(red.len() > blue.len()));
+        let mut members = classes.map(|class| class.range(..).peekable());
+        let mut counts = [0usize; 2];
+        let mut dom = Vec::<(&RcLocal, usize)>::new();
+        let mut visits = 0u64;
         loop {
-            #[cfg(test)]
-            { reference_visits += 1; }
-            let (curr, curr_class) = if blue_iter.peek().is_none()
-                || (red_iter.peek().is_some()
-                    && self.check_pre_dom_order(
-                        red_iter.peek().unwrap().1,
-                        blue_iter.peek().unwrap().1,
-                    )) {
-                red_count += 1;
-                (red_iter.next().unwrap().1, RedOrBlue::Red)
-            } else {
-                blue_count += 1;
-                (blue_iter.next().unwrap().1, RedOrBlue::Blue)
+            if let Some(small) = small
+                && counts[small] == 0
+                && let Some(&(&next, _)) = members[small].peek()
+                && members[1 - small].peek().is_some_and(|&(&key, _)| key < next)
+            {
+                members[1 - small] = classes[1 - small].range(next..).peekable();
+            }
+            visits += 1;
+            let [red_members, blue_members] = &mut members;
+            let side = match (red_members.peek(), blue_members.peek()) {
+                (Some(&(_, red)), Some(&(_, blue))) => usize::from(!self.check_pre_dom_order(red, blue)),
+                (Some(_), None) => 0,
+                _ => 1,
             };
+            let (_, curr) = members[side].next().unwrap();
 
-            while !dom.is_empty() && !self.dominates(dom.last().unwrap().0, curr) {
-                match dom.pop().unwrap().1 {
-                    RedOrBlue::Red => red_count -= 1,
-                    RedOrBlue::Blue => blue_count -= 1,
-                }
+            while let Some(&(top, top_side)) = dom.last()
+                && !self.dominates(top, curr)
+            {
+                dom.pop();
+                counts[top_side] -= 1;
+            }
+            if small == Some(side)
+                && let Some(ancestor) = self.deepest_dominating(classes[1 - side], curr)
+                && dom.last().is_none_or(|&(top, _)| self.check_pre_dom_order(top, ancestor))
+            {
+                dom.push((ancestor, 1 - side));
+                counts[1 - side] += 1;
             }
 
-            if !dom.is_empty()
-                && self.interference(
-                    curr,
-                    dom.last().unwrap().0,
-                    curr_class == dom.last().unwrap().1,
-                )
+            if let Some(&(top, top_side)) = dom.last()
+                && self.interference(curr, top, side == top_side)
             {
-                #[cfg(test)]
-                assert_eq!(red.len() - red_iter.len() + blue.len() - blue_iter.len(), reference_visits);
-                if ast::telemetry::enabled() {
-                    let visits = red.len() - red_iter.len() + blue.len() - blue_iter.len();
-                    ast::telemetry::count("destruct_interference_visits", visits as u64);
-                }
+                ast::telemetry::count("destruct_interference_visits", visits);
                 return true;
             }
 
-            dom.push((curr, curr_class));
+            dom.push((curr, side));
+            counts[side] += 1;
 
-            if (red_iter.peek().is_some() && blue_count > 0)
-                || (blue_iter.peek().is_some() && red_count > 0)
-                || (red_iter.peek().is_some() && blue_iter.peek().is_some())
+            let more = [members[0].peek().is_some(), members[1].peek().is_some()];
+            if (more[0] && counts[1] > 0) || (more[1] && counts[0] > 0) || (more[0] && more[1]) {
+                continue;
+            }
+            // A skipped larger-class member may still dominate `curr`.
+            if let Some(small) = small
+                && more[small]
+                && self.deepest_dominating(classes[1 - small], curr).is_some()
             {
                 continue;
             }
-
             break;
         }
 
-        #[cfg(test)]
-        assert_eq!(red.len() - red_iter.len() + blue.len() - blue_iter.len(), reference_visits);
-        if ast::telemetry::enabled() {
-            let visits = red.len() - red_iter.len() + blue.len() - blue_iter.len();
-            ast::telemetry::count("destruct_interference_visits", visits as u64);
-        }
+        ast::telemetry::count("destruct_interference_visits", visits);
         false
+    }
+
+    /// The member of `class` deepest in the dominator tree that dominates
+    /// `local`: earlier in its block, else in the nearest dominating block
+    /// holding one.
+    fn deepest_dominating<'c>(&self, class: &'c CongruenceClass, local: &RcLocal) -> Option<&'c RcLocal> {
+        let (dom_index, mut block, stat_index) = self.local_defs[local];
+        let mut found = class.range((dom_index, ParamOrStatIndex::Param(0))..(dom_index, stat_index)).next_back();
+        while found.is_none() {
+            block = self.dominator_parent[block.index()]?;
+            let index = self.dominators[block.index()].0;
+            found = class.range((index, ParamOrStatIndex::Param(0))..(index + 1, ParamOrStatIndex::Param(0))).next_back();
+        }
+        found.map(|(_, member)| member)
     }
 
     fn interference(&mut self, local_a: &RcLocal, local_b: &RcLocal, same_con_class: bool) -> bool {
@@ -1927,15 +1950,31 @@ impl<'a> Destructor<'a> {
         }
         let mut out_present = 0;
         let mut updates = 0;
-        for local in con_class_a.borrow().values() {
-            // Keep inspecting the complete class: failed interference attempts
-            // can leave relevant out-state on any member. Only omit writes
-            // that would reinstall the exact ancestor already held in `in`.
-            let Some(local_out) = self.equal_ancestor_out.get(local) else { continue; };
+        // Keep inspecting the complete class: failed interference attempts
+        // can leave relevant out-state on any member. Only the members with
+        // out-state can change, each on its own, so visit whichever of the
+        // class and the out-state is smaller: a phi web merged one version
+        // at a time would otherwise rescan its whole class per merge.
+        let class = con_class_a.borrow();
+        let members = if self.equal_ancestor_out.len() < class.len() {
+            self.equal_ancestor_out.iter()
+                .filter(|(local, _)| self.local_defs.get(*local)
+                    .is_some_and(|&(dom_index, _, stat_index)| class.get(&(dom_index, stat_index)) == Some(*local)))
+                .map(|(local, local_out)| (local.clone(), local_out.clone()))
+                .collect::<Vec<_>>()
+        } else {
+            class.values()
+                .filter_map(|local| Some((local.clone(), self.equal_ancestor_out.get(local)?.clone())))
+                .collect()
+        };
+        drop(class);
+        for (local, local_out) in members {
+            // Only omit writes that would reinstall the exact ancestor
+            // already held in `in`.
             out_present += 1;
-            if self.equal_ancestor_in.get(local).is_some_and(|local_in|
-                !self.check_pre_dom_order(local_in, local_out)) { continue; }
-            self.equal_ancestor_in.insert(local.clone(), local_out.clone());
+            if self.equal_ancestor_in.get(&local).is_some_and(|local_in|
+                !self.check_pre_dom_order(local_in, &local_out)) { continue; }
+            self.equal_ancestor_in.insert(local, local_out);
             updates += 1;
         }
         ast::telemetry::count("destruct_ancestor_out_present", out_present);
@@ -2300,6 +2339,99 @@ impl<'a> Destructor<'a> {
 #[cfg(test)]
 mod copy_sharing_regressions {
     use super::*;
+
+    thread_local! {
+        /// Makes [`Destructor::check_interfere`] walk every member.
+        pub(super) static FULL_WALK: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+    }
+
+    /// Chains of diamonds whose blocks define literals and copies of the
+    /// values dominating them, with classes drawn at random: the walk that
+    /// skips the larger class must answer, and leave the ancestor state,
+    /// exactly as the walk over every member does.
+    #[test]
+    fn skipping_the_larger_class_matches_the_full_interference_walk() {
+        use ast::{Assign, If, Literal, RValue, Return};
+        let mut skipped_any = false;
+        for seed in 0..400u64 {
+            let mut state = seed;
+            let mut next = |bound: u64| {
+                state = state.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+                (state >> 33) % bound
+            };
+            let mut function = Function::new(0);
+            let entry = function.new_block();
+            function.set_entry(entry);
+            let flag = RcLocal::default();
+            function.parameters = vec![flag.clone()];
+            let mut locals = Vec::new();
+            // Values defined in blocks dominating every later one.
+            let mut dominating = vec![flag.clone()];
+            let mut define = |function: &mut Function, block, dominating: &mut Vec<RcLocal>, shared: bool, next: &mut dyn FnMut(u64) -> u64| {
+                let mut available = dominating.clone();
+                for _ in 0..1 + next(3) {
+                    let local = RcLocal::default();
+                    let value = if next(3) == 0 {
+                        RValue::Local(available[next(available.len() as u64) as usize].clone())
+                    } else {
+                        Literal::Number(next(4) as f64).into()
+                    };
+                    function.block_mut(block).unwrap().push(Assign::new(vec![local.clone().into()], vec![value]).into());
+                    available.push(local.clone());
+                    if shared {
+                        dominating.push(local.clone());
+                    }
+                    locals.push(local);
+                }
+            };
+            define(&mut function, entry, &mut dominating, true, &mut next);
+            let mut current = entry;
+            for _ in 0..2 + next(4) {
+                let [then_block, else_block, join] = std::array::from_fn(|_| function.new_block());
+                function.block_mut(current).unwrap().push(If::new(flag.clone().into(), Default::default(), Default::default()).into());
+                function.set_edges(current, vec![
+                    (then_block, BlockEdge::new(BranchType::Then)),
+                    (else_block, BlockEdge::new(BranchType::Else)),
+                ]);
+                for arm in [then_block, else_block] {
+                    define(&mut function, arm, &mut dominating.clone(), false, &mut next);
+                    function.set_edges(arm, vec![(join, BlockEdge::new(BranchType::Unconditional))]);
+                }
+                define(&mut function, join, &mut dominating, true, &mut next);
+                current = join;
+            }
+            let returned = locals.iter().filter(|_| next(3) != 0).cloned().map(Into::into).collect();
+            function.block_mut(current).unwrap().push(Return::new(returned).into());
+
+            let mut destructor = Destructor::new(&mut function, IndexMap::default(), FxHashSet::default(), locals.len());
+            destructor.liveness = Liveness::calculate(destructor.function);
+            destructor.build_def_use();
+            destructor.compute_value_interference();
+            let mut classes = locals.iter().map(|local| destructor.get_congruence_class(local.clone()).clone()).collect::<Vec<_>>();
+            for _ in 0..12 {
+                let red = classes[next(classes.len() as u64) as usize].clone();
+                let blue = classes[next(classes.len() as u64) as usize].clone();
+                if Rc::ptr_eq(&red, &blue) {
+                    continue;
+                }
+                skipped_any |= destructor.equal_ancestor_out.is_empty() && red.borrow().len() != blue.borrow().len();
+                let before = (destructor.equal_ancestor_in.clone(), destructor.equal_ancestor_out.clone());
+                FULL_WALK.set(true);
+                let full = destructor.check_interfere(&red, &blue);
+                FULL_WALK.set(false);
+                let full_state = (destructor.equal_ancestor_in.clone(), destructor.equal_ancestor_out.clone());
+                (destructor.equal_ancestor_in, destructor.equal_ancestor_out) = before;
+                let skipping = destructor.check_interfere(&red, &blue);
+                assert_eq!(full, skipping, "seed {seed}");
+                assert!(full_state == (destructor.equal_ancestor_in.clone(), destructor.equal_ancestor_out.clone()), "seed {seed}");
+                if !full {
+                    destructor.merge_congruence_classes(&red, &blue);
+                    classes.retain(|class| !Rc::ptr_eq(class, &blue));
+                }
+            }
+        }
+        assert!(skipped_any);
+    }
 
     #[test]
     fn compact_last_uses_match_hash_maps_for_sparse_blocks_and_repeated_reads() {
