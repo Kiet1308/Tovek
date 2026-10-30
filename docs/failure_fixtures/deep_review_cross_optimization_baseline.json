@@ -3032,6 +3032,36 @@
           "normalized": "c181c27bcf0f33fa9f751636349f0b944bd4d0a50377e614a2d7de45dd707cfd"
         }
       }
+    },
+    {
+      "ca": "table_large_allocation",
+      "input_optimization": 2,
+      "output_optimization": 0,
+      "debug": 2,
+      "source_sha256": "050773a27d8c7c41f682822a0829aa72af0454a7657bda36ea583589cc18bb8e",
+      "driver_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "compiler_options": [
+        "--fflags=false",
+        "--vector-lib=vector",
+        "--vector-ctor=create"
+      ],
+      "driver_optimization": 1,
+      "driver_debug": 1,
+      "status": "compiler_sensitive",
+      "observations": {
+        "goc": {
+          "raw": "a3a35f731126a238ede487b962c6e5d92ec17dfb36daa3fcbfd95811e2988580",
+          "normalized": "e7d3b1483ac8b30883da39712181a3bce714b70dec9f2070bfa7949e158994b1"
+        },
+        "sau_sua": {
+          "raw": "db183a45205f232b4a84d03387fe59f006d5c6a84dcfc354e9c933ddd8fad5f7",
+          "normalized": "3ab3f23c19fe0d3a07c1ed08dcb846bbdf49844fc0a569c202a1ab628631a804"
+        },
+        "source_at_output_optimization": {
+          "raw": "db183a45205f232b4a84d03387fe59f006d5c6a84dcfc354e9c933ddd8fad5f7",
+          "normalized": "3ab3f23c19fe0d3a07c1ed08dcb846bbdf49844fc0a569c202a1ab628631a804"
+        }
+      }
     }
   ]
 }

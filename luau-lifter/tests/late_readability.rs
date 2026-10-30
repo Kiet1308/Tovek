@@ -15,6 +15,7 @@ const LOOP_EXIT_HELPERS: &[u8] = include_bytes!("fixtures/deinline_loop_exit_hel
 const TABLE_SHAPE: &[u8] = include_bytes!("fixtures/table_shape_from_stores.luaubc");
 const OVER_PADDING: &[u8] = include_bytes!("fixtures/table_shape_over_padding_limit.luaubc");
 const SCOPED_OVER_LIMIT: &[u8] = include_bytes!("fixtures/scoped_declarations_over_limit.luaubc");
+const FOLDED_ARGUMENTS: &[u8] = include_bytes!("fixtures/deinline_folded_constant_arguments.luaubc");
 
 fn decompile(bytecode: &[u8]) -> String {
     luau_lifter::try_decompile_bytecode_with_options(bytecode, 1, None, Default::default())
@@ -25,24 +26,29 @@ fn decompile(bytecode: &[u8]) -> String {
 fn a_table_its_later_stores_size_prints_empty() {
     let source = decompile(TABLE_SHAPE);
     // Luau sizes `local t = {}` from the stores after it: no `nil` items.
-    assert!(source.contains("local function collect(p, p2, p3)
-	local v = {}
-"), "{source}");
-    assert!(source.contains("local function fill(p)
-	local v2 = {}
-"), "{source}");
-    assert!(source.contains("local function shuffled(p)"), "{source}");
-    assert!(source.contains("	local v3 = {}
-	v3[2] = p
-"), "{source}");
+    assert!(source.contains("local function collect(p, p2, p3) -- 2 equivalent calls inferred from this helper\n\tlocal v = {}\n"), "{source}");
+    assert!(source.contains("local function fill(p) -- 1 equivalent call inferred from this helper\n\tlocal v3 = {}\n"), "{source}");
+    assert!(source.contains("local function shuffled(p) -- 1 equivalent call inferred from this helper\n\tlocal v4 = {}\n\tv4[2] = p\n"), "{source}");
+}
+
+#[test]
+fn copies_folded_for_constant_arguments_are_calls_again() {
+    let source = decompile(FOLDED_ARGUMENTS);
+    // Dropped arms, folded arithmetic and comparisons, stores folded into
+    // the constructor, and spread arms: each copy is its call.
+    for call in ["local v = collect(1, nil, 3) -- inferred equivalent call",
+        "local v2 = collect(\"x\", \"y\", \"z\") -- inferred equivalent call",
+        "local v3 = fill(3) -- inferred equivalent call",
+        "local v4 = counted(4) -- inferred equivalent call"]
+    {
+        assert!(source.contains(call), "{call}\n{source}");
+    }
 }
 
 #[test]
 fn an_allocation_past_nil_padding_is_spelled_table_create() {
     let source = decompile(OVER_PADDING);
-    assert!(source.starts_with("local function build(p)
-	local v = {}
-"), "{source}");
+    assert!(source.starts_with("local function build(p)\n\tlocal v = {}\n"), "{source}");
     // The call Luau inlined with a constant `false` allocates and stores nothing.
     assert!(source.contains("print(#table.create(4100))"), "{source}");
 }
@@ -50,14 +56,8 @@ fn an_allocation_past_nil_padding_is_spelled_table_create() {
 #[test]
 fn flattened_do_blocks_come_back_over_the_local_limit() {
     let source = decompile(SCOPED_OVER_LIMIT);
-    assert_eq!(source.matches("
-do
-").count(), 210, "{source}");
-    assert!(source.contains("
-do
-	local v3 = v + 209
-	local function c209(p)
-"), "{source}");
+    assert_eq!(source.matches("\ndo\n").count(), 210, "{source}");
+    assert!(source.contains("\ndo\n\tlocal v3 = v + 209\n\tlocal function c209(p)\n"), "{source}");
 }
 
 #[test]

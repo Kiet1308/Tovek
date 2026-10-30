@@ -455,6 +455,13 @@ pub(crate) struct Bindings {
     /// pattern computed from parameters, and the literal of the site it
     /// must fold to.
     pub(crate) equations: Vec<(RValue, Literal)>,
+    /// Parameters an aligned seeding gave a constant for its truth alone
+    /// ([`seed_aligned`]), in that order: the call stands for them as an
+    /// inferred match does.
+    truths: Vec<RcLocal>,
+    /// Those of them given `nil`: left out of the call when last, as a call
+    /// leaves out an argument.
+    left_out: Vec<RcLocal>,
 }
 
 impl Bindings {
@@ -5828,6 +5835,9 @@ fn match_returned_local(
     hint: Option<&Option<RcLocal>>,
     // `stmts[i..d]`, shared by the plain forms.
     site: &SitePrefix,
+    // A copy of another length than the pattern, which only a
+    // specialization matches.
+    specialized: bool,
 ) -> Option<Hit> {
     let prefix = &stmts[i..d];
     if t.falls_off || prefix.is_empty() || block_has_return(prefix) {
@@ -5872,7 +5882,8 @@ fn match_returned_local(
         }
         let result = RcLocal::default();
         let store: Statement = Assign::new(vec![result.clone().into()], vec![RValue::Local(local.clone())]).into();
-        if canon_top_len_of(prefix.iter().chain(std::iter::once(&store)), true) != t.pat.len() {
+        let len = canon_top_len_of(prefix.iter().chain(std::iter::once(&store)), true);
+        if specialized == (len == t.pat.len()) {
             continue;
         }
         let Some(u) = site.unify_store(t, store, current_func) else {
@@ -6747,6 +6758,58 @@ fn match_value_prefixed(
     is_func_body_top: bool,
     last_occ: &mut Liveness,
 ) -> Option<Hit> {
+    match_value_prefixed_plain(stmts, i, t, current_func, is_func_body_top, last_occ)
+        .or_else(|| match_returned_local_specialized(stmts, i, t, current_func, last_occ))
+}
+
+/// A copy whose constant arguments Luau folded through branches has another
+/// length than the helper's prefix: dropped arms shorten it
+/// (`collect(1, nil, 3)`), taken ones spread their statements
+/// (`counted(4)`). Of a helper returning its own local, a prefix of another
+/// length only a specialization matches, at one width only, and none an
+/// `if` of a pruned branch's shape continues.
+fn match_returned_local_specialized(
+    stmts: &[Statement],
+    i: usize,
+    t: &Target,
+    current_func: Option<FnPtr>,
+    last_occ: &mut Liveness,
+) -> Option<Hit> {
+    if !may_specialize(t) || !matches!(t.pat.last(), Some(Statement::Return(ret)) if matches!(ret.values.as_slice(), [RValue::Local(_)])) {
+        return None;
+    }
+    if !may_open_specialized_copy(t, &t.pat, &stmts[i], 0) {
+        return None;
+    }
+    fn spread(stmts: &[Statement]) -> usize {
+        stmts.iter().map(|statement| 1 + nested_blocks(statement).iter().map(|block| spread(&block.lock().0)).sum::<usize>()).sum()
+    }
+    let mut found = None;
+    for k in (1..spread(&t.pat)).filter(|&k| k != t.prefix_len) {
+        let Some(d) = nth_effective_index(stmts, i, k) else { break };
+        if result_decl(&stmts[d]).is_some() {
+            continue;
+        }
+        let hit = match_returned_local(stmts, i, d, t, current_func, last_occ, None, &SitePrefix::new(&stmts[i..d]), true)
+            .filter(|hit| !hit.inferred.as_ref().is_some_and(|param| continues_pruned_branch(t, param, stmts, i + hit.consume)));
+        if hit.is_some() {
+            if found.is_some() {
+                return None;
+            }
+            found = hit;
+        }
+    }
+    found
+}
+
+fn match_value_prefixed_plain(
+    stmts: &[Statement],
+    i: usize,
+    t: &Target,
+    current_func: Option<FnPtr>,
+    is_func_body_top: bool,
+    last_occ: &mut Liveness,
+) -> Option<Hit> {
     // Every window here opens with the callee prefix, an `if` of which keeps
     // its condition through canon (the prefix returns nothing).
     if head_refused(t, &stmts[i..])
@@ -6776,7 +6839,7 @@ fn match_value_prefixed(
         });
         return match_declared_value(stmts, i, d, t, is_func_body_top, last_occ, current_func, &site)
             .or_else(|| match_embedded_value(stmts, i, d, t, current_func, is_func_body_top, last_occ, &site))
-            .or_else(|| match_returned_local(stmts, i, d, t, current_func, last_occ, returned_hint.as_ref(), &site))
+            .or_else(|| match_returned_local(stmts, i, d, t, current_func, last_occ, returned_hint.as_ref(), &site, false))
             .or_else(|| match_own_local_value(stmts, i, d, t, current_func, is_func_body_top, last_occ));
     };
     let kc = t.pat.len();
@@ -7929,6 +7992,11 @@ fn try_seeded_specialization(t: &Target, cwin: &[Statement], current_func: Optio
             seed_unify_block(t, &seed_pattern, cwin, &mut seed);
         }
     }
+    if !complete_seed(&seed)
+        && let Some(aligned) = seed_aligned(t, cwin)
+    {
+        seed = aligned;
+    }
     if !seed
         .params
         .values()
@@ -7958,6 +8026,7 @@ fn try_seeded_specialization(t: &Target, cwin: &[Statement], current_func: Optio
     // the recovered function body's shared Arcs while we prune constant arms.
     let mut specialized = canon(&t.pat);
     specialize_block(&mut specialized, &seed.params);
+    fold_specialized_table_stores(&mut specialized);
     let mut specialized = canon(&specialized);
 
     let mut verified = Bindings {
@@ -7979,7 +8048,17 @@ fn try_seeded_specialization(t: &Target, cwin: &[Statement], current_func: Optio
         verified = Bindings { params: seed.params, ..Bindings::default() };
         unify_block(t, &specialized, cwin, &mut verified).ok()?;
     }
-    let unified = finish_unified(t, cwin, verified, current_func)?;
+    let mut unified = finish_unified(t, cwin, verified, current_func)?;
+    while matches!(unified.args.last(), Some(RValue::Literal(Literal::Nil)))
+        && seed.left_out.contains(&t.param_order[unified.args.len() - 1])
+    {
+        unified.args.pop();
+    }
+    // A constant inferred from a branch's truth alone: weighed, and checked
+    // against a pruned branch following the window, as a variant's.
+    if unified.inferred.is_none() {
+        unified.inferred = seed.truths.first().cloned();
+    }
     if !specialization_is_honest(t, cwin, &unified.args) {
         return refused("specialization_no_larger_than_call");
     }
@@ -8319,15 +8398,322 @@ fn truth_tested_params(
 /// mismatch is expected for a specialized site, so failures are ignored here;
 /// every harvested binding is re-checked by `unify_block` after specialization.
 fn seed_unify_block(t: &Target, pattern: &[Statement], candidate: &[Statement], b: &mut Bindings) {
+    seed_unify_block_in(&t.ctx(), pattern, candidate, b);
+}
+
+fn seed_unify_block_in(ctx: &MatchCtx, pattern: &[Statement], candidate: &[Statement], b: &mut Bindings) {
     for (left, right) in pattern.iter().zip(candidate) {
-        seed_unify_stmt(t, left, right, b);
+        seed_unify_stmt(ctx, left, right, b);
     }
     // A removed leading branch shifts the rest: align from the end too.
     if pattern.len() != candidate.len() {
         for (left, right) in pattern.iter().rev().zip(candidate.iter().rev()) {
-            seed_unify_stmt(t, left, right, b);
+            seed_unify_stmt(ctx, left, right, b);
         }
     }
+}
+
+/// Steps an aligned seeding may take for one window ([`seed_aligned`]).
+const ALIGN_BUDGET: usize = 256;
+
+/// Seeds for a copy whose constant arguments Luau folded through branches
+/// and values ([`try_seeded_specialization`]), where the positional seeding
+/// leaves a parameter unbound: the pattern is walked against the window
+/// statement by statement, an `if` whose condition reads a parameter
+/// standing for an `if` of the site or for one of its arms taken whole (the
+/// constants decided it: `collect(1, nil, 3)` keeps `list[1] = a` and drops
+/// `list[2] = b`). An aligned pair binds what it shows, a value computed
+/// from parameters only that meets a number of the site gives an equation
+/// (`1 * p` as `3`), and an arm taken on a bare parameter tells its truth.
+/// Nothing here is trusted: the specialization these seeds give must unify
+/// with the site exactly.
+fn seed_aligned(t: &Target, candidate: &[Statement]) -> Option<Bindings> {
+    let no_helpers = fold::PureHelpers::default();
+    let helpers = t.fold.as_deref().unwrap_or(&no_helpers);
+    let ctx = MatchCtx { fold: Some(helpers), ..t.ctx() };
+    let mut budget = ALIGN_BUDGET;
+    if !candidate.first().is_some_and(|first| may_open_specialized_copy(t, &t.pat, first, 0)) {
+        return None;
+    }
+    let (mut b, truths) = align_seed(t, &ctx, &t.pat, None, candidate, Bindings::default(), Vec::new(), &mut budget)?;
+    let equations = std::mem::take(&mut b.equations);
+    if !equations.is_empty() {
+        let mut known = FxHashMap::default();
+        let mut unknowns = Vec::new();
+        for param in &t.param_order {
+            match b.params.get(param) {
+                Some(RValue::Literal(literal)) => {
+                    known.insert(param.clone(), fold::Value::of(literal)?);
+                }
+                Some(_) => {}
+                None if equations.iter().any(|(pattern, _)| fold::reads(pattern, param) > 0) => unknowns.push(param.clone()),
+                None => {}
+            }
+        }
+        for (param, value) in fold::solve_equations(&equations, &known, &unknowns, helpers)? {
+            b.params.entry(param).or_insert_with(|| RValue::Literal(value.literal()));
+        }
+    }
+    // A parameter only an arm's choice reads: its truth is all the copy keeps.
+    for (param, truth) in truths {
+        if !b.params.contains_key(&param) {
+            b.truths.push(param.clone());
+            let literal = if truth {
+                Literal::Boolean(true)
+            } else if t.optional_params.contains(&param) || omittable(t, &param) {
+                b.left_out.push(param.clone());
+                Literal::Nil
+            } else {
+                Literal::Boolean(false)
+            };
+            b.params.insert(param, RValue::Literal(literal));
+        }
+    }
+    Some(b)
+}
+
+/// The copy went through the SSA fold of the stores right after a table
+/// constructor into it (`cfg::ssa::inline`); a store the specialization
+/// brings next to its constructor, from an arm the constants took, folds the
+/// same way, keyed: `local t = {}; t[1] = a` is `local t = { [1] = a }`.
+/// Only appends: a store the fold would merge into a listed entry stays.
+fn fold_specialized_table_stores(stmts: &mut Vec<Statement>) {
+    for statement in stmts.iter_mut() {
+        for block in nested_blocks(statement) {
+            fold_specialized_table_stores(&mut block.lock().0);
+        }
+    }
+    let mut index = 0;
+    while index < stmts.len() {
+        let object = match &stmts[index] {
+            Statement::Assign(assign)
+                if assign.left.len() == 1 && assign.right.len() == 1 && matches!(assign.right[0], RValue::Table(_)) =>
+            {
+                match &assign.left[0] {
+                    LValue::Local(object) => object.clone(),
+                    _ => {
+                        index += 1;
+                        continue;
+                    }
+                }
+            }
+            _ => {
+                index += 1;
+                continue;
+            }
+        };
+        while let Some(Statement::Assign(store)) = stmts.get(index + 1)
+            && let ([LValue::Index(target)], [value]) = (store.left.as_slice(), store.right.as_slice())
+            && matches!(target.left.as_ref(), RValue::Local(local) if *local == object)
+            && !store.prefix
+            && !target.right.has_side_effects()
+            && !reads_local(&target.right, &object)
+            && !reads_local(value, &object)
+        {
+            let Statement::Assign(declaration) = &stmts[index] else { unreachable!() };
+            let RValue::Table(table) = &declaration.right[0] else { unreachable!() };
+            let key = target.right.as_ref();
+            if table.0.last().is_some_and(|(key, value)| key.is_none() && matches!(value, RValue::Call(_) | RValue::MethodCall(_) | RValue::VarArg(_)))
+                || crate::ListedKeys::new(table).lists(table, key)
+                || !crate::table_takes_another_key(table, key)
+            {
+                break;
+            }
+            let (key, value) = (key.clone(), value.clone());
+            stmts.remove(index + 1);
+            let Statement::Assign(declaration) = &mut stmts[index] else { unreachable!() };
+            let RValue::Table(table) = &mut declaration.right[0] else { unreachable!() };
+            table.0.push((Some(key), value));
+        }
+        index += 1;
+    }
+}
+
+/// The site statement `local v = { ..., [k] = x }` aligned with a pattern
+/// constructor of fewer entries: the declaration with the pattern's count,
+/// then the other keyed entries as the stores SSA folded (`v[k] = x`).
+fn unfold_site_entries(pattern: &Statement, site: &Statement) -> Option<Vec<Statement>> {
+    let (Statement::Assign(left), Statement::Assign(right)) = (pattern, site) else { return None };
+    let ([_], [RValue::Table(pattern_table)], [LValue::Local(object)], [RValue::Table(site_table)]) =
+        (left.left.as_slice(), left.right.as_slice(), right.left.as_slice(), right.right.as_slice())
+    else {
+        return None;
+    };
+    let kept = pattern_table.0.len();
+    if site_table.0.len() <= kept || site_table.0[kept..].iter().any(|(key, _)| key.is_none()) {
+        return None;
+    }
+    let mut declaration = right.clone();
+    let RValue::Table(table) = &mut declaration.right[0] else { unreachable!() };
+    let stores = table.0.split_off(kept);
+    let mut unfolded = vec![Statement::Assign(declaration)];
+    for (key, value) in stores {
+        let target = crate::Index::new(RValue::Local(object.clone()), key.unwrap());
+        unfolded.push(Assign::new(vec![LValue::Index(target)], vec![value]).into());
+    }
+    Some(unfolded)
+}
+
+/// The parameter a condition tests bare (`p`, `not p`), and the truth that
+/// takes the then arm.
+fn bare_truth_test<'a>(condition: &'a RValue, params: &FxHashSet<RcLocal>) -> Option<(&'a RcLocal, bool)> {
+    match condition {
+        RValue::Local(local) if params.contains(local) => Some((local, true)),
+        RValue::Unary(unary) if unary.operation == UnaryOperation::Not => match unary.value.as_ref() {
+            RValue::Local(local) if params.contains(local) => Some((local, false)),
+            _ => None,
+        },
+        _ => None,
+    }
+}
+
+/// What follows a run of pattern statements being aligned ([`align_seed`]).
+struct AlignRest<'a> {
+    statements: &'a [Statement],
+    then: Option<&'a AlignRest<'a>>,
+}
+
+/// [`seed_aligned`]'s walk: the bindings and truths of the first alignment
+/// of all of `pattern`, then of what follows it, with all of `candidate`.
+#[allow(clippy::too_many_arguments)]
+fn align_seed(
+    t: &Target,
+    ctx: &MatchCtx,
+    pattern: &[Statement],
+    then: Option<&AlignRest>,
+    candidate: &[Statement],
+    b: Bindings,
+    truths: Vec<(RcLocal, bool)>,
+    budget: &mut usize,
+) -> Option<(Bindings, Vec<(RcLocal, bool)>)> {
+    *budget = budget.checked_sub(1)?;
+    let Some((head, rest)) = pattern.split_first() else {
+        return match then {
+            Some(next) => align_seed(t, ctx, next.statements, next.then, candidate, b, truths, budget),
+            None => candidate.is_empty().then_some((b, truths)),
+        };
+    };
+    // A value pattern's last `return` is the site's result, which the exact
+    // unification maps: none, or the store of it a value form adds.
+    if let Statement::Return(ret) = head
+        && rest.is_empty()
+        && then.is_none()
+    {
+        return match candidate {
+            [] => Some((b, truths)),
+            [Statement::Assign(store)] if ret.values.len() == 1 && store.left.len() == 1 && store.right.len() == 1 => {
+                let mut b = b;
+                seed_unify_values(ctx, &ret.values, &store.right, &mut b);
+                Some((b, truths))
+            }
+            _ => None,
+        };
+    }
+    if let Statement::If(branch) = head
+        && t.params.iter().any(|param| fold::reads(&branch.condition, param) > 0)
+    {
+        if let Some((Statement::If(_), site_rest)) = candidate.split_first() {
+            let mut aligned = b.clone();
+            seed_unify_stmt(ctx, head, &candidate[0], &mut aligned);
+            if let Some(found) = align_seed(t, ctx, rest, then, site_rest, aligned, truths.clone(), budget) {
+                return Some(found);
+            }
+        }
+        let after = AlignRest { statements: rest, then };
+        for taken in [true, false] {
+            let mut truths = truths.clone();
+            if let Some((param, then_truth)) = bare_truth_test(&branch.condition, &t.params) {
+                let truth = then_truth == taken;
+                if truths.iter().any(|(known, value)| known == param && *value != truth) {
+                    continue;
+                }
+                truths.push((param.clone(), truth));
+            }
+            let arm = if taken { branch.then_block.lock().0.clone() } else { branch.else_block.lock().0.clone() };
+            // An arm leaving the function ends the copy.
+            let next = (!sequence_has_terminal_tail(&arm)).then_some(&after);
+            if let Some(found) = align_seed(t, ctx, &arm, next, candidate, b.clone(), truths, budget) {
+                return Some(found);
+            }
+        }
+        return None;
+    }
+    let (site, site_rest) = candidate.split_first()?;
+    if let Some(unfolded) = unfold_site_entries(head, site) {
+        let site_rest = unfolded.into_iter().chain(site_rest.iter().cloned()).collect::<Vec<_>>();
+        let mut b = b;
+        seed_unify_stmt(ctx, head, &site_rest[0], &mut b);
+        return align_seed(t, ctx, rest, then, &site_rest[1..], b, truths, budget);
+    }
+    if !same_skeleton(head, site) {
+        return None;
+    }
+    let mut b = b;
+    seed_unify_stmt(ctx, head, site, &mut b);
+    align_seed(t, ctx, rest, then, site_rest, b, truths, budget)
+}
+
+/// Whether a pattern statement and a site statement can be one statement
+/// whatever constants their values folded: the same kind, writing to the
+/// same kind of place or calling the same kind of function, where literal
+/// keys and names agree.
+fn same_skeleton(pattern: &Statement, site: &Statement) -> bool {
+    fn path(pattern: &RValue, site: &RValue) -> bool {
+        match (pattern, site) {
+            (RValue::Local(_), RValue::Local(_)) => true,
+            (RValue::Global(a), RValue::Global(b)) => a == b,
+            (RValue::Index(a), RValue::Index(b)) => path(&a.left, &b.left) && key(&a.right, &b.right),
+            _ => false,
+        }
+    }
+    fn key(pattern: &RValue, site: &RValue) -> bool {
+        match (pattern, site) {
+            (RValue::Literal(a), RValue::Literal(b)) => a == b,
+            _ => true,
+        }
+    }
+    fn place(pattern: &LValue, site: &LValue) -> bool {
+        match (pattern, site) {
+            (LValue::Local(_), LValue::Local(_)) => true,
+            (LValue::Global(a), LValue::Global(b)) => a == b,
+            (LValue::Index(a), LValue::Index(b)) => path(&a.left, &b.left) && key(&a.right, &b.right),
+            _ => false,
+        }
+    }
+    match (pattern, site) {
+        (Statement::Assign(left), Statement::Assign(right)) => {
+            left.prefix == right.prefix
+                && left.parallel == right.parallel
+                && left.left.len() == right.left.len()
+                && left.right.len() == right.right.len()
+                && left.left.iter().zip(&right.left).all(|(pattern, site)| place(pattern, site))
+        }
+        (Statement::Call(left), Statement::Call(right)) => {
+            left.arguments.len() == right.arguments.len() && path(&left.value, &right.value)
+        }
+        (Statement::MethodCall(left), Statement::MethodCall(right)) => {
+            left.method == right.method && left.arguments.len() == right.arguments.len()
+        }
+        (Statement::Return(left), Statement::Return(right)) => left.values.len() == right.values.len(),
+        (left, right) => std::mem::discriminant(left) == std::mem::discriminant(right),
+    }
+}
+
+/// Whether `site` can open a copy of `pattern` some constants folded: as its
+/// first statement, or as the first statement of an arm of a leading `if`
+/// on a parameter (or of what follows such an `if`).
+fn may_open_specialized_copy(t: &Target, pattern: &[Statement], site: &Statement, depth: usize) -> bool {
+    let Some((head, rest)) = pattern.split_first() else { return false };
+    if let Statement::If(branch) = head
+        && t.params.iter().any(|param| fold::reads(&branch.condition, param) > 0)
+    {
+        return matches!(site, Statement::If(_))
+            || depth < 4
+                && (may_open_specialized_copy(t, &branch.then_block.lock().0, site, depth + 1)
+                    || may_open_specialized_copy(t, &branch.else_block.lock().0, site, depth + 1)
+                    || may_open_specialized_copy(t, rest, site, depth + 1));
+    }
+    same_skeleton(head, site)
 }
 
 fn seed_unify_values(ctx: &MatchCtx, pattern: &[RValue], candidate: &[RValue], b: &mut Bindings) {
@@ -8336,78 +8722,80 @@ fn seed_unify_values(ctx: &MatchCtx, pattern: &[RValue], candidate: &[RValue], b
     }
 }
 
-fn seed_unify_stmt(t: &Target, pattern: &Statement, candidate: &Statement, b: &mut Bindings) {
-    let ctx = t.ctx();
+fn seed_unify_stmt(ctx: &MatchCtx, pattern: &Statement, candidate: &Statement, b: &mut Bindings) {
     match (pattern, candidate) {
         (Statement::Assign(left), Statement::Assign(right)) => {
             if left.prefix != right.prefix || left.parallel != right.parallel {
                 return;
             }
             for (pl, cl) in left.left.iter().zip(&right.left) {
-                let _ = unify_lvalue(&ctx, pl, cl, b);
+                let _ = unify_lvalue(ctx, pl, cl, b);
             }
-            seed_unify_values(&ctx, &left.right, &right.right, b);
+            seed_unify_values(ctx, &left.right, &right.right, b);
         }
         (Statement::Call(left), Statement::Call(right)) if left.same_execution(right) => {
-            let _ = unify_rvalue(&ctx, &left.value, &right.value, b);
-            seed_unify_values(&ctx, &left.arguments, &right.arguments, b);
+            let _ = unify_rvalue(ctx, &left.value, &right.value, b);
+            seed_unify_values(ctx, &left.arguments, &right.arguments, b);
         }
         (Statement::MethodCall(left), Statement::MethodCall(right))
             if left.method == right.method =>
         {
-            let _ = unify_rvalue(&ctx, &left.value, &right.value, b);
-            seed_unify_values(&ctx, &left.arguments, &right.arguments, b);
+            let _ = unify_rvalue(ctx, &left.value, &right.value, b);
+            seed_unify_values(ctx, &left.arguments, &right.arguments, b);
         }
         (Statement::If(left), Statement::If(right)) => {
-            let _ = unify_rvalue(&ctx, &left.condition, &right.condition, b);
-            seed_unify_block(t, &left.then_block.lock().0, &right.then_block.lock().0, b);
-            seed_unify_block(t, &left.else_block.lock().0, &right.else_block.lock().0, b);
+            let _ = unify_rvalue(ctx, &left.condition, &right.condition, b);
+            seed_unify_block_in(ctx, &left.then_block.lock().0, &right.then_block.lock().0, b);
+            seed_unify_block_in(ctx, &left.else_block.lock().0, &right.else_block.lock().0, b);
         }
         (Statement::While(left), Statement::While(right)) => {
-            let _ = unify_rvalue(&ctx, &left.condition, &right.condition, b);
-            seed_unify_block(t, &left.block.lock().0, &right.block.lock().0, b);
+            let _ = unify_rvalue(ctx, &left.condition, &right.condition, b);
+            seed_unify_block_in(ctx, &left.block.lock().0, &right.block.lock().0, b);
         }
         (Statement::Repeat(left), Statement::Repeat(right)) => {
-            let _ = unify_rvalue(&ctx, &left.condition, &right.condition, b);
-            seed_unify_block(t, &left.block.lock().0, &right.block.lock().0, b);
+            let _ = unify_rvalue(ctx, &left.condition, &right.condition, b);
+            seed_unify_block_in(ctx, &left.block.lock().0, &right.block.lock().0, b);
         }
         (Statement::NumericFor(left), Statement::NumericFor(right)) => {
-            let _ = unify_rvalue(&ctx, &left.initial, &right.initial, b);
-            let _ = unify_rvalue(&ctx, &left.limit, &right.limit, b);
-            let _ = unify_rvalue(&ctx, &left.step, &right.step, b);
-            let _ = unify_local(&ctx, &left.counter, &right.counter, b);
-            seed_unify_block(t, &left.block.lock().0, &right.block.lock().0, b);
+            let _ = unify_rvalue(ctx, &left.initial, &right.initial, b);
+            let _ = unify_rvalue(ctx, &left.limit, &right.limit, b);
+            let _ = unify_rvalue(ctx, &left.step, &right.step, b);
+            let _ = unify_local(ctx, &left.counter, &right.counter, b);
+            seed_unify_block_in(ctx, &left.block.lock().0, &right.block.lock().0, b);
         }
         (Statement::GenericFor(left), Statement::GenericFor(right)) => {
             for (pl, cl) in left.res_locals.iter().zip(&right.res_locals) {
-                let _ = unify_local(&ctx, pl, cl, b);
+                let _ = unify_local(ctx, pl, cl, b);
             }
-            seed_unify_values(&ctx, &left.right, &right.right, b);
-            seed_unify_block(t, &left.block.lock().0, &right.block.lock().0, b);
+            seed_unify_values(ctx, &left.right, &right.right, b);
+            seed_unify_block_in(ctx, &left.block.lock().0, &right.block.lock().0, b);
         }
         (Statement::Return(left), Statement::Return(right)) => {
-            seed_unify_values(&ctx, &left.values, &right.values, b);
+            seed_unify_values(ctx, &left.values, &right.values, b);
         }
         (Statement::SetList(left), Statement::SetList(right)) => {
-            let _ = unify_local(&ctx, &left.object_local, &right.object_local, b);
-            seed_unify_values(&ctx, &left.values, &right.values, b);
+            let _ = unify_local(ctx, &left.object_local, &right.object_local, b);
+            seed_unify_values(ctx, &left.values, &right.values, b);
             if let (Some(pl), Some(cl)) = (&left.tail, &right.tail) {
-                let _ = unify_rvalue(&ctx, pl, cl, b);
+                let _ = unify_rvalue(ctx, pl, cl, b);
             }
         }
         _ => {}
     }
 }
 
-fn specialize_rvalue(value: &mut RValue, bindings: &FxHashMap<RcLocal, RValue>) {
+/// Substitutes `bindings` into `value` and folds what that made constant;
+/// whether anything was substituted.
+fn specialize_rvalue(value: &mut RValue, bindings: &FxHashMap<RcLocal, RValue>) -> bool {
     if let RValue::Local(local) = value
         && let Some(replacement) = bindings.get(local)
     {
         *value = replacement.clone();
-        return;
+        return true;
     }
+    let mut substituted = false;
     value.visit_rvalues_mut(&mut |child| {
-        specialize_rvalue(child, bindings);
+        substituted |= specialize_rvalue(child, bindings);
         true
     });
     let owned = std::mem::replace(value, RValue::Literal(Literal::Nil));
@@ -8450,8 +8838,17 @@ fn specialize_rvalue(value: &mut RValue, bindings: &FxHashMap<RcLocal, RValue>) 
                 _ => unreachable!(),
             }
         }
+        // Arithmetic and comparisons a constant argument made constant, as
+        // Luau folded them in the copy (`1 * p` is `3`, `p >= 4` is `false`
+        // for `3`); the helper's own constant expressions read as written.
+        other @ (RValue::Binary(_) | RValue::Unary(_))
+            if substituted && let Some(value) = fold::evaluate(&other, &|_| None, &fold::PureHelpers::default()) =>
+        {
+            RValue::Literal(value.literal())
+        }
         other => other.reduce(),
     };
+    substituted
 }
 
 fn runtime_literal_equal(left: &Literal, right: &Literal) -> Option<bool> {
