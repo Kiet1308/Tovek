@@ -48,6 +48,7 @@ const GUARD_CHAIN_TRUTH_SELECT: &[u8] = include_bytes!("fixtures/deinline_guard_
 const NEGATED_COMPARISON: &[u8] = include_bytes!("fixtures/expr_deinline_negated_comparison.luaubc");
 const SPECIALIZED_RETURNED_VALUE: &[u8] = include_bytes!("fixtures/deinline_specialized_returned_value.luaubc");
 const INTERPOLATED_CONSTANT_STRINGS: &[u8] = include_bytes!("fixtures/deinline_interpolated_constant_strings.luaubc");
+const GUARDED_TAIL_AND_TABLES: &[u8] = include_bytes!("fixtures/deinline_guarded_tail_and_table_arguments.luaubc");
 
 fn decompile(bytecode: &[u8]) -> String {
     luau_lifter::try_decompile_bytecode_with_options(bytecode, 1, None, Default::default())
@@ -520,6 +521,18 @@ fn constant_strings_folded_into_an_interpolated_string_are_arguments() {
     let source = decompile(INTERPOLATED_CONSTANT_STRINGS);
     for call in ["\t\tassertType(2, \"spr.target\", \"number\", p2) -- inferred equivalent call\n",
         "\t\tassertType(2, \"spr.stop\", \"string|nil\", value) -- inferred equivalent call\n"]
+    {
+        assert!(source.contains(call), "{call}\n{source}");
+    }
+}
+
+#[test]
+fn a_guarded_tail_table_arguments_and_a_kept_result_are_calls() {
+    let source = decompile(GUARDED_TAIL_AND_TABLES);
+    for call in ["\tsetStatusWithSummary(p, p4, v2) -- inferred equivalent call\n",
+        "\t\tinvokeAction(v2, \"fetch\", {}, \"Fetched\") -- inferred equivalent call\n",
+        "invokeAction(v2, \"set\", { minutes = minutes }, string.format(",
+        "print(invokeAction(v2, \"fail\", {}, \"Failed\")) -- inferred equivalent call\n"]
     {
         assert!(source.contains(call), "{call}\n{source}");
     }

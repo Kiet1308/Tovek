@@ -3448,6 +3448,22 @@ fn unify_block(
                 }
                 Ok(())
             }
+            // `return result` where the copy keeps the helper's `result` in
+            // the result local itself (`local ok, result = invoke()`): no
+            // store on that path.
+            Some((last, rest)) if rest.len() == cand.len() && t.kind == TKind::Value && let Some(kept) = returned_local(last, b) => {
+                for (p, c) in rest.iter().zip(cand) {
+                    unify_stmt(t, p, c, b)?;
+                }
+                match &b.result {
+                    Some(result) if *result != kept => Err(()),
+                    Some(_) => Ok(()),
+                    None => {
+                        b.result = Some(kept);
+                        Ok(())
+                    }
+                }
+            }
             // A value the copy computed into a temp its next statement reads
             // once (`local t = data and data.alive; r = not t`), where the
             // helper reads it in place.
@@ -3651,6 +3667,50 @@ fn returns_as_stores(stmts: &[Statement], result: &RcLocal) -> Option<Vec<Statem
         .collect()
 }
 
+/// The most statements before the guard a copy holding it may start with
+/// ([`guarded_tail`]).
+const GUARDED_TAIL_LEAD: usize = 4;
+
+/// For `stmts[i..]` = `P; if c then A; return x end; B; return x` (`P` a
+/// few statements without an `if`, the same `x` last in the block, reading
+/// nothing declared before it from `P` on): `P; if c then A else B end`,
+/// the same control before that `return x`, and the return.
+fn guarded_tail(stmts: &[Statement], i: usize) -> Option<(Vec<Statement>, Return)> {
+    let at = (i..stmts.len().min(i + 1 + GUARDED_TAIL_LEAD)).find(|&at| matches!(stmts[at], Statement::If(_)))?;
+    let Statement::If(branch) = &stmts[at] else { return None };
+    let Some(Statement::Return(last)) = stmts.last() else { return None };
+    if stmts.len() < at + 3 || !branch.else_block.lock().0.is_empty() {
+        return None;
+    }
+    let then_block = branch.then_block.lock().0.clone();
+    let Some((Statement::Return(guard), arm)) = then_block.split_last() else { return None };
+    if guard.values.len() != last.values.len() || !guard.values.iter().zip(&last.values).all(|(a, b)| rvalue_exact_eq(a, b)) {
+        return None;
+    }
+    let rest = stmts[at + 1..stmts.len() - 1].to_vec();
+    let mut window = stmts[i..at].to_vec();
+    window.push(If::new(branch.condition.clone(), Block(arm.to_vec()), Block(rest)).into());
+    let mut declared = FxHashSet::default();
+    collect_declared_locals(&window, &mut declared);
+    if last.values.iter().any(|value| value.values_read().iter().any(|read| declared.contains(*read))) {
+        return None;
+    }
+    Some((window, last.clone()))
+}
+
+/// A constructor of literal keys and `stable` values (`{}`, `{ minutes =
+/// minutes }`): made anywhere, it reads what is the same there and runs
+/// nothing, a fresh table no code holds yet. No list part: its items are
+/// stored by a `SETLIST` of their own.
+fn stable_table(value: &RValue, stable: &dyn Fn(&RValue) -> bool) -> bool {
+    match value {
+        RValue::Table(table) => table.0.iter().all(|(key, value)| {
+            matches!(key, Some(RValue::Literal(_))) && (stable(value) || stable_table(value, stable))
+        }),
+        _ => false,
+    }
+}
+
 /// The locals `local a, b` declares without values.
 fn bare_declaration(statement: &Statement) -> Option<&[LValue]> {
     match statement {
@@ -3710,6 +3770,17 @@ fn unify_guarded_select(t: &Target, pat: &[Statement], cand: &[Statement], b: &m
     unify_block(t, &branch.else_block.lock().0, &site.else_block.lock().0, &mut trial)?;
     *b = trial;
     Ok(())
+}
+
+/// The site's local a `return l` of a pattern local already bound returns.
+fn returned_local(statement: &Statement, b: &Bindings) -> Option<RcLocal> {
+    match statement {
+        Statement::Return(ret) => match ret.values.as_slice() {
+            [RValue::Local(local)] => b.locals.get(local).cloned(),
+            _ => None,
+        },
+        _ => None,
+    }
 }
 
 /// A pattern block that only returns the parameter `b` elides
@@ -4920,6 +4991,43 @@ fn deinline_block(
                 }
             }
         }
+        // A copy whose tail Luau's return duplicated into a guard (`if s then
+        // set(s) return r end; set(nil) return r`, a void helper's copy
+        // before the caller's `return r`): matched as `if s then set(s) else
+        // set(nil) end`, the same control, the call followed by the return.
+        let mut joined_tail: Option<Return> = None;
+        if found.is_none()
+            && holds_copies
+            && let Some((window, tail)) = guarded_tail(stmts, i)
+        {
+            let (mut liveness, mut cache) = (Liveness::default(), CanonCache::default());
+            if let Some(hit) = try_match_at(
+                &window,
+                0,
+                0,
+                targets,
+                &ordered,
+                &rivals,
+                newly,
+                splices_before,
+                current_func,
+                false,
+                false,
+                &[],
+                false,
+                &mut liveness,
+                &mut cache,
+            ) && hit.consume == window.len()
+                && hit.absorbed == 0
+                && hit.results.is_empty()
+                && hit.host.is_none()
+                && hit.tail_ret.is_none()
+                && !hit.returns_value
+            {
+                found = Some((hit, None));
+                joined_tail = Some(tail);
+            }
+        }
         if let Some((hit, guard)) = found {
             if hit.evidence && matches!(round, EvidenceRound::Probe) {
                 // Counted, not rewritten: the oracle needs every count first.
@@ -4970,7 +5078,11 @@ fn deinline_block(
             let advance = replacement.len();
             // The absorbed argument temps and copies right before `i` go too.
             let start = i - hit.absorbed;
-            let removed = i + hit.consume - start;
+            let mut removed = i + hit.consume - start;
+            if let Some(tail) = joined_tail {
+                replacement.push(Statement::Return(tail));
+                removed = stmts.len() - start;
+            }
             // The call must leave every literal around it as Luau shares it.
             if current_func.is_some() {
                 let (mut gone, mut new) = (Vec::new(), Vec::new());
@@ -6551,6 +6663,7 @@ fn match_assigned_value(
     let max_w = raw_width_for_effective(stmts, i, t.pat_raw_len + 1);
     let mut site: Option<Site> = None;
     let mut ambiguous = false;
+    let mut declared = false;
     let mut grown = WindowGrowth::new(stmts, i, kc);
     for w in kc..=max_w {
         let (top_len, has_return) = grown.extend_to(stmts, i + w);
@@ -6590,13 +6703,42 @@ fn match_assigned_value(
                 record_site(&mut site, &mut ambiguous, w, &u, None);
             }
         }
+        // The helper's own local the copy keeps the result in, declared at
+        // its top (`local ok, result = invoke(); if not ok then result =
+        // nil ... end`): the call declares it.
+        // A closure holding its cell would see the stores into it, where the
+        // helper's closure holds its own local.
+        if site.is_none()
+            && elided_declaration(region, &result)
+            && !closures_capture_any(region, std::slice::from_ref(&result))
+            && !t.captures.closure_written(&result)
+            && !cwin.is_empty()
+            && charge_unify(t, &cwin)
+            && let Some(mut u) = try_unify_seeded(t, &cwin, current_func, Bindings { result: Some(result.clone()), ..Bindings::default() })
+            && u.result.as_ref() == Some(&result)
+        {
+            u.callee_locals.remove(&result);
+            if !tail_has_live(last_occ, stmts, i, i + w, &u.callee_locals) {
+                record_site(&mut site, &mut ambiguous, w, &u, None);
+                declared = true;
+            }
+        }
     }
     if ambiguous {
         return None;
     }
     let site = site?;
     let result = site.unified.result.clone()?;
-    Some(Hit { assign: true, ..Hit::call(t, site.width, site.unified, vec![result]) })
+    Some(Hit { assign: !declared, ..Hit::call(t, site.width, site.unified, vec![result]) })
+}
+
+/// Whether a top-level statement of `region` declares `local` (with others,
+/// `local ok, result = ...`).
+fn elided_declaration(region: &[Statement], local: &RcLocal) -> bool {
+    region.iter().any(|statement| {
+        matches!(statement, Statement::Assign(declaration)
+            if declaration.prefix && declaration.left.iter().any(|left| matches!(left, LValue::Local(declared) if declared == local)))
+    })
 }
 
 /// The local the leaf stores of a region write: its last statement `R = X`,
@@ -8612,7 +8754,8 @@ fn finish_unified(
         if written.contains(&idx) {
             continue;
         }
-        if !t.captures.stable_at(a, current_func.map(|function| function as usize)) {
+        let stable = |value: &RValue| t.captures.stable_at(value, current_func.map(|function| function as usize));
+        if !stable(a) && !stable_table(a, &stable) {
             unstable.push((&t.param_order[idx], matches!(a, RValue::Local(_))));
             first_moved.get_or_insert(idx);
         }
