@@ -495,6 +495,38 @@ fn strip_predicate_prefix(name: &str) -> Option<&str> {
     None
 }
 
+/// The one local every `return` of a function body gives (`return roots`),
+/// its nested functions aside; `None` where a return gives anything else.
+fn only_returned_local(body: &Block) -> Option<RcLocal> {
+    fn visit(block: &Block, found: &mut Option<RcLocal>) -> bool {
+        block.0.iter().all(|statement| {
+            let own = match statement {
+                Statement::Return(ret) => match ret.values.as_slice() {
+                    [RValue::Local(local)] => match found {
+                        Some(other) => other == local,
+                        None => {
+                            *found = Some(local.clone());
+                            true
+                        }
+                    },
+                    _ => false,
+                },
+                _ => true,
+            };
+            own && match statement {
+                Statement::If(branch) => visit(&branch.then_block.lock(), found) && visit(&branch.else_block.lock(), found),
+                Statement::While(node) => visit(&node.block.lock(), found),
+                Statement::Repeat(node) => visit(&node.block.lock(), found),
+                Statement::NumericFor(node) => visit(&node.block.lock(), found),
+                Statement::GenericFor(node) => visit(&node.block.lock(), found),
+                _ => true,
+            }
+        })
+    }
+    let mut found = None;
+    visit(body, &mut found).then_some(found).flatten()
+}
+
 /// The descriptive subject of a factory/getter function name: `getOwnPlot` ->
 /// `OwnPlot`, `createButton` -> `Button`, `normalizeContentId` -> `ContentId`.
 /// Returns `None` unless the name starts with an allow-listed verb *immediately
@@ -5120,6 +5152,14 @@ impl Namer {
                             || usage.field_written
                             || usage.instance_method_seen
                     });
+                // What a function named for what it gives (`getScanRoots`)
+                // returns on every path, a local of its own: `scanRoots`.
+                if let Some(noun) = function.name.as_deref().and_then(helper_result_noun)
+                    && let Some(returned) = only_returned_local(&function.body)
+                    && !function.parameters.contains(&returned)
+                {
+                    self.set_hint(&returned, noun, 40);
+                }
                 self.receiver_like_depth += usize::from(receiver_like);
                 self.collect(&mut function.body, false);
                 self.receiver_like_depth -= usize::from(receiver_like);
@@ -6072,6 +6112,38 @@ mod tests {
             assert_eq!(actual.class_signal_locals, classes, "classes, seed {seed}");
             assert_eq!(Arc::count(&class.0.0), owners, "preparation retained a local owner");
         }
+    }
+
+    /// What a function named for what it gives returns on every path is
+    /// that: `getScanRoots` returns `scanRoots`; a function returning two
+    /// locals names neither.
+    #[test]
+    fn a_getter_names_the_local_it_returns() {
+        let run = |name: &str, two: bool| {
+            let roots = RcLocal::default();
+            let other = RcLocal::default();
+            let mut body = vec![
+                declare(&roots, RValue::Table(Table::default())),
+                Statement::Call(Call::new(global("fill"), vec![RValue::Local(roots.clone())])),
+            ];
+            if two {
+                body.push(declare(&other, RValue::Table(Table::default())));
+                body.push(If::new(global("flag"), Block(vec![ret(vec![RValue::Local(other.clone())])]), Block::default()).into());
+            }
+            body.push(ret(vec![RValue::Local(roots.clone())]));
+            let function = Function { name: Some(name.into()), body: Block(body), ..Default::default() };
+            let mut block = Block(vec![Return::new(vec![Closure {
+                node_origin: Default::default(),
+                function: ByAddress(Arc::new(Mutex::new(function))),
+                upvalues: vec![],
+            }.into()]).into()]);
+            name_locals(&mut block, true);
+            name_of(&roots)
+        };
+        assert_eq!(run("getScanRoots", false), "scanRoots");
+        assert_eq!(run("createButton", false), "button");
+        assert_ne!(run("getScanRoots", true), "scanRoots");
+        assert_ne!(run("update", false), "update");
     }
 
     #[test]
