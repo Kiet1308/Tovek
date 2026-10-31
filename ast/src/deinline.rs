@@ -4215,6 +4215,17 @@ pub(crate) fn unify_rvalue(
         b.equations.push((p.clone(), Literal::Number(value)));
         return Ok(());
     }
+    // The same of a text the copy holds where the helper concatenates a
+    // parameter with text of its own (`"Gold is not a number"`).
+    if ctx.fold.is_some()
+        && text_concat(p)
+        && let RValue::Literal(text @ Literal::String(_)) = c
+        && fold::foldable(p, &|local| ctx.params.contains(local), ctx.fold.unwrap())
+        && ctx.params.iter().any(|param| fold::reads(p, param) > 0)
+    {
+        b.equations.push((p.clone(), text.clone()));
+        return Ok(());
+    }
     match (p, c) {
         (RValue::Global(a), RValue::Global(d)) => {
             if a == d {
@@ -8831,13 +8842,20 @@ fn resolve_equations(t: &Target, b: &mut Bindings, current_func: Option<FnPtr>) 
     // this function refer to: a literal written by hand with another value
     // (`{ time = 0.5 }` beside `linear(6)` copies) stays as it is.
     let caller = t.lines.as_ref().and_then(|lines| lines.caller(current_func));
-    let inside = |literal: &Literal| match (literal, &t.lines, caller, t.proto) {
+    let inside = |pattern: &RValue, literal: &Literal| match (literal, &t.lines, caller, t.proto) {
         (Literal::Number(number), Some(lines), Some(caller), Some(helper)) => {
             lines.copies.constant_in_copies(Some(caller), helper, number.to_bits())
         }
+        // Text holding the helper's own text it concatenates.
+        (Literal::String(site), ..) => text_concat(pattern) && {
+            let RValue::Binary(binary) = pattern else { unreachable!() };
+            [&binary.left, &binary.right].iter().any(|side| {
+                matches!(side.as_ref(), RValue::Literal(Literal::String(text)) if !text.is_empty() && site.windows(text.len()).any(|window| window == text.as_slice()))
+            })
+        },
         _ => false,
     };
-    if !equations.iter().all(|(_, literal)| inside(literal)) {
+    if !equations.iter().all(|(pattern, literal)| inside(pattern, literal)) {
         return Err(Some("fold_constant_outside_copies"));
     }
     let mut known = FxHashMap::default();
@@ -12220,7 +12238,7 @@ fn fold_variant(t: &Target, common: &TargetCommon, raw: &[Statement], pure: &std
             return false;
         }
         let is_param = |local: &RcLocal| t.params.contains(local);
-        let site = folded
+        let site = (folded || text_concat(value))
             && !matches!(value, RValue::Literal(_) | RValue::Local(_))
             && fold::foldable(value, &is_param, pure)
             && t.params.iter().any(|param| fold::reads(value, param) > 0)
@@ -12253,6 +12271,15 @@ fn fold_variant(t: &Target, common: &TargetCommon, raw: &[Statement], pure: &std
     variant.fold_roots = roots;
     variant.hosted = hosted_pattern(&variant);
     Some(variant)
+}
+
+/// `x .. "text"` or `"text" .. x`: a concatenation with nonempty text of the
+/// helper's own, which Luau folds with a constant string argument (`label
+/// .. " is not a number"` with `"Gold"`), the text then in the copy.
+fn text_concat(value: &RValue) -> bool {
+    matches!(value, RValue::Binary(binary)
+        if binary.operation == BinaryOperation::Concat
+            && [&binary.left, &binary.right].iter().any(|side| matches!(side.as_ref(), RValue::Literal(Literal::String(text)) if !text.is_empty())))
 }
 
 /// Where a value pattern's result sits at its sites ([`ValueAnchor`]), and
@@ -13960,15 +13987,21 @@ mod tests {
         assert!(unify_rvalue(&with, &one_minus_k, &site_call, &mut b).is_ok());
         assert!(matches!(b.equations.as_slice(), [(_, Literal::Number(value))] if value.to_bits() == (6.0f64 / 60.0).to_bits()));
         // Refused: `k ^ 2`, `math.floor(k)`, a value reading no parameter,
-        // a string site.
+        // a string site of a concatenation with no text of its own.
         let pow = RValue::Binary(Binary::new(local_value(&k), number(2.0), BinaryOperation::Pow));
         let floor = RValue::Call(Call::new(RValue::Index(Index::new(global("math"), string("floor"))), vec![local_value(&k)]));
         let constant = RValue::Binary(Binary::new(number(1.0), number(2.0), BinaryOperation::Sub));
         for pattern in [&pow, &floor, &constant] {
             assert!(unify_rvalue(&with, pattern, &number(9.0), &mut Bindings::default()).is_err());
         }
+        let bare = RValue::Binary(Binary::new(local_value(&k), local_value(&k), BinaryOperation::Concat));
+        assert!(unify_rvalue(&with, &bare, &string("ab"), &mut Bindings::default()).is_err());
+        // A text the copy holds where the helper concatenates its own text
+        // (`"a" .. k` as `"ab"`): an equation.
         let concat = RValue::Binary(Binary::new(string("a"), local_value(&k), BinaryOperation::Concat));
-        assert!(unify_rvalue(&with, &concat, &string("ab"), &mut Bindings::default()).is_err());
+        let mut b = Bindings::default();
+        assert!(unify_rvalue(&with, &concat, &string("ab"), &mut b).is_ok());
+        assert!(matches!(b.equations.as_slice(), [(_, Literal::String(text))] if text == b"ab"));
     }
 
     /// A rebuilt call leaving out parameters the body reads gets `nil` for

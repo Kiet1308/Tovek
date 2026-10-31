@@ -50,6 +50,7 @@ const SPECIALIZED_RETURNED_VALUE: &[u8] = include_bytes!("fixtures/deinline_spec
 const INTERPOLATED_CONSTANT_STRINGS: &[u8] = include_bytes!("fixtures/deinline_interpolated_constant_strings.luaubc");
 const GUARDED_TAIL_AND_TABLES: &[u8] = include_bytes!("fixtures/deinline_guarded_tail_and_table_arguments.luaubc");
 const TUPLE_FLIPPED_GUARD: &[u8] = include_bytes!("fixtures/deinline_tuple_flipped_guard.luaubc");
+const FOLDED_TEXT_ARGUMENT: &[u8] = include_bytes!("fixtures/deinline_folded_text_argument.luaubc");
 
 fn decompile(bytecode: &[u8]) -> String {
     luau_lifter::try_decompile_bytecode_with_options(bytecode, 1, None, Default::default())
@@ -543,4 +544,14 @@ fn a_guarded_tail_table_arguments_and_a_kept_result_are_calls() {
 fn a_tuple_copy_keeping_its_guard_turned_over_is_a_call() {
     let source = decompile(TUPLE_FLIPPED_GUARD);
     assert_eq!(source.matches("local v, v2 = parse(value) -- inferred equivalent call\n").count(), 2, "{source}");
+}
+
+#[test]
+fn a_text_argument_folded_into_the_helper_s_text_is_a_call() {
+    let source = decompile(FOLDED_TEXT_ARGUMENT);
+    for call in ["local reward, v = parseReward(\"Gold\", value) -- inferred equivalent call\n",
+        "local reward2, v2 = parseReward(\"Gem\", value2) -- inferred equivalent call\n"]
+    {
+        assert!(source.contains(call), "{call}\n{source}");
+    }
 }
