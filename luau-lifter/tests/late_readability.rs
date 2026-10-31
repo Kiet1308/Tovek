@@ -52,6 +52,7 @@ const GUARDED_TAIL_AND_TABLES: &[u8] = include_bytes!("fixtures/deinline_guarded
 const TUPLE_FLIPPED_GUARD: &[u8] = include_bytes!("fixtures/deinline_tuple_flipped_guard.luaubc");
 const FOLDED_TEXT_ARGUMENT: &[u8] = include_bytes!("fixtures/deinline_folded_text_argument.luaubc");
 const CONSTANT_KEYED_LOCALS: &[u8] = include_bytes!("fixtures/deinline_constant_keyed_locals.luaubc");
+const HOSTED_SPECIALIZED_VALUE: &[u8] = include_bytes!("fixtures/deinline_hosted_specialized_value.luaubc");
 
 fn decompile(bytecode: &[u8]) -> String {
     luau_lifter::try_decompile_bytecode_with_options(bytecode, 1, None, Default::default())
@@ -566,6 +567,14 @@ fn locals_a_constant_argument_made_constant_are_folded_in_the_copy() {
         "setVisible(false) -- inferred equivalent call\n",
         "setVisible(true) -- inferred equivalent call\n"]
     {
+        assert!(source.contains(call), "{call}\n{source}");
+    }
+}
+
+#[test]
+fn a_specialized_copy_of_the_returned_value_alone_is_a_call_in_place() {
+    let source = decompile(HOSTED_SPECIALIZED_VALUE);
+    for call in ["\t\topenGifts(1) -- inferred equivalent call", "\t\topenGifts(2), -- inferred equivalent call", "\t\topenGifts(5) -- inferred equivalent call"] {
         assert!(source.contains(call), "{call}\n{source}");
     }
 }

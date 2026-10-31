@@ -5757,17 +5757,17 @@ fn try_match_at(
         // Canon may fuse a site's select `if` into the assignment a pattern
         // starts with (N5).
         let fused_head = anchor_is_if && t.pat0_kind == assign_kind;
-        if use_disc && anchor_disc != Some(t.pat0_kind) && !fused_head {
-            return Ok(None); // first-statement variant cannot match this pattern
-        }
         // Name prefilter (same targets as the variant check): when BOTH the position
         // and the pattern have a fixed-name head anchor and they differ, the exact
         // unify of `pat[0]` would fail — skip without entering the window scan.
-        if use_disc
-            && let (Some(ak), Some(tk)) = (anchor_key, t.pat0_anchor_key)
-            && ak != tk
-        {
-            return Ok(None);
+        let filtered = use_disc
+            && ((anchor_disc != Some(t.pat0_kind) && !fused_head)
+                || matches!((anchor_key, t.pat0_anchor_key), (Some(ak), Some(tk)) if ak != tk));
+        // A specialized copy of the value alone may be in a statement of any
+        // kind ([`specialized_host`]).
+        let hosted_only = filtered && specialized_host(t).is_some();
+        if filtered && !hosted_only {
+            return Ok(None); // first-statement variant cannot match this pattern
         }
         // One unit per width the non-allocating length check scans; the deep
         // canon/unify work is charged where it happens (`charge_unify`).
@@ -5793,7 +5793,7 @@ fn try_match_at(
         let is_func_body_top = is_func_body_top && !t.lines.as_ref().is_some_and(|lines| lines.copies(current_func, t.proto) > 0);
         let mut hit = if seen_without_site {
             None
-        } else if t.hosted_only {
+        } else if t.hosted_only || hosted_only {
             match_hosted_value(stmts, i, anchor, t, canon_cache, current_func)
         } else { match (t.kind, t.value_anchor) {
             (TKind::Void, _) => match_void(
@@ -5825,6 +5825,7 @@ fn try_match_at(
                             .then(|| match_value(stmts, i, t, is_func_body_top, last_occ, canon_cache, current_func))
                             .flatten()
                     })
+                    .or_else(|| match_hosted_value(stmts, i, anchor, t, canon_cache, current_func))
             }
         } };
         if hit.is_some() {
@@ -7488,6 +7489,21 @@ fn hosted_pattern(t: &Target) -> Option<RValue> {
     (t.evidence || value_nodes(value) >= crate::expr_deinline::NODE_COUNT_FLOOR).then(|| value.clone())
 }
 
+/// The value a value helper that may specialize returns last, after
+/// statements returning nothing (`return { ... }` after `local text =
+/// "Gift Box"; if count ~= 1 then text ..= "es" end`): given constants,
+/// its copy may be that value alone, in place ([`match_hosted_value`]).
+fn specialized_host(t: &Target) -> Option<&RValue> {
+    if t.kind != TKind::Value || t.loop_exit_at.is_some() || !t.returns.is_empty() || !may_specialize(t) {
+        return None;
+    }
+    let (Statement::Return(ret), prefix) = t.pat.split_last()? else { return None };
+    match ret.values.as_slice() {
+        [value] if !prefix.is_empty() && !block_has_return(prefix) => Some(value),
+        _ => None,
+    }
+}
+
 /// `if c then return a else return b end`, one value each, nested alike,
 /// after statements returning nothing, as the pattern returning its
 /// `and`/`or` value a copy taking one value is, with the parameters it
@@ -7572,7 +7588,13 @@ fn match_hosted_value(
     canon_cache: &mut CanonCache,
     current_func: Option<FnPtr>,
 ) -> Option<Hit> {
-    let pattern = t.hosted.as_ref()?;
+    // A helper whose constant arguments leave only the value it returns
+    // last matches as that value specialized ([`specialized_host`]).
+    let specialized = t.hosted.is_none();
+    let pattern = match &t.hosted {
+        Some(pattern) => pattern,
+        None => specialized_host(t)?,
+    };
     let statement = stmts.get(anchor)?;
     if canon_cache.kinds(statement) & kind_bit(pattern) == 0 {
         return None;
@@ -7581,7 +7603,10 @@ fn match_hosted_value(
     // No copy to build where no value of the statement has the pattern's
     // shape (the walk does not enter function bodies, as the visits below
     // do not).
-    if !holds_shape(statement, &|value| value_kind(value) == kind && unify_returned_value(&t.ctx(), pattern, value, &mut Bindings::default()).is_ok()) {
+    let shaped = |value: &RValue| {
+        value_kind(value) == kind && (specialized || unify_returned_value(&t.ctx(), pattern, value, &mut Bindings::default()).is_ok())
+    };
+    if !holds_shape(statement, &shaped) {
         return None;
     }
     let function = current_func.map(|function| function as usize);
@@ -7604,13 +7629,13 @@ fn match_hosted_value(
         if value_kind(value) != kind || (!t.assigns && whole == Some(value as *const RValue)) {
             return None;
         }
-        if !charge_unify(t, &[]) || unify_returned_value(&t.ctx(), pattern, value, &mut Bindings::default()).is_err() {
+        if !charge_unify(t, &[]) || !shaped(value) {
             return None;
         }
         let wrap = hosted_spread(t, pattern, value, spread)?;
         let result = RcLocal::default();
         let window = [Statement::Assign(Assign::new(vec![LValue::Local(result.clone())], vec![value.clone()]))];
-        let u = try_unify_site(t, &window, current_func)?;
+        let u = if specialized { try_unify_specialized_site(t, &window, current_func)? } else { try_unify_site(t, &window, current_func)? };
         let argument_nodes: usize = u.args.iter().map(value_nodes).sum();
         let nodes = value_nodes(value);
         // Where line evidence admits the helper, the call (itself, its
@@ -9463,6 +9488,78 @@ fn fold_constant_locals(stmts: &mut Vec<Statement>, pattern: &[Statement]) -> bo
     }
 }
 
+/// The copy as the decompiler shows it: SSA puts the constant a local of
+/// the copy holds where it is read (`local text = "Gift Box"; text ..=
+/// "es"`, once the constants pruned the branch around the store, is
+/// `"Gift Boxes"` in place). Propagates the locals of `stmts` every store
+/// of which is a statement of its own giving a constant; `false` where
+/// there are none, or a read is left that no constant took.
+fn propagate_literal_locals(stmts: &mut Vec<Statement>) -> bool {
+    fn store_of(statement: &Statement) -> Option<&RcLocal> {
+        match statement {
+            Statement::Assign(assign) if !assign.parallel && !assign.compound && assign.right.len() == 1 => match assign.left.as_slice() {
+                [LValue::Local(local)] => Some(local),
+                _ => None,
+            },
+            _ => None,
+        }
+    }
+    let mut candidates: FxHashSet<RcLocal> = stmts
+        .iter()
+        .filter(|statement| matches!(statement, Statement::Assign(assign) if assign.prefix))
+        .filter_map(store_of)
+        .cloned()
+        .collect();
+    candidates.retain(|local| {
+        assignments(stmts, local) == stmts.iter().filter(|statement| store_of(statement) == Some(local)).count()
+            && !closures_capture_any(stmts, std::slice::from_ref(local))
+    });
+    // The constant each store gives, in order: a local one of whose stores
+    // gives none is left, and what read it.
+    let values = loop {
+        let mut known = FxHashMap::default();
+        let mut stores = Vec::new();
+        let mut failed = None;
+        for statement in stmts.iter() {
+            let Some(local) = store_of(statement).filter(|local| candidates.contains(*local)) else { continue };
+            let Statement::Assign(assign) = statement else { unreachable!() };
+            let mut value = assign.right[0].clone();
+            specialize_rvalue(&mut value, &known);
+            let value = value.reduce();
+            if !matches!(value, RValue::Literal(_)) {
+                failed = Some(local.clone());
+                break;
+            }
+            known.insert(local.clone(), value.clone());
+            stores.push(value);
+        }
+        match failed {
+            Some(local) => {
+                candidates.remove(&local);
+            }
+            None => break stores,
+        }
+    };
+    if candidates.is_empty() {
+        return false;
+    }
+    let mut known = FxHashMap::default();
+    let mut values = values.into_iter();
+    let mut out = Vec::with_capacity(stmts.len());
+    for statement in std::mem::take(stmts) {
+        if let Some(local) = store_of(&statement).filter(|local| candidates.contains(*local)) {
+            known.insert(local.clone(), values.next().unwrap());
+            continue;
+        }
+        let mut one = vec![statement];
+        specialize_block(&mut one, &known);
+        specialize_lvalue_keys(&mut one, &known);
+        out.extend(one);
+    }
+    *stmts = out;
+    !candidates.iter().any(|local| local_queries::reads(stmts, local))
+}
+
 /// `local x = K` of `stmts`, `K` a constant Luau folds, at any depth.
 fn constant_declarations(stmts: &[Statement], out: &mut FxHashMap<RcLocal, RValue>) {
     for statement in stmts {
@@ -9593,19 +9690,26 @@ fn try_seeded_specialization(t: &Target, cwin: &[Statement], current_func: Optio
         ..Bindings::default()
     };
     if unify_block(t, &specialized, cwin, &mut verified).is_err() {
+        let fresh = || Bindings { params: seed.params.clone(), ..Bindings::default() };
         // Literal substitution can make an earlier scalar or callee snapshot
         // redundant. The ordinary pattern still needs it. Only mutate this owned specialized pattern;
         // nested Function bodies remain shared and must not be traversed.
         // Detached orphan bodies (including their nested captures) are absent
         // from the full-tree census until a proven call materializes them.
-        if t.orphan.is_some() { return None; }
-        let concat = fold_specialized_leading_concat(t, &mut specialized);
-        let imports = crate::fold_import_callees::fold_specialized_import_callees(&mut specialized, &t.captures);
-        if !concat && !imports {
-            return None;
+        let snapshots = t.orphan.is_none() && {
+            let concat = fold_specialized_leading_concat(t, &mut specialized);
+            let imports = crate::fold_import_callees::fold_specialized_import_callees(&mut specialized, &t.captures);
+            concat || imports
+        };
+        verified = fresh();
+        if !snapshots || unify_block(t, &specialized, cwin, &mut verified).is_err() {
+            if !propagate_literal_locals(&mut specialized) {
+                return None;
+            }
+            specialized = canon(&specialized);
+            verified = fresh();
+            unify_block(t, &specialized, cwin, &mut verified).ok()?;
         }
-        verified = Bindings { params: seed.params, ..Bindings::default() };
-        unify_block(t, &specialized, cwin, &mut verified).ok()?;
     }
     let mut unified = finish_unified(t, cwin, verified, current_func)?;
     while matches!(unified.args.last(), Some(RValue::Literal(Literal::Nil)))
@@ -10550,6 +10654,10 @@ fn seed_unify_stmt(ctx: &MatchCtx, pattern: &Statement, candidate: &Statement, b
         }
         (Statement::Return(left), Statement::Return(right)) => {
             seed_unify_values(ctx, &left.values, &right.values, b);
+        }
+        // A value the copy stores into its result.
+        (Statement::Return(left), Statement::Assign(right)) if !right.prefix && left.values.len() == right.right.len() => {
+            seed_unify_values(ctx, &left.values, &right.right, b);
         }
         (Statement::SetList(left), Statement::SetList(right)) => {
             let _ = unify_local(ctx, &left.object_local, &right.object_local, b);
