@@ -2675,6 +2675,61 @@ fn canon_top(stmts: &[Statement], tail: bool) -> Vec<Statement> {
     s
 }
 
+/// A declaration `local y = <literal>` (or `nil`, or none) of one local right
+/// after `stmts[i]`, or one further: one a copy starting at `i` may hold
+/// although it is the caller's.
+fn interleaved_declaration(stmts: &[Statement], i: usize) -> Option<usize> {
+    fn plain_declaration(statement: &Statement) -> bool {
+        matches!(statement, Statement::Assign(declaration)
+            if declaration.prefix
+                && !declaration.parallel
+                && matches!(declaration.left.as_slice(), [LValue::Local(_)])
+                && matches!(declaration.right.as_slice(), [] | [RValue::Literal(_)]))
+    }
+    stmts.get(i)?;
+    (i + 1..=(i + 2).min(stmts.len().saturating_sub(2))).find(|&at| plain_declaration(&stmts[at]))
+}
+
+/// For an `if` with no `else` whose condition is `and`ed (`a and b and c`):
+/// each split into the first conditions and the `if` of the others with its
+/// block, the latter widest first (`(a, if b and c then S end)`, `(a and b,
+/// if c then S end)`).
+fn joined_guard_splits(statement: &Statement) -> Vec<(RValue, Statement)> {
+    fn conjuncts(condition: &RValue, out: &mut Vec<RValue>) {
+        match condition {
+            RValue::Binary(Binary { operation: BinaryOperation::And, left, right, .. }) => {
+                conjuncts(left, out);
+                conjuncts(right, out);
+            }
+            other => out.push(other.clone()),
+        }
+    }
+    let joined = |parts: &[RValue]| {
+        parts.iter().cloned().reduce(|left, right| Binary::new(left, right, BinaryOperation::And).into()).expect("a condition")
+    };
+    let Statement::If(node) = statement else { return Vec::new() };
+    if !matches!(node.condition, RValue::Binary(Binary { operation: BinaryOperation::And, .. })) || !node.else_block.lock().0.is_empty() {
+        return Vec::new();
+    }
+    let mut parts = Vec::new();
+    conjuncts(&node.condition, &mut parts);
+    let block = node.then_block.lock().0.clone();
+    // The others nested one per `if` too, as a helper's guards un-guard
+    // (`if p ~= nil then if not seen[p] then S end end`).
+    let nested = |parts: &[RValue]| {
+        parts.iter().rev().fold(block.clone(), |inner, part| vec![If::new(part.clone(), Block(inner), Block::default()).into()])
+    };
+    let mut splits = Vec::new();
+    for k in 1..parts.len() {
+        let outer = joined(&parts[..k]);
+        splits.push((outer.clone(), If::new(joined(&parts[k..]), Block(block.clone()), Block::default()).into()));
+        if parts.len() - k > 1 {
+            splits.push((outer, nested(&parts[k..]).remove(0)));
+        }
+    }
+    splits
+}
+
 /// Replace `if c then x = a else x = b end` with `x = <select_value(c, a, b)>`,
 /// the form SSA gives a register select when it can. Matching fuses it on both
 /// sides, so a helper and its inlined copy agree whichever of them SSA fused.
@@ -3307,7 +3362,16 @@ fn unify_stmt(t: &Target, p: &Statement, c: &Statement, b: &mut Bindings) -> Res
             unify_block(t, &pf.else_block.lock().0, &cf.then_block.lock().0, b)
         }
         (Statement::If(pf), Statement::If(cf)) => {
-            unify_rvalue(&ctx, &pf.condition, &cf.condition, b)?;
+            // The two conditions in one reduced form where they differ (a
+            // guard `if p == nil or seen[p] then return end` un-guarded is
+            // `not (p == nil or seen[p])`, SSA's copy `p ~= nil and not
+            // seen[p]`).
+            let mut bc = b.clone();
+            if unify_rvalue(&ctx, &pf.condition, &cf.condition, &mut bc).is_ok() {
+                *b = bc;
+            } else {
+                unify_rvalue(&ctx, &pf.condition.clone().reduce_condition(), &cf.condition.clone().reduce_condition(), b)?;
+            }
             unify_block(t, &pf.then_block.lock().0, &cf.then_block.lock().0, b)?;
             unify_block(t, &pf.else_block.lock().0, &cf.else_block.lock().0, b)
         }
@@ -4171,6 +4235,11 @@ fn deinline_block(
             count_rebuilt_calls(stmts, &binders, current_func, &mut newly.rebuilt);
         }
     }
+    // Whether line info shows copies in this function: only there may a
+    // caller's declaration stand inside one.
+    let holds_copies = lines.as_ref().is_some_and(|lines| {
+        lines.caller(current_func).is_some_and(|caller| lines.copies.present.iter().any(|&(at, _)| at as usize == caller))
+    });
     let mut i = 0;
     let mut anchor = 0;
     // Tail-liveness index, replacing the per-window O(N) `any_local_live` rescan
@@ -4193,7 +4262,7 @@ fn deinline_block(
         while anchor < stmts.len() && matches!(stmts[anchor], Statement::Empty(_)) {
             anchor += 1;
         }
-        if let Some(hit) = try_match_at(
+        let mut found = try_match_at(
             stmts,
             i,
             anchor,
@@ -4209,7 +4278,100 @@ fn deinline_block(
             loop_tail,
             &mut last_occ,
             &mut canon_cache,
-        ) {
+        )
+        .map(|hit| (hit, None));
+        // A caller's `local y = <literal>` (or `nil`) Luau set inside a copy,
+        // where its register is written (`local h = 2166136302; local color
+        // = nil; for ...` of `hashInt`, or the `0` loaded for `Vector3.new(x,
+        // 0, hashInt(id, 7) % 1)` before the copy runs): the copy is tried
+        // with the declaration before it, which moves there only with the
+        // call. `y` is in scope from its declaration only, so nothing before
+        // reads it.
+        // (Not at a function body's top: the rest of the body is no copy.)
+        if found.is_none()
+            && holds_copies
+            && !(is_func_body_top && i == 0)
+            && let Some(at) = interleaved_declaration(stmts, i)
+        {
+            let declaration = stmts.remove(at);
+            stmts.insert(i, declaration);
+            last_occ.index = None;
+            canon_cache.spliced(stmts, i, at + 1 - i, at + 1 - i);
+            let next = (i + 1..stmts.len()).find(|&k| !matches!(stmts[k], Statement::Empty(_))).unwrap_or(stmts.len());
+            let retried = try_match_at(
+                stmts,
+                i + 1,
+                next,
+                targets,
+                &ordered,
+                &rivals,
+                newly,
+                splices_before,
+                current_func,
+                is_func_tail,
+                false,
+                outer_continuation,
+                loop_tail,
+                &mut last_occ,
+                &mut canon_cache,
+            );
+            match retried {
+                Some(hit) if !(hit.evidence && matches!(round, EvidenceRound::Probe)) => {
+                    i += 1;
+                    anchor = next;
+                    found = Some((hit, None));
+                }
+                other => {
+                    let declaration = stmts.remove(i);
+                    stmts.insert(at, declaration);
+                    last_occ.index = None;
+                    canon_cache.spliced(stmts, i, at + 1 - i, at + 1 - i);
+                    if let Some(hit) = other {
+                        newly.probed.entry((current_func, hit.f_local.clone())).or_insert((0, hit.proto)).0 += hit.shaped;
+                        i += hit.consume + 1;
+                        continue;
+                    }
+                }
+            }
+        }
+        // Guards SSA joined: a copy's own may be the last ones (`if c and c ~=
+        // nil and not p.seen[c]` of `addContentId` holding `addTarget`). The
+        // `if` of those, with the block, matched alone, is the call inside
+        // an `if` of the others: `if a and b then S end` is `if a then if b
+        // then S end end`.
+        if found.is_none() {
+            for (outer, inner) in joined_guard_splits(&stmts[i]) {
+                let window = [inner];
+                let (mut liveness, mut cache) = (Liveness::default(), CanonCache::default());
+                if let Some(hit) = try_match_at(
+                    &window,
+                    0,
+                    0,
+                    targets,
+                    &ordered,
+                    &rivals,
+                    newly,
+                    splices_before,
+                    current_func,
+                    false,
+                    false,
+                    &[],
+                    false,
+                    &mut liveness,
+                    &mut cache,
+                ) && hit.consume == 1
+                    && hit.absorbed == 0
+                    && hit.results.is_empty()
+                    && hit.host.is_none()
+                    && hit.tail_ret.is_none()
+                    && !hit.returns_value
+                {
+                    found = Some((hit, Some(outer)));
+                    break;
+                }
+            }
+        }
+        if let Some((hit, guard)) = found {
             if hit.evidence && matches!(round, EvidenceRound::Probe) {
                 // Counted, not rewritten: the oracle needs every count first.
                 newly.probed.entry((current_func, hit.f_local.clone())).or_insert((0, hit.proto)).0 += hit.shaped;
@@ -4252,6 +4414,9 @@ fn deinline_block(
             let mut replacement = vec![stmt];
             if let Some(ret) = hit.tail_ret {
                 replacement.push(Statement::Return(Return { node_origin: Default::default(), values: vec![ret] }));
+            }
+            if let Some(guard) = guard {
+                replacement = vec![If::new(guard, Block(replacement), Block::default()).into()];
             }
             let advance = replacement.len();
             // The absorbed argument temps and copies right before `i` go too.

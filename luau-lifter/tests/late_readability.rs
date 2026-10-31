@@ -36,6 +36,8 @@ const TYPEOF_DEFAULT: &[u8] = include_bytes!("fixtures/deinline_typeof_default_l
 const TRUTHY_ARMS: &[u8] = include_bytes!("fixtures/deinline_select_with_truthy_arms.luaubc");
 const SEEDED_CONSTANTS: &[u8] = include_bytes!("fixtures/deinline_seeded_constant_arguments.luaubc");
 const LOOP_CAPTURE: &[u8] = include_bytes!("fixtures/deinline_loop_variable_captured.luaubc");
+const INTERLEAVED_DECLARATION: &[u8] = include_bytes!("fixtures/deinline_caller_declaration_inside_copy.luaubc");
+const JOINED_GUARDS: &[u8] = include_bytes!("fixtures/deinline_guards_joined_across_nested_copies.luaubc");
 
 fn decompile(bytecode: &[u8]) -> String {
     luau_lifter::try_decompile_bytecode_with_options(bytecode, 1, None, Default::default())
@@ -399,5 +401,24 @@ fn copies_folded_for_constant_arguments_are_calls_with_them() {
 fn a_helper_capturing_its_loop_variable_is_called_in_that_iteration() {
     let source = decompile(LOOP_CAPTURE);
     assert!(source.contains("= getValue(\"a\") + getValue(\"b\") * getValue(\"c\") -- inferred equivalent call
+"), "{source}");
+}
+
+#[test]
+fn a_caller_declaration_inside_a_copy_leaves_it_whole() {
+    let source = decompile(INTERLEAVED_DECLARATION);
+    assert!(source.contains("return math.max(v, 0, hashInt(value, 7) % 10000 / 10000 - 0.5) * p -- inferred equivalent call
+"), "{source}");
+    assert!(source.contains("local v3 = hashInt(value, 41) % 10000 / 10000 * 0.22 + 1 -- inferred equivalent call
+"), "{source}");
+}
+
+#[test]
+fn guards_joined_across_nested_copies_are_calls() {
+    let source = decompile(JOINED_GUARDS);
+    assert!(source.contains("	addContentId(v, \"rbxassetid://1\") -- inferred equivalent call
+	addContentId(v, 2) -- inferred equivalent call
+"), "{source}");
+    assert!(source.contains("	addContentId(v, p) -- inferred equivalent call
 "), "{source}");
 }
