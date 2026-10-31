@@ -47,6 +47,7 @@ const TUPLE_LITERAL_RESULT_LATER: &[u8] = include_bytes!("fixtures/deinline_tupl
 const GUARD_CHAIN_TRUTH_SELECT: &[u8] = include_bytes!("fixtures/deinline_guard_chain_truth_select.luaubc");
 const NEGATED_COMPARISON: &[u8] = include_bytes!("fixtures/expr_deinline_negated_comparison.luaubc");
 const SPECIALIZED_RETURNED_VALUE: &[u8] = include_bytes!("fixtures/deinline_specialized_returned_value.luaubc");
+const INTERPOLATED_CONSTANT_STRINGS: &[u8] = include_bytes!("fixtures/deinline_interpolated_constant_strings.luaubc");
 
 fn decompile(bytecode: &[u8]) -> String {
     luau_lifter::try_decompile_bytecode_with_options(bytecode, 1, None, Default::default())
@@ -509,6 +510,16 @@ fn a_returned_copy_of_a_specialization_is_a_call() {
     let source = decompile(SPECIALIZED_RETURNED_VALUE);
     for call in ["\t\t\treturn compareNumbers(p.Rank, p2.Rank, true) -- inferred equivalent call\n",
         "\t\t\treturn compareNumbers(p.Quality or 0, p2.Quality or 0, true) -- inferred equivalent call\n"]
+    {
+        assert!(source.contains(call), "{call}\n{source}");
+    }
+}
+
+#[test]
+fn constant_strings_folded_into_an_interpolated_string_are_arguments() {
+    let source = decompile(INTERPOLATED_CONSTANT_STRINGS);
+    for call in ["\t\tassertType(2, \"spr.target\", \"number\", p2) -- inferred equivalent call\n",
+        "\t\tassertType(2, \"spr.stop\", \"string|nil\", value) -- inferred equivalent call\n"]
     {
         assert!(source.contains(call), "{call}\n{source}");
     }

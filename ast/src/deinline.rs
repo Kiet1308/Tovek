@@ -10091,6 +10091,29 @@ fn seed_unify_value(ctx: &MatchCtx, pattern: &RValue, candidate: &RValue, b: &mu
         {
             b.params.entry(param.clone()).or_insert_with(|| candidate.clone());
         }
+        // An interpolated string whose constant strings Luau put in its
+        // text: each hole of the pattern's text either still a hole of the
+        // site's, taking its argument, or the string there.
+        (RValue::MethodCall(pattern) | RValue::Select(Select::MethodCall(pattern)), RValue::MethodCall(candidate) | RValue::Select(Select::MethodCall(candidate)))
+            if let Some(holes) = interpolation_holes(pattern, candidate) =>
+        {
+            let mut site_arguments = candidate.arguments.iter();
+            for (argument, hole) in pattern.arguments.iter().zip(holes) {
+                match hole {
+                    Some(text) => {
+                        if let RValue::Local(param) = argument
+                            && ctx.params.contains(param)
+                        {
+                            b.params.entry(param.clone()).or_insert_with(|| RValue::Literal(Literal::String(text)));
+                        }
+                    }
+                    None => {
+                        let Some(site) = site_arguments.next() else { return };
+                        seed_unify_value(ctx, argument, site, b);
+                    }
+                }
+            }
+        }
         // A constructor's fields, key by key (`{ SpawnedBy = reason or
         // "unknown", Last = event }`).
         (RValue::Table(pattern), RValue::Table(candidate)) if pattern.0.len() == candidate.0.len() => {
@@ -10255,6 +10278,14 @@ fn specialize_rvalue(value: &mut RValue, bindings: &FxHashMap<RcLocal, RValue>) 
                 _ => unreachable!(),
             }
         }
+        // An interpolated string given constant strings, which Luau puts
+        // in its text (`"... to {name} ({kind} expected"` with `name` and
+        // `kind` constants is `"... to spr.target (Instance expected"`).
+        RValue::MethodCall(call) if substituted && let Some(folded) = interpolated_constants(&call) => folded,
+        RValue::Select(Select::MethodCall(call)) if substituted && let Some(folded) = interpolated_constants(&call) => match folded {
+            RValue::MethodCall(call) => RValue::Select(Select::MethodCall(call)),
+            other => other,
+        },
         // `X or Y` where a constant made `X` (`true and X`, `X` truthy):
         // `Y` never runs, `X` still does, as in the copy.
         RValue::Binary(binary)
@@ -10278,6 +10309,127 @@ fn specialize_rvalue(value: &mut RValue, bindings: &FxHashMap<RcLocal, RValue>) 
         other => other.reduce(),
     };
     substituted
+}
+
+/// For `pattern` and `candidate`, `format` calls on literal texts of the
+/// `%*` form, what each hole of the pattern's text is in the candidate's:
+/// `None` still a hole, or the string Luau put there. `None` where the
+/// texts do not align.
+fn interpolation_holes(pattern: &crate::MethodCall, candidate: &crate::MethodCall) -> Option<Vec<Option<Vec<u8>>>> {
+    let (RValue::Literal(Literal::String(text)), RValue::Literal(Literal::String(site))) = (pattern.value.as_ref(), candidate.value.as_ref()) else {
+        return None;
+    };
+    if pattern.method != "format" || candidate.method != "format" {
+        return None;
+    }
+    // The fixed parts between `%*` holes, `%%` kept as written.
+    let mut parts: Vec<&[u8]> = Vec::new();
+    let (mut start, mut at) = (0, 0);
+    while at < text.len() {
+        match (text[at], text.get(at + 1)) {
+            (b'%', Some(b'*')) => {
+                parts.push(&text[start..at]);
+                at += 2;
+                start = at;
+            }
+            (b'%', Some(b'%')) => at += 2,
+            (b'%', _) => return None,
+            _ => at += 1,
+        }
+    }
+    parts.push(&text[start..]);
+    if parts.len() != pattern.arguments.len() + 1 || !site.starts_with(parts[0]) {
+        return None;
+    }
+    let mut holes = Vec::with_capacity(pattern.arguments.len());
+    let mut cursor = parts[0].len();
+    for (index, next) in parts[1..].iter().enumerate() {
+        let last = index + 2 == parts.len();
+        if site[cursor..].starts_with(b"%*") && (if last { site[cursor + 2..] == **next } else { site[cursor + 2..].starts_with(next) }) {
+            holes.push(None);
+            cursor += 2 + next.len();
+            continue;
+        }
+        let end = if last {
+            site.len().checked_sub(next.len()).filter(|&end| end >= cursor && site[end..] == **next)?
+        } else {
+            cursor + site[cursor..].windows(next.len().max(1)).position(|window| next.is_empty() || window == *next)?
+        };
+        let escaped = &site[cursor..end];
+        let mut text = Vec::with_capacity(escaped.len());
+        let mut index = 0;
+        while index < escaped.len() {
+            if escaped[index] == b'%' {
+                if escaped.get(index + 1) != Some(&b'%') {
+                    return None;
+                }
+                index += 1;
+            }
+            text.push(escaped[index]);
+            index += 1;
+        }
+        holes.push(Some(text));
+        cursor = end + next.len();
+    }
+    (cursor == site.len()).then_some(holes)
+}
+
+/// `("a%*b%*c"):format(x, "k")`, the form of `` `a{x}b{"k"}c` ``, with each
+/// string argument in the text where its `%*` is, as Luau's compiler puts
+/// constant strings; `None` where no argument is a string or the text has
+/// another specifier than `%*` and `%%`.
+fn interpolated_constants(call: &crate::MethodCall) -> Option<RValue> {
+    let RValue::Literal(Literal::String(text)) = call.value.as_ref() else { return None };
+    if call.method != "format" || !call.arguments.iter().any(|argument| matches!(argument, RValue::Literal(Literal::String(_)))) {
+        return None;
+    }
+    let mut folded: Vec<u8> = Vec::with_capacity(text.len());
+    let mut arguments = call.arguments.iter();
+    let mut kept = Vec::new();
+    let mut at = 0;
+    while at < text.len() {
+        if text[at] != b'%' {
+            folded.push(text[at]);
+            at += 1;
+            continue;
+        }
+        match text.get(at + 1) {
+            Some(b'%') => folded.extend_from_slice(b"%%"),
+            Some(b'*') => match arguments.next()? {
+                RValue::Literal(Literal::String(constant)) => {
+                    for &byte in constant {
+                        folded.push(byte);
+                        if byte == b'%' {
+                            folded.push(b'%');
+                        }
+                    }
+                }
+                other => {
+                    folded.extend_from_slice(b"%*");
+                    kept.push(other.clone());
+                }
+            },
+            _ => return None,
+        }
+        at += 2;
+    }
+    if arguments.next().is_some() {
+        return None;
+    }
+    if kept.is_empty() {
+        // No `%*` left: the text itself, `%%` read as `%`.
+        let mut plain = Vec::with_capacity(folded.len());
+        let mut index = 0;
+        while index < folded.len() {
+            plain.push(folded[index]);
+            index += if folded[index] == b'%' { 2 } else { 1 };
+        }
+        return Some(RValue::Literal(Literal::String(plain)));
+    }
+    let mut format = call.clone();
+    format.value = Box::new(RValue::Literal(Literal::String(folded)));
+    format.arguments = kept;
+    Some(RValue::MethodCall(format))
 }
 
 fn runtime_literal_equal(left: &Literal, right: &Literal) -> Option<bool> {
@@ -16001,6 +16153,24 @@ mod tests {
 
     /// F4 FIX 1: `rvalue_exact_eq` is sign-of-zero / NaN bit-exact, unlike the
     /// derived `==` the return-folding and arg-consistency gates previously used.
+    #[test]
+    fn interpolated_constant_strings_go_into_the_text() {
+        let text = |value: &str| RValue::Literal(Literal::String(value.as_bytes().to_vec()));
+        let format = |template: &str, arguments: Vec<RValue>| crate::MethodCall::new(text(template), "format".to_string(), arguments);
+        let x = local("x");
+        // A string with `%` goes in escaped; a number stays a hole.
+        let folded = interpolated_constants(&format("%* of %%%* (%*)", vec![RValue::Local(x.clone()), text("50%"), RValue::Literal(Literal::Number(1.0))]));
+        let Some(RValue::MethodCall(folded)) = folded else { panic!("{folded:?}") };
+        assert!(matches!(folded.value.as_ref(), RValue::Literal(Literal::String(t)) if t == b"%* of %%50%% (%*)"));
+        assert_eq!(folded.arguments.len(), 2);
+        // Every hole a string: the text itself.
+        assert!(matches!(interpolated_constants(&format("a%*b%%", vec![text("c")])), Some(RValue::Literal(Literal::String(t))) if t == b"acb%"));
+        // The holes of a pattern's text in a copy's.
+        let holes = interpolation_holes(&format("#%* to %* (%*)", vec![RValue::Local(x.clone()), RValue::Local(x.clone()), RValue::Local(x.clone())]),
+            &format("#%* to spr.stop (50%% off)", vec![RValue::Literal(Literal::Number(1.0))])).expect("aligned");
+        assert_eq!(holes, vec![None, Some(b"spr.stop".to_vec()), Some(b"50% off".to_vec())]);
+    }
+
     #[test]
     fn rvalue_exact_eq_signed_zero_and_nan() {
         assert!(!rvalue_exact_eq(&number(0.0), &number(-0.0)));
