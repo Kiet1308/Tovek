@@ -3464,6 +3464,19 @@ fn unify_block(
                     }
                 }
             }
+            // `local v = E; S; return v` where the copy computed `v` in the
+            // result itself (`r = E; S`): `S` neither reads nor writes `v`,
+            // so `E` is what the helper returns, stored where it is made.
+            Some((Statement::Return(ret), rest)) if rest.len() == cand.len() && t.kind == TKind::Value
+                && let Some((at, store)) = returned_declaration(ret, rest) =>
+            {
+                let mut trial = b.clone();
+                for (index, (p, c)) in rest.iter().zip(cand).enumerate() {
+                    unify_stmt(t, if index == at { &store } else { p }, c, &mut trial)?;
+                }
+                *b = trial;
+                Ok(())
+            }
             // A value the copy computed into a temp its next statement reads
             // once (`local t = data and data.alive; r = not t`), where the
             // helper reads it in place.
@@ -3781,6 +3794,24 @@ fn returned_local(statement: &Statement, b: &Bindings) -> Option<RcLocal> {
         },
         _ => None,
     }
+}
+
+/// For `return v` ending a block of `rest` and that, the position of
+/// `local v = E` in `rest` and the `return E` it stands for where nothing
+/// after it reads or writes `v` or returns.
+fn returned_declaration(ret: &Return, rest: &[Statement]) -> Option<(usize, Statement)> {
+    let [RValue::Local(returned)] = ret.values.as_slice() else { return None };
+    let at = rest.iter().position(|statement| {
+        matches!(statement, Statement::Assign(declaration) if declaration.prefix && matches!(declaration.left.as_slice(), [LValue::Local(local)] if local == returned))
+    })?;
+    let Statement::Assign(declaration) = &rest[at] else { unreachable!() };
+    let after = &rest[at + 1..];
+    if declaration.parallel || declaration.compound || declaration.right.len() != 1
+        || local_queries::reads(after, returned) || local_queries::writes(after, returned) || block_has_return(after)
+    {
+        return None;
+    }
+    Some((at, Return::new(declaration.right.clone()).into()))
 }
 
 /// A pattern block that only returns the parameter `b` elides
@@ -5789,7 +5820,8 @@ fn try_match_at(
                 match_value_prefixed(stmts, i, t, current_func, is_func_body_top, last_occ)
                     .or_else(|| match_returned_value(stmts, i, t, is_func_body_top, last_occ, canon_cache, current_func))
                     .or_else(|| {
-                        (!narrow_prefix(&t.pat))
+                        // A specialized copy may have folded the prefix away.
+                        (!narrow_prefix(&t.pat) || may_specialize(t))
                             .then(|| match_value(stmts, i, t, is_func_body_top, last_occ, canon_cache, current_func))
                             .flatten()
                     })
@@ -6296,7 +6328,9 @@ fn match_value(
     let max_w = raw_width_for_effective(stmts, body_start, t.pat_raw_len + 1);
     let mut site: Option<Site> = None;
     let mut ambiguous = false;
-    for w in kc..=max_w {
+    // A copy Luau specialized may be shorter than the helper (`match_void`).
+    let shorter = may_specialize(t);
+    for w in if shorter { 1 } else { kc }..=max_w {
         // whole-body gate: the decl + region must not be the function's entire body.
         if is_func_body_top && i == 0 && body_start + w == stmts.len() {
             continue;
@@ -6306,7 +6340,20 @@ fn match_value(
         // rejects most widths, so run it BEFORE the recursive `block_has_return`
         // return-safety scan. Both are pure `continue` gates, so the order is
         // byte-identical; it just avoids scanning returns for wrong-length regions.
-        if canon_top_len(region, true) != kc {
+        let top_len = canon_top_len(region, true);
+        if top_len != kc {
+            if shorter && top_len < kc && !block_has_return(region) {
+                let cwin = canon_window(canon_cache, t, stmts, body_start, w);
+                if charge_unify(t, &cwin)
+                    && let Some(u) = try_unify_specialized_site(t, &cwin, current_func)
+                    && u.result.as_ref() == Some(&r)
+                    && !u.callee_locals.contains(&r)
+                    && !block_reads_local(region, &r)
+                    && !tail_has_live(last_occ, stmts, i, body_start + w, &u.callee_locals)
+                {
+                    record_site(&mut site, &mut ambiguous, w, &u, None);
+                }
+            }
             continue;
         }
         // the region assigns RESULT; it must not itself contain returns.
@@ -9360,6 +9407,119 @@ fn fold_specialized_leading_concat(t: &Target, specialized: &mut Vec<Statement>)
     expand_leading_scalar_snapshot(specialized)
 }
 
+/// The pattern with each local it declares from parameters alone (`local
+/// key = `LastApplied{name}``) put where it is read, to seed through: a
+/// constant argument made such a local constant in the copy, where Luau
+/// folded it into its reads (`state.LastAppliedEnabled`,
+/// [`fold_constant_locals`]). `None` where the pattern declares none.
+fn through_parameter_locals(t: &Target) -> Option<Vec<Statement>> {
+    let mut locals = FxHashMap::default();
+    for statement in &t.pat {
+        if let Statement::Assign(assign) = statement
+            && let (true, false, [LValue::Local(local)], [value]) = (assign.prefix, assign.parallel, assign.left.as_slice(), assign.right.as_slice())
+            && !matches!(value, RValue::Literal(_) | RValue::Local(_) | RValue::Closure(_))
+            && let reads = value.values_read()
+            && !reads.is_empty()
+            && reads.iter().all(|read| t.params.contains(*read))
+        {
+            locals.insert(local.clone(), value.clone());
+        }
+    }
+    if locals.is_empty() {
+        return None;
+    }
+    let mut pattern = canon(&t.pat);
+    drop_declarations(&mut pattern, &locals);
+    specialize_block(&mut pattern, &locals);
+    specialize_lvalue_keys(&mut pattern, &locals);
+    Some(pattern)
+}
+
+/// Luau folds a local nothing assigns again whose value is constant: one a
+/// constant argument made so (`local key = `LastApplied{name}`` given
+/// `"Enabled"`) is only that constant where the copy reads it, its
+/// declaration gone. Folds those of `stmts`, a specialization of
+/// `pattern`, and what they make constant in turn; the helper's own
+/// constant declarations stay, as its bytecode kept them. `false` where a
+/// read is left that no constant took.
+fn fold_constant_locals(stmts: &mut Vec<Statement>, pattern: &[Statement]) -> bool {
+    let mut own = FxHashMap::default();
+    constant_declarations(pattern, &mut own);
+    loop {
+        let mut constants = FxHashMap::default();
+        constant_declarations(stmts, &mut constants);
+        constants.retain(|local, _| {
+            !own.contains_key(local) && assignments(stmts, local) == 1 && !closures_capture_any(stmts, std::slice::from_ref(local))
+        });
+        if constants.is_empty() {
+            return true;
+        }
+        drop_declarations(stmts, &constants);
+        specialize_block(stmts, &constants);
+        specialize_lvalue_keys(stmts, &constants);
+        if constants.keys().any(|local| local_queries::reads(stmts, local)) {
+            return false;
+        }
+    }
+}
+
+/// `local x = K` of `stmts`, `K` a constant Luau folds, at any depth.
+fn constant_declarations(stmts: &[Statement], out: &mut FxHashMap<RcLocal, RValue>) {
+    for statement in stmts {
+        if let Statement::Assign(assign) = statement
+            && assign.prefix
+            && !assign.parallel
+            && !assign.compound
+            && let ([LValue::Local(local)], [value @ RValue::Literal(Literal::Nil | Literal::Boolean(_) | Literal::Number(_) | Literal::String(_))]) =
+                (assign.left.as_slice(), assign.right.as_slice())
+        {
+            out.insert(local.clone(), value.clone());
+        }
+        for block in nested_blocks(statement) {
+            constant_declarations(&block.lock().0, out);
+        }
+    }
+}
+
+/// How many assignments of `stmts` write `local`, at any depth.
+fn assignments(stmts: &[Statement], local: &RcLocal) -> usize {
+    stmts
+        .iter()
+        .map(|statement| {
+            let own = matches!(statement, Statement::Assign(assign) if assign.left.iter().any(|left| matches!(left, LValue::Local(written) if written == local)));
+            own as usize + nested_blocks(statement).iter().map(|block| assignments(&block.lock().0, local)).sum::<usize>()
+        })
+        .sum()
+}
+
+fn drop_declarations(stmts: &mut Vec<Statement>, locals: &FxHashMap<RcLocal, RValue>) {
+    stmts.retain(|statement| {
+        !matches!(statement, Statement::Assign(assign) if assign.prefix && matches!(assign.left.as_slice(), [LValue::Local(local)] if locals.contains_key(local)))
+    });
+    for statement in stmts.iter() {
+        for block in nested_blocks(statement) {
+            drop_declarations(&mut block.lock().0, locals);
+        }
+    }
+}
+
+/// [`specialize_block`] of what an assignment indexes (`p[key] = v`).
+fn specialize_lvalue_keys(stmts: &mut [Statement], bindings: &FxHashMap<RcLocal, RValue>) {
+    for statement in stmts.iter_mut() {
+        if let Statement::Assign(assign) = statement {
+            for left in &mut assign.left {
+                if let LValue::Index(index) = left {
+                    specialize_rvalue(&mut index.left, bindings);
+                    specialize_rvalue(&mut index.right, bindings);
+                }
+            }
+        }
+        for block in nested_blocks(statement) {
+            specialize_lvalue_keys(&mut block.lock().0, bindings);
+        }
+    }
+}
+
 fn try_seeded_specialization(t: &Target, cwin: &[Statement], current_func: Option<FnPtr>) -> Option<Unified> {
     if !t.specializable || t.params.is_empty() {
         return None;
@@ -9382,6 +9542,15 @@ fn try_seeded_specialization(t: &Target, cwin: &[Statement], current_func: Optio
         && let Some(aligned) = seed_aligned(t, cwin)
     {
         seed = aligned;
+    }
+    if !complete_seed(&seed)
+        && let Some(through) = through_parameter_locals(t)
+    {
+        let mut deep = Bindings::default();
+        seed_unify_block(t, &through, cwin, &mut deep);
+        if complete_seed(&deep) {
+            seed = deep;
+        }
     }
     if !seed
         .params
@@ -9412,6 +9581,9 @@ fn try_seeded_specialization(t: &Target, cwin: &[Statement], current_func: Optio
     // the recovered function body's shared Arcs while we prune constant arms.
     let mut specialized = canon(&t.pat);
     specialize_block(&mut specialized, &seed.params);
+    if !fold_constant_locals(&mut specialized, &t.pat) {
+        return None;
+    }
     fold_specialized_table_stores(&mut specialized);
     call_unread_specialized_locals(&mut specialized);
     let mut specialized = canon(&specialized);
@@ -10276,6 +10448,27 @@ fn seed_unify_value(ctx: &MatchCtx, pattern: &RValue, candidate: &RValue, b: &mu
                 }
             }
         }
+        // An interpolated string all of whose holes Luau filled with
+        // constant strings: the text alone (`"LastAppliedEnabled"`).
+        (RValue::MethodCall(pattern) | RValue::Select(Select::MethodCall(pattern)), RValue::Literal(Literal::String(text))) => {
+            let mut escaped = Vec::with_capacity(text.len());
+            for &byte in text {
+                escaped.push(byte);
+                if byte == b'%' {
+                    escaped.push(b'%');
+                }
+            }
+            let site = crate::MethodCall::new(RValue::Literal(Literal::String(escaped)), "format".into(), Vec::new());
+            if let Some(holes) = interpolation_holes(pattern, &site) {
+                for (argument, hole) in pattern.arguments.iter().zip(holes) {
+                    if let (RValue::Local(param), Some(text)) = (argument, hole)
+                        && ctx.params.contains(param)
+                    {
+                        b.params.entry(param.clone()).or_insert_with(|| RValue::Literal(Literal::String(text)));
+                    }
+                }
+            }
+        }
         // A constructor's fields, key by key (`{ SpawnedBy = reason or
         // "unknown", Last = event }`).
         (RValue::Table(pattern), RValue::Table(candidate)) if pattern.0.len() == candidate.0.len() => {
@@ -10284,6 +10477,19 @@ fn seed_unify_value(ctx: &MatchCtx, pattern: &RValue, candidate: &RValue, b: &mu
                     seed_unify_value(ctx, pattern_value, candidate_value, b);
                 }
             }
+        }
+        // Into the operands of an operation and an index, where one of the
+        // above may be (`p[`LastApplied{name}`] == nil`).
+        (RValue::Binary(pattern), RValue::Binary(candidate)) if pattern.operation == candidate.operation => {
+            seed_unify_value(ctx, &pattern.left, &candidate.left, b);
+            seed_unify_value(ctx, &pattern.right, &candidate.right, b);
+        }
+        (RValue::Unary(pattern), RValue::Unary(candidate)) if pattern.operation == candidate.operation => {
+            seed_unify_value(ctx, &pattern.value, &candidate.value, b);
+        }
+        (RValue::Index(pattern), RValue::Index(candidate)) => {
+            seed_unify_value(ctx, &pattern.left, &candidate.left, b);
+            seed_unify_value(ctx, &pattern.right, &candidate.right, b);
         }
         _ => {}
     }
@@ -10296,7 +10502,12 @@ fn seed_unify_stmt(ctx: &MatchCtx, pattern: &Statement, candidate: &Statement, b
                 return;
             }
             for (pl, cl) in left.left.iter().zip(&right.left) {
-                let _ = unify_lvalue(ctx, pl, cl, b);
+                if unify_lvalue(ctx, pl, cl, b).is_err()
+                    && let (LValue::Index(pattern), LValue::Index(candidate)) = (pl, cl)
+                {
+                    seed_unify_value(ctx, &pattern.left, &candidate.left, b);
+                    seed_unify_value(ctx, &pattern.right, &candidate.right, b);
+                }
             }
             seed_unify_values(ctx, &left.right, &right.right, b);
         }
@@ -10311,16 +10522,16 @@ fn seed_unify_stmt(ctx: &MatchCtx, pattern: &Statement, candidate: &Statement, b
             seed_unify_values(ctx, &left.arguments, &right.arguments, b);
         }
         (Statement::If(left), Statement::If(right)) => {
-            let _ = unify_rvalue(ctx, &left.condition, &right.condition, b);
+            seed_unify_value(ctx, &left.condition, &right.condition, b);
             seed_unify_block_in(ctx, &left.then_block.lock().0, &right.then_block.lock().0, b);
             seed_unify_block_in(ctx, &left.else_block.lock().0, &right.else_block.lock().0, b);
         }
         (Statement::While(left), Statement::While(right)) => {
-            let _ = unify_rvalue(ctx, &left.condition, &right.condition, b);
+            seed_unify_value(ctx, &left.condition, &right.condition, b);
             seed_unify_block_in(ctx, &left.block.lock().0, &right.block.lock().0, b);
         }
         (Statement::Repeat(left), Statement::Repeat(right)) => {
-            let _ = unify_rvalue(ctx, &left.condition, &right.condition, b);
+            seed_unify_value(ctx, &left.condition, &right.condition, b);
             seed_unify_block_in(ctx, &left.block.lock().0, &right.block.lock().0, b);
         }
         (Statement::NumericFor(left), Statement::NumericFor(right)) => {

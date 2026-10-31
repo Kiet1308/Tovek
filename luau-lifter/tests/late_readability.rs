@@ -51,6 +51,7 @@ const INTERPOLATED_CONSTANT_STRINGS: &[u8] = include_bytes!("fixtures/deinline_i
 const GUARDED_TAIL_AND_TABLES: &[u8] = include_bytes!("fixtures/deinline_guarded_tail_and_table_arguments.luaubc");
 const TUPLE_FLIPPED_GUARD: &[u8] = include_bytes!("fixtures/deinline_tuple_flipped_guard.luaubc");
 const FOLDED_TEXT_ARGUMENT: &[u8] = include_bytes!("fixtures/deinline_folded_text_argument.luaubc");
+const CONSTANT_KEYED_LOCALS: &[u8] = include_bytes!("fixtures/deinline_constant_keyed_locals.luaubc");
 
 fn decompile(bytecode: &[u8]) -> String {
     luau_lifter::try_decompile_bytecode_with_options(bytecode, 1, None, Default::default())
@@ -551,6 +552,19 @@ fn a_text_argument_folded_into_the_helper_s_text_is_a_call() {
     let source = decompile(FOLDED_TEXT_ARGUMENT);
     for call in ["local reward, v = parseReward(\"Gold\", value) -- inferred equivalent call\n",
         "local reward2, v2 = parseReward(\"Gem\", value2) -- inferred equivalent call\n"]
+    {
+        assert!(source.contains(call), "{call}\n{source}");
+    }
+}
+
+#[test]
+fn locals_a_constant_argument_made_constant_are_folded_in_the_copy() {
+    let source = decompile(CONSTANT_KEYED_LOCALS);
+    for call in ["refreshDesired(p, \"Enabled\", data.Enabled) -- inferred equivalent call\n",
+        "refreshDesired(p, \"Rate\", data.Rate) or v3 -- inferred equivalent call\n",
+        "refreshDesired(p, \"Brightness\", data.Brightness) or v3 -- inferred equivalent call\n",
+        "setVisible(false) -- inferred equivalent call\n",
+        "setVisible(true) -- inferred equivalent call\n"]
     {
         assert!(source.contains(call), "{call}\n{source}");
     }
