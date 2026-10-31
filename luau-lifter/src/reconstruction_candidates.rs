@@ -654,18 +654,50 @@ pub(crate) fn inlined_copies(functions: &[Function], lines: &[Vec<Option<u32>>],
         // `jitter(x, 3)`, opening with `nextNumber(-3, 3)`). The code after
         // this copy on a line of such a helper, past its first, holding the
         // lines of the copy before, says so.
+        // A copy of `helper` starting at the PC on `line`.
+        let start_copy = |helper: u32, line: u32, pc: usize| {
+            let copy = helpers[helper as usize].as_ref().unwrap();
+            let passed = match &copy.single {
+                Some(single) if line == copy.first => advance(single, 0, 0, pc).unwrap_or(0),
+                _ => 0,
+            };
+            (helper, line, passed, passed.saturating_sub(1))
+        };
         let enclosing = |helper: u32, pc: usize| {
             let mut outer = helper;
             let mut seen: Vec<u32> = Vec::new();
             let mut at = pc;
+            // The copy of `helper` the walk starts in, while it goes on.
+            let mut inner = pcs.get(pc).copied().flatten().map(|line| start_copy(helper, line, pc));
             while let (Some(instruction), Some(Some(line))) = (instructions.get(at), pcs.get(at).copied()) {
                 let opcode = opcode_of(instruction);
+                // Another copy of `helper` starting: the one the walk began in
+                // was a call of its own (`trim(a); parse(b)`, `parse` opening
+                // with its own copy of `trim`).
+                if at > pc
+                    && outer == helper
+                    && helpers[helper as usize].as_ref().unwrap().lines.contains(line)
+                    && let Some(state) = &mut inner
+                    && !goes_on(state, line, at, false)
+                {
+                    break;
+                }
                 if !helpers[outer as usize].as_ref().unwrap().lines.contains(line) {
                     match innermost(line, opcode, at) {
                         Some(next)
                             if next != outer
                                 && helpers[next as usize].as_ref().is_some_and(|copy| {
-                                    line > copy.first && line <= copy.span.1 && seen.iter().all(|&seen| copy.lines.contains(seen))
+                                    // On its first line where its own code opens with
+                                    // the copy just seen (`local text = trimString(value)`
+                                    // first in `parseOptionalPositiveInteger`).
+                                    let opens_with_seen = || {
+                                        lines[next as usize].iter().flatten().next().is_some_and(|&first| {
+                                            !(copy.span.0..=copy.span.1).contains(&first) && seen.contains(&first)
+                                        })
+                                    };
+                                    (line > copy.first || (line == copy.first && opens_with_seen()))
+                                        && line <= copy.span.1
+                                        && seen.iter().all(|&seen| copy.lines.contains(seen))
                                 }) =>
                         {
                             outer = next;
@@ -697,15 +729,6 @@ pub(crate) fn inlined_copies(functions: &[Function], lines: &[Vec<Option<u32>>],
                 Some(inner) if literals.contains(&inner) => Some(inner),
                 _ => literals.iter().copied().find(|&literal| literal_line(literal, line, pc)),
             }
-        };
-        // A copy of `helper` starting at the PC on `line`.
-        let start_copy = |helper: u32, line: u32, pc: usize| {
-            let copy = helpers[helper as usize].as_ref().unwrap();
-            let passed = match &copy.single {
-                Some(single) if line == copy.first => advance(single, 0, 0, pc).unwrap_or(0),
-                _ => 0,
-            };
-            (helper, line, passed, passed.saturating_sub(1))
         };
         let mut pc = 0;
         while pc < pcs.len() {
@@ -816,6 +839,9 @@ pub(crate) fn inlined_copies(functions: &[Function], lines: &[Vec<Option<u32>>],
                 *copies.copies.entry((caller_id, helper)).or_default() += 1;
                 copies.present.insert((caller_id, helper));
                 if inner != helper {
+                    if ast::env_flag!("MEDAL_TRACE_COPIES") {
+                        eprintln!("NESTED caller=p{caller_id} outer=p{helper} helper=p{inner} pc={pc} line={line} op={opcode:?}");
+                    }
                     *copies.nested_copies.entry((caller_id, inner)).or_default() += 1;
                     copies.present.insert((caller_id, inner));
                     copies.nested.insert((caller_id, helper, inner));
@@ -1312,6 +1338,36 @@ mod tests {
         ];
         let copies = inlined_copies(&[inner, finalize, caller, chunk], &lines, 3).unwrap();
         assert_eq!(copies.copies(Some(2), 1), 2);
+    }
+
+    #[test]
+    fn a_copy_opening_with_a_copy_it_inlines_holds_it() {
+        use OpCode::*;
+        let chunk = || prototype(1, &[LOP_NEWCLOSURE, LOP_NEWCLOSURE, LOP_NEWCLOSURE, LOP_RETURN]);
+        // p0, lines 1-2: `trim`; p1, lines 4-7: `parse`, whose first line
+        // (5, `local text = trim(value)`) is all a copy of p0 (line 2), its own
+        // code from line 6.
+        let trim = || prototype(1, &[LOP_NOT, LOP_RETURN]);
+        let parse = || prototype(4, &[LOP_NOT, LOP_ADD, LOP_RETURN]);
+        let parse_lines = vec![Some(2), Some(6), Some(7)];
+        // p2 at line 9 holds one copy of p1, opening with p0's code.
+        let caller = prototype(9, &[LOP_LOADN, LOP_NOT, LOP_ADD, LOP_RETURN]);
+        let lines = vec![vec![Some(2), Some(2)], parse_lines.clone(), vec![Some(10), Some(2), Some(6), Some(11)], vec![Some(1), Some(4), Some(9), Some(12)]];
+        let copies = inlined_copies(&[trim(), parse(), caller, chunk()], &lines, 3).unwrap();
+        assert_eq!(copies.copies(Some(2), 1), 1);
+        assert_eq!(copies.copies(Some(2), 0), 0);
+        assert_eq!(copies.nested_copies.get(&(2, 0)), Some(&1));
+        // `trim(a); parse(b)`: a copy of p0 of its own, then one of p1 with
+        // its own copy of p0.
+        let op = |op_code, a, b, c| Instruction::BC { op_code, a, b, c, aux: 0 };
+        let caller = Function {
+            instructions: vec![op(LOP_LOADN, 1, 0, 0), op(LOP_NOT, 2, 0, 0), op(LOP_NOT, 3, 1, 0), op(LOP_ADD, 4, 3, 3), op(LOP_RETURN, 0, 1, 0)],
+            ..prototype(9, &[])
+        };
+        let lines = vec![vec![Some(2), Some(2)], parse_lines, vec![Some(10), Some(2), Some(2), Some(6), Some(11)], vec![Some(1), Some(4), Some(9), Some(12)]];
+        let copies = inlined_copies(&[trim(), parse(), caller, chunk()], &lines, 3).unwrap();
+        assert_eq!(copies.copies(Some(2), 1), 1);
+        assert_eq!(copies.copies(Some(2), 0), 1);
     }
 
     #[test]
