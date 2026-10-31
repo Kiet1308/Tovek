@@ -25,6 +25,7 @@ const SELECT_TRUTHY_ARGUMENTS: &[u8] = include_bytes!("fixtures/deinline_select_
 const RETURNS_WRITTEN_PARAMETER: &[u8] = include_bytes!("fixtures/deinline_returns_written_parameter.luaubc");
 const SELECT_FOLDED_FOR_TRUTH: &[u8] = include_bytes!("fixtures/deinline_select_folded_for_truth.luaubc");
 const ENTRY_STORE: &[u8] = include_bytes!("fixtures/deinline_entry_store_in_argument_constructor.luaubc");
+const DEFAULT_ARGUMENT: &[u8] = include_bytes!("fixtures/deinline_default_argument_folded.luaubc");
 
 fn decompile(bytecode: &[u8]) -> String {
     luau_lifter::try_decompile_bytecode_with_options(bytecode, 1, None, Default::default())
@@ -91,6 +92,17 @@ fn a_select_returning_a_call_is_a_call_where_one_value_is_taken() {
     // `not c and 1 or part:GetScale()` is the copy of `if c then return
     // part:GetScale() end return 1` taking one value.
     assert!(source.contains("\tlocal v2 = p / getScale() -- inferred equivalent call\n"), "{source}");
+}
+
+#[test]
+fn a_default_folded_for_a_constant_or_a_left_out_argument_is_a_call() {
+    let source = decompile(DEFAULT_ARGUMENT);
+    // `(radius or 8) * 2` folded to `12` and to `16`.
+    for call in ["\nnewCorner(frame, 6) -- inferred equivalent call\n", "\nnewCorner(frame) -- inferred equivalent call\n",
+        "\nlocal corner = newCorner(frame, 3) -- inferred equivalent call\n"]
+    {
+        assert!(source.contains(call), "{call}\n{source}");
+    }
 }
 
 #[test]

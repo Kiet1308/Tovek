@@ -414,6 +414,17 @@ fn invert(
             let (known, inner) = if in_left { (&binary.right, &binary.left) } else { (&binary.left, &binary.right) };
             let known = evaluate(known, env, helpers)?;
             let proposed = match (binary.operation, &known, &goal) {
+                // `p or k`: a truthy `p` is the value itself; `k` stands for
+                // a falsy one, taken as left out (`value or 8` as `8`).
+                (Or, _, _) if in_left => {
+                    if goal.same(&known) {
+                        Value::Nil
+                    } else if goal.truthy() {
+                        goal.clone()
+                    } else {
+                        return None;
+                    }
+                }
                 (Add, Value::Number(k), Value::Number(g)) => Value::Number(g - k),
                 (Sub, Value::Number(k), Value::Number(g)) => Value::Number(if in_left { g + k } else { k - g }),
                 (Mul, Value::Number(k), Value::Number(g)) if *k != 0.0 => Value::Number(g / k),
@@ -570,6 +581,16 @@ mod tests {
         assert!(fold(&binary(vector(1.0, 2.0, 3.0), Div, vector(1.0, 2.0, 3.0))).is_none());
         assert!(fold(&binary(vector(1.0, 2.0, 3.0), Mul, number(f64::INFINITY))).is_none());
         assert!(fold(&binary(vector(1.0, 2.0, 3.0), Div, number(0.0))).is_none());
+    }
+
+    #[test]
+    fn a_default_argument_is_solved_or_left_out() {
+        let argument = RcLocal::default();
+        let body = binary(argument.clone().into(), BinaryOperation::Or, number(8.0));
+        let solve_for = |goal: Literal| solve(&body, &Value::of(&goal).unwrap(), &argument, &|_| None, &PureHelpers::default());
+        assert!(solve_for(Literal::Number(6.0)).unwrap().same(&Value::Number(6.0)));
+        assert!(solve_for(Literal::Number(8.0)).unwrap().same(&Value::Nil));
+        assert!(solve_for(Literal::Boolean(false)).is_none());
     }
 
     #[test]
