@@ -3442,6 +3442,13 @@ fn unify_block(
                 }
                 Ok(())
             }
+            // A value the copy computed into a temp its next statement reads
+            // once (`local t = data and data.alive; r = not t`), where the
+            // helper reads it in place.
+            _ if cand.len() > pat.len() && let Some(folded) = fold_site_temps(t, cand) && folded.len() == pat.len() => {
+                let folded = order_stores_like(pat, &folded, b).into_owned();
+                unify_statements(t, pat, &folded, b)
+            }
             _ => Err(()),
         };
     }
@@ -3556,6 +3563,62 @@ fn order_stores_like<'a>(pat: &[Statement], cand: &'a [Statement], b: &Bindings)
         Some(reordered) => std::borrow::Cow::Owned(reordered),
         None => std::borrow::Cow::Borrowed(cand),
     }
+}
+
+/// `cand` with each `local t = v` the next statement reads once, and
+/// nothing after, put in place of that read where it may be evaluated
+/// there (`can_sink`); `None` where there is none. `v` is one value (no
+/// call or `...` a store could spread).
+fn fold_site_temps(t: &Target, cand: &[Statement]) -> Option<Vec<Statement>> {
+    fn replace_read(value: &mut RValue, local: &RcLocal, with: &RValue) -> bool {
+        if matches!(value, RValue::Local(read) if read == local) {
+            *value = with.clone();
+            return true;
+        }
+        if matches!(value, RValue::Closure(_)) {
+            return false;
+        }
+        let mut done = false;
+        value.visit_rvalues_mut(&mut |child| {
+            done = replace_read(child, local, with);
+            !done
+        });
+        done
+    }
+    let mut out = cand.to_vec();
+    let mut folded = false;
+    let mut k = 0;
+    while k + 1 < out.len() {
+        let temp = match &out[k] {
+            Statement::Assign(declaration)
+                if declaration.prefix
+                    && !declaration.parallel
+                    && let ([LValue::Local(local)], [value]) = (declaration.left.as_slice(), declaration.right.as_slice())
+                    && !matches!(value, RValue::Call(_) | RValue::MethodCall(_) | RValue::VarArg(_) | RValue::Closure(_)) =>
+            {
+                Some((local.clone(), value.clone()))
+            }
+            _ => None,
+        };
+        if let Some((local, value)) = temp
+            && matches!(out[k + 1], Statement::Assign(_) | Statement::Call(_) | Statement::MethodCall(_) | Statement::Return(_))
+            && count_local_reads(&out[k + 1..], &local) == 1
+            && crate::evaluation_order::can_sink(&out[k + 1], &local, &value, &|read| !t.captures.uncaptured(read))
+        {
+            let mut done = false;
+            out[k + 1].visit_rvalues_mut(&mut |child| {
+                done = replace_read(child, &local, &value);
+                !done
+            });
+            if done {
+                out.remove(k);
+                folded = true;
+                continue;
+            }
+        }
+        k += 1;
+    }
+    folded.then_some(out)
 }
 
 /// The locals `local a, b` declares without values.
@@ -3691,6 +3754,24 @@ fn unify_stmt(t: &Target, p: &Statement, c: &Statement, b: &mut Bindings) -> Res
                 return Ok(());
             }
             let negated = Unary::new(cf.condition.clone(), UnaryOperation::Not).reduce_condition();
+            // Guards nested with one other arm (`if a then if b then S else
+            // E end else E end`) the copy joined (`if not a or not b then E
+            // else S end`): `a and b` reads them in the same order, and each
+            // arm unifies with the site's one.
+            if let Some((joined, inner, others)) = guard_chain(pf) {
+                let joined = joined.reduce_condition();
+                let site_condition = cf.condition.clone().reduce_condition();
+                for (condition, then_block, else_block) in [(&site_condition, &cf.then_block, &cf.else_block), (&negated, &cf.else_block, &cf.then_block)] {
+                    let mut bg = b.clone();
+                    let joined_ok = unify_rvalue(&ctx, &joined, condition, &mut bg)
+                        .and_then(|_| unify_block(t, &inner, &then_block.lock().0, &mut bg))
+                        .and_then(|_| others.iter().try_for_each(|other| unify_block(t, other, &else_block.lock().0, &mut bg)));
+                    if joined_ok.is_ok() {
+                        *b = bg;
+                        return Ok(());
+                    }
+                }
+            }
             unify_rvalue(&ctx, &reduced, &negated, b)?;
             unify_block(t, &pf.then_block.lock().0, &cf.else_block.lock().0, b)?;
             unify_block(t, &pf.else_block.lock().0, &cf.then_block.lock().0, b)
@@ -3887,6 +3968,37 @@ pub(crate) fn unify_lvalue(
     }
 }
 
+/// An `if` whose then arm is one `if`, and so on (two at least): their
+/// conditions joined by `and`, the innermost then arm, and every else arm.
+fn guard_chain(branch: &If) -> Option<(RValue, Vec<Statement>, Vec<Vec<Statement>>)> {
+    let mut conditions = vec![branch.condition.clone()];
+    let mut others = vec![branch.else_block.lock().0.clone()];
+    let mut inner = branch.then_block.lock().0.clone();
+    while let [Statement::If(nested)] = inner.as_slice() {
+        conditions.push(nested.condition.clone());
+        others.push(nested.else_block.lock().0.clone());
+        let next = nested.then_block.lock().0.clone();
+        inner = next;
+    }
+    if conditions.len() < 2 {
+        return None;
+    }
+    let last = conditions.pop().unwrap();
+    let joined = conditions.into_iter().rev().fold(last, |right, left| RValue::Binary(Binary::new(left, right, BinaryOperation::And)));
+    Some((joined, inner, others))
+}
+
+/// `x` of `x and true or false`, the truth of `x` as a boolean.
+fn truth_select(value: &RValue) -> Option<&RValue> {
+    let RValue::Binary(or) = value else { return None };
+    let RValue::Binary(and) = or.left.as_ref() else { return None };
+    (or.operation == BinaryOperation::Or
+        && and.operation == BinaryOperation::And
+        && matches!(and.right.as_ref(), RValue::Literal(Literal::Boolean(true)))
+        && matches!(or.right.as_ref(), RValue::Literal(Literal::Boolean(false))))
+    .then_some(and.left.as_ref())
+}
+
 /// Structural expression unifier. Treats `ctx.params` as bind-once holes
 /// (mapping each callee parameter to one caller argument expression) and
 /// `ctx.locals` as an injective callee-local renaming; everything else (globals,
@@ -3974,6 +4086,18 @@ pub(crate) fn unify_rvalue(
         trial.truth_folded = true;
         *b = trial;
         return Ok(());
+    }
+    // A negation the copy gives as its truth (`not (a and b and not c)`
+    // as `(not a or not b or c) and true or false`): both in one reduced
+    // form, which keeps the truth and the order operands are read in.
+    match (p, c) {
+        (RValue::Unary(not), site) if not.operation == UnaryOperation::Not && let Some(truth) = truth_select(site) => {
+            return unify_rvalue(ctx, &p.clone().reduce_condition(), &truth.clone().reduce_condition(), b);
+        }
+        (pattern, RValue::Unary(not)) if not.operation == UnaryOperation::Not && let Some(truth) = truth_select(pattern) => {
+            return unify_rvalue(ctx, &truth.clone().reduce_condition(), &c.clone().reduce_condition(), b);
+        }
+        _ => {}
     }
     // A value computed from parameters only, where the site has a number:
     // Luau folded it for constant arguments (`1 - k` as 0.5). The site's

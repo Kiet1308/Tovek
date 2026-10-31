@@ -44,6 +44,7 @@ const LITERAL_ARGUMENT_UPVALUE: &[u8] = include_bytes!("fixtures/deinline_litera
 const LITERAL_ARGUMENT_TWINS: &[u8] = include_bytes!("fixtures/deinline_literal_argument_twins.luaubc");
 const TUPLE_THROUGH_BRANCHES: &[u8] = include_bytes!("fixtures/deinline_tuple_through_branches.luaubc");
 const TUPLE_LITERAL_RESULT_LATER: &[u8] = include_bytes!("fixtures/deinline_tuple_literal_result_declared_later.luaubc");
+const GUARD_CHAIN_TRUTH_SELECT: &[u8] = include_bytes!("fixtures/deinline_guard_chain_truth_select.luaubc");
 
 fn decompile(bytecode: &[u8]) -> String {
     luau_lifter::try_decompile_bytecode_with_options(bytecode, 1, None, Default::default())
@@ -484,4 +485,11 @@ fn a_tuple_literal_result_declared_further_down_goes_with_its_call() {
     let source = decompile(TUPLE_LITERAL_RESULT_LATER);
     assert!(source.contains("local size, offset, v3 = setupFlag(v) -- inferred equivalent call\nlocal size2, offset2, v4 = setupFlag(v2) -- inferred equivalent call\n"), "{source}");
     assert!(!source.contains("= 0.745\n"), "{source}");
+}
+
+#[test]
+fn joined_guards_and_a_negation_given_as_its_truth_are_a_call() {
+    let source = decompile(GUARD_CHAIN_TRUTH_SELECT);
+    assert!(source.contains("\t\t\tif not stillCurrent() then -- inferred equivalent call\n\t\t\t\treturn\n"), "{source}");
+    assert!(source.matches("if not stillCurrent() then -- inferred equivalent call").count() >= 2, "{source}");
 }
