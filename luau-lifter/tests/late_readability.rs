@@ -26,6 +26,7 @@ const RETURNS_WRITTEN_PARAMETER: &[u8] = include_bytes!("fixtures/deinline_retur
 const SELECT_FOLDED_FOR_TRUTH: &[u8] = include_bytes!("fixtures/deinline_select_folded_for_truth.luaubc");
 const ENTRY_STORE: &[u8] = include_bytes!("fixtures/deinline_entry_store_in_argument_constructor.luaubc");
 const DEFAULT_ARGUMENT: &[u8] = include_bytes!("fixtures/deinline_default_argument_folded.luaubc");
+const CALL_TAIL: &[u8] = include_bytes!("fixtures/terminal_call_tail_and_chain_head.luaubc");
 
 fn decompile(bytecode: &[u8]) -> String {
     luau_lifter::try_decompile_bytecode_with_options(bytecode, 1, None, Default::default())
@@ -92,6 +93,17 @@ fn a_select_returning_a_call_is_a_call_where_one_value_is_taken() {
     // `not c and 1 or part:GetScale()` is the copy of `if c then return
     // part:GetScale() end return 1` taking one value.
     assert!(source.contains("\tlocal v2 = p / getScale() -- inferred equivalent call\n"), "{source}");
+}
+
+#[test]
+fn a_call_tail_stays_one_return_after_the_if() {
+    let source = decompile(CALL_TAIL);
+    // The shared tail is not duplicated into a guard.
+    assert_eq!(source.matches("return self.Hooks:After(self) or self.Response").count(), 1, "{source}");
+    assert!(source.contains("	if self.Response == nil then
+"), "{source}");
+    assert!(source.contains("	return tonumber(value:match(\"(%d+)$\")) or 1e999
+"), "{source}");
 }
 
 #[test]

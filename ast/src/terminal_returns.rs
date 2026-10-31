@@ -299,7 +299,23 @@ fn fold_guard(block: &mut Block) -> bool {
     let Statement::If(branch) = block.0.pop().unwrap() else { unreachable!() };
     let yes = take_return(&mut branch.then_block.lock());
     let no = outer_value.unwrap_or_else(|| take_return(&mut branch.else_block.lock()));
-    block.0.push(Return::new(vec![build_chain(kind, branch.condition, yes, no)]).into());
+    let mut value = build_chain(kind, branch.condition, yes, no);
+    // `local v = a; return v and b`, `v` read nowhere else: `return a and b`,
+    // `a` still evaluated first.
+    if let RValue::Binary(chain) = &mut value
+        && matches!(chain.operation, BinaryOperation::And | BinaryOperation::Or)
+        && let RValue::Local(head) = chain.left.as_ref()
+        && let Some(Statement::Assign(declaration)) = block.0.last()
+        && declaration.prefix
+        && !declaration.parallel
+        && matches!((declaration.left.as_slice(), declaration.right.as_slice()), ([LValue::Local(declared)], [_]) if declared == head)
+        && !head.preserve_binding()
+        && !crate::LocalRw::any_local_read(chain.right.as_ref(), &mut |read| read == head)
+    {
+        let Some(Statement::Assign(declaration)) = block.0.pop() else { unreachable!() };
+        *chain.left = scalar(declaration.right.into_iter().next().unwrap());
+    }
+    block.0.push(Return::new(vec![value]).into());
     true
 }
 

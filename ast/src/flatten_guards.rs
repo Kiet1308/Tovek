@@ -412,8 +412,12 @@ fn invert_empty_then_arms(block: &mut Block) {
 fn small_guard_tail(statement: &Statement) -> bool {
     fn value_cost(value: &RValue) -> usize {
         // A single return statement can contain an entire UI tree or several
-        // closures after late inlining. Never duplicate those as a guard.
-        if matches!(value, RValue::Table(_) | RValue::Closure(_)) {
+        // closures after late inlining. Never duplicate those as a guard,
+        // nor a call: one written once reads as one (`return
+        // self.Dispatcher:RunHooks("AfterRun", self) or self.Response`).
+        if matches!(value, RValue::Table(_) | RValue::Closure(_) | RValue::Call(_) | RValue::MethodCall(_)
+            | RValue::Select(crate::Select::Call(_) | crate::Select::MethodCall(_)))
+        {
             return 13;
         }
         let mut children = 0;
