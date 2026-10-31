@@ -491,5 +491,6 @@ fn a_tuple_literal_result_declared_further_down_goes_with_its_call() {
 fn joined_guards_and_a_negation_given_as_its_truth_are_a_call() {
     let source = decompile(GUARD_CHAIN_TRUTH_SELECT);
     assert!(source.contains("\t\t\tif not stillCurrent() then -- inferred equivalent call\n\t\t\t\treturn\n"), "{source}");
-    assert!(source.matches("if not stillCurrent() then -- inferred equivalent call").count() >= 2, "{source}");
+    // Inside literals passed to `defer` and kept aside too: scanned once back.
+    assert_eq!(source.matches("if not stillCurrent() then -- inferred equivalent call").count(), 4, "{source}");
 }

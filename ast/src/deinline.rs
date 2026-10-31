@@ -1037,8 +1037,9 @@ fn twins(a: &Closure, b: &Closure) -> bool {
 
 /// Each orphan a call of which was rebuilt goes back into its body
 /// ([`Orphan`]), right before the first top-level statement reading it,
-/// and leaves the side table.
-fn materialize_orphans(body: &mut Block, chunk: &mut Vec<(RcLocal, Closure)>, orphans: &[Orphan], used: &FxHashSet<RcLocal>) {
+/// and leaves the side table; whether one did.
+fn materialize_orphans(body: &mut Block, chunk: &mut Vec<(RcLocal, Closure)>, orphans: &[Orphan], used: &FxHashSet<RcLocal>) -> bool {
+    let mut materialized = false;
     for orphan in orphans.iter().filter(|orphan| used.contains(&orphan.binder)) {
         let mut scope_function = orphan.scope_function.as_ref().map(|function| function.lock());
         let (stmts, table) = match &mut scope_function {
@@ -1062,6 +1063,7 @@ fn materialize_orphans(body: &mut Block, chunk: &mut Vec<(RcLocal, Closure)>, or
         let literals: Vec<Closure> = std::iter::once(closure.clone())
             .chain(table.iter().filter(|(_, other)| twins(other, &closure)).map(|(_, twin)| twin.clone()))
             .collect();
+        materialized = true;
         if reads <= literals.len()
             && literals[..reads].iter().all(|literal| stmts.iter_mut().any(|statement| pass_as_argument(statement, &binder, literal)))
         {
@@ -1075,6 +1077,7 @@ fn materialize_orphans(body: &mut Block, chunk: &mut Vec<(RcLocal, Closure)>, or
         declaration.prefix = true;
         stmts.insert(first, declaration.into());
     }
+    materialized
 }
 
 /// Puts `closure` in place of the read of `binder` that is an argument of a
@@ -1227,13 +1230,17 @@ fn normalize_stable_capture_snapshots(body: &mut Block, captures: &crate::deinli
 /// [`deinline_with_orphans`], where `nested` says whether a function of
 /// the chunk may hold orphans of its own (else none is looked for).
 pub fn deinline_orphans_in(body: &mut Block, chunk_orphans: &mut Vec<(RcLocal, Closure)>, nested: bool) {
-    deinline_orphans_in_with_literal_numbers(body, chunk_orphans, nested, false);
+    while deinline_orphans_in_with_literal_numbers(body, chunk_orphans, nested, false) {}
 }
 
 /// `literal_numbers` requires number constants to retain their literal spelling,
 /// rather than becoming optional environment reads such as `math.pi`.
+///
+/// Whether a function literal kept aside went back into the tree: its body
+/// is scanned as any function's on the next pass, with the helpers in scope
+/// where it now stands.
 pub fn deinline_orphans_in_with_literal_numbers(body: &mut Block, chunk_orphans: &mut Vec<(RcLocal, Closure)>,
-    nested: bool, literal_numbers: bool) {
+    nested: bool, literal_numbers: bool) -> bool {
     let orphans = if nested || !chunk_orphans.is_empty() { collect_orphans(body, chunk_orphans, nested) } else { Vec::new() };
     // What line info shows of the inlined copies (E1), if the chunk has any.
     let copies = evidence::current();
@@ -1241,13 +1248,13 @@ pub fn deinline_orphans_in_with_literal_numbers(body: &mut Block, chunk_orphans:
     // worth building when some helper passes the per-declaration gates.
     if !any_structural_target(body, copies.as_deref()) && orphans.is_empty() {
         crate::telemetry::count("skipped_without_targets", 1);
-        return;
+        return false;
     }
     let census = |body: &Block| crate::deinline_safety::CaptureSafety::new(body).with_literal_numbers(literal_numbers);
     let mut captures = census(body);
     if !captures.complete() || captures.dynamic_environment() || captures.call_frames_untracked() {
         crate::telemetry::count("skipped_without_targets", 1);
-        return;
+        return false;
     }
     // Detached orphan bodies are not part of this census's capture inventory.
     if orphans.is_empty() {
@@ -1561,9 +1568,7 @@ pub fn deinline_orphans_in_with_literal_numbers(body: &mut Block, chunk_orphans:
     if search.exhausted() {
         crate::reconstruction_stats::refuse_site("search_budget_exhausted");
     }
-    if !orphans.is_empty() {
-        materialize_orphans(body, chunk_orphans, &orphans, &converted);
-    }
+    let materialized = !orphans.is_empty() && materialize_orphans(body, chunk_orphans, &orphans, &converted);
     if !unfolded.is_empty() {
         refold_entry_stores(&mut body.0, &unfolded);
     }
@@ -1579,6 +1584,7 @@ pub fn deinline_orphans_in_with_literal_numbers(body: &mut Block, chunk_orphans:
         }
     }
     dprof::dump();
+    materialized
 }
 
 // ===================================================================
