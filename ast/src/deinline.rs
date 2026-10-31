@@ -384,6 +384,12 @@ struct Target {
     lines: Option<std::rc::Rc<Evidence>>,
     /// The source lines of the helper's own code ([`written_elsewhere`]).
     own_lines: crate::source_lines::SourceLines,
+    /// For a select's twin ([`select_return`]): the parameters its `c and p
+    /// or q` needs truthy, which a copy's arguments must be.
+    select_truthy: Vec<RcLocal>,
+    /// For a fold variant: its pattern has a select a constant truth decides
+    /// ([`parameter_select`]), whose copies load no constant.
+    folds_truth: bool,
     captures: std::rc::Rc<crate::deinline_safety::CaptureSafety>,
     search: std::rc::Rc<crate::deinline_safety::SearchBudget>,
 }
@@ -457,6 +463,9 @@ pub(crate) struct Bindings {
     /// pattern computed from parameters, and the literal of the site it
     /// must fold to.
     pub(crate) equations: Vec<(RValue, Literal)>,
+    /// A select a constant truth decided ([`parameter_select`]): a fold the
+    /// base target does not stand for, as an equation.
+    truth_folded: bool,
     /// Parameters an aligned seeding gave a constant for its truth alone
     /// ([`seed_aligned`]), in that order: the call stands for them as an
     /// inferred match does.
@@ -775,6 +784,132 @@ fn written_elsewhere(window: &[Statement], helper: crate::source_lines::SourceLi
     helper.known() && !walk(window, helper, &mut known) && known
 }
 
+/// The stores a helper's body opens with into a table parameter
+/// (`data.Name = name`), which in a copy the SSA fold took into the
+/// argument's constructor (`local data = {..., Name = "Honey"}` for
+/// `pushSet("Honey", {...})`): a constructor's trailing entries with those
+/// keys become stores again, so the copy unifies. Where no call is
+/// rebuilt, [`refold_entry_stores`] folds them back. The keys taken out of
+/// each table.
+fn unfold_helper_entry_stores(body: &mut Block) -> FxHashMap<RcLocal, FxHashSet<Vec<u8>>> {
+    fn each_block(stmts: &[Statement], visit: &mut impl FnMut(&[Statement])) {
+        visit(stmts);
+        for statement in stmts {
+            for block in nested_blocks(statement) {
+                each_block(&block.lock().0, visit);
+            }
+            statement.traverse_rvalues_ref(&mut |value| {
+                if let RValue::Closure(closure) = value {
+                    each_block(&closure.function.0.lock().body.0, visit);
+                }
+            });
+        }
+    }
+    let field_store = |statement: &Statement| match statement {
+        Statement::Assign(store) if !store.prefix && store.left.len() == 1 && store.right.len() == 1 => match &store.left[0] {
+            LValue::Index(index) => match (index.left.as_ref(), index.right.as_ref()) {
+                (RValue::Local(base), RValue::Literal(Literal::String(key))) => Some((base.clone(), key.clone())),
+                _ => None,
+            },
+            _ => None,
+        },
+        _ => None,
+    };
+    let mut keys: FxHashSet<Vec<u8>> = FxHashSet::default();
+    each_block(&body.0, &mut |stmts| {
+        for statement in stmts {
+            if let Statement::Assign(declaration) = statement
+                && declaration.prefix
+                && let [RValue::Closure(closure)] = declaration.right.as_slice()
+            {
+                let function = closure.function.0.lock();
+                let mut leading = function.body.0.iter().map_while(|statement| field_store(statement));
+                if let Some((base, key)) = leading.next()
+                    && function.parameters.contains(&base)
+                {
+                    keys.insert(key);
+                    keys.extend(leading.take_while(|(other, _)| *other == base).map(|(_, key)| key));
+                }
+            }
+        }
+    });
+    let mut unfolded = FxHashMap::default();
+    if keys.is_empty() {
+        return unfolded;
+    }
+    fn unfold(stmts: &mut Vec<Statement>, keys: &FxHashSet<Vec<u8>>, unfolded: &mut FxHashMap<RcLocal, FxHashSet<Vec<u8>>>) {
+        let mut index = 0;
+        while index < stmts.len() {
+            if let Statement::Assign(declaration) = &mut stmts[index]
+                && declaration.prefix
+                && let [LValue::Local(object)] = declaration.left.as_slice()
+                && let [RValue::Table(table)] = declaration.right.as_mut_slice()
+            {
+                let object = object.clone();
+                let kept = table.0.len()
+                    - table.0.iter().rev().take_while(|(key, _)| matches!(key, Some(RValue::Literal(Literal::String(key))) if keys.contains(key))).count();
+                let stores: Vec<Statement> = table.0.split_off(kept).into_iter().map(|(key, value)| {
+                    if let Some(RValue::Literal(Literal::String(key))) = &key {
+                        unfolded.entry(object.clone()).or_insert_with(FxHashSet::default).insert(key.clone());
+                    }
+                    Assign::new(vec![LValue::Index(crate::Index::new(RValue::Local(object.clone()), key.unwrap()))], vec![value]).into()
+                }).collect();
+                let after = index + 1;
+                index += stores.len();
+                stmts.splice(after..after, stores);
+            }
+            for block in nested_blocks(&stmts[index]) {
+                unfold(&mut block.lock().0, keys, unfolded);
+            }
+            stmts[index].traverse_rvalues(&mut |value| {
+                if let RValue::Closure(closure) = value {
+                    unfold(&mut closure.function.0.lock().body.0, keys, unfolded);
+                }
+            });
+            index += 1;
+        }
+    }
+    unfold(&mut body.0, &keys, &mut unfolded);
+    unfolded
+}
+
+/// The stores [`unfold_helper_entry_stores`] took out of a constructor that
+/// still follow it: entries again.
+fn refold_entry_stores(stmts: &mut Vec<Statement>, unfolded: &FxHashMap<RcLocal, FxHashSet<Vec<u8>>>) {
+    let mut index = 0;
+    while index < stmts.len() {
+        if let Statement::Assign(declaration) = &stmts[index]
+            && declaration.prefix
+            && let [LValue::Local(object)] = declaration.left.as_slice()
+            && let [RValue::Table(_)] = declaration.right.as_slice()
+            && let Some(keys) = unfolded.get(object)
+        {
+            let object = object.clone();
+            while let Some(Statement::Assign(store)) = stmts.get(index + 1)
+                && !store.prefix
+                && let ([LValue::Index(target)], [_]) = (store.left.as_slice(), store.right.as_slice())
+                && matches!(target.left.as_ref(), RValue::Local(base) if *base == object)
+                && matches!(target.right.as_ref(), RValue::Literal(Literal::String(key)) if keys.contains(key))
+            {
+                let Statement::Assign(store) = stmts.remove(index + 1) else { unreachable!() };
+                let Some(LValue::Index(target)) = store.left.into_iter().next() else { unreachable!() };
+                let Statement::Assign(declaration) = &mut stmts[index] else { unreachable!() };
+                let RValue::Table(table) = &mut declaration.right[0] else { unreachable!() };
+                table.0.push((Some(*target.right), store.right.into_iter().next().unwrap()));
+            }
+        }
+        for block in nested_blocks(&stmts[index]) {
+            refold_entry_stores(&mut block.lock().0, unfolded);
+        }
+        stmts[index].traverse_rvalues(&mut |value| {
+            if let RValue::Closure(closure) = value {
+                refold_entry_stores(&mut closure.function.0.lock().body.0, unfolded);
+            }
+        });
+        index += 1;
+    }
+}
+
 /// The statement blocks `statement` holds, function bodies aside.
 fn nested_blocks(statement: &Statement) -> Vec<Arc<Mutex<Block>>> {
     match statement {
@@ -1016,6 +1151,12 @@ pub fn deinline_orphans_in_with_literal_numbers(body: &mut Block, chunk_orphans:
         if crate::fold_import_callees::fold_literal_number_import_callees(body, &captures) {
             captures = census(body);
         }
+    }
+    // Stores taken out of constructors for copies to unify, folded back
+    // below where no call took them.
+    let unfolded = if orphans.is_empty() { unfold_helper_entry_stores(body) } else { FxHashMap::default() };
+    if !unfolded.is_empty() {
+        captures = census(body);
     }
     // What each literal captures, so no rewrite changes whether Luau shares
     // it (`literal_sharing`).
@@ -1313,6 +1454,9 @@ pub fn deinline_orphans_in_with_literal_numbers(body: &mut Block, chunk_orphans:
     }
     if !orphans.is_empty() {
         materialize_orphans(body, chunk_orphans, &orphans, &converted);
+    }
+    if !unfolded.is_empty() {
+        refold_entry_stores(&mut body.0, &unfolded);
     }
     if !converted.is_empty() {
         {
@@ -3363,6 +3507,43 @@ pub(crate) fn unify_rvalue(
             _ => Err(()),
         };
     }
+    // A select on a bare parameter whose copy kept one arm: Luau folded it
+    // for a constant truth (`flag and A or B` as `B`; as `A or B` for a
+    // truthy one). The parameter takes that truth, the site's arm the
+    // pattern's.
+    if ctx.fold.is_some()
+        && let Some((param, positive, then_arm, else_arm)) = parameter_select(p, ctx.params)
+        && !matches!(c, RValue::Binary(or) if or.operation == BinaryOperation::Or
+            && matches!(or.left.as_ref(), RValue::Binary(and) if and.operation == BinaryOperation::And))
+    {
+        let mut trial = b.clone();
+        // An arm takes one value: a call there is the site's one-value call.
+        let taken = if unify_returned_value(ctx, else_arm, c, &mut trial).is_ok() {
+            false
+        } else if let RValue::Binary(or) = c
+            && or.operation == BinaryOperation::Or
+            && {
+                trial = b.clone();
+                unify_returned_value(ctx, then_arm, &or.left, &mut trial).is_ok()
+                    && unify_returned_value(ctx, else_arm, &or.right, &mut trial).is_ok()
+            }
+        {
+            true
+        } else {
+            return Err(());
+        };
+        let truth = taken == positive;
+        match trial.params.get(param) {
+            Some(RValue::Literal(literal)) if crate::select_value::known_truthy(&RValue::Literal(literal.clone())) == truth => {}
+            Some(_) => return Err(()),
+            None => {
+                trial.params.insert(param.clone(), RValue::Literal(if truth { Literal::Boolean(true) } else { Literal::Nil }));
+            }
+        }
+        trial.truth_folded = true;
+        *b = trial;
+        return Ok(());
+    }
     // A value computed from parameters only, where the site has a number:
     // Luau folded it for constant arguments (`1 - k` as 0.5). The site's
     // number may be a call of a pure helper on constants a rebuild put
@@ -3404,9 +3585,19 @@ pub(crate) fn unify_rvalue(
             }
         }
         (RValue::Binary(a), RValue::Binary(d)) => {
+            use BinaryOperation::*;
+            let simple = |value: &RValue| matches!(value, RValue::Local(_) | RValue::Literal(_));
             if a.operation == d.operation {
                 unify_rvalue(ctx, &a.left, &d.left, b)?;
                 unify_rvalue(ctx, &a.right, &d.right, b)
+            } else if matches!((a.operation, d.operation), (LessThan, GreaterThan) | (GreaterThan, LessThan)
+                | (LessThanOrEqual, GreaterThanOrEqual) | (GreaterThanOrEqual, LessThanOrEqual))
+                && [&a.left, &a.right, &d.left, &d.right].into_iter().all(|operand| simple(operand))
+            {
+                // `a < b` is `b > a`: Luau compares the same operands, and
+                // reading locals and constants has no order.
+                unify_rvalue(ctx, &a.left, &d.right, b)?;
+                unify_rvalue(ctx, &a.right, &d.left, b)
             } else {
                 Err(())
             }
@@ -3893,9 +4084,11 @@ fn deinline_block(
     let round = newly.evidence.clone();
     let lines = newly.lines.clone();
     // A fold variant only where its helper's copies here refer to number
-    // constants, which its equations need.
+    // constants, which its equations need, or where a constant truth may
+    // decide a select of its pattern.
     let copies_here = |i: usize| match &lines {
         Some(lines) if targets[i].fold.is_none()
+            || targets[i].folds_truth
             || targets[i].proto.zip(lines.caller(current_func)).is_some_and(|(proto, caller)| lines.copies.constants_in_copies(Some(caller), proto)) =>
         {
             lines.copies(current_func, targets[i].proto)
@@ -4693,7 +4886,9 @@ fn try_match_at(
             return Ok(None);
         }
         // A variant claims constants its copy folded away: refused where
-        // line info shows none of the helper's code (honesty, part b).
+        // line info shows none of the helper's code (honesty, part b). Not
+        // every target: the census misses copies of a few instructions
+        // (`t = other; return 1`).
         if t.inferred.is_some() && t.lines.as_ref().is_some_and(|lines| lines.absent(current_func, t.proto)) {
             return Ok(None);
         }
@@ -5790,7 +5985,9 @@ fn absorb_arguments(
         // The host holds the call, or the placeholder it goes in.
         let private = t.captures.uncaptured(local)
             || hit.host.as_ref().is_some_and(|host| private_to_copy(stmts, i, end, host, usize::from(hit.placeholder.is_none()), local));
-        if !private || hit.args.iter().enumerate().any(|(other, arg)| other != at && reads(arg, local)) {
+        // A handed back local the call did not declare keeps its old value.
+        let handed_back = result.as_ref() == Some(local) && tail_has_live(last_occ, stmts, i, end, &FxHashSet::from_iter([local.clone()]));
+        if !private || handed_back || hit.args.iter().enumerate().any(|(other, arg)| other != at && reads(arg, local)) {
             return refused("written_parameter_unbound");
         }
     }
@@ -6285,21 +6482,50 @@ fn hosted_pattern(t: &Target) -> Option<RValue> {
     (t.evidence || value_nodes(value) >= crate::expr_deinline::NODE_COUNT_FLOOR).then(|| value.clone())
 }
 
-/// `if c then return a else return b end`, one value each, as the
-/// `and`/`or` value of a copy taking one value, where one is exact. Canon
-/// keeps it a statement where an arm returns a call, all of whose results
-/// the helper gives.
-fn select_return(pattern: &[Statement]) -> Option<RValue> {
-    let [Statement::If(branch)] = pattern else { return None };
-    let one = |block: &Block| {
-        let mut real = block.0.iter().filter(|s| !matches!(s, Statement::Empty(_)));
-        match (real.next(), real.next()) {
-            (Some(Statement::Return(ret)), None) if ret.values.len() == 1 => Some(ret.values[0].clone()),
-            _ => None,
+/// `if c then return a else return b end`, one value each, nested alike,
+/// after statements returning nothing, as the pattern returning its
+/// `and`/`or` value a copy taking one value is, with the parameters it
+/// takes as truthy ([`Target::select_truthy`]). Canon keeps such a select
+/// a statement where an arm returns a call, all of whose results the
+/// helper gives, or a parameter, whose truth it cannot know.
+fn select_return(pattern: &[Statement], params: &FxHashSet<RcLocal>) -> Option<(Vec<Statement>, Vec<RcLocal>)> {
+    fn select(pattern: &[Statement], params: &FxHashSet<RcLocal>) -> Option<RValue> {
+        let [Statement::If(branch)] = pattern else { return None };
+        let arm = |block: &Block| {
+            let real: Vec<Statement> = block.0.iter().filter(|s| !matches!(s, Statement::Empty(_))).cloned().collect();
+            match real.as_slice() {
+                [Statement::Return(ret)] if ret.values.len() == 1 => Some(ret.values[0].clone()),
+                nested => select(nested, params),
+            }
+        };
+        let (then_value, else_value) = (arm(&branch.then_block.lock())?, arm(&branch.else_block.lock())?);
+        let parameter = |value: &RValue| matches!(value, RValue::Local(local) if params.contains(local));
+        crate::select_value::select_value_assuming(&mut branch.condition.clone(), then_value, else_value, &parameter)
+    }
+    // `c and p or q` is `if c then p else q` only where `p` is truthy.
+    fn truthy(value: &RValue, params: &FxHashSet<RcLocal>, out: &mut Vec<RcLocal>) {
+        if let RValue::Binary(or) = value
+            && or.operation == BinaryOperation::Or
+            && let RValue::Binary(and) = or.left.as_ref()
+            && and.operation == BinaryOperation::And
+            && let RValue::Local(param) = and.right.as_ref()
+            && params.contains(param)
+        {
+            out.push(param.clone());
         }
-    };
-    let (then_value, else_value) = (one(&branch.then_block.lock())?, one(&branch.else_block.lock())?);
-    crate::select_value(&mut branch.condition.clone(), then_value, else_value)
+        value.visit_rvalues(&mut |child| {
+            truthy(child, params, out);
+            true
+        });
+    }
+    let (last, prefix) = pattern.split_last()?;
+    if block_has_return(prefix) {
+        return None;
+    }
+    let value = select(std::slice::from_ref(last), params)?;
+    let mut needed = Vec::new();
+    truthy(&value, params, &mut needed);
+    Some((prefix.iter().cloned().chain([Return::new(vec![value]).into()]).collect(), needed))
 }
 
 /// The nodes of `value`, a function literal's body included: the size of
@@ -7575,9 +7801,19 @@ fn finish_unified(
     let Some(returned) = t.returns.iter().map(|l| b.locals.get(l).cloned()).collect::<Option<Vec<_>>>() else {
         return refused("returned_local_unbound");
     };
+    // A discard target's call hands back the written parameter every leaf
+    // returns: the copy's local for it, which the call declares
+    // ([`absorb_arguments`]).
+    let handed_back = t.returns_parameter.as_ref().filter(|param| t.written_params.contains(param)).and_then(|param| b.locals.get(param).cloned());
     let mut callee_locals: FxHashSet<RcLocal> = b.locals.into_values().collect();
-    for l in &returned {
+    for l in returned.iter().chain(&handed_back) {
         callee_locals.remove(l);
+    }
+    // A select's twin stands for copies whose `and` arms got truthy values.
+    if !t.select_truthy.iter().all(|param| {
+        t.param_order.iter().position(|p| p == param).and_then(|at| args.get(at)).is_some_and(crate::select_value::known_truthy)
+    }) {
+        return refused("select_arm_not_truthy");
     }
     let mut inferred = None;
     if let Some((param, _)) = &t.inferred {
@@ -7615,7 +7851,7 @@ fn resolve_equations(t: &Target, b: &mut Bindings, current_func: Option<FnPtr>) 
     let Some(helpers) = t.fold.as_deref() else { return Ok(()) };
     let equations = std::mem::take(&mut b.equations);
     if equations.is_empty() {
-        return Err(None);
+        return if b.truth_folded { Ok(()) } else { Err(None) };
     }
     if equations.iter().any(|(pattern, _)| t.fold_roots.iter().any(|root| rvalue_exact_eq(root, pattern))) {
         return Err(Some("fold_whole_value"));
@@ -8726,6 +8962,18 @@ fn bare_truth_test<'a>(condition: &'a RValue, params: &FxHashSet<RcLocal>) -> Op
         },
         _ => None,
     }
+}
+
+/// `c and a or b` where `c` is a bare parameter or its `not`: the
+/// parameter, whether `c` is it itself, and the two arms.
+fn parameter_select<'a>(value: &'a RValue, params: &FxHashSet<RcLocal>) -> Option<(&'a RcLocal, bool, &'a RValue, &'a RValue)> {
+    let RValue::Binary(or) = value else { return None };
+    let RValue::Binary(and) = or.left.as_ref() else { return None };
+    if or.operation != BinaryOperation::Or || and.operation != BinaryOperation::And {
+        return None;
+    }
+    let (param, positive) = bare_truth_test(&and.left, params)?;
+    Some((param, positive, &and.right, &or.right))
 }
 
 /// What follows a run of pattern statements being aligned ([`align_seed`]).
@@ -10372,8 +10620,13 @@ fn analyze_helper(
     };
     let identity_params: Vec<RcLocal> =
         g.parameters.iter().filter(|p| leaves.iter().filter_map(returned_param).any(|l| l == **p)).cloned().collect();
-    let returns_parameter = match identity_params.as_slice() {
-        [param] if leaves.iter().all(|leaf| returned_param(leaf).as_ref() == Some(param)) => Some(param.clone()),
+    // One the body writes too: the copy's local for it holds the value.
+    let returns_parameter = match leaves.split_first() {
+        Some((RValue::Local(param), rest))
+            if g.parameters.contains(param) && rest.iter().all(|leaf| matches!(leaf, RValue::Local(other) if other == param)) =>
+        {
+            Some(param.clone())
+        }
         _ => None,
     };
     // Called for no result, a value helper runs its discard body.
@@ -10446,21 +10699,28 @@ fn analyze_helper(
     // taken (`p / (not c and 1 or part:GetScale())`), by a twin returning
     // its `and`/`or` form: not `single_valued`, [`hosted_spread`] takes no
     // other site.
-    let select_twin = (kind == TKind::Value)
-        .then(|| select_return(&target.pat))
+    // With a prefix, the copy's select is folded into the statement using
+    // it (`local n = tonumber(x); t.k = not n and 0.7 or ...`).
+    let select_twin = (kind == TKind::Value && loop_exit_at.is_none())
+        .then(|| select_return(&target.pat, &params))
         .flatten()
-        .map(|select| {
-            let mut twin = common.target(kind, vec![Return::new(vec![select]).into()], &body);
+        .map(|(pattern, truthy)| {
+            let (value_anchor, prefix_len) = value_anchor_of(kind, &pattern, None);
+            let mut twin = common.target(kind, pattern, &body);
+            twin.value_anchor = value_anchor;
+            twin.prefix_len = prefix_len;
+            twin.single_valued = target.single_valued;
             twin.evidence = target.evidence;
-            twin.hosted_only = true;
+            twin.hosted_only = twin.pat.len() == 1;
+            twin.select_truthy = truthy;
             twin.hosted = hosted_pattern(&twin);
             twin
         })
-        .filter(|twin| twin.hosted.is_some());
+        .filter(|twin| !twin.hosted_only || twin.hosted.is_some());
     // Copies whose constant arguments Luau folded match a variant of their
     // own, which line evidence admits.
     let folded = g.bytecode_proto_id.is_some_and(|proto| lines.is_some_and(|lines| lines.copies.constants_in_copies_anywhere(proto)));
-    let fold_twin = pure.filter(|_| folded).and_then(|pure| fold_variant(&target, &common, &body, pure));
+    let fold_twin = pure.and_then(|pure| fold_variant(&target, &common, &body, pure, folded));
     let mut found = vec![target];
     found.extend(discard_target);
     found.extend(variants);
@@ -10479,7 +10739,7 @@ fn analyze_helper(
 /// its matches with the calls of the helper already rebuilt there must be
 /// exactly the helper's copies there. Only where the pattern has such a
 /// value, other than one it returns whole.
-fn fold_variant(t: &Target, common: &TargetCommon, raw: &[Statement], pure: &std::rc::Rc<fold::PureHelpers>) -> Option<Target> {
+fn fold_variant(t: &Target, common: &TargetCommon, raw: &[Statement], pure: &std::rc::Rc<fold::PureHelpers>, folded: bool) -> Option<Target> {
     if t.loop_exit_at.is_some() || t.cps_loop_return {
         return None;
     }
@@ -10488,27 +10748,31 @@ fn fold_variant(t: &Target, common: &TargetCommon, raw: &[Statement], pure: &std
         value_leaves(&t.pat, &mut roots);
     }
     // Whether `value` holds a value computed from parameters only that a
-    // literal may stand for.
-    fn folds(value: &RValue, t: &Target, pure: &fold::PureHelpers, roots: &[RValue]) -> bool {
+    // literal may stand for, where line info shows the copies refer to
+    // number constants (`folded`), or a select a constant truth decides
+    // ([`parameter_select`]), which loads none.
+    fn folds(value: &RValue, t: &Target, pure: &fold::PureHelpers, roots: &[RValue], folded: bool) -> bool {
         if matches!(value, RValue::Closure(_)) {
             return false;
         }
         let is_param = |local: &RcLocal| t.params.contains(local);
-        let site = !matches!(value, RValue::Literal(_) | RValue::Local(_))
+        let site = folded
+            && !matches!(value, RValue::Literal(_) | RValue::Local(_))
             && fold::foldable(value, &is_param, pure)
             && t.params.iter().any(|param| fold::reads(value, param) > 0)
             && !roots.iter().any(|root| rvalue_exact_eq(root, value));
-        site || !value.visit_rvalues(&mut |child| !folds(child, t, pure, roots))
+        site || parameter_select(value, &t.params).is_some() || !value.visit_rvalues(&mut |child| !folds(child, t, pure, roots, folded))
     }
-    fn block_folds(stmts: &[Statement], t: &Target, pure: &fold::PureHelpers, roots: &[RValue]) -> bool {
+    fn block_folds(stmts: &[Statement], t: &Target, pure: &fold::PureHelpers, roots: &[RValue], folded: bool) -> bool {
         stmts.iter().any(|statement| {
-            !visit_stmt_rvalues(statement, &mut |value| !folds(value, t, pure, roots))
-                || nested_blocks(statement).iter().any(|block| block_folds(&block.lock().0, t, pure, roots))
+            !visit_stmt_rvalues(statement, &mut |value| !folds(value, t, pure, roots, folded))
+                || nested_blocks(statement).iter().any(|block| block_folds(&block.lock().0, t, pure, roots, folded))
         })
     }
-    if !block_folds(&t.pat, t, pure, &roots) {
+    if !block_folds(&t.pat, t, pure, &roots, folded) {
         return None;
     }
+    let folds_truth = block_folds(&t.pat, t, pure, &roots, false);
     let mut variant = common.target(t.kind, t.pat.clone(), raw);
     variant.value_anchor = t.value_anchor;
     variant.prefix_len = t.prefix_len;
@@ -10521,6 +10785,7 @@ fn fold_variant(t: &Target, common: &TargetCommon, raw: &[Statement], pure: &std
     variant.optional_params = Vec::new();
     variant.evidence = true;
     variant.fold = Some(pure.clone());
+    variant.folds_truth = folds_truth;
     variant.fold_roots = roots;
     variant.hosted = hosted_pattern(&variant);
     Some(variant)
@@ -10719,6 +10984,8 @@ impl TargetCommon<'_> {
             fold_roots: Vec::new(),
             lines: self.lines.cloned(),
             own_lines: self.own_lines,
+            select_truthy: Vec::new(),
+            folds_truth: false,
             captures: self.captures.clone(),
             search: Default::default(),
         }
@@ -12330,6 +12597,8 @@ mod tests {
             fold_roots: Vec::new(),
             lines: None,
             own_lines: Default::default(),
+            select_truthy: Vec::new(),
+            folds_truth: false,
             captures: Default::default(),
             search: Default::default(),
         }
@@ -13130,6 +13399,8 @@ mod tests {
             fold_roots: Vec::new(),
             lines: None,
             own_lines: Default::default(),
+            select_truthy: Vec::new(),
+            folds_truth: false,
             captures: Default::default(),
             search: Default::default(),
         };
@@ -13228,6 +13499,8 @@ mod tests {
             fold_roots: Vec::new(),
             lines: None,
             own_lines: Default::default(),
+            select_truthy: Vec::new(),
+            folds_truth: false,
             captures: Default::default(),
             search: Default::default(),
         };
@@ -13316,6 +13589,8 @@ mod tests {
             fold_roots: Vec::new(),
             lines: None,
             own_lines: Default::default(),
+            select_truthy: Vec::new(),
+            folds_truth: false,
             captures: Default::default(),
             search: Default::default(),
         };
@@ -13419,6 +13694,8 @@ mod tests {
             fold_roots: Vec::new(),
             lines: None,
             own_lines: Default::default(),
+            select_truthy: Vec::new(),
+            folds_truth: false,
             captures: Default::default(),
             search: Default::default(),
         };
@@ -13780,6 +14057,8 @@ mod tests {
             fold_roots: Vec::new(),
             lines: None,
             own_lines: Default::default(),
+            select_truthy: Vec::new(),
+            folds_truth: false,
             captures: Default::default(),
             search: Default::default(),
         };
@@ -13891,6 +14170,8 @@ mod tests {
             fold_roots: Vec::new(),
             lines: None,
             own_lines: Default::default(),
+            select_truthy: Vec::new(),
+            folds_truth: false,
             captures: Default::default(),
             search: Default::default(),
         }
@@ -14064,6 +14345,8 @@ mod tests {
             fold_roots: Vec::new(),
             lines: None,
             own_lines: Default::default(),
+            select_truthy: Vec::new(),
+            folds_truth: false,
             captures: Default::default(),
             search: Default::default(),
         }
@@ -14132,6 +14415,8 @@ mod tests {
             fold_roots: Vec::new(),
             lines: None,
             own_lines: Default::default(),
+            select_truthy: Vec::new(),
+            folds_truth: false,
             captures: Default::default(),
             search: Default::default(),
         }
@@ -15459,6 +15744,8 @@ mod tests {
             fold_roots: Vec::new(),
             lines: None,
             own_lines: Default::default(),
+            select_truthy: Vec::new(),
+            folds_truth: false,
             captures: Default::default(),
             search: Default::default(),
         };

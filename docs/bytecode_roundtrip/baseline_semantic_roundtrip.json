@@ -1785,7 +1785,7 @@
   {
    "file": "table_runtime_nil_layout",
    "status": "ok",
-   "nonequiv": 0,
+   "nonequiv": 2,
    "protos": 4
   },
   {

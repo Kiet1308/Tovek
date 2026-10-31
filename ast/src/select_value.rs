@@ -30,6 +30,11 @@ fn is_truthy(value: RValue) -> Option<bool> {
     }
 }
 
+/// Whether `value` is known truthy.
+pub fn known_truthy(value: &RValue) -> bool {
+    is_truthy(value.clone()) == Some(true)
+}
+
 /// `if condition then then_value else else_value` as an `and`/`or` value, or
 /// `None` when no such form is exact. On success `condition` has been moved
 /// out (left as `nil`); on failure it is untouched.
@@ -37,6 +42,17 @@ pub fn select_value(
     condition: &mut RValue,
     then_value: RValue,
     else_value: RValue,
+) -> Option<RValue> {
+    select_value_assuming(condition, then_value, else_value, &|_| false)
+}
+
+/// [`select_value`], taking the arms `assumed` holds as truthy: the
+/// `and`/`or` form is then exact only where they are.
+pub fn select_value_assuming(
+    condition: &mut RValue,
+    then_value: RValue,
+    else_value: RValue,
+    assumed: &dyn Fn(&RValue) -> bool,
 ) -> Option<RValue> {
     // An operand takes one value, so a one-result call arm (`return (f())`)
     // reads as the plain call a caller's copy of the same select holds.
@@ -114,6 +130,7 @@ pub fn select_value(
     // worse than the original if/else.
     let then_truthy = match is_truthy(then_value.clone()) {
         Some(truthy) => truthy,
+        None if assumed(&then_value) => true,
         None if crate::is_total_pure(&then_value) => {
             let value = match &*condition {
                 RValue::Binary(binary) if binary.operation == BinaryOperation::And => {
@@ -126,7 +143,7 @@ pub fn select_value(
         None => false,
     };
     // TODO: if condition is `and not else_value` or `not else_value` then truthy?
-    let else_truthy = is_truthy(else_value.clone()).is_some_and(|v| v);
+    let else_truthy = is_truthy(else_value.clone()).unwrap_or_else(|| assumed(&else_value));
     let cond = if !then_truthy && !else_truthy {
         return None;
     } else if !then_truthy {

@@ -20,6 +20,11 @@ const STORED_AND_FOLDED: &[u8] = include_bytes!("fixtures/deinline_stored_and_fo
 const WRITTEN_OUT_BESIDE_COPY: &[u8] = include_bytes!("fixtures/deinline_written_out_beside_copy.luaubc");
 const SELECT_IN_EXPRESSION: &[u8] = include_bytes!("fixtures/deinline_select_helper_in_expression.luaubc");
 const CLOSURE_FACTORY: &[u8] = include_bytes!("fixtures/deinline_closure_factory_in_constructor.luaubc");
+const FIELDS_SIZED_BY_STORES: &[u8] = include_bytes!("fixtures/table_fields_sized_by_stores.luaubc");
+const SELECT_TRUTHY_ARGUMENTS: &[u8] = include_bytes!("fixtures/deinline_select_with_truthy_arguments.luaubc");
+const RETURNS_WRITTEN_PARAMETER: &[u8] = include_bytes!("fixtures/deinline_returns_written_parameter.luaubc");
+const SELECT_FOLDED_FOR_TRUTH: &[u8] = include_bytes!("fixtures/deinline_select_folded_for_truth.luaubc");
+const ENTRY_STORE: &[u8] = include_bytes!("fixtures/deinline_entry_store_in_argument_constructor.luaubc");
 
 fn decompile(bytecode: &[u8]) -> String {
     luau_lifter::try_decompile_bytecode_with_options(bytecode, 1, None, Default::default())
@@ -33,6 +38,14 @@ fn a_table_its_later_stores_size_prints_empty() {
     assert!(source.contains("local function collect(p, p2, p3) -- 2 equivalent calls inferred from this helper\n\tlocal v = {}\n"), "{source}");
     assert!(source.contains("local function fill(p) -- 1 equivalent call inferred from this helper\n\tlocal v3 = {}\n"), "{source}");
     assert!(source.contains("local function shuffled(p) -- 1 equivalent call inferred from this helper\n\tlocal v4 = {}\n\tv4[2] = p\n"), "{source}");
+}
+
+#[test]
+fn fields_the_stores_size_stay_stores_without_nil_padding() {
+    let source = decompile(FIELDS_SIZED_BY_STORES);
+    // Luau sizes `local v = {}` from all the field stores after it.
+    assert!(source.starts_with("local v = {}\nv.DisplayName = \"Premium\"\n"), "{source}");
+    assert!(!source.contains("] = nil,"), "{source}");
 }
 
 #[test]
@@ -78,6 +91,51 @@ fn a_select_returning_a_call_is_a_call_where_one_value_is_taken() {
     // `not c and 1 or part:GetScale()` is the copy of `if c then return
     // part:GetScale() end return 1` taking one value.
     assert!(source.contains("\tlocal v2 = p / getScale() -- inferred equivalent call\n"), "{source}");
+}
+
+#[test]
+fn a_store_folded_into_the_argument_constructor_is_a_call() {
+    let source = decompile(ENTRY_STORE);
+    for call in ["\npushSet(\"Honey\", { -- inferred equivalent call\n", "\npushSet(\"Quest\", { -- inferred equivalent call\n"] {
+        assert!(source.contains(call), "{call}\n{source}");
+    }
+    // The constructor no call took keeps its entries; the store after it stays.
+    assert!(source.contains("local plain = { moving = false }\nplain.Name = \"plain\"\n"), "{source}");
+}
+
+#[test]
+fn a_select_a_left_out_flag_folded_is_a_call() {
+    let source = decompile(SELECT_FOLDED_FOR_TRUTH);
+    // `failed and rgb(...) or rgb(...)` kept as its second arm.
+    assert!(source.contains("\t\tsetStatus(\"ok\") -- inferred equivalent call\n"), "{source}");
+    assert!(source.contains("\t\tsetStatus(\"bad\", true) -- inferred equivalent call\n"), "{source}");
+}
+
+#[test]
+fn a_helper_returning_a_parameter_it_writes_is_a_call() {
+    let source = decompile(RETURNS_WRITTEN_PARAMETER);
+    for call in ["safeLookup(v, data.Mode, \"none\"), -- inferred equivalent call\n",
+        "Speed = safeLookup(v, data.Speed, v.Slow), -- inferred equivalent call\n",
+        "Owner = getUserId(data.Owner) -- inferred equivalent call\n"]
+    {
+        assert!(source.contains(call), "{call}\n{source}");
+    }
+}
+
+#[test]
+fn a_select_on_parameters_is_a_call_where_its_arguments_are_truthy() {
+    let source = decompile(SELECT_TRUTHY_ARGUMENTS);
+    // `v < 0 and 0 or v > 1 and 1 or v` is `clamp(v, 0, 1)`; after a
+    // prefix the select folds into the store using it.
+    for call in ["return clamp(value or 1, 0, 1) * 2 -- inferred equivalent call\n",
+        "return 1 - clamp(value or 0, 0, 1) -- inferred equivalent call\n",
+        "Spin = clampUnit(p.Spin, 0, 2, 0.5) -- inferred equivalent call\n"]
+    {
+        assert!(source.contains(call), "{call}\n{source}");
+    }
+    // Line info shows no copy of `clamp` in `clampUnit`: its own bounds
+    // checks stay as written.
+    assert!(source.contains("local function clamp(p, p2, p3) -- 2 equivalent calls"), "{source}");
 }
 
 #[test]

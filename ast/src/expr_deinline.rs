@@ -390,10 +390,21 @@ impl Walk<'_> {
         }
     }
 
+    /// Whether line info shows none of target `idx`'s helper code in
+    /// `function`: a match there is code written out, not a copy
+    /// (`clampUnit`'s own bounds checks are no copy of `clamp`).
+    fn absent(&self, idx: usize, function: Option<FnPtr>) -> bool {
+        matches!((&self.copies, self.caller(function), self.targets[idx].proto),
+            (Some(copies), Some(caller), Some(helper)) if !copies.present(Some(caller), helper))
+    }
+
     /// How target `idx` takes part at a site in `function`: whether it may
     /// be rebuilt there, and whether it is tried at all (as a rival).
     fn role(&self, idx: usize, function: Option<FnPtr>) -> (bool, bool) {
         let t = &self.targets[idx];
+        if self.absent(idx, function) {
+            return (false, false);
+        }
         match &self.round {
             Round::Normal => (!t.evidence, !t.evidence),
             Round::Probe => {
@@ -783,17 +794,19 @@ fn walk_block(
             crate::deinline::count_rebuilt_calls(stmts, &binders, current_func, &mut w.rebuilt);
         }
     }
+    // The targets line info allows here, kept with `active`.
+    let mut present: Vec<usize> = active.iter().copied().filter(|&idx| !w.absent(idx, current_func)).collect();
     let mut index = 0;
     while index < stmts.len() {
         // A bounded terminal scalar region has no live continuation. Normalize
         // its lets/guard returns before comparing with named helper patterns.
         // (Not in evidence rounds.)
         if matches!(w.round, Round::Normal) {
-            if try_rewrite_region(&mut stmts[index..], w.targets, &active, current_func) {
+            if try_rewrite_region(&mut stmts[index..], w.targets, &present, current_func) {
                 stmts.truncate(index + 1);
                 break;
             }
-            try_rewrite_select(stmts, index, w.targets, &active, current_func);
+            try_rewrite_select(stmts, index, w.targets, &present, current_func);
         }
         let s = &mut stmts[index];
         index += 1;
@@ -806,6 +819,7 @@ fn walk_block(
             });
         }
         if let Some(range) = target_decl_index(s, w) {
+            present.extend(range.clone().filter(|&idx| !w.absent(idx, current_func)));
             active.extend(range);
         }
     }

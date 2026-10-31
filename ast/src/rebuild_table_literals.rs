@@ -465,6 +465,7 @@ pub fn reserve_unfolded_table_slots(block: &mut Block) -> Result<(), &'static st
     if block.0.iter().any(|statement| matches!(statement, Statement::SetList(list) if list.tail.is_some())) {
         return Err(OPEN_LIST_TAIL);
     }
+    unfold_store_sized_fields(block);
     for index in 0..block.0.len() {
         let (head, rest) = block.0.split_at_mut(index + 1);
         // The constructor the compiler sizes from the stores keeps no padding.
@@ -506,6 +507,57 @@ pub fn reserve_unfolded_table_slots(block: &mut Block) -> Result<(), &'static st
         }
     }
     Ok(())
+}
+
+/// A constructor holding named fields of a table its later stores also
+/// fill, smaller than the allocation those stores size (`local M = { A =
+/// function() end }; function M.B() end ...`): as stores again, right after
+/// `local M = {}`, the fields let Luau size the table from all of them, as
+/// the source did; kept, the constructor needs `nil` fields to hold the
+/// allocation ([`Table::hash_padding`]).
+fn unfold_store_sized_fields(block: &mut Block) {
+    let mut index = 0;
+    while index < block.0.len() {
+        if let Some(object) = table_constructor_local(&block.0[index])
+            && let Statement::Assign(assign) = &block.0[index]
+            && let RValue::Table(table) = &assign.right[0]
+            && let crate::TableShape::NewTable { hash, array } = table.2
+            && table.0.len().next_power_of_two() != hash as usize
+            && let Some(name) = object.0.0.lock().0.clone()
+            && let Some(fields) = table.0.iter().map(|(key, value)| match key {
+                // Moved past the declaration, a value would read the new
+                // local where it read another `name`.
+                Some(RValue::Literal(crate::Literal::String(field)))
+                    if crate::formatter::Formatter::<String>::is_valid_name(field) && !mentions(value, &name) =>
+                {
+                    Some(field.clone())
+                }
+                _ => None,
+            }).collect::<Option<rustc_hash::FxHashSet<_>>>()
+        {
+            let mut prediction = ArrayPrediction { object: &object, size: 0, loops: Default::default(), fields };
+            prediction.block(&block.0[index + 1..]);
+            if prediction.size == array && prediction.fields.len().next_power_of_two() == hash as usize {
+                let Statement::Assign(assign) = &mut block.0[index] else { unreachable!() };
+                let RValue::Table(table) = &mut assign.right[0] else { unreachable!() };
+                let stores: Vec<Statement> = std::mem::take(&mut table.0)
+                    .into_iter()
+                    .map(|(key, value)| Assign::new(vec![Index::new(object.clone().into(), key.unwrap()).into()], vec![value]).into())
+                    .collect();
+                let after = index + 1;
+                index += stores.len();
+                block.0.splice(after..after, stores);
+            }
+        }
+        index += 1;
+    }
+}
+
+/// Whether `value` prints `name` as a word.
+fn mentions(value: &RValue, name: &str) -> bool {
+    let text = value.to_string();
+    let word = |c: Option<char>| c.is_some_and(|c| c.is_ascii_alphanumeric() || c == '_');
+    text.match_indices(name).any(|(at, _)| !word(text[..at].chars().next_back()) && !word(text[at + name.len()..].chars().next()))
 }
 
 /// An array allocation no `nil` items spell ([`create_large_allocations`]).
@@ -786,7 +838,7 @@ fn sized_by_stores(table: &Table, rest: &[Statement], object: &RcLocal) -> bool 
         && table.0.is_empty()
         && !rest.iter().any(|statement| matches!(statement, Statement::SetList(list) if &list.object_local == object))
         && {
-            let mut prediction = ArrayPrediction { object, size: 0, loops: Default::default() };
+            let mut prediction = ArrayPrediction { object, size: 0, loops: Default::default(), fields: Default::default() };
             prediction.block(rest);
             prediction.size == array
         }
@@ -795,12 +847,14 @@ fn sized_by_stores(table: &Table, rest: &[Statement], object: &RcLocal) -> bool 
 /// Luau's `predictTableShapes` for one table, over the printed statements in
 /// source order, nested blocks and closures included: `object[n] = v` grows
 /// the array part when `n` is the next index; `object[i] = v` in a
-/// `for i = 1, k` loop (`k <= 16`, no step) sizes a still-empty one to `k`.
-/// Compound assignments and declarations never count.
+/// `for i = 1, k` loop (`k <= 16`, no step) sizes a still-empty one to `k`;
+/// each distinct `object.name = v` adds a hash node (`fields`). Compound
+/// assignments and declarations never count.
 struct ArrayPrediction<'a> {
     object: &'a RcLocal,
     size: u32,
     loops: rustc_hash::FxHashMap<RcLocal, u32>,
+    fields: rustc_hash::FxHashSet<Vec<u8>>,
 }
 
 impl ArrayPrediction<'_> {
@@ -825,6 +879,9 @@ impl ArrayPrediction<'_> {
                                 if let Some(&bound) = self.loops.get(counter) {
                                     self.size = bound;
                                 }
+                            }
+                            RValue::Literal(crate::Literal::String(name)) if crate::formatter::Formatter::<String>::is_valid_name(name) => {
+                                self.fields.insert(name.clone());
                             }
                             _ => {}
                         }
