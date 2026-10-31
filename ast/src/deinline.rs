@@ -8573,12 +8573,91 @@ fn try_inferred_constant(t: &Target, cwin: &[Statement], current_func: Option<Fn
         let falsy = try_truth(t, cwin, current_func, index, preferred)
             .or_else(|| try_truth(t, cwin, current_func, index, other));
         match (truthy, falsy) {
+            // An argument left out where any constant gives the copy (`typeof(d)
+            // == "string"` folded alike for `nil` and `true`): the call reads
+            // as the copy's source did, without it.
+            (Some(_), Some(unified)) if optional && t.trailing(param) => return Some(unified),
             (Some(_), Some(_)) => return None,
             (Some(unified), None) | (None, Some(unified)) => return Some(unified),
             (None, None) => {}
         }
     }
-    None
+    try_site_constant(t, cwin, current_func)
+}
+
+/// A constant argument the copy shows where the helper reads the parameter
+/// after testing its type, which Luau folded (`return if typeof(d) ==
+/// "string" then d else ""` storing `"fallback"`): a literal of the site
+/// the helper's body holds nowhere, tried for each such parameter, is it
+/// where it alone specializes the body into the copy exactly
+/// (`pickAsset("shop", "icon", "fallback")`).
+fn try_site_constant(t: &Target, cwin: &[Statement], current_func: Option<FnPtr>) -> Option<Unified> {
+    const MAX_CANDIDATES: usize = 4;
+    fn each_value(stmts: &[Statement], visit: &mut impl FnMut(&RValue)) {
+        for statement in stmts {
+            statement.traverse_rvalues_ref(&mut |value| visit(value));
+            for block in nested_blocks(statement) {
+                each_value(&block.lock().0, visit);
+            }
+        }
+    }
+    let tested: Vec<&RcLocal> = t
+        .truth_params
+        .iter()
+        .filter(|param| {
+            let mut found = false;
+            each_value(&t.pat, &mut |value| found |= type_tested_param(value) == Some(*param));
+            found
+        })
+        .collect();
+    if tested.is_empty() {
+        return None;
+    }
+    let mut own: Vec<Literal> = Vec::new();
+    each_value(&t.pat, &mut |value| {
+        if let RValue::Literal(literal) = value {
+            own.push(literal.clone());
+        }
+    });
+    let mut candidates: Vec<Literal> = Vec::new();
+    each_value(cwin, &mut |value| {
+        if let RValue::Literal(literal @ (Literal::String(_) | Literal::Number(_))) = value
+            && !own.contains(literal)
+            && !candidates.contains(literal)
+        {
+            candidates.push(literal.clone());
+        }
+    });
+    if candidates.is_empty() || candidates.len() > MAX_CANDIDATES {
+        return None;
+    }
+    let mut found = None;
+    for param in tested {
+        for literal in &candidates {
+            let mut specialized = canon(&t.pat);
+            specialize_block(&mut specialized, &FxHashMap::from_iter([(param.clone(), RValue::Literal(literal.clone()))]));
+            let specialized = canon(&specialized);
+            if specialized.len() != cwin.len() || !charge_unify(t, cwin) {
+                continue;
+            }
+            let mut bindings = Bindings::default();
+            if unify_block(t, &specialized, cwin, &mut bindings).is_err() || bindings.params.contains_key(param) {
+                continue;
+            }
+            bindings.params.insert(param.clone(), RValue::Literal(literal.clone()));
+            let Some(mut unified) = finish_unified(t, cwin, bindings, current_func) else { continue };
+            unified.inferred = Some(param.clone());
+            if found.is_some() {
+                return None;
+            }
+            found = Some(unified);
+        }
+    }
+    let unified = found?;
+    if !specialization_is_honest(t, cwin, &unified.args) {
+        return refused("specialization_no_larger_than_call");
+    }
+    Some(unified)
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
@@ -8742,7 +8821,12 @@ fn truth_tested_params(
                 truth(&binary.left, params, found);
                 truth(&binary.right, params, found);
             }
-            other => operands(other, params, found),
+            other => {
+                if let Some(param) = type_tested_param(other).filter(|param| params.contains(*param)) {
+                    found.truth.insert(param.clone());
+                }
+                operands(other, params, found)
+            }
         }
     }
     // `p or default` gives `p` itself where it is true.
@@ -9234,6 +9318,41 @@ fn seed_unify_stmt(ctx: &MatchCtx, pattern: &Statement, candidate: &Statement, b
 
 /// Substitutes `bindings` into `value` and folds what that made constant;
 /// whether anything was substituted.
+/// The type name `typeof(K)` / `type(K)` gives for a constant `K` the
+/// compiler folds: nil, a boolean, a number or a string.
+fn type_name_of_constant(call: &Call) -> Option<&'static str> {
+    let (RValue::Global(callee), [RValue::Literal(constant)]) = (&*call.value, call.arguments.as_slice()) else { return None };
+    if callee.0 != b"typeof" && callee.0 != b"type" {
+        return None;
+    }
+    Some(match constant {
+        Literal::Nil => "nil",
+        Literal::Boolean(_) => "boolean",
+        Literal::Number(_) => "number",
+        Literal::String(_) => "string",
+        _ => return None,
+    })
+}
+
+/// `typeof(p) == "string"` (`type`, `~=`, either side): a test a constant
+/// argument folds, as a truth test does.
+fn type_tested_param(value: &RValue) -> Option<&RcLocal> {
+    let RValue::Binary(binary) = value else { return None };
+    if !matches!(binary.operation, BinaryOperation::Equal | BinaryOperation::NotEqual) {
+        return None;
+    }
+    fn tested<'a>(call: &'a RValue, name: &RValue) -> Option<&'a RcLocal> {
+        match (call, name) {
+            (RValue::Call(call) | RValue::Select(Select::Call(call)), RValue::Literal(Literal::String(_))) => match (&*call.value, call.arguments.as_slice()) {
+                (RValue::Global(callee), [RValue::Local(param)]) if callee.0 == b"typeof" || callee.0 == b"type" => Some(param),
+                _ => None,
+            },
+            _ => None,
+        }
+    }
+    tested(&binary.left, &binary.right).or_else(|| tested(&binary.right, &binary.left))
+}
+
 fn specialize_rvalue(value: &mut RValue, bindings: &FxHashMap<RcLocal, RValue>) -> bool {
     if let RValue::Local(local) = value
         && let Some(replacement) = bindings.get(local)
@@ -9285,6 +9404,11 @@ fn specialize_rvalue(value: &mut RValue, bindings: &FxHashMap<RcLocal, RValue>) 
                 BinaryOperation::Or => *binary.right,
                 _ => unreachable!(),
             }
+        }
+        // `typeof(p)` / `type(p)` of a constant argument, which Luau folds
+        // in the copy (`typeof(nil) == "string"` is `false` there).
+        RValue::Call(ref call) | RValue::Select(Select::Call(ref call)) if substituted && let Some(name) = type_name_of_constant(call) => {
+            RValue::Literal(Literal::String(name.into()))
         }
         // Arithmetic and comparisons a constant argument made constant, as
         // Luau folded them in the copy (`1 * p` is `3`, `p >= 4` is `false`
@@ -9811,7 +9935,38 @@ fn pattern_body<'a>(body: &'a [Statement], parameters: &[RcLocal]) -> (std::borr
     if let Some(lowered) = returned_local_leaves(body) {
         return (std::borrow::Cow::Owned(lowered), Vec::new());
     }
+    if let Some(lowered) = distributed_tail(body) {
+        return (std::borrow::Cow::Owned(lowered), Vec::new());
+    }
     (std::borrow::Cow::Borrowed(body), Vec::new())
+}
+
+/// The statements after an `if` that returns on some path and falls off
+/// its end on others, returning on every path themselves: they run at each
+/// of those ends, so each takes a copy (`if t then local v = t[k]; if ok(v)
+/// then return v end end; if typeof(d) == "string" then return d end;
+/// return ""`). The copy Luau inlined reaches them from each end too, and
+/// a constant argument folds them to a store there. Only a tail small
+/// enough to repeat, and only where that makes every return a leaf.
+fn distributed_tail(body: &[Statement]) -> Option<Vec<Statement>> {
+    const MAX_TAIL_NODES: usize = 64;
+    if value_leaf_shape(&canon(body)) {
+        return None;
+    }
+    let at = body.iter().rposition(|statement| matches!(statement, Statement::If(f) if is_distributing_if(f)))?;
+    let (head, rest) = body.split_at(at);
+    let (branch, tail) = rest.split_first()?;
+    let real = tail.iter().filter(|statement| !is_match_trivia(statement)).count();
+    if real < 2
+        || open_ends(tail) != Some(0)
+        || block_has_return(head)
+        || tail.iter().map(dbg_stmt_node_count).sum::<usize>() > MAX_TAIL_NODES
+    {
+        return None;
+    }
+    let mut out = head.to_vec();
+    out.extend(graft_all(vec![branch.clone()], tail));
+    value_leaf_shape(&canon(&out)).then_some(out)
 }
 
 /// `local R; if ... then ...; R = X else ...; R = Y end; return R` ending a

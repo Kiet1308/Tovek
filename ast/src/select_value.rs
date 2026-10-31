@@ -26,6 +26,14 @@ fn is_truthy(value: RValue) -> Option<bool> {
         | RValue::Table(_)
         | RValue::Closure(_) => Some(true),
         RValue::Literal(Literal::Nil | Literal::Boolean(_)) => Some(false),
+        // `x or k` is `k` wherever `x` is falsy.
+        RValue::Binary(Binary { operation: BinaryOperation::Or, left, right, .. }) => {
+            match (is_truthy(*left), is_truthy(*right)) {
+                (Some(true), _) | (_, Some(true)) => Some(true),
+                (Some(false), Some(false)) => Some(false),
+                _ => None,
+            }
+        }
         _ => None,
     }
 }
@@ -178,6 +186,16 @@ pub fn select_value_assuming(
         }
     };
 
+    // `c and (b or k) or k` is `c and b or k`: where `b` is falsy, both
+    // give `k` (`if c then return f() or 0 else return 0 end`).
+    if let RValue::Binary(Binary { operation: BinaryOperation::Or, right, .. }) = &then_value
+        && **right == else_value
+        && known_truthy(&else_value)
+        && crate::is_total_pure(&else_value)
+        && let RValue::Binary(Binary { left, .. }) = then_value
+    {
+        then_value = *left;
+    }
     Some(
         Binary::new(
             Binary::new(cond, then_value, BinaryOperation::And).into(),
@@ -210,6 +228,17 @@ mod tests {
         let straight = select_value(&mut equal, string("y"), string("x")).unwrap();
         assert_eq!(flipped.to_string(), straight.to_string());
         assert_eq!(straight.to_string(), "a == b and \"y\" or \"x\"");
+    }
+
+    #[test]
+    fn an_or_ending_in_a_truthy_value_is_truthy_and_folds_into_the_select() {
+        // `if not s then 0 else (f(s) or 0)`, as SSA lays out a copy of
+        // `s and f(s) or 0`, is that select again.
+        let call = || RValue::Call(crate::Call::new(global("f"), vec![global("s")]));
+        let zero = || RValue::Literal(Literal::Number(0.0));
+        let mut condition: RValue = Unary::new(global("s"), UnaryOperation::Not).into();
+        let select = select_value(&mut condition, zero(), Binary::new(call(), zero(), BinaryOperation::Or).into()).unwrap();
+        assert_eq!(select.to_string(), "s and f(s) or 0");
     }
 
     #[test]

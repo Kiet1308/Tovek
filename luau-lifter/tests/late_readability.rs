@@ -32,6 +32,8 @@ const CLOSURE_ON_ONE_LINE: &[u8] = include_bytes!("fixtures/deinline_copy_creati
 const ONE_LINE_HELPER: &[u8] = include_bytes!("fixtures/store_address_read_at_store.luaubc");
 const NESTED_COPIES: &[u8] = include_bytes!("fixtures/deinline_nested_and_adjacent_copies.luaubc");
 const RETURNED_LOCAL_LEAVES: &[u8] = include_bytes!("fixtures/deinline_returned_local_leaves.luaubc");
+const TYPEOF_DEFAULT: &[u8] = include_bytes!("fixtures/deinline_typeof_default_left_out.luaubc");
+const TRUTHY_ARMS: &[u8] = include_bytes!("fixtures/deinline_select_with_truthy_arms.luaubc");
 
 fn decompile(bytecode: &[u8]) -> String {
     luau_lifter::try_decompile_bytecode_with_options(bytecode, 1, None, Default::default())
@@ -359,4 +361,25 @@ fn a_returned_local_stored_at_every_leaf_is_a_value_helper() {
 "), "{source}");
     assert!(source.contains("		if IsFiniteVector3(v) then -- inferred equivalent call
 "), "{source}");
+}
+
+#[test]
+fn copies_folding_a_type_tested_default_are_calls() {
+    let source = decompile(TYPEOF_DEFAULT);
+    // The default left out (`typeof(nil)` folded), and one passed, which
+    // the copy shows where the helper returns it.
+    assert!(source.contains("	Board = pickAsset(\"login\", \"board\"), -- inferred equivalent call
+"), "{source}");
+    assert!(source.contains("	Missing = pickAsset(\"shop\", \"icon\"), -- inferred equivalent call
+"), "{source}");
+    assert!(source.contains("	Named = pickAsset(\"shop\", \"icon\", \"fallback\") -- inferred equivalent call
+"), "{source}");
+}
+
+#[test]
+fn a_select_with_truthy_arms_keeps_its_condition_and_is_a_call() {
+    let source = decompile(TRUTHY_ARMS);
+    assert!(source.contains("return p + (p2 + getRandom(p3)) * 2, p - (p2 + getRandom(p3)), (p2 + getRandom(p3)) / 2 -- inferred equivalent call
+"), "{source}");
+    assert!(!source.contains("not p3 and 0"), "{source}");
 }
