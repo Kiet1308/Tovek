@@ -27,6 +27,10 @@ const SELECT_FOLDED_FOR_TRUTH: &[u8] = include_bytes!("fixtures/deinline_select_
 const ENTRY_STORE: &[u8] = include_bytes!("fixtures/deinline_entry_store_in_argument_constructor.luaubc");
 const DEFAULT_ARGUMENT: &[u8] = include_bytes!("fixtures/deinline_default_argument_folded.luaubc");
 const CALL_TAIL: &[u8] = include_bytes!("fixtures/terminal_call_tail_and_chain_head.luaubc");
+const RETURNED_LOCALS: &[u8] = include_bytes!("fixtures/deinline_returned_locals_share_result.luaubc");
+const CLOSURE_ON_ONE_LINE: &[u8] = include_bytes!("fixtures/deinline_copy_creating_closure_on_one_line.luaubc");
+const ONE_LINE_HELPER: &[u8] = include_bytes!("fixtures/store_address_read_at_store.luaubc");
+const NESTED_COPIES: &[u8] = include_bytes!("fixtures/deinline_nested_and_adjacent_copies.luaubc");
 
 fn decompile(bytecode: &[u8]) -> String {
     luau_lifter::try_decompile_bytecode_with_options(bytecode, 1, None, Default::default())
@@ -93,6 +97,34 @@ fn a_select_returning_a_call_is_a_call_where_one_value_is_taken() {
     // `not c and 1 or part:GetScale()` is the copy of `if c then return
     // part:GetScale() end return 1` taking one value.
     assert!(source.contains("\tlocal v2 = p / getScale() -- inferred equivalent call\n"), "{source}");
+}
+
+#[test]
+fn returned_locals_sharing_the_result_are_a_call() {
+    let source = decompile(RETURNED_LOCALS);
+    // `local cached = ...; return cached` / `return found`, each computed in
+    // the result's register by the copy.
+    for call in ["function torsoOf(player)
+	local humanoid = findHumanoid(player) -- inferred equivalent call
+",
+        "function healthOf(player)
+	local humanoid = findHumanoid(player) -- inferred equivalent call
+"]
+    {
+        assert!(source.contains(call), "{call}
+{source}");
+    }
+}
+
+#[test]
+fn line_info_shows_copies_of_one_line_helpers() {
+    // A copy making the helper's inner closure on its one line is the
+    // helper's; a one-line helper copied right below its definition is too.
+    let closure = decompile(CLOSURE_ON_ONE_LINE);
+    assert!(closure.contains("local function setScale(p, p2) -- 2 equivalent calls inferred from this helper
+"), "{closure}");
+    let swap = decompile(ONE_LINE_HELPER);
+    assert_eq!(swap.matches("= swap() -- inferred equivalent call").count(), 3, "{swap}");
 }
 
 #[test]
@@ -297,4 +329,20 @@ fn late_loops_recover_repeat_and_keep_continue_sensitive_while() {
     let guard = source.split("local function guarded(").nth(1).unwrap()
         .split("local function bottom(").next().unwrap();
     assert!(!guard.contains("else"), "the small returning guard needs no else:\n{source}");
+}
+
+#[test]
+fn nested_and_adjacent_copies_are_all_calls() {
+    let source = decompile(NESTED_COPIES);
+    // Copies side by side on the helper's line, their constant arguments
+    // between them, and the last one an argument itself.
+    assert!(source.contains("local v2 = vec(nextNumber(-2, 2), nextNumber(-2, 2), nextNumber(-2, 2)) -- inferred equivalent call
+"), "{source}");
+    assert!(source.contains("local v3 = vec(nextNumber(-4, 4), nextNumber(-4, 4), nextNumber(-4, 4)) -- inferred equivalent call
+"), "{source}");
+    // A copy opening with copies inside it, its own first line folded away.
+    assert!(source.contains("return p + v2.x + v3.z, wobble(p, 3) -- inferred equivalent call
+"), "{source}");
+    assert!(source.contains("local function nextNumber(p, p2) -- 7 equivalent calls inferred from this helper
+"), "{source}");
 }

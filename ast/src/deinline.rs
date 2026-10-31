@@ -423,9 +423,9 @@ impl Evidence {
     }
 
     /// Honesty refusal, part (b): line info shows none of `helper`'s code
-    /// in `function`, so a match there specialized for constants is code
-    /// of something else (`table.clone(tbl)` in `DeepCopy`'s body is no
-    /// copy of `Copy(t, false)`). Unknown prototypes say nothing.
+    /// in `function`, at any depth of copies, so a match there is code of
+    /// something else (`table.clone(tbl)` in `DeepCopy`'s body is no copy of
+    /// `Copy(t, false)`). Unknown prototypes say nothing.
     fn absent(&self, function: Option<FnPtr>, helper: Option<usize>) -> bool {
         match (self.caller(function), helper) {
             (Some(caller), Some(helper)) => !self.copies.present(Some(caller), helper),
@@ -665,18 +665,23 @@ fn admitted_pairs(progress: &Progress) -> FxHashSet<(Option<FnPtr>, RcLocal)> {
     let admit = evidence::admitted(&lines.copies, &counts);
     let mut admitted = FxHashSet::default();
     for (((function, binder), _), (count, admit)) in pairs.into_iter().zip(counts.iter().zip(admit)) {
-        let copies = match (count.caller, count.helper) {
-            (Some(caller), Some(helper)) => lines.copies.copies(Some(caller), helper) as usize,
-            _ => 0,
+        let (copies, nested) = match (count.caller, count.helper) {
+            (Some(caller), Some(helper)) => (
+                lines.copies.copies(Some(caller), helper) as usize,
+                lines.copies.nested_copies.get(&(caller as u32, helper as u32)).copied().unwrap_or(0),
+            ),
+            _ => (0, 0),
         };
-        let agrees = count.hits > 0 && count.folded_left == 0 && count.hits + count.rebuilt == copies;
+        let agrees = count.hits > 0
+            && count.folded_left == 0
+            && count.caller.zip(count.helper).is_some_and(|(caller, helper)| evidence::counts_agree(&lines.copies, caller, helper, count.hits + count.rebuilt));
         crate::telemetry::count(if agrees { "evidence_admitted_pairs" } else { "evidence_refused_pairs" }, 1);
         if !agrees {
             crate::reconstruction_stats::refuse_site("evidence_count_mismatch");
         }
         if crate::env_flag!("MEDAL_TRACE_EVIDENCE") {
             eprintln!(
-                "EVIDENCE caller=p{:?} helper={} proto=p{:?} hits={} rebuilt={} copies={copies} folded_left={} admit={admit}",
+                "EVIDENCE caller=p{:?} helper={} proto=p{:?} hits={} rebuilt={} copies={copies}+{nested} folded_left={} admit={admit}",
                 count.caller, binder, count.helper, count.hits, count.rebuilt, count.folded_left
             );
         }
@@ -3275,12 +3280,31 @@ fn unify_stmt(t: &Target, p: &Statement, c: &Statement, b: &mut Bindings) -> Res
                 return Ok(());
             }
             if cond_exact_invertible(&cf.condition) {
-                unify_rvalue(&ctx, &pf.condition, &negate_canon(cf.condition.clone()), b)?;
-                unify_block(t, &pf.then_block.lock().0, &cf.else_block.lock().0, b)?;
-                unify_block(t, &pf.else_block.lock().0, &cf.then_block.lock().0, b)
-            } else {
-                Err(())
+                let mut bf = b.clone();
+                let flipped = unify_rvalue(&ctx, &pf.condition, &negate_canon(cf.condition.clone()), &mut bf)
+                    .and_then(|_| unify_block(t, &pf.then_block.lock().0, &cf.else_block.lock().0, &mut bf))
+                    .and_then(|_| unify_block(t, &pf.else_block.lock().0, &cf.then_block.lock().0, &mut bf));
+                if flipped.is_ok() {
+                    *b = bf;
+                    return Ok(());
+                }
             }
+            // The two conditions in one reduced form (`not (v and v.P == c)`
+            // as `not v or v.P ~= c`, as SSA leaves a copy's): truthiness is
+            // all a condition gives, and the reduction keeps it (NaN-safe).
+            let reduced = pf.condition.clone().reduce_condition();
+            let mut br = b.clone();
+            let direct = unify_rvalue(&ctx, &reduced, &cf.condition.clone().reduce_condition(), &mut br)
+                .and_then(|_| unify_block(t, &pf.then_block.lock().0, &cf.then_block.lock().0, &mut br))
+                .and_then(|_| unify_block(t, &pf.else_block.lock().0, &cf.else_block.lock().0, &mut br));
+            if direct.is_ok() {
+                *b = br;
+                return Ok(());
+            }
+            let negated = Unary::new(cf.condition.clone(), UnaryOperation::Not).reduce_condition();
+            unify_rvalue(&ctx, &reduced, &negated, b)?;
+            unify_block(t, &pf.then_block.lock().0, &cf.else_block.lock().0, b)?;
+            unify_block(t, &pf.else_block.lock().0, &cf.then_block.lock().0, b)
         }
         (Statement::If(pf), Statement::If(cf)) => {
             unify_rvalue(&ctx, &pf.condition, &cf.condition, b)?;
@@ -4885,11 +4909,9 @@ fn try_match_at(
         if t.late() && !t.assigns {
             return Ok(None);
         }
-        // A variant claims constants its copy folded away: refused where
-        // line info shows none of the helper's code (honesty, part b). Not
-        // every target: the census misses copies of a few instructions
-        // (`t = other; return 1`).
-        if t.inferred.is_some() && t.lines.as_ref().is_some_and(|lines| lines.absent(current_func, t.proto)) {
+        // Where line info shows none of the helper's code, a match is code
+        // written out, not a copy (honesty, part b).
+        if t.lines.as_ref().is_some_and(|lines| lines.absent(current_func, t.proto)) {
             return Ok(None);
         }
         let mut hit = if seen_without_site {
@@ -7266,31 +7288,43 @@ fn match_value_prefixed_plain(
         if block_has_return(region) {
             continue;
         }
-        let mut union: Vec<Statement> = Vec::with_capacity(p + w);
-        union.extend_from_slice(prefix);
-        union.extend_from_slice(region);
-        if !charge_window(t, &union) {
-            break;
-        }
-        let cwin = {
-            dprof::inc(&dprof::CANON_RECURSE_CALLS, 1);
-            crate::telemetry::count("canonicalize_calls", 1);
-            let _t = dprof::T::new(&dprof::CANON_RECURSE_US);
-            canon_recurse(canon_top(&union, true), true)
-        };
-        if let Some(u) = try_unify_declared_result(t, &cwin, current_func) {
-            // RESULT must be exactly the interposed decl, written-only inside the
-            // union (its full computation), NOT also a callee-prefix binder (the
-            // getOwnerId reassignment-collision class), and every OTHER callee temp
-            // — including the consumed prefix local — must be dead after.
-            if u.result.as_ref() == Some(&r)
-                && !u.callee_locals.contains(&r)
-                && !block_reads_local(prefix, &r)
-                && !block_reads_local(region, &r)
-                && !tail_has_live(last_occ, stmts, i, region_start + w, &u.callee_locals)
-            {
-                record_site(&mut site, &mut ambiguous, w, &u, None);
+        // The plain region, then its result-alias form ([`alias_result_leaves`]):
+        // the copy computing the helper's returned locals in RESULT's register.
+        let aliased = alias_result_leaves(region, &r, t.captures.uncaptured(&r))
+            .filter(|rewritten| !block_has_return(rewritten) && canon_top_len_of(prefix.iter().chain(rewritten.iter()), true) == kc);
+        let mut stop = false;
+        for region in std::iter::once(region).chain(aliased.as_deref()) {
+            let mut union: Vec<Statement> = Vec::with_capacity(p + region.len());
+            union.extend_from_slice(prefix);
+            union.extend_from_slice(region);
+            if !charge_window(t, &union) {
+                stop = true;
+                break;
             }
+            let cwin = {
+                dprof::inc(&dprof::CANON_RECURSE_CALLS, 1);
+                crate::telemetry::count("canonicalize_calls", 1);
+                let _t = dprof::T::new(&dprof::CANON_RECURSE_US);
+                canon_recurse(canon_top(&union, true), true)
+            };
+            if let Some(u) = try_unify_declared_result(t, &cwin, current_func) {
+                // RESULT must be exactly the interposed decl, written-only inside the
+                // union (its full computation), NOT also a callee-prefix binder (the
+                // getOwnerId reassignment-collision class), and every OTHER callee temp
+                // — including the consumed prefix local — must be dead after.
+                if u.result.as_ref() == Some(&r)
+                    && !u.callee_locals.contains(&r)
+                    && !block_reads_local(prefix, &r)
+                    && !block_reads_local(region, &r)
+                    && !tail_has_live(last_occ, stmts, i, region_start + w, &u.callee_locals)
+                {
+                    record_site(&mut site, &mut ambiguous, w, &u, None);
+                    break;
+                }
+            }
+        }
+        if stop {
+            break;
         }
     }
     if ambiguous {
@@ -7432,17 +7466,19 @@ fn alias_leaf_block(stmts: &mut Vec<Statement>, r: &RcLocal, allow_merged: bool,
         collect_written(&els, &mut w);
         if w.contains(r) {
             let cond = f.condition.clone();
-            // SSA can reuse RESULT for a helper local before the final
-            // branch, then overwrite it only on the selected path. Keep
-            // that local in a fresh temporary and make each leaf's result
-            // explicit before matching, including the unchanged path.
-            if allow_merged && alias_merged_result(stmts, last, r) {
-                *changed = true;
-                return;
-            }
             alias_leaf_block(&mut then, r, allow_merged, changed);
             alias_leaf_block(&mut els, r, allow_merged, changed);
             stmts[last] = Statement::If(If::new(cond, Block(then), Block(els)));
+            // SSA can reuse RESULT for a helper local before the final
+            // branch, then overwrite it only on the selected path. Keep
+            // that local in a fresh temporary and make each leaf's result
+            // explicit before matching, including the unchanged path. The
+            // arms go first: a leaf of theirs reusing RESULT too has its
+            // store made terminal (`r = cache[p]; if not r or ... then ...
+            // r = found; if r then ... end end`).
+            if allow_merged && alias_merged_result(stmts, last, r) {
+                *changed = true;
+            }
             return;
         }
     }

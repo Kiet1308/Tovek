@@ -81,7 +81,7 @@ use crate::deinline::{
     Bindings, MatchCtx, anchors_in_rvalue, body_unsafe, canon, each_closure_decl,
     is_scalar_return_value, visit_stmt_rvalues, visit_stmt_rvalues_mut, unify_rvalue,
 };
-use crate::{Block, Call, Function, LValue, LocalRw, RValue, RcLocal, Statement, Traverse};
+use crate::{Block, Call, Function, LValue, LocalRw, RValue, RcLocal, Select, Statement, Traverse};
 
 type FnPtr = *const Mutex<Function>;
 
@@ -527,8 +527,19 @@ fn helper_candidates(body: &Block, arithmetic_only: bool, copies: Option<&crate:
         };
         // Root must yield a single value (not Call/MethodCall/VarArg/Select — those
         // have unprovable arity in a multi-value slot). Nested calls like `typeof`
-        // inside `E` are fine; only the ROOT is constrained.
+        // inside `E` are fine; only the ROOT is constrained. A call root is
+        // the exception where line info shows copies: `return f(x)` hands back
+        // every value of `f(x)`, so `helper(x)` is `f(x)` in any slot, and the
+        // count oracle keeps hand-written `f(x)` out
+        // (`vec(nextNumber(-2, 2), nextNumber(-2, 2), nextNumber(-2, 2))`).
         if !is_scalar_return_value(&expr) {
+            let call_root = matches!(
+                expr,
+                RValue::Call(_) | RValue::MethodCall(_) | RValue::Select(Select::Call(_) | Select::MethodCall(_))
+            );
+            if call_root && inlined && !expr.any_local_read(&mut |rl| rl == l) {
+                candidates.push(candidate(expr, false, true));
+            }
             return;
         }
         // Recursion guard: a body that reads its own binder would emit a call to

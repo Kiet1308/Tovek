@@ -1,6 +1,7 @@
 //! Preserve prospective scalar helper binders before parallel child lifting.
 //! The later AST matcher independently proves every accepted reconstruction.
 use crate::{deserializer::{constant::Constant, function::Function}, instruction::Instruction, op_code::OpCode};
+use rustc_hash::FxHashMap;
 
 /// The last line the tables indexed by line read: past it, line info is
 /// pathological (no source has 4M lines; forged bytecode may name any line
@@ -175,6 +176,7 @@ pub(crate) fn inlined_copies(functions: &[Function], lines: &[Vec<Option<u32>>],
     }
     // An operation, by kind: the constant and register forms alike, a jump
     // or move none (an inlined copy adds and drops those).
+    const LOAD: u8 = 10;
     let kind = |opcode: OpCode| -> Option<u8> {
         Some(match opcode {
             LOP_ADD | LOP_ADDK => 1,
@@ -186,7 +188,7 @@ pub(crate) fn inlined_copies(functions: &[Function], lines: &[Vec<Option<u32>>],
             LOP_IDIV | LOP_IDIVK => 7,
             LOP_AND | LOP_ANDK => 8,
             LOP_OR | LOP_ORK => 9,
-            LOP_LOADNIL | LOP_LOADB | LOP_LOADN | LOP_LOADK | LOP_LOADKX => 10,
+            LOP_LOADNIL | LOP_LOADB | LOP_LOADN | LOP_LOADK | LOP_LOADKX => LOAD,
             LOP_JUMPIFEQ | LOP_JUMPIFNOTEQ | LOP_JUMPIFLE | LOP_JUMPIFNOTLE | LOP_JUMPIFLT | LOP_JUMPIFNOTLT | LOP_JUMPXEQKNIL
             | LOP_JUMPXEQKB | LOP_JUMPXEQKN | LOP_JUMPXEQKS => 11,
             LOP_JUMPIF | LOP_JUMPIFNOT => 12,
@@ -369,27 +371,83 @@ pub(crate) fn inlined_copies(functions: &[Function], lines: &[Vec<Option<u32>>],
             folded_any = true;
             true
         };
-        // For each PC, whether the run of consecutive PCs on its line creates
-        // a closure (the statement defining a function there): read once,
-        // where a helper's first line needs it.
-        let creating: std::cell::OnceCell<Vec<bool>> = std::cell::OnceCell::new();
-        let creating_at = |pc: usize| {
+        // For each PC, where the run of consecutive PCs on its line creates
+        // a closure, whether it is in the statement defining the function
+        // there (`Defining`) or after it (`After`). A closure some
+        // instruction takes (a store, a call: a field, an argument, a
+        // global function) is a statement the caller's code goes on in, the
+        // whole run. A closure nothing takes is `local function f`, which
+        // ends with its captures: what follows on the line is a one-line
+        // helper written there inlined right below (`local function swap()
+        // t = other return 1 end; local v = swap()`). Read once, where a
+        // helper's first line needs it.
+        #[derive(Clone, Copy, PartialEq)]
+        enum Run {
+            Plain,
+            Defining,
+            After,
+        }
+        // With the prototypes each run creates closures of, by its first PC.
+        let creating: std::cell::OnceCell<(Vec<Run>, Vec<usize>, FxHashMap<usize, Vec<usize>>)> = std::cell::OnceCell::new();
+        let runs = || {
             creating.get_or_init(|| {
-                let mut creating = vec![false; pcs.len()];
+                let mut creating = vec![Run::Plain; pcs.len()];
+                let mut run_of = vec![0usize; pcs.len()];
+                let mut made_in: FxHashMap<usize, Vec<usize>> = FxHashMap::default();
                 let mut run = 0;
                 while run < pcs.len() {
                     let mut next = run + 1;
                     while next < pcs.len() && pcs[next] == pcs[run] {
                         next += 1;
                     }
-                    let creates = instructions.get(run..next).is_some_and(|run| {
-                        run.iter().any(|instruction| matches!(opcode_of(instruction), LOP_NEWCLOSURE | LOP_DUPCLOSURE))
+                    run_of[run..next].fill(run);
+                    for pc in run..next {
+                        let made = match instructions.get(pc) {
+                            Some(Instruction::AD { op_code: LOP_NEWCLOSURE, d, .. }) => functions[caller].functions.get(*d as usize).copied(),
+                            Some(Instruction::AD { op_code: LOP_DUPCLOSURE, d, .. }) => match constants.get(*d as usize) {
+                                Some(Constant::Closure(child)) => Some(*child),
+                                _ => None,
+                            },
+                            _ => None,
+                        };
+                        if let Some(made) = made {
+                            made_in.entry(run).or_default().push(made);
+                        }
+                    }
+                    let closure = (run..next).rev().find_map(|pc| match instructions.get(pc)? {
+                        Instruction::AD { op_code: LOP_NEWCLOSURE | LOP_DUPCLOSURE, a, .. }
+                        | Instruction::BC { op_code: LOP_NEWCLOSURE | LOP_DUPCLOSURE, a, .. } => Some((pc, *a)),
+                        _ => None,
                     });
-                    creating[run..next].fill(creates);
+                    if let Some((at, register)) = closure {
+                        let mut end = at + 1;
+                        while end < next && instructions.get(end).is_some_and(|instruction| opcode_of(instruction) == LOP_CAPTURE) {
+                            end += 1;
+                        }
+                        let takes = |instruction: &Instruction| match *instruction {
+                            Instruction::BC { op_code: LOP_SETTABLEKS | LOP_SETTABLE | LOP_SETTABLEN | LOP_SETGLOBAL | LOP_SETUPVAL, a, .. } => a == register,
+                            Instruction::BC { op_code: LOP_MOVE, b, .. } => b == register,
+                            Instruction::BC { op_code: LOP_CALL, a, b, .. } => a < register && (b == 0 || register < a.saturating_add(b)),
+                            _ => false,
+                        };
+                        let taken = (end..next).any(|pc| instructions.get(pc).is_some_and(|instruction| takes(instruction)));
+                        let end = if taken { next } else { end.min(next) };
+                        creating[run..end].fill(Run::Defining);
+                        creating[end..next].fill(Run::After);
+                    }
                     run = next;
                 }
-                creating
-            })[pc]
+                (creating, run_of, made_in)
+            })
+        };
+        let creating_at = |pc: usize| runs().0[pc];
+        // Whether the run of `pc` creates a closure of `helper`: its code there
+        // is the statement making the function, of whatever function's code
+        // the run is (a copy of `setModelScale` makes its `pcall(function()
+        // ... end)` on that one line).
+        let creates = |pc: usize, helper: u32| {
+            let (_, run_of, made_in) = runs();
+            run_of.get(pc).and_then(|run| made_in.get(run)).is_some_and(|made| made.contains(&(helper as usize)))
         };
         // The innermost helper whose code this PC of the caller is. On a
         // helper's first line, a caller around it may have the statement
@@ -417,7 +475,7 @@ pub(crate) fn inlined_copies(functions: &[Function], lines: &[Vec<Option<u32>>],
             };
             owners.iter().copied().find(|&id| {
                 let (start, end) = spans[id as usize];
-                let defines = own.is_none_or(|(own_start, _)| own_start <= start) && line == start;
+                let defines = line == start && (own.is_none_or(|(own_start, _)| own_start <= start) || creates(pc, id));
                 // On a line the caller may share with the helper, only an
                 // operation the helper has on that line starts its copy (two
                 // helpers on one line, code after `end`, a call whose run
@@ -434,11 +492,23 @@ pub(crate) fn inlined_copies(functions: &[Function], lines: &[Vec<Option<u32>>],
                         || ((folds[id as usize] || kinds.iter().any(|kind| (1..=9).contains(kind)))
                             && instructions.get(pc).and_then(|instruction| loaded_number(instruction, constants)).is_some())
                 });
+                // After a `local function` on its own line, only an operation
+                // the helper has there starts a copy: the caller's moves,
+                // closes and returns go on on that line too.
+                let after_definition = defines && creating_at(pc) == Run::After;
+                let strict_op = !after_definition
+                    || edge.is_some_and(|kinds| kind(opcode).is_some_and(|kind| kinds.contains(&kind)));
                 id != caller_id
                     && made != Some(id as usize)
                     && shared_line_op
+                    && strict_op
                     && !own.is_some_and(|(own_start, own_end)| start <= own_start && own_end <= end)
-                    && !(defines && (definition(opcode) || creating_at(pc)))
+                    && !(defines
+                        && match creating_at(pc) {
+                            Run::Defining => true,
+                            Run::After => false,
+                            Run::Plain => definition(opcode),
+                        })
             })
         };
         // The answer for the line of the PC before, where it holds for any
@@ -447,7 +517,10 @@ pub(crate) fn inlined_copies(functions: &[Function], lines: &[Vec<Option<u32>>],
         let mut last_line: Option<(u32, Option<u32>)> = None;
         // The copy going on: its helper, the last of its lines reached, and
         // for a one-line helper, how many of its operations the copy passed.
-        let mut current: Option<(u32, u32, usize)> = None;
+        let mut current: Option<(u32, u32, usize, usize)> = None;
+        // The copies of other helpers going on inside `current`, alike,
+        // outermost first ([`Copies::nested_copies`]).
+        let mut nested: Vec<(u32, u32, usize, usize)> = Vec::new();
         // The copy going on is one load of a constant, folded whole: the
         // next operation on the helper's line is another copy.
         let mut complete = false;
@@ -460,14 +533,20 @@ pub(crate) fn inlined_copies(functions: &[Function], lines: &[Vec<Option<u32>>],
         // operation is the copy's or the code using its value, which Luau
         // leaves on the helper's line (`if active(x) then`, `(c and ratio(a,
         // b) or ratio(b, a)) + 1`).
-        let advance = |single: &[u8], passed: usize, pc: usize| -> Option<usize> {
+        // `began`: the operation of the helper the copy began with, which a
+        // copy whose first operations the caller has no need of starts later
+        // with (`random:NextNumber(a, b)` with `random` a local of the caller
+        // has no `GETUPVAL`): that operation again begins another copy.
+        let advance = |single: &[u8], passed: usize, began: usize, pc: usize| -> Option<usize> {
             let Some(here) = instructions.get(pc).and_then(|instruction| kind(opcode_of(instruction))) else { return Some(passed) };
             let passed = passed.min(single.len());
+            let began = began.min(passed.saturating_sub(1));
+            let first = single.get(began).copied();
             match single[passed..].iter().position(|&own| own == here) {
                 Some(at) => Some(passed + at + 1),
-                None if passed > 0 && single[0] == here && reads_previous_result(instructions, pc) => Some(passed),
-                None if passed > 0 && single.len() == 1 && single[0] == here => None,
-                None if passed > 0 && single.len() >= 2 && single[0] == here => {
+                None if passed > 0 && first == Some(here) && reads_previous_result(instructions, pc) => Some(passed),
+                None if passed > 0 && single.len() - began == 1 && first == Some(here) => None,
+                None if passed > 0 && single.len() - began >= 2 && first == Some(here) => {
                     // The next operation on this line.
                     let mut next = pc + if opcode_of(&instructions[pc]).has_aux() { 2 } else { 1 };
                     let second = loop {
@@ -476,7 +555,10 @@ pub(crate) fn inlined_copies(functions: &[Function], lines: &[Vec<Option<u32>>],
                             break None;
                         }
                         let opcode = opcode_of(instruction);
-                        if let Some(kind) = kind(opcode) {
+                        // A load the helper has none of is an argument
+                        // of the new copy (`v(nextNumber(-2, 2),
+                        // nextNumber(-2, 2))`: its constants).
+                        if let Some(kind) = kind(opcode).filter(|&kind| kind != LOAD || single[began + 1..].contains(&LOAD)) {
                             break Some(kind);
                         }
                         next += if opcode.has_aux() { 2 } else { 1 };
@@ -484,10 +566,90 @@ pub(crate) fn inlined_copies(functions: &[Function], lines: &[Vec<Option<u32>>],
                     // Constant arguments may have folded operations away
                     // (`map(y, 50, 100, 0, 1)` loses `outMax - outMin`):
                     // any later operation of the helper will do.
-                    if second.is_some_and(|second| single[1..].contains(&second)) { None } else { Some(passed) }
+                    if second.is_some_and(|second| single[began + 1..].contains(&second)) { None } else { Some(passed) }
                 }
                 None => Some(passed),
             }
+        };
+        // Whether the copy going on (`current` or `nested`) goes on with the
+        // PC on `line`, then reaching it; `complete`: the copy is one
+        // constant folded whole.
+        let goes_on = |(helper, reached, passed, began): &mut (u32, u32, usize, usize), line: u32, pc: usize, complete: bool| {
+            let copy = helpers[*helper as usize].as_ref().unwrap();
+            if !copy.lines.contains(line) {
+                return false;
+            }
+            let (start, end) = copy.span;
+            let inside = start <= line && line <= end;
+            // Past its last operation, the helper's code is returns alone: a
+            // line before it is another copy, its first lines perhaps folded
+            // away (`jitter(x, 1.5)` right after `jitter(x, 3)`). So is the
+            // helper's first operation again on its first line, after later
+            // ones, where a copy's last lines folded away (`addComponent("Level",
+            // "NumberValue")` with no `timeout` for `if timeout then`); a loop
+            // closes on its header line with an operation of its own.
+            let opening = copy.edge_kinds[0].1.first().copied();
+            let again = line == copy.first
+                && *reached > copy.first
+                && opening.is_some()
+                && instructions.get(pc).and_then(|instruction| kind(opcode_of(instruction))) == opening;
+            let mut restarts = inside && ((*reached == copy.last && line < copy.last) || again);
+            if let Some(single) = &copy.single
+                && line == copy.first
+            {
+                match advance(single, *passed, *began, pc) {
+                    Some(_) if complete && instructions.get(pc).is_some_and(|instruction| kind(opcode_of(instruction)).is_some()) => {
+                        restarts = true
+                    }
+                    Some(next) => *passed = next,
+                    None => restarts = true,
+                }
+            }
+            if !restarts && inside {
+                *reached = line;
+            }
+            !restarts
+        };
+        // The helper whose copy starts at `pc`, where a copy of `helper`
+        // seems to: one inlining it whose own code there was all folded
+        // away, so its copy opens with this one (`wobble(x, 3)` opening with
+        // `jitter(x, 3)`, opening with `nextNumber(-3, 3)`). The code after
+        // this copy on a line of such a helper, past its first, holding the
+        // lines of the copy before, says so.
+        let enclosing = |helper: u32, pc: usize| {
+            let mut outer = helper;
+            let mut seen: Vec<u32> = Vec::new();
+            let mut at = pc;
+            while let (Some(instruction), Some(Some(line))) = (instructions.get(at), pcs.get(at).copied()) {
+                let opcode = opcode_of(instruction);
+                if !helpers[outer as usize].as_ref().unwrap().lines.contains(line) {
+                    match innermost(line, opcode, at) {
+                        Some(next)
+                            if next != outer
+                                && helpers[next as usize].as_ref().is_some_and(|copy| {
+                                    line > copy.first && line <= copy.span.1 && seen.iter().all(|&seen| copy.lines.contains(seen))
+                                }) =>
+                        {
+                            outer = next;
+                        }
+                        _ => break,
+                    }
+                }
+                if !seen.contains(&line) {
+                    seen.push(line);
+                }
+                at += if opcode.has_aux() { 2 } else { 1 };
+            }
+            outer
+        };
+        // A copy of `helper` starting at the PC on `line`.
+        let start_copy = |helper: u32, line: u32, pc: usize| {
+            let copy = helpers[helper as usize].as_ref().unwrap();
+            let passed = match &copy.single {
+                Some(single) if line == copy.first => advance(single, 0, 0, pc).unwrap_or(0),
+                _ => 0,
+            };
+            (helper, line, passed, passed.saturating_sub(1))
         };
         let mut pc = 0;
         while pc < pcs.len() {
@@ -499,47 +661,48 @@ pub(crate) fn inlined_copies(functions: &[Function], lines: &[Vec<Option<u32>>],
                 pc += step;
                 continue;
             };
-            if let Some((helper, reached, passed)) = &mut current {
-                let copy = helpers[*helper as usize].as_ref().unwrap();
-                if copy.lines.contains(line) {
-                    let (start, end) = copy.span;
-                    let inside = start <= line && line <= end;
-                    let mut restarts = inside && line == copy.first && *reached == copy.last && copy.first != copy.last;
-                    if let Some(single) = &copy.single
-                        && line == copy.first
-                    {
-                        match advance(single, *passed, pc) {
-                            Some(_) if complete && kind(opcode).is_some() => restarts = true,
-                            Some(next) => *passed = next,
-                            None => restarts = true,
-                        }
-                    }
-                    if !restarts {
-                        if inside {
-                            *reached = line;
-                        }
-                        // A helper inlined inside this copy (the copy's own
-                        // lines have the copy's helper innermost).
-                        let mut nested_in = None;
-                        if helper_at(line).first() != Some(helper) {
-                            if let Some(inner) = innermost(line, opcode, pc).filter(|inner| inner != helper) {
-                                copies.present.insert((caller_id, inner));
-                                copies.nested.insert((caller_id, *helper, inner));
-                                fold_copy(&mut copies, inner, *helper, pc);
-                                nested_in = Some(inner);
-                            }
-                        } else if fold_copy(&mut copies, *helper, *helper, pc) {
-                            // Another copy, folded whole, right after one
-                            // on the helper's line (`f(frames(k), frames(2))`):
-                            // the helper's code loads no constant of its own.
-                            *copies.copies.entry((caller_id, *helper)).or_default() += 1;
-                            complete = true;
-                        }
-                        copy_refs(&mut copies, *helper, nested_in, pc);
-                        pc += step;
-                        continue;
-                    }
+            if let Some(state) = &mut current
+                && goes_on(state, line, pc, complete)
+            {
+                let helper = state.0;
+                // The copies of helpers inlined inside this one (its lines
+                // have their helper innermost) go on as copies do, and the
+                // code of a narrower helper starts another inside the
+                // innermost of them (`keys` inlined in `forgetFolder`).
+                let mut depth = 0;
+                while depth < nested.len() && goes_on(&mut nested[depth], line, pc, false) {
+                    depth += 1;
                 }
+                nested.truncate(depth);
+                let around = nested.last().map_or(helper, |state| state.0);
+                let mut nested_in = nested.last().map(|state| state.0);
+                if helper_at(line).first() != Some(&around) {
+                    let fresh = innermost(line, opcode, pc).filter(|&inner| inner != helper && nested.iter().all(|state| state.0 != inner));
+                    if let Some(inner) = fresh {
+                        if ast::env_flag!("MEDAL_TRACE_COPIES") {
+                            eprintln!("NESTED caller=p{caller_id} outer=p{around} helper=p{inner} pc={pc} line={line} op={opcode:?}");
+                        }
+                        *copies.nested_copies.entry((caller_id, inner)).or_default() += 1;
+                        nested.push(start_copy(inner, line, pc));
+                        nested_in = Some(inner);
+                    }
+                } else if nested.is_empty() && fold_copy(&mut copies, helper, helper, pc) {
+                    // Another copy, folded whole, right after one on the
+                    // helper's line (`f(frames(k), frames(2))`): the helper's
+                    // code loads no constant of its own.
+                    *copies.copies.entry((caller_id, helper)).or_default() += 1;
+                    complete = true;
+                }
+                if let Some(inner) = nested_in {
+                    copies.present.insert((caller_id, inner));
+                    for outer in std::iter::once(helper).chain(nested.iter().map(|state| state.0)).filter(|&outer| outer != inner) {
+                        copies.nested.insert((caller_id, outer, inner));
+                    }
+                    fold_copy(&mut copies, inner, helper, pc);
+                }
+                copy_refs(&mut copies, helper, nested_in, pc);
+                pc += step;
+                continue;
             }
             let found = match last_line {
                 Some((seen, found)) if seen == line => found,
@@ -553,24 +716,35 @@ pub(crate) fn inlined_copies(functions: &[Function], lines: &[Vec<Option<u32>>],
                     found
                 }
             };
-            current = found.map(|helper| {
+            nested.clear();
+            current = found.map(|inner| {
+                let helper = enclosing(inner, pc);
                 if ast::env_flag!("MEDAL_TRACE_COPIES") {
                     eprintln!("COPY caller=p{caller_id} helper=p{helper} pc={pc} line={line} op={opcode:?}");
                 }
                 *copies.copies.entry((caller_id, helper)).or_default() += 1;
                 copies.present.insert((caller_id, helper));
-                let copy = helpers[helper as usize].as_ref().unwrap();
-                let passed = match &copy.single {
-                    Some(single) if line == copy.first => advance(single, 0, pc).unwrap_or(0),
-                    _ => 0,
-                };
-                (helper, line, passed)
+                if inner != helper {
+                    *copies.nested_copies.entry((caller_id, inner)).or_default() += 1;
+                    copies.present.insert((caller_id, inner));
+                    copies.nested.insert((caller_id, helper, inner));
+                    nested.push(start_copy(inner, line, pc));
+                }
+                start_copy(helper, line, pc)
             });
             // A copy folded whole is that one load: an operation after it on
             // the helper's line is another copy (`f(frames(2), frames(k))`).
-            complete = matches!(current, Some((helper, ..)) if fold_copy(&mut copies, helper, helper, pc));
+            let opening = nested.last().map(|state| state.0);
+            complete = match (current, opening) {
+                (Some((helper, ..)), None) => fold_copy(&mut copies, helper, helper, pc),
+                (Some((helper, ..)), Some(inner)) => {
+                    fold_copy(&mut copies, inner, helper, pc);
+                    false
+                }
+                _ => false,
+            };
             if let Some((helper, ..)) = current {
-                copy_refs(&mut copies, helper, None, pc);
+                copy_refs(&mut copies, helper, opening, pc);
             }
             pc += step;
         }
@@ -1149,6 +1323,43 @@ mod tests {
         let lines = vec![vec![Some(2); 7], vec![Some(2), Some(2), Some(2), Some(2), Some(2), Some(2), Some(2), Some(2), Some(5)], vec![Some(1), Some(4), Some(7)]];
         let copies = inlined_copies(&[map, caller, chunk()], &lines, 2).unwrap();
         assert_eq!(copies.copies(Some(1), 0), 2);
+    }
+
+    #[test]
+    fn copies_whose_first_or_last_lines_folded_away_are_told_apart() {
+        use OpCode::*;
+        let chunk = || prototype(1, &[LOP_NEWCLOSURE, LOP_NEWCLOSURE, LOP_NEWCLOSURE, LOP_RETURN]);
+        // p0, lines 1-5: `local function add(holder, name, value) local e =
+        // make(); e.Name = name; if value then e.Value = value end end`;
+        // p1 at line 7: two copies with `value` nil, line 4 folded away.
+        // (`SETTABLEKS` takes an auxiliary word.)
+        let add = prototype(1, &[LOP_GETUPVAL, LOP_CALL, LOP_SETTABLEKS, LOP_NOP, LOP_JUMPIFNOT, LOP_SETTABLEKS, LOP_NOP, LOP_RETURN]);
+        let caller = prototype(7, &[LOP_GETUPVAL, LOP_CALL, LOP_SETTABLEKS, LOP_NOP, LOP_GETUPVAL, LOP_CALL, LOP_SETTABLEKS, LOP_NOP, LOP_RETURN]);
+        let lines = vec![
+            vec![Some(2), Some(2), Some(3), Some(3), Some(4), Some(4), Some(4), Some(5)],
+            vec![Some(2), Some(2), Some(3), Some(3), Some(2), Some(2), Some(3), Some(3), Some(8)],
+            vec![Some(1), Some(7), Some(9)],
+        ];
+        let copies = inlined_copies(&[add, caller, prototype(1, &[LOP_NEWCLOSURE, LOP_NEWCLOSURE, LOP_RETURN])], &lines, 2).unwrap();
+        assert_eq!(copies.copies(Some(1), 0), 2);
+        // p0, line 2: `next(a, b)`; p1, lines 4-6: `jitter(v, w) local o =
+        // next(-w, w); return v + o`, holding a copy of p0; p2 at line 8 runs
+        // a copy of p1 with `w` constant: its line 5 folded away, it opens
+        // with p0's code and goes on on p1's line 6.
+        let next = prototype(1, &[LOP_GETUPVAL, LOP_CALL, LOP_RETURN]);
+        let jitter = prototype(4, &[LOP_MINUS, LOP_GETUPVAL, LOP_CALL, LOP_ADD, LOP_RETURN]);
+        let caller = prototype(8, &[LOP_GETUPVAL, LOP_CALL, LOP_ADD, LOP_RETURN]);
+        let lines = vec![
+            vec![Some(2), Some(2), Some(2)],
+            vec![Some(5), Some(2), Some(2), Some(6), Some(6)],
+            vec![Some(2), Some(2), Some(6), Some(9)],
+            vec![Some(1), Some(4), Some(8), Some(10)],
+        ];
+        let copies = inlined_copies(&[next, jitter, caller, chunk()], &lines, 3).unwrap();
+        assert_eq!(copies.copies(Some(2), 1), 1);
+        assert_eq!(copies.copies(Some(2), 0), 0);
+        assert_eq!(copies.nested_copies.get(&(2, 0)), Some(&1));
+        assert!(copies.nested(Some(2), 1, 0));
     }
 
     #[test]
