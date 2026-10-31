@@ -3627,6 +3627,30 @@ fn fold_site_temps(t: &Target, cand: &[Statement]) -> Option<Vec<Statement>> {
     folded.then_some(out)
 }
 
+/// `stmts` with each `return x` a store of `x` into `result`; `None` where a
+/// `return` gives another number of values or is inside a loop.
+fn returns_as_stores(stmts: &[Statement], result: &RcLocal) -> Option<Vec<Statement>> {
+    stmts
+        .iter()
+        .map(|statement| match statement {
+            Statement::Return(ret) => match ret.values.as_slice() {
+                [value] => Some(Assign::new(vec![LValue::Local(result.clone())], vec![value.clone()]).into()),
+                _ => None,
+            },
+            Statement::If(branch) => Some(
+                If::new(
+                    branch.condition.clone(),
+                    Block(returns_as_stores(&branch.then_block.lock().0, result)?),
+                    Block(returns_as_stores(&branch.else_block.lock().0, result)?),
+                )
+                .into(),
+            ),
+            other if statement_has_return(other) => None,
+            other => Some(other.clone()),
+        })
+        .collect()
+}
+
 /// The locals `local a, b` declares without values.
 fn bare_declaration(statement: &Statement) -> Option<&[LValue]> {
     match statement {
@@ -6346,7 +6370,24 @@ fn match_returned_value(
         if !charge_unify(t, &canonical) {
             return None;
         }
-        let u = try_unify_seeded(t, &canonical, current_func, Bindings { returning: true, ..Bindings::default() })?;
+        let u = match try_unify_seeded(t, &canonical, current_func, Bindings { returning: true, ..Bindings::default() }) {
+            Some(u) => u,
+            // A copy whose constant arguments Luau folded, its value
+            // returned by the caller (`return compareNumbers(a, b, true)`
+            // as the whole body of a sorter): the specializations unify
+            // with its returns as stores into one result.
+            None if before.is_empty() && may_specialize(t) => {
+                let result = RcLocal::default();
+                let stores = returns_as_stores(&canonical, &result)?;
+                let mut u = try_unify_specialized_site(t, &stores, current_func)?;
+                if u.result.as_ref() != Some(&result) {
+                    return None;
+                }
+                u.result = None;
+                u
+            }
+            None => return None,
+        };
         if u.result.is_some() || tail_has_live(last_occ, stmts, i, end, &u.callee_locals) {
             return None;
         }
@@ -10213,6 +10254,13 @@ fn specialize_rvalue(value: &mut RValue, bindings: &FxHashMap<RcLocal, RValue>) 
                 BinaryOperation::Or => *binary.right,
                 _ => unreachable!(),
             }
+        }
+        // `X or Y` where a constant made `X` (`true and X`, `X` truthy):
+        // `Y` never runs, `X` still does, as in the copy.
+        RValue::Binary(binary)
+            if substituted && binary.operation == BinaryOperation::Or && crate::select_value::known_truthy(&binary.left) =>
+        {
+            *binary.left
         }
         // `typeof(p)` / `type(p)` of a constant argument, which Luau folds
         // in the copy (`typeof(nil) == "string"` is `false` there).

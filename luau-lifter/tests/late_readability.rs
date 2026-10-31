@@ -46,6 +46,7 @@ const TUPLE_THROUGH_BRANCHES: &[u8] = include_bytes!("fixtures/deinline_tuple_th
 const TUPLE_LITERAL_RESULT_LATER: &[u8] = include_bytes!("fixtures/deinline_tuple_literal_result_declared_later.luaubc");
 const GUARD_CHAIN_TRUTH_SELECT: &[u8] = include_bytes!("fixtures/deinline_guard_chain_truth_select.luaubc");
 const NEGATED_COMPARISON: &[u8] = include_bytes!("fixtures/expr_deinline_negated_comparison.luaubc");
+const SPECIALIZED_RETURNED_VALUE: &[u8] = include_bytes!("fixtures/deinline_specialized_returned_value.luaubc");
 
 fn decompile(bytecode: &[u8]) -> String {
     luau_lifter::try_decompile_bytecode_with_options(bytecode, 1, None, Default::default())
@@ -501,4 +502,14 @@ fn a_comparison_turned_over_is_a_negated_call() {
     let source = decompile(NEGATED_COMPARISON);
     assert!(source.contains("\t\tif isWordChar(v) or v == \"-\" then -- inferred equivalent call\n"), "{source}");
     assert!(!source.contains("== nil"), "{source}");
+}
+
+#[test]
+fn a_returned_copy_of_a_specialization_is_a_call() {
+    let source = decompile(SPECIALIZED_RETURNED_VALUE);
+    for call in ["\t\t\treturn compareNumbers(p.Rank, p2.Rank, true) -- inferred equivalent call\n",
+        "\t\t\treturn compareNumbers(p.Quality or 0, p2.Quality or 0, true) -- inferred equivalent call\n"]
+    {
+        assert!(source.contains(call), "{call}\n{source}");
+    }
 }
