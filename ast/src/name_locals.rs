@@ -2273,6 +2273,11 @@ fn keeps_assignment_role(local: &RcLocal, value: &RValue) -> bool {
             BinaryOperation::Add | BinaryOperation::Sub | BinaryOperation::Mul | BinaryOperation::Div
             | BinaryOperation::IDiv | BinaryOperation::Mod | BinaryOperation::Pow)
             && (is_self(&binary.left) || is_self(&binary.right)),
+        // `x = lerp(x, goal, t)`, `s = s:lower()`: the value transformed in place.
+        RValue::Call(call) | RValue::Select(Select::Call(call)) => call.arguments.iter().any(is_self),
+        RValue::MethodCall(call) | RValue::Select(Select::MethodCall(call)) => {
+            is_self(&call.value) || call.arguments.iter().any(is_self)
+        }
         _ => false,
     }
 }

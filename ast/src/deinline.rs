@@ -382,6 +382,8 @@ struct Target {
     /// What line info says of the module's inlined copies, when it has
     /// line info.
     lines: Option<std::rc::Rc<Evidence>>,
+    /// The source lines of the helper's own code ([`written_elsewhere`]).
+    own_lines: crate::source_lines::SourceLines,
     captures: std::rc::Rc<crate::deinline_safety::CaptureSafety>,
     search: std::rc::Rc<crate::deinline_safety::SearchBudget>,
 }
@@ -749,6 +751,28 @@ fn holds_rebuilt_call(stmts: &[Statement], callee: &RcLocal) -> bool {
         }
         found
     })
+}
+
+/// Whether line info shows `window` holds none of the helper's code (its
+/// lines `helper`): Luau `-O2` keeps the callee's lines on a copy, so a
+/// window whose nodes carry lines, none of them the helper's, is code
+/// written out (`a + (b - a) * t` beside a copy of `lerp`).
+fn written_elsewhere(window: &[Statement], helper: crate::source_lines::SourceLines) -> bool {
+    use crate::source_lines::{SourceLines, statement, value};
+    // Whether a node of `stmts` carries the helper's lines; `known`: any lines.
+    fn walk(stmts: &[Statement], helper: SourceLines, known: &mut bool) -> bool {
+        stmts.iter().any(|node| {
+            let mut lines = statement(node);
+            node.visit_rvalues(&mut |item| {
+                lines.merge(value(item));
+                true
+            });
+            *known |= lines.known();
+            lines.overlaps(helper) || nested_blocks(node).iter().any(|block| walk(&block.lock().0, helper, known))
+        })
+    }
+    let mut known = false;
+    helper.known() && !walk(window, helper, &mut known) && known
 }
 
 /// The statement blocks `statement` holds, function bodies aside.
@@ -4716,6 +4740,10 @@ fn try_match_at(
             hit = match_assigned_value(stmts, i, t, is_func_body_top, last_occ, canon_cache, current_func);
         }
         let hit = hit.filter(|hit| !hit.inferred.as_ref().is_some_and(|param| continues_pruned_branch(t, param, stmts, i + hit.consume)));
+        let hit = hit.filter(|hit| {
+            let covered = if hit.host.is_some() { anchor..anchor + 1 } else { i..i + hit.consume };
+            !written_elsewhere(stmts.get(covered).unwrap_or_default(), t.own_lines)
+        });
         let hit = hit.map(|hit| host_returned_cell(stmts, i, hit, t, current_func).unwrap_or_else(|hit| hit));
         // A wrapper's copy is a plain call of the local it wraps; one a
         // de-inliner rebuilt is no copy of it.
@@ -5759,7 +5787,10 @@ fn absorb_arguments(
     }
     for &at in hit.written.iter().filter(|at| !taken_at.contains(at)) {
         let Some(RValue::Local(local)) = hit.args.get(at) else { return refused("written_parameter_unbound") };
-        if !t.captures.uncaptured(local) || hit.args.iter().enumerate().any(|(other, arg)| other != at && reads(arg, local)) {
+        // The host holds the call, or the placeholder it goes in.
+        let private = t.captures.uncaptured(local)
+            || hit.host.as_ref().is_some_and(|host| private_to_copy(stmts, i, end, host, usize::from(hit.placeholder.is_none()), local));
+        if !private || hit.args.iter().enumerate().any(|(other, arg)| other != at && reads(arg, local)) {
             return refused("written_parameter_unbound");
         }
     }
@@ -5776,6 +5807,27 @@ fn absorb_arguments(
     }
     hit.absorbed = i - start;
     Some(hit)
+}
+
+/// Whether `local`, the parameter local a copy evaluated in place in `host`
+/// had its function literal write, was that copy's alone: declared in this
+/// block before it, used nowhere else, and read `calls` times in `host`
+/// (by the call there, if built). The helper's own parameter then stands for it: the call passes
+/// the value the literal would have captured, and nothing else saw the
+/// writes (`local name = nil; t.Cutscene = function() name = name or "x"
+/// end` is `t.Cutscene = f(name)`).
+fn private_to_copy(stmts: &[Statement], i: usize, end: usize, host: &Statement, calls: usize, local: &RcLocal) -> bool {
+    let declared = stmts[..i].iter().any(|statement| {
+        matches!(statement, Statement::Assign(declaration)
+            if declaration.prefix && declaration.left.iter().any(|left| matches!(left, LValue::Local(l) if l == local)))
+    });
+    let mut written = FxHashSet::default();
+    collect_written(&stmts[end..], &mut written);
+    collect_written(std::slice::from_ref(host), &mut written);
+    declared
+        && !written.contains(local)
+        && count_local_reads(std::slice::from_ref(host), local) == calls
+        && count_local_reads(&stmts[..i], local) + count_local_reads(&stmts[end..], local) == 0
 }
 
 /// A declaration `local L = init` the source wrote, which stays declared
@@ -6211,14 +6263,16 @@ fn match_embedded_value(
 
 /// [`Target::hosted`]: the `V` of a `return V` pattern, when it pins its
 /// copies down: not a parameter handed back as it is (any value would
-/// match it), with no parameter the body writes (a copy writes a local of
-/// its own), and no smaller than the expression helpers' floor
+/// match it), and no smaller than the expression helpers' floor
 /// (`expr_deinline::NODE_COUNT_FLOOR`), a function literal counted with
 /// its body ([`value_nodes`]).
 fn hosted_pattern(t: &Target) -> Option<RValue> {
-    if t.kind != TKind::Value || t.loop_exit_at.is_some() || !t.returns.is_empty() || !t.written_params.is_empty() {
+    if t.kind != TKind::Value || t.loop_exit_at.is_some() || !t.returns.is_empty() {
         return None;
     }
+    // A parameter written here is written by a function literal of `V`
+    // (`return function() name = name or "x" end`), whose copy captures a
+    // local of its own ([`private_to_copy`]).
     let [Statement::Return(ret)] = t.pat.as_slice() else { return None };
     let [value] = ret.values.as_slice() else { return None };
     if matches!(value, RValue::Local(local) if t.params.contains(local))
@@ -6229,6 +6283,23 @@ fn hosted_pattern(t: &Target) -> Option<RValue> {
     // Below the floor, line evidence admits it, and only the saving gate
     // of the matcher applies.
     (t.evidence || value_nodes(value) >= crate::expr_deinline::NODE_COUNT_FLOOR).then(|| value.clone())
+}
+
+/// `if c then return a else return b end`, one value each, as the
+/// `and`/`or` value of a copy taking one value, where one is exact. Canon
+/// keeps it a statement where an arm returns a call, all of whose results
+/// the helper gives.
+fn select_return(pattern: &[Statement]) -> Option<RValue> {
+    let [Statement::If(branch)] = pattern else { return None };
+    let one = |block: &Block| {
+        let mut real = block.0.iter().filter(|s| !matches!(s, Statement::Empty(_)));
+        match (real.next(), real.next()) {
+            (Some(Statement::Return(ret)), None) if ret.values.len() == 1 => Some(ret.values[0].clone()),
+            _ => None,
+        }
+    };
+    let (then_value, else_value) = (one(&branch.then_block.lock())?, one(&branch.else_block.lock())?);
+    crate::select_value(&mut branch.condition.clone(), then_value, else_value)
 }
 
 /// The nodes of `value`, a function literal's body included: the size of
@@ -6313,7 +6384,12 @@ fn match_hosted_value(
         // Where line evidence admits the helper, the call (itself, its
         // callee and its arguments) need only be no larger than the copy.
         let saves = if t.evidence { nodes >= 2 + argument_nodes } else { nodes >= 1 + argument_nodes + crate::expr_deinline::NET_SAVING_FLOOR };
-        if u.result.as_ref() != Some(&result) || !u.callee_locals.is_empty() || !saves {
+        // The copy's own locals are the parameters its function literals
+        // write, which the call passes ([`private_to_copy`]).
+        let written_only = u.callee_locals.iter().all(|local| {
+            u.written.iter().any(|&at| matches!(&u.args[at], RValue::Local(arg) if arg == local))
+        });
+        if u.result.as_ref() != Some(&result) || !written_only || !saves {
             return None;
         }
         Some((u, wrap, nodes - argument_nodes))
@@ -10321,6 +10397,7 @@ fn analyze_helper(
         captures: &captures,
         proto: g.bytecode_proto_id,
         lines,
+        own_lines: g.source_lines,
     };
     let mut target = common.target(kind, pat, &body);
     target.evidence = evidence;
@@ -10365,6 +10442,21 @@ fn analyze_helper(
             twin
         })
         .filter(|twin| twin.hosted.is_some());
+    // A select returning a call, evaluated in place where one value is
+    // taken (`p / (not c and 1 or part:GetScale())`), by a twin returning
+    // its `and`/`or` form: not `single_valued`, [`hosted_spread`] takes no
+    // other site.
+    let select_twin = (kind == TKind::Value)
+        .then(|| select_return(&target.pat))
+        .flatten()
+        .map(|select| {
+            let mut twin = common.target(kind, vec![Return::new(vec![select]).into()], &body);
+            twin.evidence = target.evidence;
+            twin.hosted_only = true;
+            twin.hosted = hosted_pattern(&twin);
+            twin
+        })
+        .filter(|twin| twin.hosted.is_some());
     // Copies whose constant arguments Luau folded match a variant of their
     // own, which line evidence admits.
     let folded = g.bytecode_proto_id.is_some_and(|proto| lines.is_some_and(|lines| lines.copies.constants_in_copies_anywhere(proto)));
@@ -10373,6 +10465,7 @@ fn analyze_helper(
     found.extend(discard_target);
     found.extend(variants);
     found.extend(hosted_twin);
+    found.extend(select_twin);
     found.extend(fold_twin);
     Ok(found)
 }
@@ -10554,6 +10647,7 @@ struct TargetCommon<'a> {
     captures: &'a std::rc::Rc<crate::deinline_safety::CaptureSafety>,
     proto: Option<usize>,
     lines: Option<&'a std::rc::Rc<Evidence>>,
+    own_lines: crate::source_lines::SourceLines,
 }
 
 impl TargetCommon<'_> {
@@ -10624,6 +10718,7 @@ impl TargetCommon<'_> {
             fold: None,
             fold_roots: Vec::new(),
             lines: self.lines.cloned(),
+            own_lines: self.own_lines,
             captures: self.captures.clone(),
             search: Default::default(),
         }
@@ -12234,6 +12329,7 @@ mod tests {
             fold: None,
             fold_roots: Vec::new(),
             lines: None,
+            own_lines: Default::default(),
             captures: Default::default(),
             search: Default::default(),
         }
@@ -13033,6 +13129,7 @@ mod tests {
             fold: None,
             fold_roots: Vec::new(),
             lines: None,
+            own_lines: Default::default(),
             captures: Default::default(),
             search: Default::default(),
         };
@@ -13130,6 +13227,7 @@ mod tests {
             fold: None,
             fold_roots: Vec::new(),
             lines: None,
+            own_lines: Default::default(),
             captures: Default::default(),
             search: Default::default(),
         };
@@ -13217,6 +13315,7 @@ mod tests {
             fold: None,
             fold_roots: Vec::new(),
             lines: None,
+            own_lines: Default::default(),
             captures: Default::default(),
             search: Default::default(),
         };
@@ -13319,6 +13418,7 @@ mod tests {
             fold: None,
             fold_roots: Vec::new(),
             lines: None,
+            own_lines: Default::default(),
             captures: Default::default(),
             search: Default::default(),
         };
@@ -13679,6 +13779,7 @@ mod tests {
             fold: None,
             fold_roots: Vec::new(),
             lines: None,
+            own_lines: Default::default(),
             captures: Default::default(),
             search: Default::default(),
         };
@@ -13789,6 +13890,7 @@ mod tests {
             fold: None,
             fold_roots: Vec::new(),
             lines: None,
+            own_lines: Default::default(),
             captures: Default::default(),
             search: Default::default(),
         }
@@ -13961,6 +14063,7 @@ mod tests {
             fold: None,
             fold_roots: Vec::new(),
             lines: None,
+            own_lines: Default::default(),
             captures: Default::default(),
             search: Default::default(),
         }
@@ -14028,6 +14131,7 @@ mod tests {
             fold: None,
             fold_roots: Vec::new(),
             lines: None,
+            own_lines: Default::default(),
             captures: Default::default(),
             search: Default::default(),
         }
@@ -15354,6 +15458,7 @@ mod tests {
             fold: None,
             fold_roots: Vec::new(),
             lines: None,
+            own_lines: Default::default(),
             captures: Default::default(),
             search: Default::default(),
         };
@@ -15411,6 +15516,7 @@ mod tests {
             captures: &Default::default(),
             proto: None,
             lines: None,
+            own_lines: Default::default(),
         };
         let mut target = common.target(kind, canon(body), body);
         let mut leaves = Vec::new();

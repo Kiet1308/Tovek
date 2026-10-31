@@ -17,6 +17,9 @@ const OVER_PADDING: &[u8] = include_bytes!("fixtures/table_shape_over_padding_li
 const SCOPED_OVER_LIMIT: &[u8] = include_bytes!("fixtures/scoped_declarations_over_limit.luaubc");
 const FOLDED_ARGUMENTS: &[u8] = include_bytes!("fixtures/deinline_folded_constant_arguments.luaubc");
 const STORED_AND_FOLDED: &[u8] = include_bytes!("fixtures/deinline_stored_and_folded_sites.luaubc");
+const WRITTEN_OUT_BESIDE_COPY: &[u8] = include_bytes!("fixtures/deinline_written_out_beside_copy.luaubc");
+const SELECT_IN_EXPRESSION: &[u8] = include_bytes!("fixtures/deinline_select_helper_in_expression.luaubc");
+const CLOSURE_FACTORY: &[u8] = include_bytes!("fixtures/deinline_closure_factory_in_constructor.luaubc");
 
 fn decompile(bytecode: &[u8]) -> String {
     luau_lifter::try_decompile_bytecode_with_options(bytecode, 1, None, Default::default())
@@ -56,6 +59,34 @@ fn stored_results_reference_captures_and_folded_flags_are_calls_again() {
         "\t\t\tupdate(false) -- inferred equivalent call\n",
         "\tv3, v2 = basis(-i, i + 1) -- inferred equivalent call\n",
         "\tprint(basis(i, 3), v2) -- inferred equivalent call\n"]
+    {
+        assert!(source.contains(call), "{call}\n{source}");
+    }
+}
+
+#[test]
+fn only_the_copy_line_info_shows_becomes_a_call() {
+    let source = decompile(WRITTEN_OUT_BESIDE_COPY);
+    // The copy keeps `lerp`'s lines; the same arithmetic written out does not.
+    assert!(source.contains("\t\twavelength = lerp(wavelength, data.EndWavelength, p) -- inferred equivalent call\n"), "{source}");
+    assert!(source.contains("((data.Amplitude or 0) - startAmplitude) * p) * p2\n"), "{source}");
+}
+
+#[test]
+fn a_select_returning_a_call_is_a_call_where_one_value_is_taken() {
+    let source = decompile(SELECT_IN_EXPRESSION);
+    // `not c and 1 or part:GetScale()` is the copy of `if c then return
+    // part:GetScale() end return 1` taking one value.
+    assert!(source.contains("\tlocal v2 = p / getScale() -- inferred equivalent call\n"), "{source}");
+}
+
+#[test]
+fn a_function_literal_writing_captured_parameters_is_its_factory_call() {
+    let source = decompile(CLOSURE_FACTORY);
+    // Each copy declared a local per captured parameter; the calls end in
+    // no `nil`.
+    for call in ["Cutscene = makeCutscene(\"House\") } -- inferred equivalent call\n",
+        "Cutscene = makeCutscene(\"Tree\", 2, nil, \"Pos2\") -- inferred equivalent call\n"]
     {
         assert!(source.contains(call), "{call}\n{source}");
     }

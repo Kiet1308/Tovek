@@ -18,6 +18,9 @@ impl SourceLines {
         if !self.known() { *self = other; }
         else { self.first = self.first.min(other.first); self.last = self.last.max(other.last); }
     }
+    pub fn overlaps(self, other: Self) -> bool {
+        self.known() && other.known() && self.first <= other.last && other.first <= self.last
+    }
     pub fn gap_after(self, previous: Self) -> Option<bool> {
         (self.known() && previous.known() && self.first >= previous.last)
             .then(|| self.first > previous.last.saturating_add(1))
@@ -52,13 +55,20 @@ pub fn statement(statement: &Statement) -> SourceLines {
     if matches!(statement, Statement::If(_) | Statement::While(_) | Statement::Repeat(_)
         | Statement::NumericFor(_) | Statement::GenericFor(_)) { return SourceLines::default(); }
     let mut result = crate::node_origins::statement(statement).map_or(SourceLines::default(), |origin| origin.1);
-    fn value(item: &RValue, result: &mut SourceLines) {
+    statement.visit_lvalues(&mut |left| left.visit_rvalues(&mut |item| { result.merge(value(item)); true }));
+    statement.visit_rvalues(&mut |item| { result.merge(value(item)); true });
+    result
+}
+
+/// The lines `item` and the values inside it carry.
+pub fn value(item: &RValue) -> SourceLines {
+    fn visit(item: &RValue, result: &mut SourceLines) {
         if let Some(origin) = crate::node_origins::value(item) { result.merge(origin.1); }
         if let RValue::Closure(closure) = item { result.merge(closure.function.lock().source_lines); }
-        item.visit_rvalues(&mut |child| { value(child, result); true });
+        item.visit_rvalues(&mut |child| { visit(child, result); true });
     }
-    statement.visit_lvalues(&mut |left| left.visit_rvalues(&mut |item| { value(item, &mut result); true }));
-    statement.visit_rvalues(&mut |item| { value(item, &mut result); true });
+    let mut result = SourceLines::default();
+    visit(item, &mut result);
     result
 }
 

@@ -13,6 +13,12 @@
 //! cannot tell from an explicit `nil`. A library function can: `tostring()`
 //! raises "missing argument" where `tostring(nil)` is `"nil"`, so its
 //! parentheses stay.
+//!
+//! An equivalent call a de-inliner inferred ends in no `nil` after another
+//! argument: its copy cannot tell a `nil` passed from one left out, and the
+//! source most often leaves those out (`getCutscene("House")`, not
+//! `getCutscene("House", nil, nil)`). A lone `nil` is most often written
+//! (`purchase(nil)`), and stays.
 use rustc_hash::FxHashMap;
 
 use crate::{Block, LValue, RValue, RcLocal, Select, Statement, Traverse};
@@ -71,6 +77,15 @@ fn block(stmts: &mut [Statement], arity: &impl Fn(&RValue) -> Option<usize>) {
 }
 
 fn untruncate(call: &mut crate::Call, arity: &impl Fn(&RValue) -> Option<usize>) {
+    // A call or `...` left last would spread into the parameters the `nil`s fill.
+    while call.is_inferred()
+        && arity(&call.value).is_some()
+        && call.arguments.len() > 1
+        && matches!(call.arguments.last(), Some(RValue::Literal(crate::Literal::Nil)))
+        && !matches!(call.arguments.iter().rev().nth(1), Some(RValue::Call(_) | RValue::MethodCall(_) | RValue::VarArg(_)))
+    {
+        call.arguments.pop();
+    }
     let Some(last) = call.arguments.len().checked_sub(1) else { return };
     let argument = &call.arguments[last];
     // Only parentheses that print are dropped; a format call that prints as
@@ -216,6 +231,37 @@ mod tests {
                 "tonumber((g()))",
                 "math.random(a, (g()))",
                 "math.max(a, (g()))",
+            ],
+            "{output}"
+        );
+    }
+
+    #[test]
+    fn an_inferred_call_leaves_trailing_nils_out() {
+        let show = local("show");
+        let nil = || RValue::Literal(Literal::Nil);
+        let inferred = |arguments: Vec<RValue>| -> Statement {
+            Call::new(RValue::Local(show.clone()), arguments).reconstructed(crate::call_origins::Kind::StatementDeinline).into()
+        };
+        let output = run(vec![
+            declare(function(&show, 3, false)),
+            inferred(vec![global("a"), nil(), nil()]),
+            inferred(vec![nil(), global("b"), nil()]),
+            inferred(vec![nil(), nil()]),
+            // `g()` left last would fill the parameters the `nil` fills.
+            inferred(vec![global("a"), Call::new(global("g"), Vec::new()).into(), nil()]),
+            // A call the bytecode makes passes its `nil`.
+            Call::new(RValue::Local(show.clone()), vec![global("a"), nil()]).into(),
+        ]);
+        let calls: Vec<&str> = output.lines().filter(|line| line.starts_with("show(")).collect();
+        assert_eq!(
+            calls,
+            [
+                "show(a) -- inferred equivalent call",
+                "show(nil, b) -- inferred equivalent call",
+                "show(nil) -- inferred equivalent call",
+                "show(a, g(), nil) -- inferred equivalent call",
+                "show(a, nil)"
             ],
             "{output}"
         );
