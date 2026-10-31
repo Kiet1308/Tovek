@@ -614,6 +614,8 @@ struct Progress {
     /// The orphans' targets active in each function body ([`Orphan`]),
     /// by the body (`None`: the chunk).
     orphan_scopes: FxHashMap<Option<FnPtr>, Vec<usize>>,
+    /// Each orphan's twin class ([`Orphan::twin`]), by its binder.
+    orphan_twins: std::rc::Rc<FxHashMap<RcLocal, usize>>,
     /// The evidence round this iteration is ([`EvidenceRound`]).
     evidence: EvidenceRound,
     /// The module's line evidence, where the scan records the prototype of
@@ -945,23 +947,33 @@ struct Orphan {
     /// The function whose body held the declaration, `None` for the chunk.
     scope: Option<FnPtr>,
     scope_function: Option<Arc<Mutex<Function>>>,
+    /// The first orphan it is a twin of ([`twins`]), in any function: a
+    /// function's own one stands for its code ([`function_scope`]).
+    twin: usize,
 }
 
 /// The orphans kept aside by `body`'s functions, nested ones included,
 /// those of the chunk first (`chunk`).
 fn collect_orphans(body: &Block, chunk: &[(RcLocal, Closure)], nested: bool) -> Vec<Orphan> {
-    fn walk(stmts: &[Statement], out: &mut Vec<Orphan>) {
+    fn walk(stmts: &[Statement], out: &mut Vec<(Orphan, Closure)>) {
         for statement in stmts {
             statement.traverse_rvalues_ref(&mut |value| {
                 if let RValue::Closure(closure) = value {
                     let function = closure.function.0.lock();
-                    for (binder, orphan) in &function.orphans {
-                        out.push(Orphan {
-                            binder: binder.clone(),
-                            function: orphan.function.0.clone(),
-                            scope: Some(Arc::as_ptr(&closure.function.0)),
-                            scope_function: Some(closure.function.0.clone()),
-                        });
+                    for (index, (binder, orphan)) in function.orphans.iter().enumerate() {
+                        if function.orphans[..index].iter().any(|(_, earlier)| twins(earlier, orphan)) {
+                            continue;
+                        }
+                        out.push((
+                            Orphan {
+                                binder: binder.clone(),
+                                function: orphan.function.0.clone(),
+                                scope: Some(Arc::as_ptr(&closure.function.0)),
+                                scope_function: Some(closure.function.0.clone()),
+                                twin: 0,
+                            },
+                            orphan.clone(),
+                        ));
                     }
                     walk(&function.body.0, out);
                 }
@@ -979,14 +991,48 @@ fn collect_orphans(body: &Block, chunk: &[(RcLocal, Closure)], nested: bool) -> 
             }
         }
     }
-    let mut orphans: Vec<Orphan> = chunk
+    let mut found: Vec<(Orphan, Closure)> = chunk
         .iter()
-        .map(|(binder, closure)| Orphan { binder: binder.clone(), function: closure.function.0.clone(), scope: None, scope_function: None })
+        .enumerate()
+        .filter(|&(index, (_, closure))| !chunk[..index].iter().any(|(_, earlier)| twins(earlier, closure)))
+        .map(|(_, (binder, closure))| {
+            let orphan = Orphan { binder: binder.clone(), function: closure.function.0.clone(), scope: None, scope_function: None, twin: 0 };
+            (orphan, closure.clone())
+        })
         .collect();
     if nested {
-        walk(&body.0, &mut orphans);
+        walk(&body.0, &mut found);
     }
-    orphans
+    // The twin classes across functions, by prototype: the same locals
+    // captured, a function's own by value or its upvalue's cell alike.
+    let captured = |literal: &Closure| literal.upvalues.iter().map(|(Upvalue::Copy(local) | Upvalue::Ref(local))| local.clone()).collect::<Vec<_>>();
+    let mut classes: FxHashMap<usize, Vec<usize>> = FxHashMap::default();
+    for index in 0..found.len() {
+        let literal = &found[index].1;
+        let proto = literal.function.0.lock().bytecode_proto_id;
+        let first = proto
+            .and_then(|proto| classes.get(&proto))
+            .and_then(|class| class.iter().copied().find(|&first| captured(&found[first].1) == captured(literal)));
+        found[index].0.twin = first.unwrap_or_else(|| {
+            if let Some(proto) = proto {
+                classes.entry(proto).or_default().push(index);
+            }
+            index
+        });
+    }
+    found.into_iter().map(|(orphan, _)| orphan).collect()
+}
+
+/// Two literals one function kept aside alike: the same prototype with the
+/// same captures (each copy of a caller inlined there made its own, `local
+/// a = run(function() ... end)` twice). Only ever called, they are one
+/// target; each call rebuilt takes one of them.
+fn twins(a: &Closure, b: &Closure) -> bool {
+    a.upvalues == b.upvalues
+        && (Arc::ptr_eq(&a.function.0, &b.function.0) || {
+            let proto = a.function.0.lock().bytecode_proto_id;
+            proto.is_some() && proto == b.function.0.lock().bytecode_proto_id
+        })
 }
 
 /// Each orphan a call of which was rebuilt goes back into its body
@@ -1004,15 +1050,70 @@ fn materialize_orphans(body: &mut Block, chunk: &mut Vec<(RcLocal, Closure)>, or
         };
         let Some(at) = table.iter().position(|(binder, _)| *binder == orphan.binder) else { continue };
         let (binder, closure) = table.remove(at);
-        let Some(first) = stmts.iter().position(|statement| count_local_reads(std::slice::from_ref(statement), &binder) > 0) else {
+        let reads = count_local_reads(stmts, &binder);
+        if reads == 0 {
             // Its calls went with a later rewrite: it stays aside.
             table.insert(at, (binder, closure));
+            continue;
+        }
+        // Read as the argument of a call (the callback a copy called in
+        // place, `activate("Garden", function() ... end)`), once for it and
+        // each twin: the literal goes back there, where Luau evaluated it.
+        let literals: Vec<Closure> = std::iter::once(closure.clone())
+            .chain(table.iter().filter(|(_, other)| twins(other, &closure)).map(|(_, twin)| twin.clone()))
+            .collect();
+        if reads <= literals.len()
+            && literals[..reads].iter().all(|literal| stmts.iter_mut().any(|statement| pass_as_argument(statement, &binder, literal)))
+        {
+            table.retain(|(_, other)| !twins(other, &closure));
+            continue;
+        }
+        let Some(first) = stmts.iter().position(|statement| count_local_reads(std::slice::from_ref(statement), &binder) > 0) else {
             continue;
         };
         let mut declaration = Assign::new(vec![LValue::Local(binder)], vec![RValue::Closure(closure)]);
         declaration.prefix = true;
         stmts.insert(first, declaration.into());
     }
+}
+
+/// Puts `closure` in place of the read of `binder` that is an argument of a
+/// call in `statement`, outside any function literal; whether there was one.
+fn pass_as_argument(statement: &mut Statement, binder: &RcLocal, closure: &Closure) -> bool {
+    fn in_value(value: &mut RValue, binder: &RcLocal, closure: &Closure) -> bool {
+        if let RValue::Closure(_) = value {
+            return false;
+        }
+        if let RValue::Call(call) | RValue::Select(Select::Call(call)) = value {
+            for argument in &mut call.arguments {
+                if matches!(argument, RValue::Local(read) if read == binder) {
+                    *argument = RValue::Closure(closure.clone());
+                    return true;
+                }
+            }
+        }
+        let mut done = false;
+        value.visit_rvalues_mut(&mut |child| {
+            done = in_value(child, binder, closure);
+            !done
+        });
+        done
+    }
+    let mut done = false;
+    statement.visit_rvalues_mut(&mut |value| {
+        done = in_value(value, binder, closure);
+        !done
+    });
+    if !done {
+        for block in nested_blocks(statement) {
+            for inner in block.lock().0.iter_mut() {
+                if pass_as_argument(inner, binder, closure) {
+                    return true;
+                }
+            }
+        }
+    }
+    done
 }
 
 /// The scan of an iteration that rewrote nothing, as the next one, which
@@ -1165,7 +1266,7 @@ pub fn deinline_orphans_in_with_literal_numbers(body: &mut Block, chunk_orphans:
     }
     // What each literal captures, so no rewrite changes whether Luau shares
     // it (`literal_sharing`).
-    let _sharing = crate::literal_sharing::enter(body);
+    let _sharing = crate::literal_sharing::enter(body, chunk_orphans);
     // Helpers every call of which returns exactly one value, read off the
     // declarations before any rewrite can replace one (`local f = factory()`
     // no longer shows `f`'s body). Only their calls may move into a place
@@ -1181,6 +1282,7 @@ pub fn deinline_orphans_in_with_literal_numbers(body: &mut Block, chunk_orphans:
             single_valued.insert(orphan.binder.clone());
         }
     }
+    let orphan_twins = std::rc::Rc::new(orphans.iter().map(|orphan| (orphan.binder.clone(), orphan.twin)).collect::<FxHashMap<_, _>>());
     // The entry budget census describes the unchanged first iteration too.
     // Later iterations rebuild it after rewriting; no mutable-tree facts are
     // retained across a revision, and this summary owns only numeric IDs.
@@ -1338,6 +1440,7 @@ pub fn deinline_orphans_in_with_literal_numbers(body: &mut Block, chunk_orphans:
             rescan,
             evidence: evidence_round.clone(),
             lines: lines.clone(),
+            orphan_twins: orphan_twins.clone(),
             ..Progress::default()
         };
         for (index, target) in targets.iter().enumerate() {
@@ -1367,6 +1470,7 @@ pub fn deinline_orphans_in_with_literal_numbers(body: &mut Block, chunk_orphans:
                 false,
                 &mut newly,
             );
+            scan_orphan_bodies(chunk_orphans, &targets, &decl_map, &chunk_orphans_active, &mut newly);
             crate::telemetry::count("converted_binders", newly.binders.len() as u64);
         }
         // Fixed point is reached when an iteration rewrites NOTHING. `newly` gains a
@@ -2675,6 +2779,52 @@ fn canon_top(stmts: &[Statement], tail: bool) -> Vec<Statement> {
     s
 }
 
+/// The bodies of the function literals a function kept aside ([`Orphan`]),
+/// scanned as any function's: the helpers copied into them become calls
+/// there too, so the literal reads as its copies do once those are calls.
+fn scan_orphan_bodies(
+    orphans: &[(RcLocal, Closure)],
+    targets: &[Target],
+    decl_map: &FxHashMap<RcLocal, std::ops::Range<usize>>,
+    active: &[usize],
+    newly: &mut Progress,
+) {
+    for (_, closure) in orphans {
+        let fp = Arc::as_ptr(&closure.function.0);
+        let active = function_scope(active, targets, fp, newly);
+        let mut function = closure.function.0.lock();
+        let function = &mut *function;
+        if let Some(lines) = &newly.lines {
+            lines.protos.borrow_mut().insert(fp, function.bytecode_proto_id);
+        }
+        deinline_block(
+            &mut function.body.0,
+            targets,
+            decl_map,
+            &active,
+            &[],
+            &Enclosing::function(&function.parameters),
+            Some(fp),
+            true,
+            true,
+            false,
+            newly,
+        );
+    }
+}
+
+/// The targets in scope in the body of function `fp`, nested where `active`
+/// are, with its own orphans, which stand for its code in place of their
+/// twins around it (`onShop`'s literal, and the chunk's made by its copies
+/// inlined there). An orphan around it stays: Luau may have inlined a
+/// local function's every call in functions nested in its own.
+fn function_scope<'a>(active: &'a [usize], targets: &[Target], fp: FnPtr, newly: &Progress) -> std::borrow::Cow<'a, [usize]> {
+    let Some(own) = newly.orphan_scopes.get(&Some(fp)) else { return std::borrow::Cow::Borrowed(active) };
+    let twin = |index: usize| newly.orphan_twins.get(&targets[index].f_local);
+    let shadowed = |index: usize| twin(index).is_some_and(|class| own.iter().any(|&mine| twin(mine) == Some(class)));
+    std::borrow::Cow::Owned(active.iter().copied().filter(|&index| !shadowed(index)).chain(own.iter().copied()).collect())
+}
+
 /// A declaration `local y = <literal>` (or `nil`, or none) of one local right
 /// after `stmts[i]`, or one further: one a copy starting at `i` may hold
 /// although it is the caller's.
@@ -3481,8 +3631,16 @@ fn unify_assignment(t: &Target, ctx: &MatchCtx, p: &Statement, ca: &Assign, pref
             {
                 return unify_closure(ctx, pattern, site, true, b);
             }
-            for (pr, cr) in pa.right.iter().zip(&ca.right) {
-                unify_rvalue(ctx, pr, cr, b)?;
+            // A value the assignment takes one value of (every one but a last
+            // spreading over more targets) is a call kept to one result or
+            // not alike (`local ok = callback()` against `local ok = f()`).
+            let spread = pa.left.len() > pa.right.len();
+            for (index, (pr, cr)) in pa.right.iter().zip(&ca.right).enumerate() {
+                if spread && index + 1 == pa.right.len() {
+                    unify_rvalue(ctx, pr, cr, b)?;
+                } else {
+                    unify_returned_value(ctx, pr, cr, b)?;
+                }
             }
             Ok(())
         }
@@ -3642,6 +3800,7 @@ pub(crate) fn unify_rvalue(
             Some(_) => return Err(()),
             None => {
                 trial.params.insert(param.clone(), RValue::Literal(if truth { Literal::Boolean(true) } else { Literal::Nil }));
+                trial.truths.push(param.clone());
             }
         }
         trial.truth_folded = true;
@@ -4584,20 +4743,17 @@ fn recurse_into_closures(
     match rv {
         RValue::Closure(c) => {
             let fp = Arc::as_ptr(&c.function.0);
-            // The orphans this body kept aside are in scope in all of it.
-            let with_orphans: Vec<usize>;
-            let active = match newly.orphan_scopes.get(&Some(fp)) {
-                Some(orphans) => {
-                    with_orphans = active.iter().chain(orphans).copied().collect();
-                    &with_orphans
-                }
-                None => active,
-            };
+            let active = function_scope(active, targets, fp, newly);
+            let active = active.as_ref();
             let mut function = c.function.0.lock();
             let function = &mut *function;
             if let Some(lines) = &newly.lines {
                 lines.protos.borrow_mut().insert(fp, function.bytecode_proto_id);
             }
+            // A body no target's pattern is may be one copy whole (`function
+            // M.open(x) return activate("Open", x) end`): no helper can come
+            // back into it as its call.
+            let pattern = targets.iter().any(|t| t.func_ptr == fp);
             deinline_block(
                 &mut function.body.0,
                 targets,
@@ -4607,10 +4763,11 @@ fn recurse_into_closures(
                 &Enclosing::function(&function.parameters),
                 Some(fp),
                 true,
-                true,
+                pattern,
                 false,
                 newly,
             );
+            scan_orphan_bodies(&function.orphans, targets, decl_map, active, newly);
         }
         RValue::Call(c) => {
             recurse_into_closures(c.value.as_mut(), targets, decl_map, active, newly);
@@ -5114,6 +5271,10 @@ fn try_match_at(
         if t.lines.as_ref().is_some_and(|lines| lines.absent(current_func, t.proto)) {
             return Ok(None);
         }
+        // A function's whole body may be one call where line info shows a
+        // copy of the helper in it: Luau inlines no function into one it is
+        // inlined in, so no helper comes back into the other as its call.
+        let is_func_body_top = is_func_body_top && !t.lines.as_ref().is_some_and(|lines| lines.copies(current_func, t.proto) > 0);
         let mut hit = if seen_without_site {
             None
         } else if t.hosted_only {
@@ -7961,6 +8122,13 @@ fn finish_unified(
     if let Err(reason) = resolve_equations(t, &mut b, current_func) {
         return reason.and_then(refused);
     }
+    // A false truth a select kept the arm of is the argument a reader
+    // expects, as for an inferred one ([`falsy_argument`]).
+    for param in &b.truths {
+        if b.params.get(param).is_some_and(|value| matches!(value, RValue::Literal(Literal::Nil | Literal::Boolean(false)))) {
+            b.params.insert(param.clone(), RValue::Literal(falsy_argument(t, param)));
+        }
+    }
     // A specialization variant passes its constant, where nothing the
     // specialization kept (a function literal's capture) read the argument
     // the site passed instead.
@@ -8007,6 +8175,7 @@ fn finish_unified(
         .last()
         .is_some_and(|a| matches!(a, RValue::Literal(Literal::Nil)))
         && (t.unread.contains(&t.param_order[args.len() - 1])
+            || b.truths.contains(&t.param_order[args.len() - 1])
             || matches!(&t.inferred, Some((param, InferredTruth::Omitted)) if *param == t.param_order[args.len() - 1]))
     {
         args.pop();
@@ -8810,7 +8979,7 @@ fn try_inferred_constant(t: &Target, cwin: &[Statement], current_func: Option<Fn
         let truthy = try_truth(t, cwin, current_func, index, InferredTruth::True);
         // A flag passed last that only switches extra work on reads `nil`
         // alike: left out where `nil` gives the copy too ([`omittable`]).
-        let preferred = if optional || omittable(t, param) { InferredTruth::Nil } else { InferredTruth::False };
+        let preferred = if falsy_argument(t, param) == Literal::Nil { InferredTruth::Nil } else { InferredTruth::False };
         let other = if preferred == InferredTruth::Nil { InferredTruth::False } else { InferredTruth::Nil };
         let falsy = try_truth(t, cwin, current_func, index, preferred)
             .or_else(|| try_truth(t, cwin, current_func, index, other));
@@ -8920,6 +9089,14 @@ impl InferredTruth {
             InferredTruth::Nil | InferredTruth::Omitted => Literal::Nil,
         }
     }
+}
+
+/// The false argument a call passes for a truth parameter its copy kept no
+/// trace of: `nil`, left out when last, for an optional one or a flag that
+/// only switches extra work on ([`omittable`]); else `false`, what a reader
+/// expects of a setter (`setVisible(p, false)` for `visible and 0 or 1`).
+fn falsy_argument(t: &Target, param: &RcLocal) -> Literal {
+    if t.optional_params.contains(param) || omittable(t, param) { Literal::Nil } else { Literal::Boolean(false) }
 }
 
 /// Whether a constant `false` inferred for truth parameter `param` of `t`
@@ -9220,14 +9397,10 @@ fn seed_aligned(t: &Target, candidate: &[Statement]) -> Option<Bindings> {
     for (param, truth) in truths {
         if !b.params.contains_key(&param) {
             b.truths.push(param.clone());
-            let literal = if truth {
-                Literal::Boolean(true)
-            } else if t.optional_params.contains(&param) || omittable(t, &param) {
+            let literal = if truth { Literal::Boolean(true) } else { falsy_argument(t, &param) };
+            if literal == Literal::Nil {
                 b.left_out.push(param.clone());
-                Literal::Nil
-            } else {
-                Literal::Boolean(false)
-            };
+            }
             b.params.insert(param, RValue::Literal(literal));
         }
     }

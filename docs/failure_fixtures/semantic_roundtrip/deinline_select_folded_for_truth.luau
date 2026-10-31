@@ -1,7 +1,8 @@
 -- Copies Luau -O2 made of a helper whose select on a flag has call arms:
 -- `setStatus(text)` leaves the flag `nil`, so the copy keeps only the
 -- second arm (`label.Color = rgb(150, 255, 180)`); `setStatus(text, true)`
--- keeps `rgb(255, 120, 120) or rgb(150, 255, 180)`. Each is its call again.
+-- keeps `rgb(255, 120, 120) or rgb(150, 255, 180)`. Each is its call again,
+-- the left-out flag passed `false` as any setter's folded flag is.
 function rgb(r, g, b)
 	return r .. "," .. g .. "," .. b
 end

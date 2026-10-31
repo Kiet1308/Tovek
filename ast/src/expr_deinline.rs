@@ -174,7 +174,7 @@ fn run(body: &mut Block, arithmetic_only: bool) {
     }
     // What each literal captures, so no rewrite changes whether Luau shares
     // it (`literal_sharing`).
-    let _sharing = crate::literal_sharing::enter(body);
+    let _sharing = crate::literal_sharing::enter(body, &[]);
     // f_local -> its targets' indices (a helper and its evidence twin sit
     // side by side), so we recognise each helper's declaration during the
     // scan and only activate it for sites in its lexical scope.

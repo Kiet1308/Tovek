@@ -39,6 +39,9 @@ const LOOP_CAPTURE: &[u8] = include_bytes!("fixtures/deinline_loop_variable_capt
 const INTERLEAVED_DECLARATION: &[u8] = include_bytes!("fixtures/deinline_caller_declaration_inside_copy.luaubc");
 const JOINED_GUARDS: &[u8] = include_bytes!("fixtures/deinline_guards_joined_across_nested_copies.luaubc");
 const ARGUMENT_TEMP_INTO_HOST: &[u8] = include_bytes!("fixtures/deinline_argument_temp_into_host.luaubc");
+const LITERAL_ARGUMENT: &[u8] = include_bytes!("fixtures/deinline_literal_argument.luaubc");
+const LITERAL_ARGUMENT_UPVALUE: &[u8] = include_bytes!("fixtures/deinline_literal_argument_upvalue.luaubc");
+const LITERAL_ARGUMENT_TWINS: &[u8] = include_bytes!("fixtures/deinline_literal_argument_twins.luaubc");
 
 fn decompile(bytecode: &[u8]) -> String {
     luau_lifter::try_decompile_bytecode_with_options(bytecode, 1, None, Default::default())
@@ -170,8 +173,9 @@ fn a_store_folded_into_the_argument_constructor_is_a_call() {
 #[test]
 fn a_select_a_left_out_flag_folded_is_a_call() {
     let source = decompile(SELECT_FOLDED_FOR_TRUTH);
-    // `failed and rgb(...) or rgb(...)` kept as its second arm.
-    assert!(source.contains("\t\tsetStatus(\"ok\") -- inferred equivalent call\n"), "{source}");
+    // `failed and rgb(...) or rgb(...)` kept as its second arm: a setter's
+    // flag, passed `false` as an inferred one is.
+    assert!(source.contains("\t\tsetStatus(\"ok\", false) -- inferred equivalent call\n"), "{source}");
     assert!(source.contains("\t\tsetStatus(\"bad\", true) -- inferred equivalent call\n"), "{source}");
 }
 
@@ -430,4 +434,38 @@ fn an_argument_temp_goes_into_a_call_inside_an_expression() {
     assert!(source.contains("return math.max(v, 0, hashInt(p.Id, 7) % 10000 / 10000 - 0.5) * p2 -- inferred equivalent call
 "), "{source}");
     assert!(!source.contains("local id"), "{source}");
+}
+
+#[test]
+fn a_function_literal_argument_called_in_a_copy_is_passed_again() {
+    let source = decompile(LITERAL_ARGUMENT);
+    for call in ["\treturn activate(\"Garden\", function() -- inferred equivalent call\n\t\tprint(\"garden\", p)\n\t\treturn teleport(p) -- inferred equivalent call\n\tend)\n",
+        "\tlocal v = activate(\"Plot\", function() -- inferred equivalent call\n\t\tprint(\"plot\", p)\n"]
+    {
+        assert!(source.contains(call), "{call}\n{source}");
+    }
+}
+
+#[test]
+fn a_literal_argument_capturing_an_upvalue_is_passed_again() {
+    let source = decompile(LITERAL_ARGUMENT_UPVALUE);
+    for call in ["\t\treturn activate(\"Shop\", function() -- inferred equivalent call\n\t\t\treturn (teleportToNpc(\"Emilia\"))\n\t\tend)\n",
+        "\t\treturn activate(\"Pot\", function() -- inferred equivalent call\n"]
+    {
+        assert!(source.contains(call), "{call}\n{source}");
+    }
+}
+
+#[test]
+fn twin_literal_arguments_of_copies_inlined_twice_are_calls() {
+    let source = decompile(LITERAL_ARGUMENT_TWINS);
+    // Inside the handlers, and in the chunk's copies of them, where the
+    // twins are one shared constant (one binding).
+    for call in ["\t\treturn activate(\"Shop\", function() -- inferred equivalent call\n",
+        "\t\treturn activate(\"Pot\", function() -- inferred equivalent call\n",
+        "print(activate(\"Shop\", fn), activate(\"Pot\", function() -- inferred equivalent call\n",
+        "end), activate(\"Shop\", fn)) -- inferred equivalent call"]
+    {
+        assert!(source.contains(call), "{call}\n{source}");
+    }
 }

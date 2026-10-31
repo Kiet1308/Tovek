@@ -872,6 +872,21 @@ pub fn apply_local_map(function: &mut Function, local_map: FxHashMap<RcLocal, Rc
             *param = new_param.clone();
         }
     }
+    // The captures of the function literals kept aside (`Function::orphans`).
+    for (_, closure) in &mut function.orphans {
+        for capture in &mut closure.upvalues {
+            let (ast::Upvalue::Copy(local) | ast::Upvalue::Ref(local)) = capture;
+            if let Some(mut new) = local_map.get(local) {
+                for _ in 0..64 {
+                    match local_map.get(new) {
+                        Some(next) if next != new => new = next,
+                        _ => break,
+                    }
+                }
+                *local = new.clone();
+            }
+        }
+    }
     // TODO: blocks_mut
     for node in function.graph().node_indices().collect::<Vec<_>>() {
         let block = function.block_mut(node).unwrap();

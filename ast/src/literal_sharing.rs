@@ -18,6 +18,10 @@
 //! (fr-deinline 1). Each de-inliner asks [`admit`] before a rewrite, which
 //! refuses one that changes any literal's verdict under either debug level.
 //!
+//! A function literal Luau inlined every call of (`Function::orphans`)
+//! stands where its binder is read once a de-inliner rebuilds such a call:
+//! the literal's captures are read there.
+//!
 //! The census is taken when a de-inline pass starts ([`enter`]). At `-O0`
 //! every literal is new in the bytecode, but the output may be compiled at
 //! any level, so a rewrite must not change what it prints there either.
@@ -28,7 +32,7 @@ use parking_lot::Mutex;
 use rustc_hash::{FxHashMap, FxHashSet};
 use triomphe::Arc;
 
-use crate::{Block, Function, LocalRw, RValue, RcLocal, Statement};
+use crate::{Block, Closure, Function, LocalRw, RValue, RcLocal, Statement};
 
 type FnPtr = *const Mutex<Function>;
 
@@ -62,6 +66,8 @@ pub(crate) struct LiteralSharing {
     literals: FxHashMap<FnPtr, Literal>,
     declared: FxHashMap<RcLocal, Declared>,
     written: FxHashSet<RcLocal>,
+    /// The literal each orphan's binder stands for.
+    orphans: FxHashMap<RcLocal, FnPtr>,
 }
 
 thread_local! {
@@ -78,11 +84,12 @@ impl Drop for Scope {
     }
 }
 
-/// Takes the census of `body` for the de-inline pass about to run on it.
-pub(crate) fn enter(body: &Block) -> Scope {
+/// Takes the census of `body` (with the chunk's `orphans`) for the
+/// de-inline pass about to run on it.
+pub(crate) fn enter(body: &Block, orphans: &[(RcLocal, Closure)]) -> Scope {
     let census = {
         let _span = crate::telemetry::Span::new("LITERAL_SHARING_CENSUS");
-        LiteralSharing::of(body)
+        LiteralSharing::of(body, orphans)
     };
     Scope(STATE.with(|state| state.replace(Some(census))))
 }
@@ -213,6 +220,23 @@ impl Census<'_> {
         }
     }
 
+    /// The literals `scope` kept aside, each declared there once its binder
+    /// is read; made where the function runs, so perhaps more than once.
+    fn orphans(&mut self, orphans: &[(RcLocal, Closure)], scope: Option<FnPtr>) {
+        for (binder, closure) in orphans {
+            let orphan = Arc::as_ptr(&closure.function.0);
+            if !self.visited.insert(orphan) {
+                continue;
+            }
+            self.sharing.declared.insert(binder.clone(), Declared { home: scope, top_level: false, constant: false, literal: Some(orphan) });
+            self.sharing.orphans.insert(binder.clone(), orphan);
+            self.sharing.literals.insert(orphan, Literal { parent: scope, repeats: true, free: FxHashMap::default() });
+            let function = closure.function.0.lock();
+            self.function(&function.body, Some(orphan), &function.parameters);
+            self.orphans(&function.orphans, Some(orphan));
+        }
+    }
+
     fn block(&mut self, block: &Block, pointer: Option<FnPtr>, loops: usize, occurrences: &mut Vec<RcLocal>) {
         for statement in block.iter() {
             statement.visit_local_reads(&mut |local| {
@@ -268,6 +292,7 @@ impl Census<'_> {
                     self.sharing.literals.insert(child, Literal { parent: pointer, repeats, free: FxHashMap::default() });
                     let function = function.lock();
                     self.function(&function.body, Some(child), &function.parameters);
+                    self.orphans(&function.orphans, Some(child));
                 }
             }
             let inner = loops + usize::from(matches!(
@@ -284,11 +309,12 @@ impl Census<'_> {
 }
 
 impl LiteralSharing {
-    fn of(body: &Block) -> Self {
+    fn of(body: &Block, orphans: &[(RcLocal, Closure)]) -> Self {
         let mut sharing = LiteralSharing::default();
         let occurrences = {
             let mut census = Census { sharing: &mut sharing, occurrences: Vec::new(), visited: FxHashSet::default() };
             census.function(body, None, &[]);
+            census.orphans(orphans, None);
             census.occurrences
         };
         for (pointer, occurrences) in occurrences {
@@ -340,11 +366,18 @@ impl LiteralSharing {
     fn admit(&mut self, function: Option<FnPtr>, removed: &[RcLocal], added: &[RcLocal], local_to_rewrite: &FxHashSet<RcLocal>) -> bool {
         let Some(function) = function else { return true };
         let mut deltas: FxHashMap<&RcLocal, i64> = FxHashMap::default();
-        for local in added {
-            *deltas.entry(local).or_default() += 1;
-        }
-        for local in removed {
-            *deltas.entry(local).or_default() -= 1;
+        for (locals, sign) in [(added, 1), (removed, -1)] {
+            for local in locals {
+                *deltas.entry(local).or_default() += sign;
+                // An orphan's binder read: its literal's captures are.
+                if let Some(orphan) = self.orphans.get(local).and_then(|pointer| self.literals.get(pointer)) {
+                    for (capture, &count) in &orphan.free {
+                        if count > 0 {
+                            *deltas.entry(capture).or_default() += sign;
+                        }
+                    }
+                }
+            }
         }
         // The occurrence counts each changed local takes in each literal
         // from `function` out to the local's declaration.
@@ -448,7 +481,7 @@ mod tests {
             Assign::new(vec![selected.clone().into()], vec![RValue::Table(Default::default())]).into(),
             declare(&nested, outer),
         ]);
-        let mut sharing = LiteralSharing::of(&body);
+        let mut sharing = LiteralSharing::of(&body, &[]);
         let none = FxHashSet::default();
         assert!(!sharing.admit(Some(inner_ptr), &[selected.clone()], &[read.clone()], &none));
         // A rewrite keeping a written capture keeps it new.
@@ -475,7 +508,7 @@ mod tests {
         let (top_literal, _) = literal(vec![], vec![]);
         let outer_binder = local("outer");
         let body = Block(vec![declare(&top, top_literal), declare(&outer_binder, outer)]);
-        let mut sharing = LiteralSharing::of(&body);
+        let mut sharing = LiteralSharing::of(&body, &[]);
         let none = FxHashSet::default();
         assert!(!sharing.admit(Some(inner_ptr), &[], &[step.clone()], &none));
         assert!(sharing.admit(Some(inner_ptr), &[], &[top.clone()], &none));

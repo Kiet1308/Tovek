@@ -1301,11 +1301,11 @@ pub fn inline_with_readonly_captures(
                             let keep_const_table =
                                 matches!(rvalue, ast::RValue::Table(t) if !t.0.is_empty());
                             if !keep_named_closure && !keep_can_raise && !keep_const_table {
-                                // An anonymous function literal capturing nothing that
-                                // Luau inlined everywhere: kept aside for the de-inliner,
+                                // An anonymous function literal Luau inlined everywhere
+                                // (a callback a copy called in place, `activate(key,
+                                // function() ... end)`): kept aside for the de-inliner,
                                 // where it counts as no use (`ast::deinline` orphans).
                                 if let ast::RValue::Closure(closure) = rvalue
-                                    && closure.upvalues.is_empty()
                                     && closure.function.lock().inlined_by_compiler
                                 {
                                     orphans.push((local.clone(), closure.clone()));

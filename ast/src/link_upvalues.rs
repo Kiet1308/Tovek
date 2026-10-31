@@ -16,6 +16,31 @@ pub fn link_upvalues(body: &mut Block, upvalues: &mut Inputs) {
     link_block(body, upvalues, &FxHashMap::default(), &mut FxHashMap::default());
 }
 
+/// [`link_upvalues`] for the function literals a function kept aside, Luau
+/// having inlined every call of them ([`Function::orphans`]): their captures
+/// are locals of that function, as `locals` renames them, and their bodies
+/// read them.
+pub fn link_orphans(orphans: &mut [(RcLocal, crate::Closure)], upvalues: &mut Inputs) {
+    link_orphan_list(orphans, upvalues, &FxHashMap::default(), &mut FxHashMap::default());
+}
+
+fn link_orphan_list(
+    orphans: &mut [(RcLocal, crate::Closure)],
+    upvalues: &mut Inputs,
+    locals: &FxHashMap<RcLocal, RcLocal>,
+    linked: &mut Linked,
+) {
+    for (_, closure) in orphans {
+        for capture in &mut closure.upvalues {
+            let (Upvalue::Copy(local) | Upvalue::Ref(local)) = capture;
+            replace(local, locals);
+        }
+        // Its body may read the function's own inputs: those Luau's inlining
+        // gave it in place of its captures.
+        link_closure(closure, upvalues, locals, linked);
+    }
+}
+
 /// The captures each function body was linked to, by function.
 type Linked = FxHashMap<ByAddress<Arc<Mutex<Function>>>, Vec<RcLocal>>;
 
@@ -58,18 +83,31 @@ fn link_block(body: &mut Block, upvalues: &mut Inputs, locals: &FxHashMap<RcLoca
                     return;
                 }
                 linked.insert(closure.function.clone(), captures);
-                // A function the lifter wrote itself, already in source form,
-                // has no bytecode inputs.
-                let inputs = upvalues.get(&closure.function).map_or(&[][..], Vec::as_slice);
-                let locals = inputs.iter().zip(&closure.upvalues).map(|(old, capture)| {
-                    let (Upvalue::Copy(new) | Upvalue::Ref(new)) = capture;
-                    (old.clone(), new.clone())
-                }).collect();
-                link_block(&mut closure.function.lock().body, upvalues, &locals, linked);
+                link_closure(closure, upvalues, &FxHashMap::default(), linked);
             }
         });
         visit_blocks(statement, |block| link_block(block, upvalues, locals, linked));
     }
+}
+
+/// Links the body of `closure`'s function to its captures (and to `outer`,
+/// renames of locals around it the body reads), and the literals it kept
+/// aside to its locals.
+fn link_closure(closure: &mut crate::Closure, upvalues: &mut Inputs, outer: &FxHashMap<RcLocal, RcLocal>, linked: &mut Linked) {
+    // A function the lifter wrote itself, already in source form, has no
+    // bytecode inputs.
+    let inputs = upvalues.get(&closure.function).map_or(&[][..], Vec::as_slice);
+    let mut locals: FxHashMap<RcLocal, RcLocal> = inputs.iter().zip(&closure.upvalues).map(|(old, capture)| {
+        let (Upvalue::Copy(new) | Upvalue::Ref(new)) = capture;
+        (old.clone(), new.clone())
+    }).collect();
+    for (old, new) in outer {
+        locals.entry(old.clone()).or_insert_with(|| new.clone());
+    }
+    link_block(&mut closure.function.lock().body, upvalues, &locals, linked);
+    let mut orphans = std::mem::take(&mut closure.function.lock().orphans);
+    link_orphan_list(&mut orphans, upvalues, &locals, linked);
+    closure.function.lock().orphans = orphans;
 }
 
 fn replace(local: &mut RcLocal, locals: &FxHashMap<RcLocal, RcLocal>) {

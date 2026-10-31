@@ -1123,6 +1123,7 @@ fn decompile_bytecode_internal(
             {
                 ptime!(S_LINK_UPVALUES);
                 link_upvalues(&mut body, &mut upvalues);
+                ast::link_upvalues::link_orphans(&mut chunk_orphans, &mut upvalues);
                 // Copies of one shared closure constant its cache makes anew
                 // on every run, then literals whose captured constant Luau
                 // folded, read it again.
@@ -2572,8 +2573,6 @@ fn decompile_function(
             function: function_identity, message: "CFG simplification exceeded its size-derived iteration budget".into(),
         }), function.provenance.take());
     }
-    // The orphans the SSA inliner kept aside go to the de-inliner.
-    ast_function.lock().orphans = std::mem::take(&mut function.orphans);
     // Values that took a passed cell's place in cleanup are its versions too.
     let adopted_captures = upvalue_to_group.iter()
         .filter(|(local, cell)| local_capture_bindings.contains(*cell) && !local_capture_bindings.contains(*local))
@@ -2604,6 +2603,9 @@ fn decompile_function(
         .with_live_self_updates(live_self_updates)
         .destruct();
     }
+    // The orphans the SSA inliner kept aside go to the de-inliner, their
+    // captures renamed as the body's locals.
+    ast_function.lock().orphans = std::mem::take(&mut function.orphans);
     // Freeze the trace before speculative structuring clones the CFG. This
     // history contains IDs/strings only and must never keep locals alive.
     if function.provenance.is_some() {
