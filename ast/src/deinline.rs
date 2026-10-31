@@ -2840,6 +2840,55 @@ fn interleaved_declaration(stmts: &[Statement], i: usize) -> Option<usize> {
     (i + 1..=(i + 2).min(stmts.len().saturating_sub(2))).find(|&at| plain_declaration(&stmts[at]))
 }
 
+/// The most statements past a copy a literal result of it may be declared
+/// ([`distant_literal_results`]).
+const LITERAL_RESULT_DISTANCE: usize = 16;
+
+/// For each target in `ordered` whose pattern ends declaring a returned
+/// local with a literal, where its copy starting at `i` would end without
+/// that declaration: the index right after the copy and a later `local y
+/// = <that literal>` no statement between reads.
+fn distant_literal_results(stmts: &[Statement], i: usize, ordered: &[usize], targets: &[Target]) -> Vec<(usize, usize)> {
+    let mut found: Vec<(usize, usize)> = Vec::new();
+    for &index in ordered {
+        let t = &targets[index];
+        let Some(Statement::Assign(last)) = t.pat.last() else { continue };
+        let ([LValue::Local(result)], [RValue::Literal(literal)]) = (last.left.as_slice(), last.right.as_slice()) else { continue };
+        if !last.prefix || !t.returns.contains(result) {
+            continue;
+        }
+        // Right after the copy's statements before that declaration.
+        let mut end = i;
+        let mut left = t.pat.len() - 1;
+        while left > 0 && end < stmts.len() {
+            if !is_match_trivia(&stmts[end]) {
+                left -= 1;
+            }
+            end += 1;
+        }
+        if left > 0 || end >= stmts.len() {
+            continue;
+        }
+        let declares = |statement: &Statement| {
+            matches!(statement, Statement::Assign(declaration)
+                if declaration.prefix
+                    && !declaration.parallel
+                    && matches!(declaration.left.as_slice(), [LValue::Local(_)])
+                    && matches!(declaration.right.as_slice(), [RValue::Literal(value)] if value == literal))
+        };
+        if declares(&stmts[end]) {
+            continue;
+        }
+        let Some(at) = (end + 1..stmts.len().min(end + 1 + LITERAL_RESULT_DISTANCE)).find(|&at| declares(&stmts[at])) else { continue };
+        let Statement::Assign(declaration) = &stmts[at] else { unreachable!() };
+        let LValue::Local(local) = &declaration.left[0] else { unreachable!() };
+        if count_local_reads(&stmts[end..at], local) == 0 && !found.contains(&(end, at)) {
+            found.push((end, at));
+        }
+    }
+    found
+}
+
 /// The reads of `local` inside `value` below its root.
 fn arg_nested_reads(value: &RValue, local: &RcLocal) -> usize {
     let mut count = 0;
@@ -4639,6 +4688,45 @@ fn deinline_block(
                         continue;
                     }
                 }
+            }
+        }
+        // A helper's literal result the SSA declared further down (`local
+        // size, cframe, depth = setupFlag(flags1)` whose `0.745` is declared
+        // after the next copy): the declaration is tried right after the
+        // copy, where it stays only with the call. Nothing between reads it.
+        if found.is_none() && holds_copies {
+            for (end, at) in distant_literal_results(stmts, i, &ordered, targets) {
+                let declaration = stmts.remove(at);
+                stmts.insert(end, declaration);
+                last_occ.index = None;
+                canon_cache.spliced(stmts, end, at + 1 - end, at + 1 - end);
+                let retried = try_match_at(
+                    stmts,
+                    i,
+                    anchor,
+                    targets,
+                    &ordered,
+                    &rivals,
+                    newly,
+                    splices_before,
+                    current_func,
+                    is_func_tail,
+                    is_func_body_top,
+                    outer_continuation,
+                    loop_tail,
+                    &mut last_occ,
+                    &mut canon_cache,
+                );
+                if let Some(hit) = retried
+                    && !(hit.evidence && matches!(round, EvidenceRound::Probe))
+                {
+                    found = Some((hit, None));
+                    break;
+                }
+                let declaration = stmts.remove(end);
+                stmts.insert(at, declaration);
+                last_occ.index = None;
+                canon_cache.spliced(stmts, end, at + 1 - end, at + 1 - end);
             }
         }
         // Guards SSA joined: a copy's own may be the last ones (`if c and c ~=

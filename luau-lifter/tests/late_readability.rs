@@ -43,6 +43,7 @@ const LITERAL_ARGUMENT: &[u8] = include_bytes!("fixtures/deinline_literal_argume
 const LITERAL_ARGUMENT_UPVALUE: &[u8] = include_bytes!("fixtures/deinline_literal_argument_upvalue.luaubc");
 const LITERAL_ARGUMENT_TWINS: &[u8] = include_bytes!("fixtures/deinline_literal_argument_twins.luaubc");
 const TUPLE_THROUGH_BRANCHES: &[u8] = include_bytes!("fixtures/deinline_tuple_through_branches.luaubc");
+const TUPLE_LITERAL_RESULT_LATER: &[u8] = include_bytes!("fixtures/deinline_tuple_literal_result_declared_later.luaubc");
 
 fn decompile(bytecode: &[u8]) -> String {
     luau_lifter::try_decompile_bytecode_with_options(bytecode, 1, None, Default::default())
@@ -476,4 +477,11 @@ fn a_tuple_through_branches_with_a_result_declared_in_one_is_a_call() {
     let source = decompile(TUPLE_THROUGH_BRANCHES);
     assert_eq!(source.matches("= parseOptionalPositiveInteger(").count(), 3, "{source}");
     assert!(source.contains("\tlocal optionalPositiveInteger, v = parseOptionalPositiveInteger(p) -- inferred equivalent call\n"), "{source}");
+}
+
+#[test]
+fn a_tuple_literal_result_declared_further_down_goes_with_its_call() {
+    let source = decompile(TUPLE_LITERAL_RESULT_LATER);
+    assert!(source.contains("local size, offset, v3 = setupFlag(v) -- inferred equivalent call\nlocal size2, offset2, v4 = setupFlag(v2) -- inferred equivalent call\n"), "{source}");
+    assert!(!source.contains("= 0.745\n"), "{source}");
 }
