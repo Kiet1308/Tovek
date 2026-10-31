@@ -2690,6 +2690,22 @@ fn interleaved_declaration(stmts: &[Statement], i: usize) -> Option<usize> {
     (i + 1..=(i + 2).min(stmts.len().saturating_sub(2))).find(|&at| plain_declaration(&stmts[at]))
 }
 
+/// The reads of `local` inside `value` below its root.
+fn arg_nested_reads(value: &RValue, local: &RcLocal) -> usize {
+    let mut count = 0;
+    value.visit_rvalues(&mut |child| {
+        count += usize::from(matches!(child, RValue::Local(read) if read == local)) + arg_nested_reads(child, local);
+        true
+    });
+    count
+}
+
+/// `local z = <value>` of one local.
+fn is_initialized_declaration(statement: &Statement) -> bool {
+    matches!(statement, Statement::Assign(declaration)
+        if declaration.prefix && !declaration.parallel && declaration.left.len() == 1 && declaration.right.len() == 1)
+}
+
 /// For an `if` with no `else` whose condition is `and`ed (`a and b and c`):
 /// each split into the first conditions and the `if` of the others with its
 /// block, the latter widest first (`(a, if b and c then S end)`, `(a and b,
@@ -4293,10 +4309,16 @@ fn deinline_block(
             && !(is_func_body_top && i == 0)
             && let Some(at) = interleaved_declaration(stmts, i)
         {
+            // Above the temps of the arguments the copy takes in too (`local
+            // id = record.Id`): declarations right before it.
+            let mut to = i;
+            while to > 0 && i - to < 3 && is_initialized_declaration(&stmts[to - 1]) {
+                to -= 1;
+            }
             let declaration = stmts.remove(at);
-            stmts.insert(i, declaration);
+            stmts.insert(to, declaration);
             last_occ.index = None;
-            canon_cache.spliced(stmts, i, at + 1 - i, at + 1 - i);
+            canon_cache.spliced(stmts, to, at + 1 - to, at + 1 - to);
             let next = (i + 1..stmts.len()).find(|&k| !matches!(stmts[k], Statement::Empty(_))).unwrap_or(stmts.len());
             let retried = try_match_at(
                 stmts,
@@ -4317,15 +4339,22 @@ fn deinline_block(
             );
             match retried {
                 Some(hit) if !(hit.evidence && matches!(round, EvidenceRound::Probe)) => {
+                    // Right before the temps the call takes in, no higher.
+                    let below = i - hit.absorbed.min(i - to);
+                    if below > to {
+                        let declaration = stmts.remove(to);
+                        stmts.insert(below, declaration);
+                        canon_cache.spliced(stmts, to, below + 1 - to, below + 1 - to);
+                    }
                     i += 1;
                     anchor = next;
                     found = Some((hit, None));
                 }
                 other => {
-                    let declaration = stmts.remove(i);
+                    let declaration = stmts.remove(to);
                     stmts.insert(at, declaration);
                     last_occ.index = None;
-                    canon_cache.spliced(stmts, i, at + 1 - i, at + 1 - i);
+                    canon_cache.spliced(stmts, to, at + 1 - to, at + 1 - to);
                     if let Some(hit) = other {
                         newly.probed.entry((current_func, hit.f_local.clone())).or_insert((0, hit.proto)).0 += hit.shaped;
                         i += hit.consume + 1;
@@ -4921,6 +4950,11 @@ struct Hit {
     shaped: usize,
     /// [`Target::read_arity`] of the helper.
     read_arity: usize,
+    /// Where `host` holds the call ([`match_embedded_value`]): every value
+    /// it evaluates before the call is a literal, a constant import or a
+    /// local no other code writes, so an argument's expression may move into
+    /// the call past them ([`absorb_arguments`]).
+    host_inert: bool,
 }
 
 impl Hit {
@@ -4945,6 +4979,7 @@ impl Hit {
             placeholder: None,
             mode: "",
             single_valued: t.single_valued,
+            host_inert: false,
             partial: None,
             evidence: t.evidence,
             proto: t.proto,
@@ -6099,8 +6134,21 @@ fn absorb_arguments(
     // unless it holds the call first of all it evaluates
     // (`Hit::placeholder`).
     let into_host = hit.placeholder.is_some();
-    let mut below = if hit.host.is_some() && !into_host { 0 } else { hit.first_moved.unwrap_or(usize::MAX) };
-    let host_reads = |local: &RcLocal| hit.host.as_ref().is_some_and(|host| count_local_reads(std::slice::from_ref(host), local) > 0);
+    // Past values that nothing an argument's expression runs can change
+    // (`math.max(v, 0, hashInt(record.Id, 7))`, where Luau evaluated
+    // `record.Id` after `v` and `0` too), the temps go in as well.
+    let mut below = if hit.host.is_some() && !into_host && !hit.host_inert { 0 } else { hit.first_moved.unwrap_or(usize::MAX) };
+    // Reads of the host's own, the arguments of the call it holds aside.
+    let host_reads = |local: &RcLocal| {
+        hit.host.as_ref().is_some_and(|host| {
+            let in_call = if into_host {
+                0
+            } else {
+                hit.args.iter().map(|arg| usize::from(matches!(arg, RValue::Local(read) if read == local)) + arg_nested_reads(arg, local)).sum()
+            };
+            count_local_reads(std::slice::from_ref(host), local) > in_call
+        })
+    };
     while let Some(k) = (0..start).rev().find(|&k| !is_match_trivia(&stmts[k])) {
         let Statement::Assign(declaration) = &stmts[k] else { break };
         let ([LValue::Local(local)], [init]) = (declaration.left.as_slice(), declaration.right.as_slice()) else { break };
@@ -6164,8 +6212,30 @@ fn absorb_arguments(
     // after: the call is for its effects only.
     let result_taken = result.as_ref().is_some_and(|result| taken.iter().any(|(_, local, _)| local == result));
     let taken_at: Vec<usize> = taken.iter().map(|(at, ..)| *at).collect();
+    let found_args = hit.args.clone();
     for (at, _, init) in taken {
         hit.args[at] = crate::untruncated(init);
+    }
+    // The host holds the call already: its arguments too.
+    if !taken_at.is_empty()
+        && !into_host
+        && let Some(host) = &mut hit.host
+    {
+        let (f_local, args) = (hit.f_local.clone(), hit.args.clone());
+        let mut replaced = false;
+        host.traverse_rvalues(&mut |value| {
+            if let RValue::Call(call) | RValue::Select(Select::Call(call)) = value
+                && !replaced
+                && matches!(call.value.as_ref(), RValue::Local(callee) if *callee == f_local)
+                && args_vec_eq(&call.arguments, &found_args)
+            {
+                call.arguments = args.clone();
+                replaced = true;
+            }
+        });
+        if !replaced {
+            return refused("hosted_call_not_found");
+        }
     }
     for &at in hit.written.iter().filter(|at| !taken_at.contains(at)) {
         let Some(RValue::Local(local)) = hit.args.get(at) else { return refused("written_parameter_unbound") };
@@ -6590,6 +6660,7 @@ fn match_embedded_value(
     });
     let function = current_func.map(|function| function as usize);
     let register = |local: &RcLocal| t.captures.register_of(local, function);
+    let mut inert = false;
     let changed_by_prefix = |read: &Earlier| match read {
         Earlier::Value(RValue::Literal(_)) => false,
         Earlier::Value(value @ RValue::Local(local)) => {
@@ -6632,6 +6703,11 @@ fn match_embedded_value(
             && !t.single_valued
             && matches!(value, RValue::Select(Select::Call(_) | Select::MethodCall(_)));
         replaced = value_nodes(value).saturating_sub(u.args.iter().map(value_nodes).sum());
+        inert = evaluated_before.iter().all(|read| match read {
+            Earlier::Value(RValue::Literal(_)) => true,
+            Earlier::Value(value @ RValue::Local(_)) => t.captures.stable_at(value, function),
+            Earlier::Value(value) => t.captures.constant_import(value),
+        });
         *value = hosted_call(t, u.args.clone(), wrap);
         found = Some(u);
         true
@@ -6645,7 +6721,7 @@ fn match_embedded_value(
     if !host_locals.is_disjoint(&u.callee_locals) || tail_has_live(last_occ, stmts, i, d + 1, &u.callee_locals) {
         return None;
     }
-    Some(Hit { host: Some(host), partial: Some(replaced), ..Hit::call(t, d + 1 - i, u, Vec::new()) })
+    Some(Hit { host: Some(host), partial: Some(replaced), host_inert: inert, ..Hit::call(t, d + 1 - i, u, Vec::new()) })
 }
 
 /// [`Target::hosted`]: the `V` of a `return V` pattern, when it pins its
@@ -16816,7 +16892,9 @@ mod tests {
         ]);
         deinline(&mut block);
         let output = block.to_string();
-        assert!(output.contains("print(f(v, true))"), "{output}");
+        // `local v = input` goes into the call: `print` before it is a
+        // constant import, which nothing `input` runs can change.
+        assert!(output.contains("print(f(input, true))"), "{output}");
     }
 
     #[test]

@@ -38,6 +38,7 @@ const SEEDED_CONSTANTS: &[u8] = include_bytes!("fixtures/deinline_seeded_constan
 const LOOP_CAPTURE: &[u8] = include_bytes!("fixtures/deinline_loop_variable_captured.luaubc");
 const INTERLEAVED_DECLARATION: &[u8] = include_bytes!("fixtures/deinline_caller_declaration_inside_copy.luaubc");
 const JOINED_GUARDS: &[u8] = include_bytes!("fixtures/deinline_guards_joined_across_nested_copies.luaubc");
+const ARGUMENT_TEMP_INTO_HOST: &[u8] = include_bytes!("fixtures/deinline_argument_temp_into_host.luaubc");
 
 fn decompile(bytecode: &[u8]) -> String {
     luau_lifter::try_decompile_bytecode_with_options(bytecode, 1, None, Default::default())
@@ -421,4 +422,12 @@ fn guards_joined_across_nested_copies_are_calls() {
 "), "{source}");
     assert!(source.contains("	addContentId(v, p) -- inferred equivalent call
 "), "{source}");
+}
+
+#[test]
+fn an_argument_temp_goes_into_a_call_inside_an_expression() {
+    let source = decompile(ARGUMENT_TEMP_INTO_HOST);
+    assert!(source.contains("return math.max(v, 0, hashInt(p.Id, 7) % 10000 / 10000 - 0.5) * p2 -- inferred equivalent call
+"), "{source}");
+    assert!(!source.contains("local id"), "{source}");
 }
