@@ -230,25 +230,6 @@ fn local_is_conditionally_evaluated(
 /// `name_locals` can give a meaningful name (GetService -> PascalCase service,
 /// require -> module base name). Refusing to inline is always semantics-preserving:
 /// the value is still computed once, read once, in the same position.
-/// Never forward a table constructor into the BASE of an index write
-/// (`local t = {}; t.k = v` -> `({}).k = v`): the write would land on a
-/// temporary nobody can read, deleting the field (a dead `Handlers.Formatter =
-/// function … end` table lost its closures this way). The
-/// `t = {} t.a = 1` -> `t = { a = 1 }` fold reconstructs the constructor instead.
-fn forwards_table_into_index_write(
-    new_rvalue: &ast::RValue,
-    use_stat: &ast::Statement,
-    local: &ast::RcLocal,
-) -> bool {
-    matches!(new_rvalue, ast::RValue::Table(_))
-        && use_stat.as_assign().is_some_and(|a| {
-            a.left.iter().any(|l| {
-                matches!(l, ast::LValue::Index(i)
-                    if matches!(i.left.as_ref(), ast::RValue::Local(x) if x == local))
-            })
-        })
-}
-
 /// Never forward a single-result call into the iterator of generalized
 /// iteration (`local t = f(); for k, v in t do`). The two nils after it are
 /// VM protocol, not source, and are dropped when structuring; `for k, v in
@@ -592,7 +573,7 @@ impl<'a> Inliner<'a> {
                                 if c.function.lock().retain_for_reconstruction)
                         {
                             if let Ok(ast::LValue::Local(local)) = &assign.left.iter().exactly_one()
-                                && !forwards_table_into_index_write(new_rvalue, &block[index], local)
+                                && !ast::inline_temps::forwards_table_into_prefix(new_rvalue, &block[index], local)
                                 && !forwards_call_into_generalized_iteration(new_rvalue, &block[index], local)
                                 && !forwards_cell_into_late_read(new_rvalue, &block[index], local, |cell| {
                                     self.upvalue_to_group.contains_key(cell)

@@ -90,6 +90,8 @@ fn a_function_literal_writing_captured_parameters_is_its_factory_call() {
     {
         assert!(source.contains(call), "{call}\n{source}");
     }
+    // The module table is called through, not inlined: no `({ ... }).Init()`.
+    assert!(source.contains("\nlocal v3 = v2.Init()\n"), "{source}");
 }
 
 #[test]

@@ -653,6 +653,9 @@ fn inline_at(block: &mut Block, index: usize, use_index: usize, facts: &MotionFa
     if named_table && !is_declarative_table_use(&block.0[use_index], &local) {
         return false;
     }
+    if forwards_table_into_prefix(replacement, &block.0[use_index], &local) {
+        return false;
+    }
     if spreads_into_iterator(&block.0[use_index], &local, replacement) {
         return false;
     }
@@ -819,6 +822,34 @@ fn is_named_field_store_use(statement: &Statement, local: &RcLocal) -> bool {
     let mut field = false;
     for_each_inlineable_direct_rvalue(statement, &mut |value| field |= in_constructor(value, local));
     store || field
+}
+
+/// Whether moving `replacement` into `statement` puts a table constructor
+/// where it reads badly or breaks: the base of an index write (`local t =
+/// {}; t.k = v` -> `({}).k = v`) stores to a temporary nobody can read,
+/// deleting the field (the `t = {} t.a = 1` -> `t = { a = 1 }` fold builds
+/// the constructor instead); a callee or receiver, also through one of its
+/// fields, reads worse than the binding (`({ Init = function() ... end
+/// }).Init()`). A lookup stays (`({ Gold = "G", Exp = "E" })[kind]`).
+pub fn forwards_table_into_prefix(replacement: &RValue, statement: &Statement, local: &RcLocal) -> bool {
+    if !matches!(replacement, RValue::Table(_)) {
+        return false;
+    }
+    let read = |value: &RValue| matches!(value, RValue::Local(read) if read == local);
+    let called = |callee: &RValue| read(callee) || matches!(callee, RValue::Index(index) if read(&index.left));
+    let mut found = match statement {
+        Statement::Call(call) => called(&call.value),
+        Statement::MethodCall(call) => read(&call.value),
+        _ => false,
+    } || statement.lvalues().iter().any(|left| matches!(left, LValue::Index(index) if read(&index.left)));
+    statement.traverse_rvalues_ref(&mut |value| {
+        found |= match value {
+            RValue::Call(call) | RValue::Select(Select::Call(call)) => called(&call.value),
+            RValue::MethodCall(call) | RValue::Select(Select::MethodCall(call)) => read(&call.value),
+            _ => false,
+        };
+    });
+    found
 }
 
 fn is_call_callee_use(statement: &Statement, local: &RcLocal) -> bool {
