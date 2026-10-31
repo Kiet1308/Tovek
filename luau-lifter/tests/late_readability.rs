@@ -49,6 +49,7 @@ const NEGATED_COMPARISON: &[u8] = include_bytes!("fixtures/expr_deinline_negated
 const SPECIALIZED_RETURNED_VALUE: &[u8] = include_bytes!("fixtures/deinline_specialized_returned_value.luaubc");
 const INTERPOLATED_CONSTANT_STRINGS: &[u8] = include_bytes!("fixtures/deinline_interpolated_constant_strings.luaubc");
 const GUARDED_TAIL_AND_TABLES: &[u8] = include_bytes!("fixtures/deinline_guarded_tail_and_table_arguments.luaubc");
+const TUPLE_FLIPPED_GUARD: &[u8] = include_bytes!("fixtures/deinline_tuple_flipped_guard.luaubc");
 
 fn decompile(bytecode: &[u8]) -> String {
     luau_lifter::try_decompile_bytecode_with_options(bytecode, 1, None, Default::default())
@@ -536,4 +537,10 @@ fn a_guarded_tail_table_arguments_and_a_kept_result_are_calls() {
     {
         assert!(source.contains(call), "{call}\n{source}");
     }
+}
+
+#[test]
+fn a_tuple_copy_keeping_its_guard_turned_over_is_a_call() {
+    let source = decompile(TUPLE_FLIPPED_GUARD);
+    assert_eq!(source.matches("local v, v2 = parse(value) -- inferred equivalent call\n").count(), 2, "{source}");
 }

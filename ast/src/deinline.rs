@@ -3818,8 +3818,9 @@ fn unify_stmt(t: &Target, p: &Statement, c: &Statement, b: &mut Bindings) -> Res
         // all conditions; `cond_exact_invertible` (now always true) is kept as the
         // documented gate point. Gated to Value targets so the void matches keep
         // their original clone-free path.
-        // A discard target keeps its value helper's guards (`discard_body`).
-        (Statement::If(pf), Statement::If(cf)) if t.kind == TKind::Value || t.discarded => {
+        // A discard target keeps its value helper's guards (`discard_body`),
+        // a tuple target its returns' (`branch_tuple_return`).
+        (Statement::If(pf), Statement::If(cf)) if t.kind == TKind::Value || t.discarded || !t.returns.is_empty() => {
             let mut bd = b.clone();
             let direct = unify_rvalue(&ctx, &pf.condition, &cf.condition, &mut bd)
                 .and_then(|_| {
