@@ -42,6 +42,7 @@ const ARGUMENT_TEMP_INTO_HOST: &[u8] = include_bytes!("fixtures/deinline_argumen
 const LITERAL_ARGUMENT: &[u8] = include_bytes!("fixtures/deinline_literal_argument.luaubc");
 const LITERAL_ARGUMENT_UPVALUE: &[u8] = include_bytes!("fixtures/deinline_literal_argument_upvalue.luaubc");
 const LITERAL_ARGUMENT_TWINS: &[u8] = include_bytes!("fixtures/deinline_literal_argument_twins.luaubc");
+const TUPLE_THROUGH_BRANCHES: &[u8] = include_bytes!("fixtures/deinline_tuple_through_branches.luaubc");
 
 fn decompile(bytecode: &[u8]) -> String {
     luau_lifter::try_decompile_bytecode_with_options(bytecode, 1, None, Default::default())
@@ -468,4 +469,11 @@ fn twin_literal_arguments_of_copies_inlined_twice_are_calls() {
     {
         assert!(source.contains(call), "{call}\n{source}");
     }
+}
+
+#[test]
+fn a_tuple_through_branches_with_a_result_declared_in_one_is_a_call() {
+    let source = decompile(TUPLE_THROUGH_BRANCHES);
+    assert_eq!(source.matches("= parseOptionalPositiveInteger(").count(), 3, "{source}");
+    assert!(source.contains("\tlocal optionalPositiveInteger, v = parseOptionalPositiveInteger(p) -- inferred equivalent call\n"), "{source}");
 }

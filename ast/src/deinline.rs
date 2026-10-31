@@ -3396,10 +3396,129 @@ fn unify_block(
             _ => Err(()),
         };
     }
-    for (p, c) in pat.iter().zip(cand) {
+    let cand = order_stores_like(pat, cand, b);
+    unify_statements(t, pat, &cand, b)
+}
+
+/// The most locals a declaration bound as a set may have ([`unify_statements`]).
+const MAX_JOINT_DECLARATION: usize = 4;
+
+/// [`unify_block`]'s pairwise walk. A declaration of several locals
+/// without values binds them as a set, in the order the rest of the block
+/// unifies with: the copy's declarer orders them its own way (`local err,
+/// count` for a helper's `count, err`).
+fn unify_statements(t: &Target, pat: &[Statement], cand: &[Statement], b: &mut Bindings) -> Result<(), ()> {
+    for (index, (p, c)) in pat.iter().zip(cand).enumerate() {
+        if let (Some(pattern), Some(site)) = (bare_declaration(p), bare_declaration(c))
+            && pattern.len() > 1
+            && pattern.len() == site.len()
+            && pattern.len() <= MAX_JOINT_DECLARATION
+        {
+            let ctx = t.ctx();
+            let (pattern, site): (Vec<&RcLocal>, Vec<&RcLocal>) =
+                (pattern.iter().filter_map(LValue::as_local).collect(), site.iter().filter_map(LValue::as_local).collect());
+            for order in permutations(site.len()) {
+                let mut trial = b.clone();
+                if pattern.iter().zip(&order).all(|(local, &at)| unify_local(&ctx, local, site[at], &mut trial).is_ok()) {
+                    let rest = order_stores_like(&pat[index + 1..], &cand[index + 1..], &trial);
+                    if unify_statements(t, &pat[index + 1..], &rest, &mut trial).is_ok() {
+                        *b = trial;
+                        return Ok(());
+                    }
+                }
+            }
+            return Err(());
+        }
         unify_stmt(t, p, c, b)?;
     }
     Ok(())
+}
+
+/// Every order of `0..n`, the identity first.
+fn permutations(n: usize) -> Vec<Vec<usize>> {
+    if n == 0 {
+        return vec![Vec::new()];
+    }
+    let mut out = Vec::new();
+    for rest in permutations(n - 1) {
+        for at in (0..=rest.len()).rev() {
+            let mut order = rest.clone();
+            order.insert(at, n - 1);
+            out.push(order);
+        }
+    }
+    out
+}
+
+/// `cand` with each run of stores into locals put in the order the
+/// pattern's run stores into the locals bound to its own: the copy stores
+/// a helper's results in its own order (`return nil, nil`), which nothing
+/// tells apart where every value is a literal or a local no store of the
+/// run writes.
+fn order_stores_like<'a>(pat: &[Statement], cand: &'a [Statement], b: &Bindings) -> std::borrow::Cow<'a, [Statement]> {
+    fn store(statement: &Statement) -> Option<(&RcLocal, &RValue)> {
+        match statement {
+            Statement::Assign(store) if !store.prefix && !store.parallel && !store.compound => match (store.left.as_slice(), store.right.as_slice()) {
+                ([LValue::Local(local)], [value]) => Some((local, value)),
+                _ => None,
+            },
+            _ => None,
+        }
+    }
+    let mut out: Option<Vec<Statement>> = None;
+    let mut start = 0;
+    while start < pat.len().min(cand.len()) {
+        let mut end = start;
+        while end < pat.len().min(cand.len()) && store(&pat[end]).is_some() && store(&cand[end]).is_some() {
+            end += 1;
+        }
+        if end - start >= 2 {
+            let targets: Vec<&RcLocal> = cand[start..end].iter().filter_map(|statement| store(statement).map(|(local, _)| local)).collect();
+            let independent = cand[start..end].iter().all(|statement| {
+                let (_, value) = store(statement).unwrap();
+                match value {
+                    RValue::Literal(_) => true,
+                    RValue::Local(read) => !targets.contains(&read),
+                    _ => false,
+                }
+            });
+            let order: Option<Vec<usize>> = pat[start..end]
+                .iter()
+                .map(|statement| {
+                    let (local, _) = store(statement).unwrap();
+                    let bound = b.locals.get(local)?;
+                    targets.iter().position(|target| *target == bound)
+                })
+                .collect();
+            if independent
+                && let Some(order) = order
+                && order.iter().collect::<FxHashSet<_>>().len() == order.len()
+                && order.iter().enumerate().any(|(at, &from)| at != from)
+            {
+                let reordered = out.get_or_insert_with(|| cand.to_vec());
+                for (at, &from) in order.iter().enumerate() {
+                    reordered[start + at] = cand[start + from].clone();
+                }
+            }
+        }
+        start = end + 1;
+    }
+    match out {
+        Some(reordered) => std::borrow::Cow::Owned(reordered),
+        None => std::borrow::Cow::Borrowed(cand),
+    }
+}
+
+/// The locals `local a, b` declares without values.
+fn bare_declaration(statement: &Statement) -> Option<&[LValue]> {
+    match statement {
+        Statement::Assign(declaration)
+            if declaration.prefix && declaration.right.is_empty() && declaration.left.iter().all(|left| matches!(left, LValue::Local(_))) =>
+        {
+            Some(&declaration.left)
+        }
+        _ => None,
+    }
 }
 
 /// Match a private `local m = P and E; if m then T else return K end`
@@ -10817,6 +10936,16 @@ fn branch_tuple_return(body: &[Statement], parameters: &[RcLocal]) -> Option<(Ve
         .flatten()
         .filter(|local| !parameters.contains(local))
         .collect();
+    // Locals one value declares in a branch: shared with a result, their
+    // declaration is a store into it (`local integer = math.floor(number)`
+    // inlined as `count = math.floor(number)`).
+    let mut nested: Vec<RcLocal> = Vec::new();
+    for statement in &tree {
+        if let Statement::If(branch) = statement {
+            branch_declarations(&branch.then_block.lock().0, &mut nested);
+            branch_declarations(&branch.else_block.lock().0, &mut nested);
+        }
+    }
     let mut results: Vec<RcLocal> = Vec::with_capacity(arity);
     let mut fresh: Vec<RcLocal> = Vec::new();
     for slot in 0..arity {
@@ -10824,7 +10953,7 @@ fn branch_tuple_return(body: &[Statement], parameters: &[RcLocal]) -> Option<(Ve
         let mut unique = true;
         for leaf in &leaves {
             if let RValue::Local(local) = &leaf[slot]
-                && declared.contains(local)
+                && (declared.contains(local) || nested.contains(local))
             {
                 match own {
                     None => own = Some(local),
@@ -10844,7 +10973,12 @@ fn branch_tuple_return(body: &[Statement], parameters: &[RcLocal]) -> Option<(Ve
                 })
         });
         match shared {
-            Some(local) => results.push(local.clone()),
+            Some(local) => {
+                if nested.contains(local) {
+                    fresh.push(local.clone());
+                }
+                results.push(local.clone());
+            }
             None => {
                 let result = RcLocal::default();
                 fresh.push(result.clone());
@@ -10853,18 +10987,65 @@ fn branch_tuple_return(body: &[Statement], parameters: &[RcLocal]) -> Option<(Ve
         }
     }
     let mut lowered = store_returns(&tree, &results);
-    for result in fresh {
+    undeclare(&mut lowered, &fresh);
+    // Each result declared without a value right before its first store,
+    // those first stored in one statement together.
+    let mut declarations: Vec<(usize, Vec<LValue>)> = Vec::new();
+    for result in &fresh {
         let first_store = lowered.iter().position(|statement| {
             let mut written = FxHashSet::default();
             collect_written(std::slice::from_ref(statement), &mut written);
-            written.contains(&result)
+            written.contains(result)
         })?;
-        let mut declaration = Assign::new(vec![LValue::Local(result)], Vec::new());
+        match declarations.iter_mut().find(|(at, _)| *at == first_store) {
+            Some((_, locals)) => locals.push(LValue::Local(result.clone())),
+            None => declarations.push((first_store, vec![LValue::Local(result.clone())])),
+        }
+    }
+    declarations.sort_by_key(|(at, _)| std::cmp::Reverse(*at));
+    for (at, locals) in declarations {
+        let mut declaration = Assign::new(locals, Vec::new());
         declaration.prefix = true;
-        lowered.insert(first_store, declaration.into());
+        lowered.insert(at, declaration.into());
     }
     Some((lowered, results))
 }
+
+/// The locals declared, one per declaration, in `stmts` and the branches
+/// of its `if`s.
+fn branch_declarations(stmts: &[Statement], out: &mut Vec<RcLocal>) {
+    for statement in stmts {
+        match statement {
+            Statement::Assign(assign) if assign.prefix => {
+                if let [LValue::Local(local)] = assign.left.as_slice() {
+                    out.push(local.clone());
+                }
+            }
+            Statement::If(branch) => {
+                branch_declarations(&branch.then_block.lock().0, out);
+                branch_declarations(&branch.else_block.lock().0, out);
+            }
+            _ => {}
+        }
+    }
+}
+
+/// `stmts` with each declaration of one of `locals` a store into it.
+fn undeclare(stmts: &mut [Statement], locals: &[RcLocal]) {
+    for statement in stmts {
+        match statement {
+            Statement::Assign(assign) if assign.prefix && matches!(assign.left.as_slice(), [LValue::Local(local)] if locals.contains(local)) => {
+                assign.prefix = false;
+            }
+            Statement::If(branch) => {
+                undeclare(&mut branch.then_block.lock().0, locals);
+                undeclare(&mut branch.else_block.lock().0, locals);
+            }
+            _ => {}
+        }
+    }
+}
+
 
 /// `stmts` with every `return` last in its block: a guard `if c then ...
 /// return x end; rest` takes `rest` as its `else`. Refuses a `return` inside
