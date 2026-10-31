@@ -34,6 +34,7 @@ const NESTED_COPIES: &[u8] = include_bytes!("fixtures/deinline_nested_and_adjace
 const RETURNED_LOCAL_LEAVES: &[u8] = include_bytes!("fixtures/deinline_returned_local_leaves.luaubc");
 const TYPEOF_DEFAULT: &[u8] = include_bytes!("fixtures/deinline_typeof_default_left_out.luaubc");
 const TRUTHY_ARMS: &[u8] = include_bytes!("fixtures/deinline_select_with_truthy_arms.luaubc");
+const SEEDED_CONSTANTS: &[u8] = include_bytes!("fixtures/deinline_seeded_constant_arguments.luaubc");
 
 fn decompile(bytecode: &[u8]) -> String {
     luau_lifter::try_decompile_bytecode_with_options(bytecode, 1, None, Default::default())
@@ -382,4 +383,13 @@ fn a_select_with_truthy_arms_keeps_its_condition_and_is_a_call() {
     assert!(source.contains("return p + (p2 + getRandom(p3)) * 2, p - (p2 + getRandom(p3)), (p2 + getRandom(p3)) / 2 -- inferred equivalent call
 "), "{source}");
     assert!(!source.contains("not p3 and 0"), "{source}");
+}
+
+#[test]
+fn copies_folded_for_constant_arguments_are_calls_with_them() {
+    let source = decompile(SEEDED_CONSTANTS);
+    assert!(source.contains("logEvent(p, \"STOP\", \"recovery_failed\") -- inferred equivalent call
+"), "{source}");
+    assert!(source.contains("logEvent(p, \"MOVE\", \"distance\") -- inferred equivalent call
+"), "{source}");
 }

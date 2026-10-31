@@ -8463,6 +8463,7 @@ fn try_seeded_specialization(t: &Target, cwin: &[Statement], current_func: Optio
     let mut specialized = canon(&t.pat);
     specialize_block(&mut specialized, &seed.params);
     fold_specialized_table_stores(&mut specialized);
+    call_unread_specialized_locals(&mut specialized);
     let mut specialized = canon(&specialized);
 
     let mut verified = Bindings {
@@ -8997,6 +8998,34 @@ fn seed_aligned(t: &Target, candidate: &[Statement]) -> Option<Bindings> {
 /// brings next to its constructor, from an arm the constants took, folds the
 /// same way, keyed: `local t = {}; t[1] = a` is `local t = { [1] = a }`.
 /// Only appends: a store the fold would merge into a listed entry stays.
+/// A local the specialization left unread (`local now = os.clock()` once
+/// the branches reading `now` folded away), declared from a call: the copy
+/// keeps the call alone, as a statement.
+fn call_unread_specialized_locals(stmts: &mut [Statement]) {
+    fn walk(stmts: &mut [Statement], reads: &FxHashSet<RcLocal>) {
+        for statement in stmts.iter_mut() {
+            for block in nested_blocks(statement) {
+                walk(&mut block.lock().0, reads);
+            }
+            let Statement::Assign(declaration) = &*statement else { continue };
+            let (true, [LValue::Local(local)], [value]) = (declaration.prefix, declaration.left.as_slice(), declaration.right.as_slice()) else {
+                continue;
+            };
+            if declaration.parallel || declaration.compound || reads.contains(local) {
+                continue;
+            }
+            *statement = match value {
+                RValue::Call(call) | RValue::Select(Select::Call(call)) => Statement::Call(call.clone()),
+                RValue::MethodCall(call) | RValue::Select(Select::MethodCall(call)) => Statement::MethodCall(call.clone()),
+                _ => continue,
+            };
+        }
+    }
+    let mut reads = FxHashSet::default();
+    collect_reads(stmts, &mut reads);
+    walk(stmts, &reads);
+}
+
 fn fold_specialized_table_stores(stmts: &mut Vec<Statement>) {
     for statement in stmts.iter_mut() {
         for block in nested_blocks(statement) {
@@ -9250,7 +9279,36 @@ fn may_open_specialized_copy(t: &Target, pattern: &[Statement], site: &Statement
 
 fn seed_unify_values(ctx: &MatchCtx, pattern: &[RValue], candidate: &[RValue], b: &mut Bindings) {
     for (left, right) in pattern.iter().zip(candidate) {
-        let _ = unify_rvalue(ctx, left, right, b);
+        seed_unify_value(ctx, left, right, b);
+    }
+}
+
+/// [`seed_unify_values`] of one value: where the exact unification stops,
+/// the bindings a constant argument's folding still shows.
+fn seed_unify_value(ctx: &MatchCtx, pattern: &RValue, candidate: &RValue, b: &mut Bindings) {
+    if unify_rvalue(ctx, pattern, candidate, b).is_ok() {
+        return;
+    }
+    match (pattern, candidate) {
+        // `p or "N/A"` folded to the constant passed: that constant.
+        (RValue::Binary(Binary { operation: BinaryOperation::Or, left: param, right: default, .. }), RValue::Literal(literal))
+            if let (RValue::Local(param), RValue::Literal(default)) = (&**param, &**default)
+                && ctx.params.contains(param)
+                && literal != default
+                && crate::select_value::known_truthy(candidate) =>
+        {
+            b.params.entry(param.clone()).or_insert_with(|| candidate.clone());
+        }
+        // A constructor's fields, key by key (`{ SpawnedBy = reason or
+        // "unknown", Last = event }`).
+        (RValue::Table(pattern), RValue::Table(candidate)) if pattern.0.len() == candidate.0.len() => {
+            for ((pattern_key, pattern_value), (candidate_key, candidate_value)) in pattern.0.iter().zip(&candidate.0) {
+                if pattern_key == candidate_key {
+                    seed_unify_value(ctx, pattern_value, candidate_value, b);
+                }
+            }
+        }
+        _ => {}
     }
 }
 
