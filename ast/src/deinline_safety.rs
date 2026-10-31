@@ -8,6 +8,10 @@ pub(crate) struct CaptureSafety {
     references: FxHashSet<u64>,
     /// Locals assigned after their declaration, anywhere in the module.
     rebound: FxHashSet<u64>,
+    /// [`Self::rebound`] by a statement: a loop variable its loop rebinds
+    /// alone is one value through each iteration, where the closures
+    /// capturing it are made and called.
+    assigned: FxHashSet<u64>,
     /// Locals a function assigns as its upvalue: only those can change
     /// while their declaring function runs a call.
     closure_written: FxHashSet<u64>,
@@ -254,7 +258,7 @@ impl CaptureSafety {
     /// no write to them follows a closure capturing them ([`CopyTiming`]).
     pub(crate) fn copies_unchanged(&self, function: usize) -> bool {
         !self.exhausted && self.copied_upvalues.get(&function).is_none_or(|locals| locals.iter().all(|local| {
-            !self.rebound.contains(local) || self.copy_timing.get(local).is_some_and(|timing| {
+            !self.assigned.contains(local) || self.copy_timing.get(local).is_some_and(|timing| {
                 !timing.unordered && timing.last_write.is_none_or(|write| write < timing.first_capture)
             })
         }))
@@ -271,7 +275,7 @@ impl CaptureSafety {
             return true;
         }
         !self.exhausted && self.copied_upvalues.get(&helper).is_none_or(|locals| locals.iter().all(|local| {
-            if !self.rebound.contains(local) {
+            if !self.assigned.contains(local) {
                 return true;
             }
             let Some(timing) = self.copy_timing.get(local).filter(|timing| !timing.unordered) else { return false };
@@ -570,6 +574,7 @@ impl CaptureSafety {
                         }
                         LValue::Local(local) if !assign.prefix => {
                             self.rebound.insert(local.stable_id());
+                            self.assigned.insert(local.stable_id());
                             // NEWCLOSURE stores the closure before running its
                             // captures, so `f = function() f() end` captures the new `f`.
                             let self_capture = matches!(assign.right.as_slice(), [RValue::Closure(closure)]
@@ -1002,11 +1007,19 @@ mod tests {
             let body = Block(vec![capture(copies_first), capture(!copies_first), write.clone().into()]);
             assert!(!CaptureSafety::new(&body).copies_unchanged(identity));
         }
-        let loop_body = Block(vec![capture(true)]);
-        let numeric = crate::NumericFor::new(Literal::Number(1.0).into(), Literal::Number(3.0).into(),
-            Literal::Number(1.0).into(), cell.clone(), loop_body.clone());
-        let generic = crate::GenericFor::new(vec![cell], vec![crate::Global::from("iterator").into()], loop_body);
-        for node in [Statement::from(numeric), Statement::from(generic)] {
+        // A loop variable only its loop rebinds is one value through each
+        // iteration, where its closures are made and called; one the body
+        // assigns is not.
+        let for_loops = |body: Block| {
+            let numeric = crate::NumericFor::new(Literal::Number(1.0).into(), Literal::Number(3.0).into(),
+                Literal::Number(1.0).into(), cell.clone(), body.clone());
+            let generic = crate::GenericFor::new(vec![cell.clone()], vec![crate::Global::from("iterator").into()], body);
+            [Statement::from(numeric), Statement::from(generic)]
+        };
+        for node in for_loops(Block(vec![capture(true)])) {
+            assert!(CaptureSafety::new(&Block(vec![node])).copies_unchanged(identity));
+        }
+        for node in for_loops(Block(vec![capture(true), write.clone().into()])) {
             assert!(!CaptureSafety::new(&Block(vec![node])).copies_unchanged(identity));
         }
         assert!(!CaptureSafety::exhausted_for_tests().copies_unchanged(identity));

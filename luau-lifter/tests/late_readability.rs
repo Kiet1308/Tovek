@@ -35,6 +35,7 @@ const RETURNED_LOCAL_LEAVES: &[u8] = include_bytes!("fixtures/deinline_returned_
 const TYPEOF_DEFAULT: &[u8] = include_bytes!("fixtures/deinline_typeof_default_left_out.luaubc");
 const TRUTHY_ARMS: &[u8] = include_bytes!("fixtures/deinline_select_with_truthy_arms.luaubc");
 const SEEDED_CONSTANTS: &[u8] = include_bytes!("fixtures/deinline_seeded_constant_arguments.luaubc");
+const LOOP_CAPTURE: &[u8] = include_bytes!("fixtures/deinline_loop_variable_captured.luaubc");
 
 fn decompile(bytecode: &[u8]) -> String {
     luau_lifter::try_decompile_bytecode_with_options(bytecode, 1, None, Default::default())
@@ -391,5 +392,12 @@ fn copies_folded_for_constant_arguments_are_calls_with_them() {
     assert!(source.contains("logEvent(p, \"STOP\", \"recovery_failed\") -- inferred equivalent call
 "), "{source}");
     assert!(source.contains("logEvent(p, \"MOVE\", \"distance\") -- inferred equivalent call
+"), "{source}");
+}
+
+#[test]
+fn a_helper_capturing_its_loop_variable_is_called_in_that_iteration() {
+    let source = decompile(LOOP_CAPTURE);
+    assert!(source.contains("= getValue(\"a\") + getValue(\"b\") * getValue(\"c\") -- inferred equivalent call
 "), "{source}");
 }
