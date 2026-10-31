@@ -45,6 +45,7 @@ const LITERAL_ARGUMENT_TWINS: &[u8] = include_bytes!("fixtures/deinline_literal_
 const TUPLE_THROUGH_BRANCHES: &[u8] = include_bytes!("fixtures/deinline_tuple_through_branches.luaubc");
 const TUPLE_LITERAL_RESULT_LATER: &[u8] = include_bytes!("fixtures/deinline_tuple_literal_result_declared_later.luaubc");
 const GUARD_CHAIN_TRUTH_SELECT: &[u8] = include_bytes!("fixtures/deinline_guard_chain_truth_select.luaubc");
+const NEGATED_COMPARISON: &[u8] = include_bytes!("fixtures/expr_deinline_negated_comparison.luaubc");
 
 fn decompile(bytecode: &[u8]) -> String {
     luau_lifter::try_decompile_bytecode_with_options(bytecode, 1, None, Default::default())
@@ -493,4 +494,11 @@ fn joined_guards_and_a_negation_given_as_its_truth_are_a_call() {
     assert!(source.contains("\t\t\tif not stillCurrent() then -- inferred equivalent call\n\t\t\t\treturn\n"), "{source}");
     // Inside literals passed to `defer` and kept aside too: scanned once back.
     assert_eq!(source.matches("if not stillCurrent() then -- inferred equivalent call").count(), 4, "{source}");
+}
+
+#[test]
+fn a_comparison_turned_over_is_a_negated_call() {
+    let source = decompile(NEGATED_COMPARISON);
+    assert!(source.contains("\t\tif isWordChar(v) or v == \"-\" then -- inferred equivalent call\n"), "{source}");
+    assert!(!source.contains("== nil"), "{source}");
 }

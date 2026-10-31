@@ -971,48 +971,18 @@ fn try_rewrite(
     // Outermost-first: try to match the WHOLE node before descending, so the
     // largest equivalent subtree is collapsed into one call.
     if let Some(cands) = w.by_root.get(&std::mem::discriminant(&*rv)) {
-        let mut pick = Pick::default();
-        let mut ambiguous = false;
-        let mut ordered = crate::reconstruction_search::prioritize(cands, current_func.map(|p| p as usize), |i| targets[i].func_ptr as usize);
-        // In an evidence round the targets that may be rebuilt here come
-        // first, and the rivals are tried only where one of them matches.
-        let rivals_from = if matches!(w.round, Round::Normal) {
-            ordered.len()
-        } else {
-            ordered.retain(|&idx| active.contains(&idx) && w.role(idx, current_func).1);
-            ordered.sort_by_key(|&idx| !w.role(idx, current_func).0);
-            ordered.iter().position(|&idx| !w.role(idx, current_func).0).unwrap_or(ordered.len())
-        };
-        for (at, &idx) in ordered.iter().enumerate() {
-            if at == rivals_from && pick.is_empty() {
-                break; // no target that may be rebuilt here matched
-            }
-            if !active.contains(&idx) {
-                continue; // helper not yet in lexical scope here
-            }
-            if !w.role(idx, current_func).1 {
-                continue; // not tried in this round
-            }
-            let t = &targets[idx];
-            if current_func == Some(t.func_ptr) {
-                continue; // never match a helper against its own body
-            }
-            if !t.search.spend(2048) { ambiguous = true; break; }
-            if let Some(safety) = &t.arithmetic {
-                if !safety.spend_attempt() {
-                    ambiguous = true;
-                    break;
-                }
-            }
-            if let Some(found) = try_match(t, rv, current_func) {
-                pick.offer(idx, found);
-                if pick.settled() {
-                    break;
-                }
-            }
+        // `not f(x)` Luau folded into the comparison `f` returns (`not
+        // isWordChar(c)` as `c:match("[%w_]") == nil`): the comparison turned
+        // over is `f`'s, and `not` of the call gives the copy's boolean.
+        let (mut found, mut negated) = (pick_target(rv, cands, w, active, current_func, false), false);
+        if matches!(found, Some(None))
+            && let Some(turned) = turned_comparison(rv)
+        {
+            found = pick_target(&turned, cands, w, active, current_func, true);
+            negated = true;
         }
-        if !ambiguous {
-            if let Some((idx, args)) = pick.take() {
+        if let Some(found) = found {
+            if let Some((idx, args)) = found {
                 let t = &targets[idx];
                 // In an evidence round only an admitted helper is rebuilt;
                 // a match counts (probe), and any other one keeps its node
@@ -1029,7 +999,11 @@ fn try_rewrite(
                 let call = Call::new(RValue::Local(t.f_local.clone()), args).reconstructed(
                     if t.arithmetic.is_some() { crate::call_origins::Kind::ArithmeticDeinline }
                     else { crate::call_origins::Kind::ExpressionDeinline });
-                let call = RValue::Call(call);
+                let call = if negated {
+                    RValue::Unary(crate::Unary::new(RValue::Call(call), crate::UnaryOperation::Not))
+                } else {
+                    RValue::Call(call)
+                };
                 // The call must leave every literal around it as Luau shares it.
                 if current_func.is_some() {
                     let (mut gone, mut new) = (Vec::new(), Vec::new());
@@ -1054,6 +1028,65 @@ fn try_rewrite(
         try_rewrite(child, w, active, current_func);
         true
     });
+}
+
+/// The target standing for `rv` among `cands` and its arguments: `None` where
+/// the search is ambiguous or out of budget, `Some(None)` where none matches.
+/// `comparison`: `rv` is a comparison turned over, which no arithmetic
+/// helper returns.
+fn pick_target(rv: &RValue, cands: &[usize], w: &Walk, active: &[usize], current_func: Option<FnPtr>, comparison: bool) -> Option<Option<(usize, Vec<RValue>)>> {
+    let targets = w.targets;
+    let mut pick = Pick::default();
+    let mut ordered = crate::reconstruction_search::prioritize(cands, current_func.map(|p| p as usize), |i| targets[i].func_ptr as usize);
+    // In an evidence round the targets that may be rebuilt here come
+    // first, and the rivals are tried only where one of them matches.
+    let rivals_from = if matches!(w.round, Round::Normal) {
+        ordered.len()
+    } else {
+        ordered.retain(|&idx| active.contains(&idx) && w.role(idx, current_func).1);
+        ordered.sort_by_key(|&idx| !w.role(idx, current_func).0);
+        ordered.iter().position(|&idx| !w.role(idx, current_func).0).unwrap_or(ordered.len())
+    };
+    for (at, &idx) in ordered.iter().enumerate() {
+        if at == rivals_from && pick.is_empty() {
+            break; // no target that may be rebuilt here matched
+        }
+        if !active.contains(&idx) {
+            continue; // helper not yet in lexical scope here
+        }
+        if !w.role(idx, current_func).1 {
+            continue; // not tried in this round
+        }
+        let t = &targets[idx];
+        if current_func == Some(t.func_ptr) || (comparison && t.arithmetic.is_some()) {
+            continue; // never match a helper against its own body
+        }
+        if !t.search.spend(2048) {
+            return None;
+        }
+        if let Some(safety) = &t.arithmetic
+            && !safety.spend_attempt()
+        {
+            return None;
+        }
+        if let Some(found) = try_match(t, rv, current_func) {
+            pick.offer(idx, found);
+            if pick.settled() {
+                break;
+            }
+        }
+    }
+    Some(pick.take())
+}
+
+/// `a == b` as `a ~= b` and the other way round.
+fn turned_comparison(rv: &RValue) -> Option<RValue> {
+    match rv {
+        RValue::Binary(binary) if matches!(binary.operation, crate::BinaryOperation::Equal | crate::BinaryOperation::NotEqual) => {
+            Some(crate::flatten_guards::negate(rv.clone()))
+        }
+        _ => None,
+    }
 }
 
 /// Attempt to unify target `t`'s body `E` against the candidate subtree `rv` and,
