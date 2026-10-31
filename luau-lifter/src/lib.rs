@@ -1148,6 +1148,9 @@ fn decompile_bytecode_internal(
                 }
             };
             dump_stage("linked", &body);
+            // `r = c and x or d and y or r` from the jumps Luau compiles it
+            // to, before the de-inliners compare helpers with their copies.
+            ast::conditional_expressions::fold_value_chains(&mut body);
             // Reverse continuation cloning introduced while structuring inlined
             // early returns.  This is the structured cross-jumping half of P1:
             // exact common tails are shared before the statement de-inliner tries

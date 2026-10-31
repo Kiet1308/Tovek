@@ -5814,7 +5814,6 @@ fn try_match_at(
             (TKind::Value, ValueAnchor::AtResultDecl) => {
                 match_value(stmts, i, t, is_func_body_top, last_occ, canon_cache, current_func)
                     .or_else(|| match_returned_value(stmts, i, t, is_func_body_top, last_occ, canon_cache, current_func))
-                    .or_else(|| match_hosted_value(stmts, i, anchor, t, canon_cache, current_func))
             }
             (TKind::Value, ValueAnchor::AtPrefix) => {
                 match_value_prefixed(stmts, i, t, current_func, is_func_body_top, last_occ)
@@ -5825,7 +5824,6 @@ fn try_match_at(
                             .then(|| match_value(stmts, i, t, is_func_body_top, last_occ, canon_cache, current_func))
                             .flatten()
                     })
-                    .or_else(|| match_hosted_value(stmts, i, anchor, t, canon_cache, current_func))
             }
         } };
         if hit.is_some() {
@@ -5834,6 +5832,14 @@ fn try_match_at(
         // A value stored into a local the caller already has.
         if hit.is_none() && t.assigns && t.kind == TKind::Value && !t.hosted_only && assign_head_may_match(t, anchor_stmt, anchor_key) {
             hit = match_assigned_value(stmts, i, t, is_func_body_top, last_occ, canon_cache, current_func);
+        }
+        // A copy evaluated in place, after the store of a whole value above,
+        // which takes in the temps Luau made for its arguments.
+        if hit.is_none() && !seen_without_site && !t.hosted_only && !hosted_only && t.kind == TKind::Value && t.loop_exit_at.is_none() {
+            hit = match_hosted_value(stmts, i, anchor, t, canon_cache, current_func);
+            if hit.is_some() {
+                found_at.insert((block, i, ti));
+            }
         }
         let hit = hit.filter(|hit| !hit.inferred.as_ref().is_some_and(|param| continues_pruned_branch(t, param, stmts, i + hit.consume)));
         let hit = hit.filter(|hit| {

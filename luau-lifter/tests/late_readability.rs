@@ -53,6 +53,7 @@ const TUPLE_FLIPPED_GUARD: &[u8] = include_bytes!("fixtures/deinline_tuple_flipp
 const FOLDED_TEXT_ARGUMENT: &[u8] = include_bytes!("fixtures/deinline_folded_text_argument.luaubc");
 const CONSTANT_KEYED_LOCALS: &[u8] = include_bytes!("fixtures/deinline_constant_keyed_locals.luaubc");
 const HOSTED_SPECIALIZED_VALUE: &[u8] = include_bytes!("fixtures/deinline_hosted_specialized_value.luaubc");
+const VALUE_CHAIN: &[u8] = include_bytes!("fixtures/value_chain_and_or_clamp.luaubc");
 
 fn decompile(bytecode: &[u8]) -> String {
     luau_lifter::try_decompile_bytecode_with_options(bytecode, 1, None, Default::default())
@@ -576,5 +577,18 @@ fn a_specialized_copy_of_the_returned_value_alone_is_a_call_in_place() {
     let source = decompile(HOSTED_SPECIALIZED_VALUE);
     for call in ["\t\topenGifts(1) -- inferred equivalent call", "\t\topenGifts(2), -- inferred equivalent call", "\t\topenGifts(5) -- inferred equivalent call"] {
         assert!(source.contains(call), "{call}\n{source}");
+    }
+}
+
+#[test]
+fn an_and_or_chain_testing_its_value_reads_as_that_value() {
+    let source = decompile(VALUE_CHAIN);
+    for line in ["\treturn p2 < p3 and p2 or p3 < p and p or p3\n",
+        "\t\tv = clamp(-v2, v2, v) -- inferred equivalent call\n",
+        "\treturn clamp(0, 1, math.floor(total * 100 + 0.5) / 100) -- inferred equivalent call\n",
+        "\tlocal v2 = clamp(v + -1.4, v + 1.4, p2.y) -- inferred equivalent call\n",
+        "\t\tcurrent = clamp(p, p2, v.DefaultZoom) or v.DefaultZoom -- inferred equivalent call\n"]
+    {
+        assert!(source.contains(line), "{line}\n{source}");
     }
 }

@@ -715,7 +715,8 @@ fn region_movable(stmts: &[Statement]) -> bool {
     stmts.iter().all(statement_movable)
 }
 
-fn collect_captured_locals(stmts: &[Statement], captured: &mut FxHashSet<RcLocal>) {
+/// The locals the closures `stmts` make capture, nested blocks included.
+pub(crate) fn collect_captured_locals(stmts: &[Statement], captured: &mut FxHashSet<RcLocal>) {
     for statement in stmts {
         crate::deinline::visit_stmt_rvalues(statement, &mut |value| {
             collect_captured_rvalue(value, captured);
