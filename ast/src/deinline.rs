@@ -6179,8 +6179,10 @@ fn match_declared_value(
 /// before `trove:Add(conn)`, for a helper ending `return conn`. The call
 /// declares that local: `local conn = helper(args)`, or stands alone when
 /// nothing reads it. The helper's closures keep their own `conn` then, so
-/// nothing may write the local once the prefix defines it: no later
-/// statement, and no closure, the prefix's included.
+/// no closure may write the local, the prefix's included, and where the
+/// prefix's closures capture it, no later statement either. Without them,
+/// a later write is the caller's own (`v = IsFinite(x)` after `local v =
+/// IsFinite(x)` in an `and` chain).
 fn match_returned_local(
     stmts: &[Statement],
     i: usize,
@@ -6228,6 +6230,7 @@ fn match_returned_local(
         }
         let read_later = tail_has_live(last_occ, stmts, i, d, &FxHashSet::from_iter([local.clone()]));
         if read_later
+            && closures_capture_any(prefix, std::slice::from_ref(local))
             && written_after
                 .get_or_insert_with(|| {
                     let mut written = FxHashSet::default();
@@ -9805,7 +9808,62 @@ fn pattern_body<'a>(body: &'a [Statement], parameters: &[RcLocal]) -> (std::borr
     if let Some(lowered) = return_from_tail_loop(body).filter(|_| !value_leaf_shape(&canon(body))) {
         return (std::borrow::Cow::Owned(lowered), Vec::new());
     }
+    if let Some(lowered) = returned_local_leaves(body) {
+        return (std::borrow::Cow::Owned(lowered), Vec::new());
+    }
     (std::borrow::Cow::Borrowed(body), Vec::new())
+}
+
+/// `local R; if ... then ...; R = X else ...; R = Y end; return R` ending a
+/// helper, `R` stored last on every path of the `if` and read nowhere else:
+/// those stores are its returns (`if ... then ...; return X else ...;
+/// return Y end`), the shape its copies take, storing each leaf into their
+/// result, declared there or a local the caller has (`local v =
+/// IsFinite(x)`, then `v = IsFinite(y)` in an `and` chain).
+fn returned_local_leaves(body: &[Statement]) -> Option<Vec<Statement>> {
+    fn returning(stmts: &[Statement], result: &RcLocal) -> Option<Vec<Statement>> {
+        let (last, rest) = stmts.split_last()?;
+        let mut written = FxHashSet::default();
+        collect_written(rest, &mut written);
+        if written.contains(result) || block_reads_local(rest, result) {
+            return None;
+        }
+        let leaf: Statement = match last {
+            Statement::Assign(store)
+                if !store.prefix
+                    && !store.parallel
+                    && !store.compound
+                    && store.left.len() == 1
+                    && store.right.len() == 1
+                    && store.left[0].as_local() == Some(result)
+                    && !reads_local(&store.right[0], result) =>
+            {
+                Return::new(vec![store.right[0].clone()]).into()
+            }
+            Statement::If(branch) if !reads_local(&branch.condition, result) => If::new(
+                branch.condition.clone(),
+                Block(returning(&branch.then_block.lock().0, result)?),
+                Block(returning(&branch.else_block.lock().0, result)?),
+            )
+            .into(),
+            _ => return None,
+        };
+        let mut out = rest.to_vec();
+        out.push(leaf);
+        Some(out)
+    }
+    let [prefix @ .., Statement::Assign(declaration), branch @ Statement::If(_), Statement::Return(ret)] = body else { return None };
+    let (true, [LValue::Local(result)], []) = (declaration.prefix, declaration.left.as_slice(), declaration.right.as_slice()) else {
+        return None;
+    };
+    if !matches!(ret.values.as_slice(), [RValue::Local(returned)] if returned == result)
+        || closures_capture_any(std::slice::from_ref(branch), std::slice::from_ref(result))
+    {
+        return None;
+    }
+    let mut out = prefix.to_vec();
+    out.extend(returning(std::slice::from_ref(branch), result)?);
+    Some(out)
 }
 
 /// `while true do ... break ... end; return t` ending a helper: each `break`

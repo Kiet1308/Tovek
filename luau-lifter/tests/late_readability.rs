@@ -31,6 +31,7 @@ const RETURNED_LOCALS: &[u8] = include_bytes!("fixtures/deinline_returned_locals
 const CLOSURE_ON_ONE_LINE: &[u8] = include_bytes!("fixtures/deinline_copy_creating_closure_on_one_line.luaubc");
 const ONE_LINE_HELPER: &[u8] = include_bytes!("fixtures/store_address_read_at_store.luaubc");
 const NESTED_COPIES: &[u8] = include_bytes!("fixtures/deinline_nested_and_adjacent_copies.luaubc");
+const RETURNED_LOCAL_LEAVES: &[u8] = include_bytes!("fixtures/deinline_returned_local_leaves.luaubc");
 
 fn decompile(bytecode: &[u8]) -> String {
     luau_lifter::try_decompile_bytecode_with_options(bytecode, 1, None, Default::default())
@@ -344,5 +345,18 @@ fn nested_and_adjacent_copies_are_all_calls() {
     assert!(source.contains("return p + v2.x + v3.z, wobble(p, 3) -- inferred equivalent call
 "), "{source}");
     assert!(source.contains("local function nextNumber(p, p2) -- 7 equivalent calls inferred from this helper
+"), "{source}");
+}
+
+#[test]
+fn a_returned_local_stored_at_every_leaf_is_a_value_helper() {
+    let source = decompile(RETURNED_LOCAL_LEAVES);
+    // Each copy stores the helper's leaves into its result: declared, then
+    // a local the caller has, down an `and` chain.
+    assert!(source.contains("	return IsFinite(data.x) and IsFinite(data.y) and IsFinite(data.z) -- inferred equivalent call
+"), "{source}");
+    assert!(source.contains("local function IsFinite(p): boolean -- 3 equivalent calls inferred from this helper
+"), "{source}");
+    assert!(source.contains("		if IsFiniteVector3(v) then -- inferred equivalent call
 "), "{source}");
 }
