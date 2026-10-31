@@ -482,11 +482,25 @@ pub(crate) fn inlined_copies(functions: &[Function], lines: &[Vec<Option<u32>>],
             },
             _ => None,
         };
+        let last_code_line = pcs.iter().flatten().copied().max();
         // The innermost helper whose code this PC of the caller is. On a
         // helper's first line, a caller around it may have the statement
         // defining it (`self.conn = signal:Connect(function() ... end)`).
         let innermost = |line: u32, opcode: OpCode, pc: usize| {
             let owners = helper_at(line);
+            // The caller's last `return`, on its last line, where only
+            // functions written next to it start (`end, function() end)`):
+            // its `end`.
+            if opcode == LOP_RETURN
+                && pc + 1 == instructions.len()
+                && last_code_line == Some(line)
+                && owners.iter().all(|&id| {
+                    let (start, end) = spans[id as usize];
+                    id == caller_id || start == line || own.is_some_and(|(own_start, own_end)| start <= own_start && own_end <= end)
+                })
+            {
+                return None;
+            }
             // The caller's own code: strictly inside its span, where only a
             // function nested in it, narrower, could come before it.
             if owners.first() == Some(&caller_id) && own.is_some_and(|(own_start, own_end)| own_start < line && line < own_end) {
@@ -522,8 +536,13 @@ pub(crate) fn inlined_copies(functions: &[Function], lines: &[Vec<Option<u32>>],
                 let after_definition = defines && creating_at(pc) == Run::After;
                 let strict_op = !after_definition
                     || edge.is_some_and(|kinds| kind(opcode).is_some_and(|kind| kinds.contains(&kind)));
+                // Its code is on lines it has code on: not the `function()`
+                // line of a literal whose code starts below it, where the
+                // call it is passed to stands (`promise:andThen(function()`).
+                let code_line = helpers[id as usize].as_ref().is_some_and(|helper| helper.lines.contains(line));
                 id != caller_id
                     && made != Some(id as usize)
+                    && code_line
                     && shared_line_op
                     && strict_op
                     && !own.is_some_and(|(own_start, own_end)| start <= own_start && own_end <= end)
@@ -1368,6 +1387,26 @@ mod tests {
         let copies = inlined_copies(&[trim(), parse(), caller, chunk()], &lines, 3).unwrap();
         assert_eq!(copies.copies(Some(2), 1), 1);
         assert_eq!(copies.copies(Some(2), 0), 1);
+    }
+
+    #[test]
+    fn a_literal_s_definition_line_and_a_caller_s_end_are_no_copy() {
+        use OpCode::*;
+        let chunk = || prototype(1, &[LOP_NEWCLOSURE, LOP_NEWCLOSURE, LOP_RETURN]);
+        // p0, lines 3-5: `function() ... end` passed on line 3 by p1
+        // (`promise:andThen(function()`), its code on lines 4-5 only.
+        let literal = prototype(3, &[LOP_GETUPVAL, LOP_CALL, LOP_RETURN]);
+        let caller = prototype(1, &[LOP_GETUPVAL, LOP_NAMECALL, LOP_CALL, LOP_RETURN]);
+        let lines = vec![vec![Some(4), Some(4), Some(5)], vec![Some(2), Some(3), Some(3), Some(6)], vec![Some(1), Some(1), Some(7)]];
+        let copies = inlined_copies(&[literal, caller, chunk()], &lines, 2).unwrap();
+        assert_eq!(copies.copies(Some(1), 0), 0);
+        assert!(!copies.present(Some(1), 0));
+        // p0, lines 1-3, ends `end, function() end)`: p1 on line 3.
+        let caller = prototype(1, &[LOP_GETUPVAL, LOP_CALL, LOP_RETURN]);
+        let sibling = prototype(3, &[LOP_RETURN]);
+        let lines = vec![vec![Some(2), Some(2), Some(3)], vec![Some(3)], vec![Some(1), Some(1), Some(5)]];
+        let copies = inlined_copies(&[caller, sibling, chunk()], &lines, 2).unwrap();
+        assert_eq!(copies.copies(Some(0), 1), 0);
     }
 
     #[test]
