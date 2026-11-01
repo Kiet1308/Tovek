@@ -19,7 +19,7 @@ pub fn preserve_builtin_calls(block: &mut Block, assume_standard_libraries: bool
     census.block(block);
     census.finish();
     let mut state = State { safety: &safety, aliases: FxHashMap::default(), constants: FxHashSet::default(),
-        visited: FxHashSet::default(), changed: 0, input_fastcalls, census };
+        parameters: FxHashMap::default(), visited: FxHashSet::default(), changed: 0, input_fastcalls, census };
     state.block(block);
     state.changed
 }
@@ -34,9 +34,13 @@ struct Census {
     /// `local function f`, by local, and per function which parameters some
     /// call passes a literal: Luau -O2 inlines such a call and folds a builtin
     /// call of that parameter (`math.abs(p)`) the input's copy still made.
+    /// Each with whether only de-inlined calls pass one ([`State::parameters`]).
     functions: FxHashMap<u64, usize>,
-    calls: Vec<(u64, Vec<bool>)>,
-    literal_parameters: FxHashMap<usize, Vec<usize>>,
+    calls: Vec<(u64, Vec<bool>, bool)>,
+    literal_parameters: FxHashMap<usize, Vec<(usize, bool)>>,
+    /// The functions of `functions`: only those Luau inlines, compiling the
+    /// calls of their nested functions in the copy.
+    declared: FxHashSet<usize>,
 }
 
 impl Census {
@@ -54,7 +58,7 @@ impl Census {
             *self.fast_paths.entry(call.value.to_string()).or_default() |= vector;
         }
         if let RValue::Local(local) = &*call.value {
-            self.calls.push((local.stable_id(), call.arguments.iter().map(Self::literal).collect()));
+            self.calls.push((local.stable_id(), call.arguments.iter().map(Self::literal).collect(), call.is_inferred()));
         }
     }
 
@@ -93,12 +97,18 @@ impl Census {
 
     /// Index, per function identity, the parameters some call passes a literal.
     fn finish(&mut self) {
-        for (callee, literals) in std::mem::take(&mut self.calls) {
+        let mut literal: FxHashMap<(usize, usize), bool> = FxHashMap::default();
+        for (callee, literals, inferred) in std::mem::take(&mut self.calls) {
             if let Some(&identity) = self.functions.get(&callee) {
-                self.literal_parameters.entry(identity).or_default()
-                    .extend(literals.iter().enumerate().filter(|(_, literal)| **literal).map(|(index, _)| index));
+                for index in literals.iter().enumerate().filter(|(_, literal)| **literal).map(|(index, _)| index) {
+                    *literal.entry((identity, index)).or_insert(inferred) &= inferred;
+                }
             }
         }
+        for ((identity, index), inferred_only) in literal {
+            self.literal_parameters.entry(identity).or_default().push((index, inferred_only));
+        }
+        self.declared = self.functions.values().copied().collect();
     }
 }
 
@@ -157,6 +167,10 @@ fn foldable_builtin(library: Option<&[u8]>, name: &[u8]) -> bool {
 
 const LIBRARIES: [&[u8]; 6] = [b"math", b"bit32", b"string", b"table", b"buffer", b"vector"];
 
+/// Where a constant of an inlined copy comes from, strongest first.
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+enum Source { Literal, Parameter, Inferred }
+
 #[derive(Clone, Copy, PartialEq)]
 enum Builtin { Library(&'static [u8]), Function { foldable: bool } }
 
@@ -168,6 +182,13 @@ struct State<'a> {
     /// Locals declared with a constant and never assigned again, which Luau
     /// propagates into a call it then folds.
     constants: FxHashSet<u64>,
+    /// Parameters some call passes a literal ([`Census::literal_parameters`]),
+    /// constants of the copy Luau inlines for it, and whether only de-inlined
+    /// calls pass one. Such a call's copy kept every builtin call of the
+    /// constant the de-inliner's specialization does not fold (`math.abs(p)`
+    /// matched as `math.abs(-3)`), and folded those it does
+    /// (`math.pow(10, p)` matched as `100`), which recompiling folds alike.
+    parameters: FxHashMap<u64, bool>,
     visited: FxHashSet<usize>,
     changed: usize,
     input_fastcalls: bool,
@@ -198,12 +219,18 @@ impl State<'_> {
         }
     }
 
-    fn constant(&self, value: &RValue) -> bool {
+    /// Whether `value` is constant in an inlined copy, and from what: the
+    /// weakest source among the locals it reads.
+    fn constant(&self, value: &RValue) -> Option<Source> {
         match value {
-            RValue::Literal(_) => true,
-            RValue::Local(local) => self.constants.contains(&local.stable_id()),
-            RValue::Unary(_) | RValue::Binary(_) => value.rvalues().into_iter().all(|child| self.constant(child)),
-            _ => false,
+            RValue::Literal(_) => Some(Source::Literal),
+            RValue::Local(local) if self.constants.contains(&local.stable_id()) => Some(Source::Literal),
+            RValue::Local(local) => self.parameters.get(&local.stable_id())
+                .map(|&inferred_only| if inferred_only { Source::Inferred } else { Source::Parameter }),
+            RValue::Unary(_) | RValue::Binary(_) => {
+                value.rvalues().into_iter().try_fold(Source::Literal, |weakest, child| Some(weakest.max(self.constant(child)?)))
+            }
+            _ => None,
         }
     }
 
@@ -221,7 +248,9 @@ impl State<'_> {
         let fast_select = !matches!(&*call.value, RValue::Global(global) if global.0 == b"select")
             || matches!(call.arguments.as_slice(), [_, RValue::VarArg(_) | RValue::Select(Select::VarArg(_))]);
         let gains_fastcall = self.input_fastcalls && call.builtin_fastcall.is_none() && fast_select;
-        let folds = foldable && !call.arguments.is_empty() && call.arguments.iter().all(|argument| self.constant(argument));
+        let weakest = if crate::deinline::fold::specialization_folds(call) { Source::Parameter } else { Source::Inferred };
+        let folds = foldable && !call.arguments.is_empty()
+            && call.arguments.iter().all(|argument| self.constant(argument).is_some_and(|source| source <= weakest));
         if gains_fastcall || folds {
             call.group_callee = true;
             self.changed += 1;
@@ -232,15 +261,22 @@ impl State<'_> {
         if let RValue::Closure(closure) = value {
             let identity = (&*closure.function.0 as *const _) as usize;
             if self.visited.insert(identity) {
+                // A function Luau never inlines is compiled once, before any
+                // copy: it reads an enclosing parameter as an upvalue, which
+                // no constant argument reaches.
+                let enclosing = (!self.census.declared.contains(&identity)).then(|| std::mem::take(&mut self.parameters));
                 let mut function = closure.function.lock();
-                for &index in self.census.literal_parameters.get(&identity).into_iter().flatten() {
+                for &(index, inferred_only) in self.census.literal_parameters.get(&identity).into_iter().flatten() {
                     if let Some(parameter) = function.parameters.get(index)
                         && (self.safety.never_reassigned(parameter) || !self.safety.complete())
                     {
-                        self.constants.insert(parameter.stable_id());
+                        self.parameters.insert(parameter.stable_id(), inferred_only);
                     }
                 }
                 self.block(&mut function.body);
+                if let Some(enclosing) = enclosing {
+                    self.parameters = enclosing;
+                }
             }
             return;
         }
@@ -258,8 +294,11 @@ impl State<'_> {
                     if let Some(builtin) = self.builtin(right) && unchanged {
                         self.aliases.insert(local.stable_id(), builtin);
                     }
-                    if assign.prefix && unchanged && self.constant(right) {
-                        self.constants.insert(local.stable_id());
+                    // A constant computed from a parameter is that parameter's.
+                    match self.constant(right).filter(|_| assign.prefix && unchanged) {
+                        Some(Source::Literal) => { self.constants.insert(local.stable_id()); }
+                        Some(source) => { self.parameters.insert(local.stable_id(), source == Source::Inferred); }
+                        None => {}
                     }
                 }
             }
@@ -354,6 +393,43 @@ mod tests {
         let output = body.to_string();
         assert!(output.contains("return (math.abs)(p)"), "{output}");
         assert!(output.contains("Vector3.new(value), (Vector3.new)(value)"), "{output}");
+    }
+
+    #[test]
+    fn de_inlined_literals_group_what_their_copies_kept_and_never_reach_anonymous_functions() {
+        use crate::call_origins::Kind;
+        let helper = |body: Vec<Statement>, parameter: &RcLocal| {
+            let mut function = crate::Function::default();
+            function.parameters = vec![parameter.clone()];
+            function.body = Block(body);
+            RValue::from(crate::Closure { node_origin: Default::default(), upvalues: vec![],
+                function: by_address::ByAddress(triomphe::Arc::new(parking_lot::Mutex::new(function))) })
+        };
+        let (abs, pow, nested, written) = (local("abs"), local("pow"), local("nested"), local("written"));
+        let (p, q, r, s) = (local("p"), local("q"), local("r"), local("s"));
+        let returns = |call: Call| -> Vec<Statement> { vec![Return::new(vec![call.into()]).into()] };
+        let anonymous = helper(returns(fast(Call::new(member("math", "abs"), vec![r.clone().into()]))), &local("unused"));
+        let mut body = Block(vec![
+            // A copy matched with `math.abs(-3)` kept the call: grouped.
+            declaration(&abs, helper(returns(fast(Call::new(member("math", "abs"), vec![p.clone().into()]))), &p)),
+            // A copy matched with `100` folded it, as recompiling does.
+            declaration(&pow, helper(returns(fast(Call::new(member("math", "pow"), vec![number(10.0), q.clone().into()]))), &q)),
+            // A function expression is compiled once: `r` stays an upvalue.
+            declaration(&nested, helper(vec![Call::new(Global::from("pcall").into(), vec![anonymous]).into()], &r)),
+            // A plain call passing a literal groups even a power.
+            declaration(&written, helper(returns(fast(Call::new(member("math", "pow"), vec![number(10.0), s.clone().into()]))), &s)),
+            Return::new(vec![
+                Call::new(abs.into(), vec![number(-3.0)]).reconstructed(Kind::StatementDeinline).into(),
+                Call::new(pow.into(), vec![number(2.0)]).reconstructed(Kind::StatementDeinline).into(),
+                Call::new(nested.into(), vec![number(-3.0)]).into(),
+                Call::new(written.into(), vec![number(2.0)]).into(),
+            ]).into(),
+        ]);
+        assert_eq!(preserve_builtin_calls(&mut body, false, true), 2);
+        let output = body.to_string();
+        for expected in ["return (math.abs)(p)", "return math.pow(10, q)", "return math.abs(r)", "return (math.pow)(10, s)"] {
+            assert!(output.contains(expected), "{expected} in {output}");
+        }
     }
 
     #[test]

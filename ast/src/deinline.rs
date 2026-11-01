@@ -276,6 +276,11 @@ struct Target {
     /// change statement shape after constant argument propagation. This is the
     /// cold precomputed gate for the Tier-B partial-evaluation fallback.
     specializable: bool,
+    /// The fewest top-level statements a specialized copy keeps: the
+    /// pattern's, less those only its declarations from parameters let
+    /// constants fold away ([`foldable_statements`]); none where a branch,
+    /// a concat or a truth reads a parameter itself.
+    specialized_floor: usize,
     /// Parameters read where only their truth matters
     /// ([`truth_tested_params`]), in parameter order. Luau folds such a read
     /// of a constant argument away, so a copy may keep no trace of it; Tier B
@@ -422,6 +427,21 @@ impl Evidence {
         }
     }
 
+    /// The copies of the helper of prototype `helper` inside copies of other
+    /// helpers in `function`'s code.
+    fn nested_copies(&self, function: Option<FnPtr>, helper: Option<usize>) -> u32 {
+        match (self.caller(function), helper) {
+            (Some(caller), Some(helper)) => self.copies.nested_copies.get(&(caller as u32, helper as u32)).copied().unwrap_or(0),
+            _ => 0,
+        }
+    }
+
+    /// [`Self::copies`] with [`Self::nested_copies`], which an evidence
+    /// round also counts ([`evidence::counts_agree`]).
+    fn copies_at_any_depth(&self, function: Option<FnPtr>, helper: Option<usize>) -> u32 {
+        self.copies(function, helper) + self.nested_copies(function, helper)
+    }
+
     /// Honesty refusal, part (b): line info shows none of `helper`'s code
     /// in `function`, at any depth of copies, so a match there is code of
     /// something else (`table.clone(tbl)` in `DeepCopy`'s body is no copy of
@@ -533,14 +553,17 @@ impl Target {
     /// The body's own locals are its registers; an outer local is its
     /// upvalue, fetched where it stands.
     fn leading(&self) -> &crate::evaluation_order::LeadingReads {
-        self.leading.get_or_init(|| {
-            let facts = crate::evaluation_order::Body {
-                registers: &|local| self.params.contains(local) || self.locals.contains(local),
-                unchanged: &|value| self.captures.unchanged_by_calls(value),
-            };
-            let unwritten: Vec<RcLocal> = self.param_order.iter().filter(|p| self.params.contains(*p)).cloned().collect();
-            crate::evaluation_order::LeadingReads::new(&self.pat, &unwritten, |p| count_local_reads(&self.pat, p) == 1, &facts)
-        })
+        self.leading.get_or_init(|| self.leading_reads_of(&self.pat))
+    }
+
+    /// [`Self::leading`] of `pat`, the body or a specialization of it.
+    fn leading_reads_of(&self, pat: &[Statement]) -> crate::evaluation_order::LeadingReads {
+        let facts = crate::evaluation_order::Body {
+            registers: &|local| self.params.contains(local) || self.locals.contains(local),
+            unchanged: &|value| self.captures.unchanged_by_calls(value),
+        };
+        let unwritten: Vec<RcLocal> = self.param_order.iter().filter(|p| self.params.contains(*p)).cloned().collect();
+        crate::evaluation_order::LeadingReads::new(pat, &unwritten, |p| count_local_reads(pat, p) == 1, &facts)
     }
 
     /// How many leading parameters reach the last one the body reads: a
@@ -618,6 +641,12 @@ struct Progress {
     orphan_twins: std::rc::Rc<FxHashMap<RcLocal, usize>>,
     /// The evidence round this iteration is ([`EvidenceRound`]).
     evidence: EvidenceRound,
+    /// The evidence rounds count copies inside copies of other helpers too,
+    /// for these pairs of a function's prototype and a helper
+    /// ([`nested_pending`]): once those of the outermost ones admitted
+    /// nothing more, so that an outer copy is a call before the copies it
+    /// holds are tried.
+    evidence_nested: Option<std::rc::Rc<FxHashSet<(u32, u32)>>>,
     /// The module's line evidence, where the scan records the prototype of
     /// each body it enters.
     lines: Option<std::rc::Rc<Evidence>>,
@@ -732,6 +761,61 @@ pub(crate) fn count_rebuilt_calls(
             true
         });
     }
+}
+
+/// The pairs of a function's prototype and an evidence helper whose copies
+/// there sit inside copies of other helpers still in its code, helpers
+/// calling it: such an outer copy is a call only once the copies it holds
+/// are (`findChild` calling `warnMissing`). An outer copy rebuilt as a call
+/// took the copies it held into its helper's body.
+fn nested_pending(body: &Block, lines: &Evidence, targets: &[Target]) -> FxHashSet<(u32, u32)> {
+    type Rebuilt = FxHashMap<(Option<FnPtr>, RcLocal), usize>;
+    fn closures(value: &RValue, binders: &FxHashSet<RcLocal>, rebuilt: &mut Rebuilt) {
+        if let RValue::Closure(closure) = value {
+            walk(&closure.function.0.lock().body.0, Some(Arc::as_ptr(&closure.function.0)), binders, rebuilt);
+            return;
+        }
+        value.visit_rvalues(&mut |child| {
+            closures(child, binders, rebuilt);
+            true
+        });
+    }
+    fn walk(stmts: &[Statement], function: Option<FnPtr>, binders: &FxHashSet<RcLocal>, rebuilt: &mut Rebuilt) {
+        count_rebuilt_calls(stmts, binders, function, rebuilt);
+        for statement in stmts {
+            for block in nested_blocks(statement) {
+                walk(&block.lock().0, function, binders, rebuilt);
+            }
+            visit_stmt_rvalues(statement, &mut |value| {
+                closures(value, binders, rebuilt);
+                true
+            });
+        }
+    }
+    let copies = &lines.copies;
+    let evidence: FxHashSet<u32> = targets.iter().filter(|target| target.evidence).filter_map(|target| target.proto).map(|proto| proto as u32).collect();
+    let candidates: Vec<(u32, u32, u32)> = copies.nested.iter().copied().filter(|(_, _, inner)| evidence.contains(inner)).collect();
+    if candidates.is_empty() {
+        return FxHashSet::default();
+    }
+    let target_of: FxHashMap<u32, &Target> = targets.iter().filter_map(|target| Some((target.proto? as u32, target))).collect();
+    let candidates: Vec<(u32, u32, u32)> = candidates.into_iter().filter(|(_, outer, inner)| {
+        target_of.get(outer).zip(target_of.get(inner)).is_some_and(|(outer, inner)| block_reads_local(&outer.pat, &inner.f_local))
+    }).collect();
+    let binders: FxHashSet<RcLocal> = candidates.iter().filter_map(|(_, outer, _)| target_of.get(outer).map(|target| target.f_local.clone())).collect();
+    let mut rebuilt = FxHashMap::default();
+    walk(&body.0, None, &binders, &mut rebuilt);
+    let function_of: FxHashMap<u32, Option<FnPtr>> = lines.protos.borrow().iter()
+        .filter_map(|(&function, proto)| Some((proto.as_ref().copied()? as u32, Some(function))))
+        .chain(std::iter::once((copies.main as u32, None)))
+        .collect();
+    candidates.into_iter().filter(|&(caller, outer, _)| {
+        let binder = &target_of[&outer].f_local;
+        let Some(&function) = function_of.get(&caller) else { return true };
+        let left = copies.copies(Some(caller as usize), outer as usize)
+            + copies.nested_copies.get(&(caller, outer)).copied().unwrap_or(0);
+        rebuilt.get(&(function, binder.clone())).copied().unwrap_or(0) < left as usize
+    }).map(|(caller, _, inner)| (caller, inner)).collect()
 }
 
 /// The local a wrapper pattern calls: a body that is one call of another
@@ -1300,6 +1384,7 @@ pub fn deinline_orphans_in_with_literal_numbers(body: &mut Block, chunk_orphans:
     // above the floor search as they would without line evidence.
     let evidence_search = std::rc::Rc::new(crate::deinline_safety::SearchBudget::default());
     let mut evidence_round = EvidenceRound::Off;
+    let mut evidence_nested: Option<std::rc::Rc<FxHashSet<(u32, u32)>>> = None;
     let mut converted: FxHashSet<RcLocal> = FxHashSet::default();
     // P4 perf: the write-once census is INVARIANT across fixed-point iterations for
     // the only thing we query — TARGET BINDERS (a `local f = function…end` local,
@@ -1446,6 +1531,7 @@ pub fn deinline_orphans_in_with_literal_numbers(body: &mut Block, chunk_orphans:
             revisit: previous.as_ref().map(|previous| previous.bodies.clone()).unwrap_or_default(),
             rescan,
             evidence: evidence_round.clone(),
+            evidence_nested: evidence_nested.clone(),
             lines: lines.clone(),
             orphan_twins: orphan_twins.clone(),
             ..Progress::default()
@@ -1510,6 +1596,17 @@ pub fn deinline_orphans_in_with_literal_numbers(body: &mut Block, chunk_orphans:
             EvidenceRound::Probe if newly.binders.is_empty() => {
                 let admitted = admitted_pairs(&newly);
                 if admitted.is_empty() {
+                    let pending = match (&evidence_nested, &lines) {
+                        (None, Some(lines)) => nested_pending(body, lines, &targets),
+                        _ => FxHashSet::default(),
+                    };
+                    if !pending.is_empty() {
+                        evidence_nested = Some(std::rc::Rc::new(pending));
+                        evidence_round = EvidenceRound::Probe;
+                        unchanged_targets = Some(targets);
+                        previous = Some(newly);
+                        continue;
+                    }
                     break;
                 }
                 evidence_round = EvidenceRound::Admit(std::rc::Rc::new(admitted));
@@ -4311,7 +4408,9 @@ pub(crate) fn unify_rvalue(
 fn site_number(value: &RValue, helpers: &fold::PureHelpers) -> Option<f64> {
     match value {
         RValue::Literal(Literal::Number(number)) => Some(*number),
-        RValue::Call(_) | RValue::Select(Select::Call(_)) if fold::foldable(value, &|_| false, helpers) => {
+        RValue::Call(call) | RValue::Select(Select::Call(call))
+            if matches!(call.value.as_ref(), RValue::Local(_)) && fold::foldable(value, &|_| false, helpers) =>
+        {
             match fold::evaluate(value, &|_| None, helpers)? {
                 fold::Value::Number(number) => Some(number),
                 _ => None,
@@ -4407,6 +4506,13 @@ fn spreads_into_parameter(ctx: &MatchCtx, pattern: Option<&RValue>, candidate: O
 pub(crate) fn unify_call(ctx: &MatchCtx, a: &Call, d: &Call, b: &mut Bindings) -> Result<(), ()> {
     if !a.same_execution(d) || a.arguments.len() != d.arguments.len()
         || spreads_into_parameter(ctx, a.arguments.last(), d.arguments.last()) {
+        return Err(());
+    }
+    // A copy calling a builtin specialization folds, with constants where
+    // the helper reads more: Luau saw no constants there (`math.pow(10,
+    // id(2))`), and a rebuilt call passing them would fold the call away.
+    let literal = |value: &RValue| matches!(value, RValue::Literal(_));
+    if fold::specialization_folds(d) && d.arguments.iter().all(literal) && !a.arguments.iter().all(literal) {
         return Err(());
     }
     unify_rvalue(ctx, &a.value, &d.value, b)?;
@@ -4766,6 +4872,7 @@ fn deinline_block(
     // agreed, the other ones still rivals as in the probe.
     let round = newly.evidence.clone();
     let lines = newly.lines.clone();
+    let nested = newly.evidence_nested.clone();
     // A fold variant only where its helper's copies here refer to number
     // constants, which its equations need, or where a constant truth may
     // decide a select of its pattern.
@@ -4774,7 +4881,17 @@ fn deinline_block(
             || targets[i].folds_truth
             || targets[i].proto.zip(lines.caller(current_func)).is_some_and(|(proto, caller)| lines.copies.constants_in_copies(Some(caller), proto)) =>
         {
-            lines.copies(current_func, targets[i].proto)
+            // A nested round tries a helper only where copies of it sit in
+            // others' copies: elsewhere the tree is as the last probe saw it.
+            match &nested {
+                None => lines.copies(current_func, targets[i].proto),
+                Some(pending) if lines.caller(current_func).zip(targets[i].proto)
+                    .is_some_and(|(caller, helper)| pending.contains(&(caller as u32, helper as u32))) =>
+                {
+                    lines.copies_at_any_depth(current_func, targets[i].proto)
+                }
+                Some(_) => 0,
+            }
         }
         _ => 0,
     };
@@ -4782,6 +4899,16 @@ fn deinline_block(
         EvidenceRound::Admit(admitted) => admitted.contains(&(current_func, targets[i].f_local.clone())),
         _ => false,
     };
+    // An evidence round tries nothing in a function where no evidence
+    // target may be tried, whichever targets are active.
+    let tried_here = |i: usize| targets[i].evidence && match &round {
+        EvidenceRound::Off => false,
+        EvidenceRound::Probe => copies_here(i) > 0,
+        EvidenceRound::Admit(_) => admitted_here(i),
+    };
+    if !matches!(round, EvidenceRound::Off) && !(0..targets.len()).any(tried_here) {
+        return;
+    }
     // `reconstruction_search::prioritize` of the focused targets: a stable
     // partition by the body's keys.
     let prioritize = |active: &[usize]| {
@@ -5966,6 +6093,7 @@ fn match_void(
         if w < kc || top_len < kc {
             let shorter = may_specialize(t)
                 && top_len < kc
+                && top_len >= t.specialized_floor
                 && !(has_return && !(is_func_tail && start + w == stmts.len()));
             if shorter {
                 let plain = canon_window(canon_cache, t, stmts, start, w);
@@ -6351,7 +6479,7 @@ fn match_value(
         // byte-identical; it just avoids scanning returns for wrong-length regions.
         let top_len = canon_top_len(region, true);
         if top_len != kc {
-            if shorter && top_len < kc && !block_has_return(region) {
+            if shorter && top_len < kc && top_len >= t.specialized_floor && !block_has_return(region) {
                 let cwin = canon_window(canon_cache, t, stmts, body_start, w);
                 if charge_unify(t, &cwin)
                     && let Some(u) = try_unify_specialized_site(t, &cwin, current_func)
@@ -6722,24 +6850,52 @@ fn match_assigned_value(
     canon_cache: &mut CanonCache,
     current_func: Option<FnPtr>,
 ) -> Option<Hit> {
-    // Every window here opens with the statement at `i`; the bindings fixed
-    // in advance only narrow what unifies with it.
-    if t.loop_exit_at.is_some() || !t.returns.is_empty() || leading_statement_refused(t, &stmts[i..]) {
+    if t.loop_exit_at.is_some() || !t.returns.is_empty() {
         return None;
     }
+    // Every window as long as the pattern opens with the statement at `i`;
+    // the bindings fixed in advance only narrow what unifies with it. A copy
+    // Luau specialized may be shorter (`match_value`), its first statements
+    // folded away.
+    let whole = !leading_statement_refused(t, &stmts[i..]);
+    let shorter = may_specialize(t);
+    if !whole && !shorter {
+        return None;
+    }
+    let returned = if shorter { returned_kinds(&t.pat) } else { 0 };
     let kc = t.pat.len();
     let max_w = raw_width_for_effective(stmts, i, t.pat_raw_len + 1);
     let mut site: Option<Site> = None;
     let mut ambiguous = false;
     let mut declared = false;
-    let mut grown = WindowGrowth::new(stmts, i, kc);
-    for w in kc..=max_w {
+    let narrowest = if shorter { 1 } else { kc };
+    let mut grown = WindowGrowth::new(stmts, i, narrowest);
+    for w in narrowest..=max_w {
         let (top_len, has_return) = grown.extend_to(stmts, i + w);
         if is_func_body_top && i == 0 && i + w == stmts.len() {
             continue;
         }
         let region = &stmts[i..i + w];
         if top_len != kc || has_return {
+            if shorter && top_len < kc && top_len >= t.specialized_floor && !has_return
+                && let Some(result) = terminal_store(region)
+                && stored_kind_may_match(region, returned)
+            {
+                let cwin = canon_window(canon_cache, t, stmts, i, w);
+                let seed = Bindings { result: Some(result.clone()), assigned: true, ..Bindings::default() };
+                if charge_unify(t, &cwin)
+                    && let Some(u) = try_seeded_specialization(t, &cwin, current_func, &seed)
+                    && u.result.as_ref() == Some(&result)
+                    && !u.callee_locals.contains(&result)
+                    && !tail_has_live(last_occ, stmts, i, i + w, &u.callee_locals)
+                    && !(t.lines.as_ref().is_some_and(|lines| lines.absent(current_func, t.proto)))
+                {
+                    record_site(&mut site, &mut ambiguous, w, &u, None);
+                }
+            }
+            continue;
+        }
+        if !whole {
             continue;
         }
         let Some(result) = terminal_store(region) else { continue };
@@ -6811,6 +6967,34 @@ fn elided_declaration(region: &[Statement], local: &RcLocal) -> bool {
 
 /// The local the leaf stores of a region write: its last statement `R = X`,
 /// or the first such store at the end of an arm of the `if` ending it.
+/// [`kind_bit`]s of the values `stmts` returns, or of what a constant may
+/// fold one to (an arm of a select); every kind where one is a local.
+fn returned_kinds(stmts: &[Statement]) -> u32 {
+    fn value(returned: &RValue) -> u32 {
+        match returned {
+            RValue::Local(_) => u32::MAX,
+            RValue::Binary(binary) if matches!(binary.operation, BinaryOperation::And | BinaryOperation::Or) => {
+                kind_bit(returned) | value(&binary.left) | value(&binary.right)
+            }
+            RValue::IfExpression(select) => kind_bit(returned) | value(&select.then_value) | value(&select.else_value),
+            _ => kind_bit(returned),
+        }
+    }
+    stmts.iter().fold(0, |kinds, statement| kinds | match statement {
+        Statement::Return(ret) => ret.values.iter().fold(0, |kinds, returned| kinds | value(returned)),
+        other => nested_blocks(other).iter().fold(0, |kinds, block| kinds | returned_kinds(&block.lock().0)),
+    })
+}
+
+/// Whether the store a window ends with may be a value of these
+/// [`returned_kinds`]: a cheap gate before a specialized copy is built.
+fn stored_kind_may_match(stmts: &[Statement], returned: u32) -> bool {
+    match stmts.iter().rev().find(|statement| !is_match_trivia(statement)) {
+        Some(Statement::Assign(assign)) => assign.right.first().is_some_and(|stored| kind_bit(stored) & returned != 0),
+        _ => true,
+    }
+}
+
 fn terminal_store(stmts: &[Statement]) -> Option<RcLocal> {
     match stmts.iter().rev().find(|statement| !is_match_trivia(statement))? {
         Statement::Assign(assign)
@@ -7680,7 +7864,8 @@ fn statements_spread(stmts: &[Statement]) -> usize {
 /// "Gift Box"; if count ~= 1 then text ..= "es" end`): given constants,
 /// its copy may be that value alone, in place ([`match_hosted_value`]).
 fn specialized_host(t: &Target) -> Option<&RValue> {
-    if t.kind != TKind::Value || t.loop_exit_at.is_some() || !t.returns.is_empty() || !may_specialize(t) {
+    // The copy is the value alone: every statement before it folded away.
+    if t.kind != TKind::Value || t.loop_exit_at.is_some() || !t.returns.is_empty() || !may_specialize(t) || t.specialized_floor > 1 {
         return None;
     }
     let (Statement::Return(ret), prefix) = t.pat.split_last()? else { return None };
@@ -8895,12 +9080,19 @@ fn refused<T>(reason: &'static str) -> Option<T> {
     None
 }
 
-fn finish_unified(
+fn finish_unified(t: &Target, cwin: &[Statement], b: Bindings, current_func: Option<FnPtr>) -> Option<Unified> {
+    finish_unified_reading(t, cwin, b, current_func, t.leading())
+}
+
+/// `leading`: the leading reads of the pattern `cwin` unified with, a
+/// specialization's own where the constants folded code away.
+fn finish_unified_reading(
     t: &Target,
     cwin: &[Statement],
     mut b: Bindings,
     // The function the site is in: its registers read alike across calls.
     current_func: Option<FnPtr>,
+    leading: &crate::evaluation_order::LeadingReads,
 ) -> Option<Unified> {
     // A fold variant's equations, proven: the parameters they solve are
     // the call's constant arguments.
@@ -9033,7 +9225,7 @@ fn finish_unified(
             return refused("argument_reads_region_write");
         }
     }
-    if !t.leading().admits(unstable) {
+    if !leading.admits(unstable) {
         return refused("unstable_argument");
     }
     // Each returned local is declared by the pattern, so the site's matching
@@ -9545,7 +9737,8 @@ fn may_specialize(t: &Target) -> bool {
 }
 
 fn try_unify_specialized_site(t: &Target, cwin: &[Statement], current_func: Option<FnPtr>) -> Option<Unified> {
-    let unified = try_seeded_specialization(t, cwin, current_func).or_else(|| try_inferred_constant(t, cwin, current_func))?;
+    let unified = try_seeded_specialization(t, cwin, current_func, &Bindings::default())
+        .or_else(|| try_inferred_constant(t, cwin, current_func))?;
     // Honesty, part (b): no specialized copy where line info shows none
     // of the helper's code.
     if t.lines.as_ref().is_some_and(|lines| lines.absent(current_func, t.proto)) {
@@ -9616,6 +9809,76 @@ fn fold_specialized_leading_concat(t: &Target, specialized: &mut Vec<Statement>)
         &|read| !t.captures.uncaptured(read), &|_| false, summary)
     { return false; }
     expand_leading_scalar_snapshot(specialized)
+}
+
+/// The number constants `pat` refers to, its function literals' aside.
+fn pattern_numbers(pat: &[Statement]) -> FxHashSet<u64> {
+    fn numbers_in(value: &RValue, numbers: &mut FxHashSet<u64>) {
+        match value {
+            RValue::Literal(Literal::Number(number)) => {
+                numbers.insert(number.to_bits());
+            }
+            RValue::Closure(_) => {}
+            _ => {
+                value.visit_rvalues(&mut |child| {
+                    numbers_in(child, numbers);
+                    true
+                });
+            }
+        }
+    }
+    fn block(stmts: &[Statement], numbers: &mut FxHashSet<u64>) {
+        for statement in stmts {
+            visit_stmt_rvalues(statement, &mut |rvalue| {
+                numbers_in(rvalue, numbers);
+                true
+            });
+            for nested in nested_blocks(statement) {
+                block(&nested.lock().0, numbers);
+            }
+        }
+    }
+    let mut numbers = FxHashSet::default();
+    block(pat, &mut numbers);
+    numbers
+}
+
+/// The top-level statements of `pat` constant arguments fold away through
+/// its declarations from parameters alone: each such declaration Luau
+/// folds (`local factor = math.pow(10, places)`, and one from those in
+/// turn), and each `if` whose condition they decide. Constants put them
+/// into their reads ([`fold_constant_locals`]). With whether the first
+/// statement is one.
+fn foldable_statements(pat: &[Statement], params: &FxHashSet<RcLocal>) -> (usize, bool) {
+    let no_helpers = fold::PureHelpers::default();
+    let mut folded: Vec<RcLocal> = Vec::new();
+    let constant = |local: &RcLocal, folded: &[RcLocal]| params.contains(local) || folded.contains(local);
+    let decided = |value: &RValue, folded: &[RcLocal]| {
+        params.iter().chain(folded).any(|local| fold::reads(value, local) > 0)
+            && fold::foldable(value, &|local| constant(local, folded), &no_helpers)
+    };
+    let mut count = 0;
+    let mut head = false;
+    for (index, statement) in pat.iter().enumerate() {
+        let folds = match statement {
+            Statement::Assign(assign) if assign.prefix && !assign.parallel => {
+                if let ([LValue::Local(local)], [value]) = (assign.left.as_slice(), assign.right.as_slice())
+                    && !matches!(value, RValue::Literal(_) | RValue::Local(_) | RValue::Closure(_))
+                    && decided(value, &folded)
+                {
+                    folded.push(local.clone());
+                    true
+                } else {
+                    false
+                }
+            }
+            Statement::If(branch) => !folded.is_empty() && decided(&branch.condition, &folded),
+            _ => false,
+        };
+        count += usize::from(folds);
+        head |= folds && index == 0;
+    }
+    (count, head)
 }
 
 /// The pattern with each local it declares from parameters alone (`local
@@ -9803,7 +10066,9 @@ fn specialize_lvalue_keys(stmts: &mut [Statement], bindings: &FxHashMap<RcLocal,
     }
 }
 
-fn try_seeded_specialization(t: &Target, cwin: &[Statement], current_func: Option<FnPtr>) -> Option<Unified> {
+/// `site`: the result binding the window's store fixes, if any
+/// ([`match_assigned_value`]); only its `result` and `assigned` are read.
+fn try_seeded_specialization(t: &Target, cwin: &[Statement], current_func: Option<FnPtr>, site: &Bindings) -> Option<Unified> {
     if !t.specializable || t.params.is_empty() {
         return None;
     }
@@ -9829,10 +10094,27 @@ fn try_seeded_specialization(t: &Target, cwin: &[Statement], current_func: Optio
     if !complete_seed(&seed)
         && let Some(through) = through_parameter_locals(t)
     {
+        // Through them, a value of parameters alone meets a number of the
+        // copy where the constants folded it (`math.pow(10, places)` as 100).
+        let no_helpers = fold::PureHelpers::default();
+        let helpers = t.fold.as_deref().unwrap_or(&no_helpers);
         let mut deep = Bindings::default();
-        seed_unify_block(t, &through, cwin, &mut deep);
-        if complete_seed(&deep) {
+        seed_unify_block_in(&MatchCtx { fold: Some(helpers), ..t.ctx() }, &through, cwin, &mut deep);
+        if solve_seed_equations(t, &mut deep, helpers).is_some() && complete_seed(&deep) {
             seed = deep;
+        }
+    }
+    // A truth the copy's select kept (`flag and 0 or 1` as `1`) is the
+    // falsy argument a reader expects of the parameter, as `seed_aligned`
+    // gives it.
+    for param in seed.truths.clone() {
+        if matches!(seed.params.get(&param), Some(RValue::Literal(Literal::Nil))) {
+            let literal = falsy_argument(t, &param);
+            if literal == Literal::Nil {
+                if !seed.left_out.contains(&param) { seed.left_out.push(param.clone()); }
+            } else {
+                seed.params.insert(param, RValue::Literal(literal));
+            }
         }
     }
     if !seed
@@ -9878,12 +10160,9 @@ fn try_seeded_specialization(t: &Target, cwin: &[Statement], current_func: Optio
     call_unread_specialized_locals(&mut specialized);
     let mut specialized = canon(&specialized);
 
-    let mut verified = Bindings {
-        params: seed.params.clone(),
-        ..Bindings::default()
-    };
+    let fresh = || Bindings { params: seed.params.clone(), result: site.result.clone(), assigned: site.assigned, ..Bindings::default() };
+    let mut verified = fresh();
     if unify_block(t, &specialized, cwin, &mut verified).is_err() {
-        let fresh = || Bindings { params: seed.params.clone(), ..Bindings::default() };
         // Literal substitution can make an earlier scalar or callee snapshot
         // redundant. The ordinary pattern still needs it. Only mutate this owned specialized pattern;
         // nested Function bodies remain shared and must not be traversed.
@@ -9904,7 +10183,15 @@ fn try_seeded_specialization(t: &Target, cwin: &[Statement], current_func: Optio
             unify_block(t, &specialized, cwin, &mut verified).ok()?;
         }
     }
-    let mut unified = finish_unified(t, cwin, verified, current_func)?;
+    // The copy reads its arguments where the body specialized to its
+    // constants alone reads them: the code they folded away
+    // (`math.pow(10, places)`) ran nothing before.
+    let constants: FxHashMap<RcLocal, RValue> =
+        seed.params.iter().filter(|(_, value)| matches!(value, RValue::Literal(_))).map(|(p, v)| (p.clone(), v.clone())).collect();
+    let mut reading = canon(&t.pat);
+    specialize_block(&mut reading, &constants);
+    let leading = if fold_constant_locals(&mut reading, &t.pat) { t.leading_reads_of(&reading) } else { t.leading().clone() };
+    let mut unified = finish_unified_reading(t, cwin, verified, current_func, &leading)?;
     while matches!(unified.args.last(), Some(RValue::Literal(Literal::Nil)))
         && seed.left_out.contains(&t.param_order[unified.args.len() - 1])
     {
@@ -10384,24 +10671,7 @@ fn seed_aligned(t: &Target, candidate: &[Statement]) -> Option<Bindings> {
         return None;
     }
     let (mut b, truths) = align_seed(t, &ctx, &t.pat, None, candidate, Bindings::default(), Vec::new(), &mut budget)?;
-    let equations = std::mem::take(&mut b.equations);
-    if !equations.is_empty() {
-        let mut known = FxHashMap::default();
-        let mut unknowns = Vec::new();
-        for param in &t.param_order {
-            match b.params.get(param) {
-                Some(RValue::Literal(literal)) => {
-                    known.insert(param.clone(), fold::Value::of(literal)?);
-                }
-                Some(_) => {}
-                None if equations.iter().any(|(pattern, _)| fold::reads(pattern, param) > 0) => unknowns.push(param.clone()),
-                None => {}
-            }
-        }
-        for (param, value) in fold::solve_equations(&equations, &known, &unknowns, helpers)? {
-            b.params.entry(param).or_insert_with(|| RValue::Literal(value.literal()));
-        }
-    }
+    solve_seed_equations(t, &mut b, helpers)?;
     // A parameter only an arm's choice reads: its truth is all the copy keeps.
     for (param, truth) in truths {
         if !b.params.contains_key(&param) {
@@ -10414,6 +10684,31 @@ fn seed_aligned(t: &Target, candidate: &[Statement]) -> Option<Bindings> {
         }
     }
     Some(b)
+}
+
+/// The parameters the seeding's equations ([`Bindings::equations`]) give,
+/// bound to their constants; `None` where they hold no solution.
+fn solve_seed_equations(t: &Target, b: &mut Bindings, helpers: &fold::PureHelpers) -> Option<()> {
+    let equations = std::mem::take(&mut b.equations);
+    if equations.is_empty() {
+        return Some(());
+    }
+    let mut known = FxHashMap::default();
+    let mut unknowns = Vec::new();
+    for param in &t.param_order {
+        match b.params.get(param) {
+            Some(RValue::Literal(literal)) => {
+                known.insert(param.clone(), fold::Value::of(literal)?);
+            }
+            Some(_) => {}
+            None if equations.iter().any(|(pattern, _)| fold::reads(pattern, param) > 0) => unknowns.push(param.clone()),
+            None => {}
+        }
+    }
+    for (param, value) in fold::solve_equations(&equations, &known, &unknowns, helpers)? {
+        b.params.entry(param).or_insert_with(|| RValue::Literal(value.literal()));
+    }
+    Some(())
 }
 
 /// The copy went through the SSA fold of the stores right after a table
@@ -11007,8 +11302,9 @@ fn specialize_rvalue(value: &mut RValue, bindings: &FxHashMap<RcLocal, RValue>) 
         }
         // Arithmetic and comparisons a constant argument made constant, as
         // Luau folded them in the copy (`1 * p` is `3`, `p >= 4` is `false`
-        // for `3`); the helper's own constant expressions read as written.
-        other @ (RValue::Binary(_) | RValue::Unary(_))
+        // for `3`, `math.pow(10, p)` is `100` for `2`); the helper's own
+        // constant expressions read as written.
+        other @ (RValue::Binary(_) | RValue::Unary(_) | RValue::Call(_) | RValue::Select(Select::Call(_)))
             if substituted && let Some(value) = fold::evaluate(&other, &|_| None, &fold::PureHelpers::default()) =>
         {
             RValue::Literal(value.literal())
@@ -12957,9 +13253,18 @@ impl TargetCommon<'_> {
     /// defaults for the caller to set.
     fn target(&self, kind: TKind, pat: Vec<Statement>, raw: &[Statement]) -> Target {
         let params = self.params;
-        let specializable = branch_conditions_read_any(&pat, params)
+        let reshaped = branch_conditions_read_any(&pat, params)
             || (kind == TKind::Void && specializable_leading_concat(&pat, params, self.captures));
+        // Folded declarations change where a copy starts only from the first,
+        // and only where line info, if any, shows copies with a number the
+        // helper lacks.
+        let (foldable, head_folds) = foldable_statements(&pat, params);
+        let head_folds = head_folds && self.lines.zip(self.proto).is_none_or(|(lines, proto)| {
+            lines.copies.new_numbers_in_copies(proto, &pattern_numbers(&pat))
+        });
+        let specializable = reshaped || head_folds;
         let (truth_params, optional_params) = truth_tested_params(&pat, params, self.parameters);
+        let specialized_floor = if reshaped || !truth_params.is_empty() { 0 } else { pat.len() - foldable };
         let mut locals: FxHashSet<RcLocal> = FxHashSet::default();
         collect_declared_locals(&pat, &mut locals);
         for p in params {
@@ -12995,6 +13300,7 @@ impl TargetCommon<'_> {
             leading: Default::default(),
             free_cells: Default::default(),
             specializable,
+            specialized_floor,
             truth_params,
             optional_params,
             specializations: Default::default(),
@@ -14444,6 +14750,7 @@ mod tests {
         target.params.insert(parameter.clone());
         target.param_order = vec![parameter];
         target.specializable = true;
+        target.specialized_floor = 0;
         target.captures = std::rc::Rc::new(crate::deinline_safety::CaptureSafety::new(&Block(pattern)));
         assert!(try_unify_specialized_site(&target, &[insert(concat(number(7.0)))], None).is_some());
         for value in [local("unknown").into(), Table::default().into(), Literal::Nil.into(), Literal::Boolean(true).into(),
@@ -14481,6 +14788,7 @@ mod tests {
             target.params.insert(parameter.clone());
             target.param_order = vec![parameter.clone()];
             target.specializable = true;
+            target.specialized_floor = 0;
             target.captures = std::rc::Rc::new(if mode == "incomplete" {
                 crate::deinline_safety::CaptureSafety::exhausted_for_tests()
             } else { crate::deinline_safety::CaptureSafety::new(&full) });
@@ -14531,12 +14839,26 @@ mod tests {
         let mut b = Bindings::default();
         assert!(unify_rvalue(&with, &one_minus_k, &site_call, &mut b).is_ok());
         assert!(matches!(b.equations.as_slice(), [(_, Literal::Number(value))] if value.to_bits() == (6.0f64 / 60.0).to_bits()));
-        // Refused: `k ^ 2`, `math.floor(k)`, a value reading no parameter,
-        // a string site of a concatenation with no text of its own.
+        // A power Luau folded (`k ^ 2` as 9): an equation.
         let pow = RValue::Binary(Binary::new(local_value(&k), number(2.0), BinaryOperation::Pow));
+        let mut b = Bindings::default();
+        assert!(unify_rvalue(&with, &pow, &number(9.0), &mut b).is_ok());
+        assert_eq!(b.equations.len(), 1);
+        // `math.pow(10, k)` as 100 is an equation; a copy still calling it
+        // with constants saw none (`math.pow(10, id(2))`): no copy.
+        let math_pow = |exponent: RValue| RValue::Call(Call::new(RValue::Index(Index::new(global("math"), string("pow"))), vec![number(10.0), exponent]));
+        let mut b = Bindings::default();
+        assert!(unify_rvalue(&with, &math_pow(local_value(&k)), &number(100.0), &mut b).is_ok());
+        assert_eq!(b.equations.len(), 1);
+        for ctx in [&with, &without] {
+            assert!(unify_rvalue(ctx, &math_pow(local_value(&k)), &math_pow(number(2.0)), &mut Bindings::default()).is_err());
+            assert!(unify_rvalue(ctx, &math_pow(number(2.0)), &math_pow(number(2.0)), &mut Bindings::default()).is_ok());
+        }
+        // Refused: `math.floor(k)`, a value reading no parameter, a string
+        // site of a concatenation with no text of its own.
         let floor = RValue::Call(Call::new(RValue::Index(Index::new(global("math"), string("floor"))), vec![local_value(&k)]));
         let constant = RValue::Binary(Binary::new(number(1.0), number(2.0), BinaryOperation::Sub));
-        for pattern in [&pow, &floor, &constant] {
+        for pattern in [&floor, &constant] {
             assert!(unify_rvalue(&with, pattern, &number(9.0), &mut Bindings::default()).is_err());
         }
         let bare = RValue::Binary(Binary::new(local_value(&k), local_value(&k), BinaryOperation::Concat));
@@ -14614,6 +14936,7 @@ mod tests {
             leading: std::cell::OnceCell::from(crate::evaluation_order::LeadingReads::default()),
             free_cells: std::cell::OnceCell::from(Vec::new()),
             specializable: false,
+            specialized_floor: 0,
             truth_params: Vec::new(),
             optional_params: Vec::new(),
             specializations: Default::default(),
@@ -15416,6 +15739,7 @@ mod tests {
             leading: std::cell::OnceCell::from(crate::evaluation_order::LeadingReads::default()),
             free_cells: std::cell::OnceCell::from(Vec::new()),
             specializable: true,
+            specialized_floor: 0,
             truth_params: Vec::new(),
             optional_params: Vec::new(),
             specializations: Default::default(),
@@ -15516,6 +15840,7 @@ mod tests {
             leading: std::cell::OnceCell::from(crate::evaluation_order::LeadingReads::default()),
             free_cells: std::cell::OnceCell::from(Vec::new()),
             specializable: true,
+            specialized_floor: 0,
             truth_params: Vec::new(),
             optional_params: Vec::new(),
             specializations: Default::default(),
@@ -15606,6 +15931,7 @@ mod tests {
             leading: std::cell::OnceCell::from(crate::evaluation_order::LeadingReads::default()),
             free_cells: std::cell::OnceCell::from(Vec::new()),
             specializable: false,
+            specialized_floor: 0,
             truth_params: Vec::new(),
             optional_params: Vec::new(),
             specializations: Default::default(),
@@ -15711,6 +16037,7 @@ mod tests {
             leading: std::cell::OnceCell::from(crate::evaluation_order::LeadingReads::default()),
             free_cells: std::cell::OnceCell::from(Vec::new()),
             specializable: false,
+            specialized_floor: 0,
             truth_params: Vec::new(),
             optional_params: Vec::new(),
             specializations: Default::default(),
@@ -16074,6 +16401,7 @@ mod tests {
             leading: std::cell::OnceCell::from(crate::evaluation_order::LeadingReads::default()),
             free_cells: std::cell::OnceCell::from(Vec::new()),
             specializable: false,
+            specialized_floor: 0,
             truth_params: Vec::new(),
             optional_params: Vec::new(),
             specializations: Default::default(),
@@ -16187,6 +16515,7 @@ mod tests {
             leading: std::cell::OnceCell::from(crate::evaluation_order::LeadingReads::default()),
             free_cells: std::cell::OnceCell::from(Vec::new()),
             specializable: false,
+            specialized_floor: 0,
             truth_params: Vec::new(),
             optional_params: Vec::new(),
             specializations: Default::default(),
@@ -16362,6 +16691,7 @@ mod tests {
             leading: std::cell::OnceCell::from(crate::evaluation_order::LeadingReads::default()),
             free_cells: std::cell::OnceCell::from(Vec::new()),
             specializable: false,
+            specialized_floor: 0,
             truth_params: Vec::new(),
             optional_params: Vec::new(),
             specializations: Default::default(),
@@ -16432,6 +16762,7 @@ mod tests {
             leading: std::cell::OnceCell::from(crate::evaluation_order::LeadingReads::default()),
             free_cells: std::cell::OnceCell::from(Vec::new()),
             specializable: false,
+            specialized_floor: 0,
             truth_params: Vec::new(),
             optional_params: Vec::new(),
             specializations: Default::default(),
@@ -17779,6 +18110,7 @@ mod tests {
             leading: std::cell::OnceCell::from(crate::evaluation_order::LeadingReads::default()),
             free_cells: std::cell::OnceCell::from(Vec::new()),
             specializable: false,
+            specialized_floor: 0,
             truth_params: Vec::new(),
             optional_params: Vec::new(),
             specializations: Default::default(),

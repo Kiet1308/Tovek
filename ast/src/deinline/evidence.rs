@@ -58,6 +58,9 @@ pub struct Copies {
     folded: FxHashSet<(u32, u32)>,
     /// The helpers of `folded`.
     folded_helpers: FxHashSet<u32>,
+    /// Per helper, the number constants its copies refer to anywhere, read
+    /// off `copy_refs` by [`enter`].
+    copy_numbers: FxHashMap<u32, FxHashSet<u64>>,
 }
 
 /// The fully folded copies of one helper producing one constant in one
@@ -129,6 +132,14 @@ impl Copies {
     /// Whether copies of `helper` refer to a number constant somewhere.
     pub fn constants_in_copies_anywhere(&self, helper: usize) -> bool {
         u32::try_from(helper).is_ok_and(|helper| self.folded_helpers.contains(&helper))
+    }
+
+    /// Whether copies of `helper` refer to a number constant other than
+    /// those of `own`, the helper's: one its constant arguments folded
+    /// (`10000` for `math.pow(10, places)`).
+    pub fn new_numbers_in_copies(&self, helper: usize, own: &FxHashSet<u64>) -> bool {
+        u32::try_from(helper).ok().and_then(|helper| self.copy_numbers.get(&helper))
+            .is_some_and(|numbers| numbers.iter().any(|bits| !own.contains(bits)))
     }
 
     /// Whether some function holds a copy of `helper`.
@@ -250,6 +261,9 @@ pub fn enter(copies: Option<Copies>) -> Scope {
         copies.inlined = copies.copies.keys().map(|&(_, helper)| helper).collect();
         copies.folded = copies.copy_refs.keys().map(|&(caller, helper, _)| (caller, helper)).collect();
         copies.folded_helpers = copies.folded.iter().map(|&(_, helper)| helper).collect();
+        for &(_, helper, bits) in copies.copy_refs.keys() {
+            copies.copy_numbers.entry(helper).or_default().insert(bits);
+        }
         Rc::new(copies)
     });
     let previous = STATE.with(|state| state.replace(copies));

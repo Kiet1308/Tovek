@@ -5485,7 +5485,11 @@ impl Namer {
                                 // rvalue_hint tier; `call_hint` returns nothing for a
                                 // local-function callee, so this fills the empty slot.
                                 if let Some(name) = self.verb_call_hint(rvalue) {
-                                    self.set_hint(local, name, 60);
+                                    // A lookup helper's hypernym (`findChild` -> `child`)
+                                    // is a fallback: the name a constant argument gives
+                                    // (`refine_names`) or any evidence decides first.
+                                    let score = if matches!(name.as_str(), "child" | "descendant") { 20 } else { 60 };
+                                    self.set_hint(local, name, score);
                                 }
                                 // `TweenService:Create(...)` result -> `tween`
                                 // (`method_call_hint` returns nothing for `:Create`).

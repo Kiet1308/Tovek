@@ -35,7 +35,7 @@
 
 use rustc_hash::FxHashMap;
 
-use crate::{BinaryOperation, Literal, RValue, RcLocal, Select, Statement, Traverse, UnaryOperation};
+use crate::{Binary, BinaryOperation, Literal, RValue, RcLocal, Select, Statement, Traverse, UnaryOperation};
 
 /// Luau's `kConstantFoldStringLimit`: the longest string `..` folds to.
 pub(crate) const STRING_LIMIT: usize = 4096;
@@ -190,31 +190,51 @@ impl PureHelpers {
 }
 
 /// Whether `value` is made only of what [`evaluate`] folds: literals it
-/// knows, locals `is_param` admits, operators but `^`, `if`-expressions and
-/// calls of pure helpers with as many arguments as parameters.
+/// knows, locals `is_param` admits, operators, `if`-expressions, `math.pow`
+/// and calls of pure helpers with as many arguments as parameters.
 pub(crate) fn foldable(value: &RValue, is_param: &dyn Fn(&RcLocal) -> bool, helpers: &PureHelpers) -> bool {
     match value {
         RValue::Literal(literal) => Value::of(literal).is_some(),
         RValue::Local(local) => is_param(local),
         RValue::Unary(unary) => foldable(&unary.value, is_param, helpers),
         RValue::Index(index) => vector_component(&index.right).is_some() && foldable(&index.left, is_param, helpers),
-        RValue::Binary(binary) => {
-            binary.operation != BinaryOperation::Pow
-                && foldable(&binary.left, is_param, helpers)
-                && foldable(&binary.right, is_param, helpers)
-        }
+        RValue::Binary(binary) => foldable(&binary.left, is_param, helpers) && foldable(&binary.right, is_param, helpers),
         RValue::IfExpression(select) => {
             foldable(&select.condition, is_param, helpers)
                 && foldable(&select.then_value, is_param, helpers)
                 && foldable(&select.else_value, is_param, helpers)
         }
         RValue::Call(call) | RValue::Select(Select::Call(call)) => {
-            matches!(call.value.as_ref(), RValue::Local(callee)
-                if helpers.get(callee).is_some_and(|helper| helper.params.len() == call.arguments.len()))
+            (math_pow(call).is_some()
+                || matches!(call.value.as_ref(), RValue::Local(callee)
+                    if helpers.get(callee).is_some_and(|helper| helper.params.len() == call.arguments.len())))
                 && call.arguments.iter().all(|argument| foldable(argument, is_param, helpers))
         }
         _ => false,
     }
+}
+
+/// Whether a de-inliner's specialization folds `call` where its arguments
+/// are constants, as Luau did in the copy: a copy matched there holds the
+/// constant, never the call (`preserve_builtin_calls`).
+pub(crate) fn specialization_folds(call: &crate::Call) -> bool {
+    math_pow(call).is_some()
+}
+
+/// `math.pow(a, b)` as `a ^ b`, which the compiler folds alike; never with
+/// a parenthesized callee, which it neither folds nor fast-calls.
+fn math_pow(call: &crate::Call) -> Option<RValue> {
+    if call.group_callee {
+        return None;
+    }
+    let RValue::Index(callee) = call.value.as_ref() else { return None };
+    let (RValue::Global(library), RValue::Literal(Literal::String(member)), [base, exponent]) =
+        (callee.left.as_ref(), callee.right.as_ref(), call.arguments.as_slice())
+    else {
+        return None;
+    };
+    (library.0.as_slice() == b"math" && member.as_slice() == b"pow")
+        .then(|| Binary::new(base.clone(), exponent.clone(), BinaryOperation::Pow).into())
 }
 
 /// The constant the compiler folds `value` to, the locals read through
@@ -251,6 +271,9 @@ fn evaluate_at(value: &RValue, env: &dyn Fn(&RcLocal) -> Option<Value>, helpers:
             }
         }
         RValue::Call(call) | RValue::Select(Select::Call(call)) => {
+            if let Some(power) = math_pow(call) {
+                return evaluate_at(&power, env, helpers, depth);
+            }
             let RValue::Local(callee) = call.value.as_ref() else { return None };
             let helper = helpers.get(callee)?;
             if depth >= CALL_DEPTH || helper.params.len() != call.arguments.len() {
@@ -320,8 +343,17 @@ fn fold_binary(operation: BinaryOperation, left: &Value, right: &Value) -> Optio
                 LessThanOrEqual => Some(Value::Boolean(a <= b)),
                 GreaterThan => Some(Value::Boolean(a > b)),
                 GreaterThanOrEqual => Some(Value::Boolean(a >= b)),
-                // `pow` is the C library's, which may differ.
-                Pow | Concat | Equal | NotEqual | And | Or => None,
+                // `pow` is the C library's, which may differ, but not where
+                // the result is an integer power of an integer it represents:
+                // any `pow` within an ulp gives that exactly.
+                Pow => {
+                    if a.fract() != 0.0 || b.fract() != 0.0 || !(0.0..=64.0).contains(&b) {
+                        return None;
+                    }
+                    let exact = (0..b as u32).try_fold(1.0f64, |power, _| Some(power * a).filter(|next| next.abs() < 9007199254740992.0))?;
+                    Value::number(exact)
+                }
+                Concat | Equal | NotEqual | And | Or => None,
             }
         }
         _ => None,
@@ -428,6 +460,10 @@ fn invert(
                 (Add, Value::Number(k), Value::Number(g)) => Value::Number(g - k),
                 (Sub, Value::Number(k), Value::Number(g)) => Value::Number(if in_left { g + k } else { k - g }),
                 (Mul, Value::Number(k), Value::Number(g)) if *k != 0.0 => Value::Number(g / k),
+                // A proposal only: the proof folds it back exactly.
+                (Pow, Value::Number(k), Value::Number(g)) if *g > 0.0 => {
+                    Value::Number(if in_left { g.powf(1.0 / k) } else { g.ln() / k.ln() }.round())
+                }
                 (Div, Value::Number(k), Value::Number(g)) => Value::Number(if in_left { g * k } else { k / g }),
                 (Concat, Value::String(k), Value::String(g)) => {
                     let rest = if in_left { g.strip_suffix(k.as_slice()) } else { g.strip_prefix(k.as_slice()) };
@@ -455,6 +491,9 @@ fn invert(
             invert(inner, proposed, unknown, env, helpers, depth)
         }
         RValue::Call(call) | RValue::Select(Select::Call(call)) => {
+            if let Some(power) = math_pow(call) {
+                return invert(&power, goal, unknown, env, helpers, depth);
+            }
             let RValue::Local(callee) = call.value.as_ref() else { return None };
             let helper = helpers.get(callee)?;
             if depth >= CALL_DEPTH || helper.params.len() != call.arguments.len() {
@@ -690,7 +729,8 @@ mod tests {
     #[test]
     fn pow_nan_and_inexact_remainders_are_refused() {
         assert!(fold(&binary(number(2.0), Pow, number(0.5))).is_none());
-        assert!(fold(&binary(number(2.0), Pow, number(10.0))).is_none());
+        assert_number(&binary(number(2.0), Pow, number(10.0)), 1024.0);
+        assert!(fold(&binary(number(2.5), Pow, number(2.0))).is_none());
         assert!(fold(&binary(number(0.0), Div, number(0.0))).is_none());
         assert!(fold(&binary(number(0.0), Mod, number(0.0))).is_none());
         assert!(fold(&binary(number(1.0), Mod, number(0.0))).is_none());
@@ -846,9 +886,12 @@ mod tests {
         assert!(solve(&idiv, &Value::Number(3.0), &n, &|_| None, &helpers).is_none());
         let twice = binary(RValue::Local(n.clone()), Add, RValue::Local(n.clone()));
         assert!(solve(&twice, &Value::Number(4.0), &n, &|_| None, &helpers).is_none());
-        // `^` is refused even where it could be inverted.
+        // `^` of integers giving an integer folds exactly, either way round.
         let pow = binary(RValue::Local(n.clone()), Pow, number(2.0));
-        assert!(solve(&pow, &Value::Number(4.0), &n, &|_| None, &helpers).is_none());
+        assert!(matches!(solve(&pow, &Value::Number(4.0), &n, &|_| None, &helpers), Some(Value::Number(n)) if n == 2.0));
+        let exponent = binary(number(10.0), Pow, RValue::Local(n.clone()));
+        assert!(matches!(solve(&exponent, &Value::Number(10000.0), &n, &|_| None, &helpers), Some(Value::Number(n)) if n == 4.0));
+        assert!(solve(&exponent, &Value::Number(0.01), &n, &|_| None, &helpers).is_none());
     }
 
     #[test]

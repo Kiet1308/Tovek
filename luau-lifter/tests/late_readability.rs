@@ -61,6 +61,8 @@ const VOID_GUARD_POLARITY: &[u8] = include_bytes!("fixtures/deinline_void_guard_
 const ONE_VALUED_CALLS: &[u8] = include_bytes!("fixtures/one_valued_call_parentheses.luaubc");
 const OWN_LOCAL_LOOP_EXIT: &[u8] = include_bytes!("fixtures/deinline_own_local_loop_exit.luaubc");
 const VARARG_FORWARDING: &[u8] = include_bytes!("fixtures/deinline_vararg_forwarding.luaubc");
+const POW_SPECIALIZATION: &[u8] = include_bytes!("fixtures/deinline_pow_specialization.luaubc");
+const LOOKUP_NAMES_AND_SETTER_FLAGS: &[u8] = include_bytes!("fixtures/deinline_lookup_names_and_setter_flags.luaubc");
 
 fn decompile(bytecode: &[u8]) -> String {
     luau_lifter::try_decompile_bytecode_with_options(bytecode, 1, None, Default::default())
@@ -658,6 +660,32 @@ fn a_helper_returning_its_own_local_after_a_loop_exit_is_a_call() {
 fn a_copy_spreading_the_varargs_forwards_them() {
     let source = decompile(VARARG_FORWARDING);
     for line in ["onParameterChanged(\"Stats\", i, ...) -- inferred equivalent call\n", "onParameterChanged(\"Passives\", i, ...) -- inferred equivalent call\n"] {
+        assert!(source.contains(line), "{line}\n{source}");
+    }
+}
+
+#[test]
+fn copies_whose_power_folded_solve_it_back() {
+    let source = decompile(POW_SPECIALIZATION);
+    assert!(source.contains("-- 4 equivalent calls inferred from this helper\n\tlocal v = math.pow(10, p2)\n"), "{source}");
+    for line in [
+        "return round(p2, 2) -- inferred equivalent call\n",
+        "p2 = round(p2 / 100, 4) -- inferred equivalent call\n",
+        "p2 = round(p2, 4) -- inferred equivalent call\n",
+        "return round(p, 3) -- inferred equivalent call\n",
+    ] {
+        assert!(source.contains(line), "{line}\n{source}");
+    }
+}
+
+#[test]
+fn rebuilt_lookups_take_the_constant_name_and_setters_keep_false() {
+    let source = decompile(LOOKUP_NAMES_AND_SETTER_FLAGS);
+    for line in [
+        "local drop = findChild(instance, \"Drop\", \"Assets/Drop\") -- inferred equivalent call\n",
+        "setHighlight(instance2, false) -- inferred equivalent call\n",
+        "setHighlight(instance, true) -- inferred equivalent call\n",
+    ] {
         assert!(source.contains(line), "{line}\n{source}");
     }
 }
