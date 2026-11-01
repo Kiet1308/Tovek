@@ -2171,6 +2171,11 @@ struct LocalUsage {
     /// `local = math.max(local, E)` (or `min`) updates, a running extremum
     /// ([`extremum_update`]): which one, the noun of every `E` where they
     /// agree, and the invalidating write flag.
+    /// Writes of the local that are an empty table, and stores into it of
+    /// `true` (a set) or of anything else.
+    empty_table_writes: u32,
+    true_fills: u32,
+    other_fill: bool,
     extremum: Option<&'static str>,
     extremum_noun: Option<String>,
     extremum_noun_conflict: bool,
@@ -2271,6 +2276,11 @@ fn note_map_key(local: &RcLocal, key: &RValue, usage: &mut FxHashMap<usize, Loca
 
 fn note_collection_fill(local: &RcLocal, value: &RValue, usage: &mut FxHashMap<usize, LocalUsage>) {
     let entry = usage.entry(local_ptr(local)).or_default();
+    if matches!(value, RValue::Literal(Literal::Boolean(true))) {
+        entry.true_fills += 1;
+    } else {
+        entry.other_fill = true;
+    }
     if is_connection_value(value) {
         entry.connection_fills += 1;
         entry
@@ -2398,6 +2408,9 @@ fn note_local_write(local: &RcLocal, value: &RValue, aliases: &FxHashMap<usize, 
     if let RValue::Table(table) = value {
         for (key, value) in &table.0 {
             if let Some(key) = key { note_object_name(key, Some(value), entry); }
+        }
+        if table.0.is_empty() {
+            entry.empty_table_writes += 1;
         }
     }
     // An in-place arithmetic update retains the noun; this is no type/effect proof.
@@ -3154,6 +3167,8 @@ fn gather_usage_in(
                         if string_literal(&index.right).is_none() {
                             note_collection_fill(local, rvalue, usage);
                             note_map_key(local, &index.right, usage);
+                        } else {
+                            usage.entry(local_ptr(local)).or_default().other_fill = true;
                         }
                         let create_element = is_create_element_call(rvalue, aliases);
                         let entry = usage.entry(local_ptr(local)).or_default();
@@ -3904,6 +3919,25 @@ impl Namer {
                 // `Vector3.zero` names only a type; summing into it names the role.
                 let score = if usage.zero_vector_start { 61 } else { 40 };
                 candidates.push((ptr, "total".to_string(), score, "accumulator_updates"));
+            }
+            // `local seen = {}` stored only `seen[child] = true`: a set.
+            if usage.true_fills > 0
+                && !usage.other_fill
+                && usage.empty_table_writes > 0
+                && u32::from(usage.assignment_sources) == usage.empty_table_writes
+                && !usage.incoming_parameter
+            {
+                let key = (!usage.unknown_collection_key)
+                    .then(|| self.unanimous_fill_name(&usage.collection_key_sources))
+                    .flatten();
+                // A bare `set` yields to a role (`result`, returned).
+                let (name, score) = match key {
+                    Some(key) => (format!("{}Set", key.name), 44),
+                    None => ("set".to_string(), 34),
+                };
+                if let Some(name) = sanitize_preserve(&name) {
+                    candidates.push((ptr, name, score, "boolean_set"));
+                }
             }
             // `best = math.max(best, lifetime(p))`: the largest seen.
             if let Some(kind) = usage.extremum
@@ -11487,6 +11521,20 @@ mod tests {
         let mut block = Block(vec![declare(&v, len()), use_local(&v)]);
         name_locals(&mut block, true);
         assert_eq!(name_of(&v), "v");
+    }
+
+    /// `local v = {}` stored only `v[child.Name] = true` -> `nameSet`.
+    #[test]
+    fn boolean_set() {
+        let set = RcLocal::default();
+        let key = RValue::Index(Index::new(global("child"), string("Name")));
+        let store = Assign::new(
+            vec![LValue::Index(Index::new(RValue::Local(set.clone()), key))],
+            vec![RValue::Literal(Literal::Boolean(true))],
+        );
+        let mut block = Block(vec![declare(&set, RValue::Table(Table::new(Vec::new()))), store.into(), use_local(&set)]);
+        name_locals(&mut block, true);
+        assert_eq!(name_of(&set), "nameSet");
     }
 
     /// `v = math.max(v, part.Size.X)` -> `maxX`; against a constant it is a
