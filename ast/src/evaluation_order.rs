@@ -377,6 +377,10 @@ pub(crate) fn block_reads_first(stmts: &[Statement], local: &RcLocal, register: 
             Statement::Call(call) => call_reads_first(call, local, register, body),
             Statement::MethodCall(call) => method_call_reads_first(call, local, register, body),
             Statement::If(branch) => reads_first(&branch.condition, local, register, body).or(Some(false)),
+            // A loop's header values, in order, before it runs anything.
+            Statement::While(node) => reads_first(&node.condition, local, register, body).or(Some(false)),
+            Statement::NumericFor(node) => first_of([&node.initial, &node.limit, &node.step], local, register, body).or(Some(false)),
+            Statement::GenericFor(node) => first_of(&node.right, local, register, body).or(Some(false)),
             Statement::Return(ret) => first_of(&ret.values, local, register, body).or(Some(false)),
             Statement::Empty(_) | Statement::Comment(_) => None,
             _ => Some(false),
@@ -585,6 +589,18 @@ fn block_leading_reads(stmts: &[Statement], params: &dyn Fn(&RcLocal) -> bool, r
             Statement::MethodCall(call) => method_call_leading_reads(call, params, register, body, reads),
             Statement::If(branch) => {
                 leading_reads(&branch.condition, params, register, body, reads);
+                false
+            }
+            Statement::While(node) => {
+                leading_reads(&node.condition, params, register, body, reads);
+                false
+            }
+            Statement::NumericFor(node) => {
+                [&node.initial, &node.limit, &node.step].into_iter().all(|value| leading_reads(value, params, register, body, reads));
+                false
+            }
+            Statement::GenericFor(node) => {
+                node.right.iter().all(|value| leading_reads(value, params, register, body, reads));
                 false
             }
             Statement::Return(ret) => {

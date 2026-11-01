@@ -5796,6 +5796,7 @@ fn try_match_at(
             ),
             (TKind::Value, _) if t.loop_exit_at.is_some() => {
                 match_value_loop(stmts, i, t, is_func_body_top, last_occ, current_func)
+                    .or_else(|| match_own_local_loop(stmts, i, t, is_func_body_top, last_occ, current_func))
             }
             (TKind::Value, ValueAnchor::AtResultDecl) => {
                 match_value(stmts, i, t, is_func_body_top, last_occ, canon_cache, current_func)
@@ -7085,6 +7086,119 @@ fn match_value_loop(
         && dead(&u.callee_locals)
         && dead(&FxHashSet::from_iter([flag]));
     complete.then(|| Hit::call(t, end - i, u, vec![result]))
+}
+
+/// A value helper returning its own local after a loop it returns from
+/// (`local sum = 0; for ... do sum += v; if sum > 100 then return 100 end
+/// end; return sum`), the local in the result's register (Luau's move
+/// elision): the copy stores each loop return into it and breaks (`sum =
+/// 100; break`), and its last `return` has nothing to store. Unified with
+/// those exits given back as returns and the last `return` elided;
+/// rebuilt as `local sum = f(args)`. No closure of the window may capture
+/// the local, which lives on after it.
+fn match_own_local_loop(
+    stmts: &[Statement],
+    i: usize,
+    t: &Target,
+    is_func_body_top: bool,
+    last_occ: &mut Liveness,
+    current_func: Option<FnPtr>,
+) -> Option<Hit> {
+    let [prefix @ .., looped, Statement::Return(ret)] = t.pat.as_slice() else { return None };
+    let [RValue::Local(own)] = ret.values.as_slice() else { return None };
+    let k = prefix.iter().position(|statement| {
+        matches!(statement, Statement::Assign(declaration) if declaration.prefix && matches!(declaration.left.as_slice(), [LValue::Local(local)] if local == own))
+    });
+    // A parameter the helper writes is the copy's local declared from its
+    // argument right before ([`absorb_arguments`] takes that in).
+    let declared = match k {
+        Some(k) => nth_effective_index(stmts, i, k)?,
+        None if t.written_params.contains(own) => (0..i).rev().find(|&at| !is_match_trivia(&stmts[at]))?,
+        None => return None,
+    };
+    let Statement::Assign(declaration) = &stmts[declared] else { return None };
+    let (true, [LValue::Local(r)]) = (declaration.prefix, declaration.left.as_slice()) else { return None };
+    // Where code follows, the structurer leaves the exits a flag (`local ok
+    // = true; ... r = x; ok = false; break ...; if ok then end`).
+    let first = nth_effective_index(stmts, i, prefix.len())?;
+    let flag = flag_decl(&stmts[first]);
+    let at = if flag.is_some() { nth_effective_index(stmts, first + 1, 0)? } else { first };
+    if loop_body(looped).is_none() || std::mem::discriminant(&stmts[at]) != std::mem::discriminant(looped) {
+        return None;
+    }
+    let guard = flag.as_ref().and_then(|flag| {
+        nth_effective_index(stmts, at + 1, 0).filter(|&g| matches!(&stmts[g], Statement::If(branch)
+            if matches!(&branch.condition, RValue::Local(read) if read == flag)
+                && branch.then_block.lock().0.iter().all(is_match_trivia)
+                && branch.else_block.lock().0.iter().all(is_match_trivia)))
+    });
+    let end = guard.unwrap_or(at) + 1;
+    if (is_func_body_top && i == 0 && end == stmts.len()) || block_has_return(&stmts[i..end]) {
+        return None;
+    }
+    let mut window = stmts[i..first].to_vec();
+    window.push(match &flag {
+        Some(flag) => return_from_loop(&stmts[at], flag, Some(r))?,
+        None => returned_loop_exits(&stmts[at], r)?,
+    });
+    if !charge_window(t, &window) {
+        return None;
+    }
+    let seed = Bindings { result: Some(r.clone()), elide: Some(own.clone()), loop_exits: true, ..Bindings::default() };
+    let mut u = try_unify_seeded(t, &canon_recurse(canon_top(&window, true), true), current_func, seed)?;
+    if u.result.as_ref() != Some(r) || !u.callee_locals.remove(r) || closures_capture_any(&stmts[i..end], std::slice::from_ref(r))
+        || tail_has_live(last_occ, stmts, i, end, &u.callee_locals)
+        || flag.is_some_and(|flag| tail_has_live(last_occ, stmts, i, end, &FxHashSet::from_iter([flag])))
+    {
+        return None;
+    }
+    // Declared before the window, the local is the call's declaration
+    // only where its argument's copy is taken in.
+    Some(Hit { mode: "site_own_local", assign: k.is_none(), ..Hit::call(t, end - i, u, vec![r.clone()]) })
+}
+
+/// `looped` with each `r = x; break` of its own (in its body and the
+/// arms there, not in a nested loop) as `return x`; `None` where it has
+/// none.
+fn returned_loop_exits(looped: &Statement, r: &RcLocal) -> Option<Statement> {
+    fn exits(stmts: &[Statement], r: &RcLocal, converted: &mut bool) -> Vec<Statement> {
+        let mut out = Vec::with_capacity(stmts.len());
+        let mut index = 0;
+        while index < stmts.len() {
+            match (&stmts[index], stmts.get(index + 1)) {
+                (Statement::Assign(store), Some(Statement::Break(_))) if is_plain_local_write(store, r) && !store.compound => {
+                    out.push(Return::new(store.right.clone()).into());
+                    *converted = true;
+                    index += 2;
+                    continue;
+                }
+                (Statement::If(branch), _) => out.push(If::new(
+                    branch.condition.clone(),
+                    Block(exits(&branch.then_block.lock().0, r, converted)),
+                    Block(exits(&branch.else_block.lock().0, r, converted)),
+                ).into()),
+                (statement, _) => out.push(statement.clone()),
+            }
+            index += 1;
+        }
+        out
+    }
+    let mut converted = false;
+    let mut looped = looped.clone();
+    let body = loop_body(&looped)?;
+    let replaced = exits(&body.lock().0, r, &mut converted);
+    if !converted {
+        return None;
+    }
+    let block = Arc::new(Mutex::new(Block(replaced)));
+    match &mut looped {
+        Statement::While(node) => node.block = block,
+        Statement::Repeat(node) => node.block = block,
+        Statement::NumericFor(node) => node.block = block,
+        Statement::GenericFor(node) => node.block = block,
+        _ => unreachable!(),
+    }
+    Some(looped)
 }
 
 /// `local flag = true` -> `flag`.
