@@ -67,6 +67,8 @@ const INERT_DECLARATION_BETWEEN_TEMPS: &[u8] = include_bytes!("fixtures/deinline
 const WRITTEN_LITERAL_KEEPS_FOLDED_COPY: &[u8] = include_bytes!("fixtures/deinline_written_literal_keeps_folded_copy.luaubc");
 const EXPLICIT_ARRAY_KEYS_WITH_RECORD: &[u8] = include_bytes!("fixtures/table_explicit_array_keys_with_record.luaubc");
 const GUARD_IS_THE_HELPERS_OWN: &[u8] = include_bytes!("fixtures/deinline_guard_is_the_helpers_own.luaubc");
+const COOLDOWN_TIMESTAMP: &[u8] = include_bytes!("fixtures/naming_cooldown_timestamp_from_zero.luaubc");
+const DECLARED_ARGUMENT: &[u8] = include_bytes!("fixtures/deinline_declared_argument_stays_declared.luaubc");
 
 fn decompile(bytecode: &[u8]) -> String {
     luau_lifter::try_decompile_bytecode_with_options(bytecode, 1, None, Default::default())
@@ -725,4 +727,23 @@ fn a_copy_inside_the_helpers_own_guard_is_the_whole_guard() {
     let source = decompile(GUARD_IS_THE_HELPERS_OWN);
     assert_eq!(source.matches("assertSignalLike(object) -- inferred equivalent call").count(), 2, "{source}");
     assert!(!source.contains("assertSignalLike()"), "{source}");
+}
+
+#[test]
+fn a_clock_timestamp_starting_at_zero_is_named_for_the_time_it_holds() {
+    let source = decompile(COOLDOWN_TIMESTAMP);
+    assert!(source.contains("local lastTime = 0"), "{source}");
+    assert!(source.contains("os.clock() - lastTime < p"), "{source}");
+}
+
+#[test]
+fn a_guarded_argument_keeps_its_local_and_a_function_its_blank_line() {
+    let source = decompile(DECLARED_ARGUMENT);
+    assert!(source.contains("		local humanoid = item and item.Humanoid
+
+		if not (isAlive(humanoid) and "), "{source}");
+    assert!(source.contains("if isAlive(item.Humanoid) and item.X > 0 then -- inferred equivalent call"), "{source}");
+    assert!(source.contains("end
+
+local function near(items, p)"), "{source}");
 }

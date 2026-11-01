@@ -7238,7 +7238,12 @@ fn absorb_arguments(
             break;
         }
         let Some(at) = hit.args.iter().position(|arg| matches!(arg, RValue::Local(read) if read == local)) else { break };
-        if declared_by_source(local, init, t.param_order.get(at)) {
+        // A guarded value (`character and character:FindFirstChildOfClass(...)`)
+        // keeps its name: the bytecode is the same either way, and it reads as
+        // the local the source almost always gave it, not as an argument.
+        if declared_by_source(local, init, t.param_order.get(at))
+            || matches!(init, RValue::Binary(binary) if binary.operation == BinaryOperation::And)
+        {
             break;
         }
         let read_elsewhere = hit.args.iter().enumerate().any(|(other, arg)| other != at && reads(arg, local))

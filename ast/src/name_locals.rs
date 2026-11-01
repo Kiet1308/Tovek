@@ -2471,9 +2471,10 @@ fn note_local_write(local: &RcLocal, value: &RValue, aliases: &FxHashMap<usize, 
         _ => entry.boolean_invalid_write = true,
     }
 
+    // `local lastUse = 0` before `lastUse = os.clock()`: a number start is "never yet".
     if is_time_read(value) {
         entry.clock_writes += 1;
-    } else if !matches!(value, RValue::Literal(Literal::Nil)) {
+    } else if !matches!(value, RValue::Literal(Literal::Nil | Literal::Number(_))) {
         entry.clock_invalid_write = true;
     }
 }

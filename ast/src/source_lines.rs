@@ -21,6 +21,11 @@ impl SourceLines {
     pub fn overlaps(self, other: Self) -> bool {
         self.known() && other.known() && self.first <= other.last && other.first <= self.last
     }
+    /// `self` without the lines above `start` (both known).
+    pub fn starting_at(self, start: Self) -> Self {
+        if !self.known() || !start.known() { return self; }
+        Self { first: self.first.max(start.first), last: self.last.max(start.first) }
+    }
     pub fn gap_after(self, previous: Self) -> Option<bool> {
         (self.known() && previous.known() && self.first >= previous.last)
             .then(|| self.first > previous.last.saturating_add(1))
@@ -63,8 +68,11 @@ pub fn statement(statement: &Statement) -> SourceLines {
 /// The lines `item` and the values inside it carry.
 pub fn value(item: &RValue) -> SourceLines {
     fn visit(item: &RValue, result: &mut SourceLines) {
-        if let Some(origin) = crate::node_origins::value(item) { result.merge(origin.1); }
-        if let RValue::Closure(closure) = item { result.merge(closure.function.lock().source_lines); }
+        let origin = crate::node_origins::value(item).map_or(SourceLines::default(), |origin| origin.1);
+        result.merge(origin);
+        // A function starts where it is defined (its closure's line): the
+        // copies Luau inlined into it keep their helpers' lines, above it.
+        if let RValue::Closure(closure) = item { result.merge(closure.function.lock().source_lines.starting_at(origin)); }
         item.visit_rvalues(&mut |child| { visit(child, result); true });
     }
     let mut result = SourceLines::default();

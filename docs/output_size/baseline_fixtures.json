@@ -928,6 +928,18 @@
       "bytes": 389,
       "lines": 20
     },
+    "semantic/deinline_declared_argument_stays_declared__O0.luau": {
+      "bytes": 739,
+      "lines": 48
+    },
+    "semantic/deinline_declared_argument_stays_declared__O1.luau": {
+      "bytes": 739,
+      "lines": 48
+    },
+    "semantic/deinline_declared_argument_stays_declared__O2.luau": {
+      "bytes": 872,
+      "lines": 50
+    },
     "semantic/deinline_default_argument_folded__O0.luau": {
       "bytes": 314,
       "lines": 16
@@ -2619,6 +2631,18 @@
     "semantic/naming_builtin_spellings_never_capture__O2.luau": {
       "bytes": 622,
       "lines": 28
+    },
+    "semantic/naming_cooldown_timestamp_from_zero__O0.luau": {
+      "bytes": 382,
+      "lines": 24
+    },
+    "semantic/naming_cooldown_timestamp_from_zero__O1.luau": {
+      "bytes": 397,
+      "lines": 24
+    },
+    "semantic/naming_cooldown_timestamp_from_zero__O2.luau": {
+      "bytes": 397,
+      "lines": 24
     },
     "semantic/naming_counter_compaction_respects_captures__O0.luau": {
       "bytes": 549,
