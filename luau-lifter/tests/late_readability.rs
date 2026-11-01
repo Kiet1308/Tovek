@@ -56,6 +56,7 @@ const HOSTED_SPECIALIZED_VALUE: &[u8] = include_bytes!("fixtures/deinline_hosted
 const VALUE_CHAIN: &[u8] = include_bytes!("fixtures/value_chain_and_or_clamp.luaubc");
 const VALUE_CHAIN_KEEPS_TARGET: &[u8] = include_bytes!("fixtures/value_chain_keeps_target.luaubc");
 const SAME_LINE_COPIES: &[u8] = include_bytes!("fixtures/deinline_census_same_line_copies.luaubc");
+const PROBE_EMBEDDED_HOST: &[u8] = include_bytes!("fixtures/deinline_probe_embedded_host.luaubc");
 
 fn decompile(bytecode: &[u8]) -> String {
     luau_lifter::try_decompile_bytecode_with_options(bytecode, 1, None, Default::default())
@@ -615,4 +616,11 @@ fn copies_line_info_counts_on_one_line_are_calls() {
     {
         assert!(source.contains(line), "{line}\n{source}");
     }
+}
+
+#[test]
+fn a_copy_opening_where_another_is_embedded_is_counted() {
+    let source = decompile(PROBE_EMBEDDED_HOST);
+    let line = "\treturn NormalizeAngle(p + NormalizeAngle(p2 - p) / 2) -- inferred equivalent call\n";
+    assert!(source.contains(line), "{line}\n{source}");
 }

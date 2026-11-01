@@ -5075,7 +5075,9 @@ fn deinline_block(
             if hit.evidence && matches!(round, EvidenceRound::Probe) {
                 // Counted, not rewritten: the oracle needs every count first.
                 newly.probed.entry((current_func, hit.f_local.clone())).or_insert((0, hit.proto)).0 += hit.shaped;
-                i += hit.consume.max(1);
+                // The statement a copy's value is embedded in may open
+                // another copy (`NormalizeAngle(a + NormalizeAngle(b - a) / 2)`).
+                i += if hit.mode == "site_embedded" { hit.consume - 1 } else { hit.consume }.max(1);
                 continue;
             }
             // Another copy may stand in the statement a rebuilt one stays in.
@@ -7468,7 +7470,7 @@ fn match_embedded_value(
     if !host_locals.is_disjoint(&u.callee_locals) || tail_has_live(last_occ, stmts, i, d + 1, &u.callee_locals) {
         return None;
     }
-    Some(Hit { host: Some(host), partial: Some(replaced), host_inert: inert, ..Hit::call(t, d + 1 - i, u, Vec::new()) })
+    Some(Hit { host: Some(host), partial: Some(replaced), host_inert: inert, mode: "site_embedded", ..Hit::call(t, d + 1 - i, u, Vec::new()) })
 }
 
 /// [`Target::hosted`]: the `V` of a `return V` pattern, when it pins its
