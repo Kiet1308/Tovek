@@ -3834,11 +3834,12 @@ fn unify_stmt(t: &Target, p: &Statement, c: &Statement, b: &mut Bindings) -> Res
         (Statement::Assign(_) | Statement::Return(_), Statement::Assign(ca)) => unify_assignment(t, &ctx, p, ca, ca.prefix, b),
         (Statement::Call(pc), Statement::Call(cc)) => unify_call(&ctx, pc, cc, b),
         (Statement::MethodCall(pm), Statement::MethodCall(cm)) => unify_method(&ctx, pm, cm, b),
-        // §8 guard-polarity flip (Value targets only). The call-site value
-        // lowering keeps a guard's if/else in POSITIVE polarity
-        // (`if C then RESULT=early else REST`), whereas `canon` un-guards the
-        // callee body into the NEGATED form (`if not C then REST else return
-        // early`). These are the exact Lua identity `if C then A else B ≡
+        // §8 guard-polarity flip. The call-site value lowering keeps a
+        // guard's if/else in POSITIVE polarity (`if C then RESULT=early else
+        // REST`), as a void copy keeps `if C then A elseif ...` where the
+        // helper returned early (`if C then A; return end`), whereas `canon`
+        // un-guards the callee body into the NEGATED form (`if not C then REST
+        // else return early`). These are the exact Lua identity `if C then A else B ≡
         // if not C then B else A`. Try a DIRECT unify first (on a clone, so a
         // partial failure does not pollute `b`); on failure, retry with the
         // condition negated and the then/else branches swapped. P9: this is now
@@ -3847,11 +3848,8 @@ fn unify_stmt(t: &Target, p: &Statement, c: &Statement, b: &mut Bindings) -> Res
         // and the pattern side is already wrapped the same way by `unguard`, so the
         // wrapped candidate condition unifies EXACTLY. Value-exact and NaN-safe for
         // all conditions; `cond_exact_invertible` (now always true) is kept as the
-        // documented gate point. Gated to Value targets so the void matches keep
-        // their original clone-free path.
-        // A discard target keeps its value helper's guards (`discard_body`),
-        // a tuple target its returns' (`branch_tuple_return`).
-        (Statement::If(pf), Statement::If(cf)) if t.kind == TKind::Value || t.discarded || !t.returns.is_empty() => {
+        // documented gate point.
+        (Statement::If(pf), Statement::If(cf)) => {
             let mut bd = b.clone();
             let direct = unify_rvalue(&ctx, &pf.condition, &cf.condition, &mut bd)
                 .and_then(|_| {
@@ -3908,20 +3906,6 @@ fn unify_stmt(t: &Target, p: &Statement, c: &Statement, b: &mut Bindings) -> Res
             unify_rvalue(&ctx, &reduced, &negated, b)?;
             unify_block(t, &pf.then_block.lock().0, &cf.else_block.lock().0, b)?;
             unify_block(t, &pf.else_block.lock().0, &cf.then_block.lock().0, b)
-        }
-        (Statement::If(pf), Statement::If(cf)) => {
-            // The two conditions in one reduced form where they differ (a
-            // guard `if p == nil or seen[p] then return end` un-guarded is
-            // `not (p == nil or seen[p])`, SSA's copy `p ~= nil and not
-            // seen[p]`).
-            let mut bc = b.clone();
-            if unify_rvalue(&ctx, &pf.condition, &cf.condition, &mut bc).is_ok() {
-                *b = bc;
-            } else {
-                unify_rvalue(&ctx, &pf.condition.clone().reduce_condition(), &cf.condition.clone().reduce_condition(), b)?;
-            }
-            unify_block(t, &pf.then_block.lock().0, &cf.then_block.lock().0, b)?;
-            unify_block(t, &pf.else_block.lock().0, &cf.else_block.lock().0, b)
         }
         (Statement::While(pw), Statement::While(cw)) => {
             unify_rvalue(&ctx, &pw.condition, &cw.condition, b)?;

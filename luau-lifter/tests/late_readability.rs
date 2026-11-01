@@ -57,6 +57,7 @@ const VALUE_CHAIN: &[u8] = include_bytes!("fixtures/value_chain_and_or_clamp.lua
 const VALUE_CHAIN_KEEPS_TARGET: &[u8] = include_bytes!("fixtures/value_chain_keeps_target.luaubc");
 const SAME_LINE_COPIES: &[u8] = include_bytes!("fixtures/deinline_census_same_line_copies.luaubc");
 const PROBE_EMBEDDED_HOST: &[u8] = include_bytes!("fixtures/deinline_probe_embedded_host.luaubc");
+const VOID_GUARD_POLARITY: &[u8] = include_bytes!("fixtures/deinline_void_guard_polarity.luaubc");
 
 fn decompile(bytecode: &[u8]) -> String {
     luau_lifter::try_decompile_bytecode_with_options(bytecode, 1, None, Default::default())
@@ -623,4 +624,12 @@ fn a_copy_opening_where_another_is_embedded_is_counted() {
     let source = decompile(PROBE_EMBEDDED_HOST);
     let line = "\treturn NormalizeAngle(p + NormalizeAngle(p2 - p) / 2) -- inferred equivalent call\n";
     assert!(source.contains(line), "{line}\n{source}");
+}
+
+#[test]
+fn a_void_copy_matches_its_helper_in_either_polarity() {
+    let source = decompile(VOID_GUARD_POLARITY);
+    for line in ["\tpositionClone(object, cframe) -- inferred equivalent call\n", "\tpositionClone(object, cframe .. \"!\") -- inferred equivalent call\n"] {
+        assert!(source.contains(line), "{line}\n{source}");
+    }
 }
