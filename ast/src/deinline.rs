@@ -2350,6 +2350,8 @@ struct Enclosing<'a> {
     parent: Option<&'a Enclosing<'a>>,
     /// A function body's parameters.
     params: &'a [RcLocal],
+    /// The condition of the `if` this block is the `then` arm of.
+    guard: Option<&'a RValue>,
 }
 
 impl<'a> Enclosing<'a> {
@@ -2951,6 +2953,20 @@ fn inert_declaration(statement: &Statement) -> bool {
                 [value] => inert(value),
                 _ => false,
             })
+}
+
+/// Whether an `if` of `pattern` (at any depth) tests parameter `param` with
+/// a condition that unifies with `guard`, the parameter standing for a
+/// local of the site: the argument the guard tests.
+fn tests_like(t: &Target, pattern: &[Statement], guard: &RValue, param: &RcLocal) -> bool {
+    pattern.iter().any(|statement| {
+        let tests = |condition: &RValue| {
+            let mut b = Bindings::default();
+            unify_rvalue(&t.ctx(), condition, guard, &mut b).is_ok() && matches!(b.params.get(param), Some(RValue::Local(_)))
+        };
+        matches!(statement, Statement::If(branch) if tests(&branch.condition))
+            || nested_blocks(statement).iter().any(|block| tests_like(t, &block.lock().0, guard, param))
+    })
 }
 
 /// An [`inert_declaration`] right after `stmts[i]`, or one further: one a
@@ -4781,14 +4797,14 @@ fn deinline_block(
             let arm_loop_tail = loop_tail && Some(j) == last_statement;
             match s {
                 Statement::If(f) => {
-                    for arm in [&f.then_block, &f.else_block] {
+                    for (arm, guard) in [(&f.then_block, Some(&f.condition)), (&f.else_block, None)] {
                         deinline_block(
                             &mut arm.lock().0,
                             targets,
                             decl_map,
                             &active,
                             &continuation,
-                            &nested,
+                            &Enclosing { guard, ..nested },
                             current_func,
                             child_tail,
                             false,
@@ -5019,6 +5035,21 @@ fn deinline_block(
             &mut canon_cache,
         )
         .map(|hit| (hit, None));
+        // A constant inferred from a branch's truth (`value` nil, as
+        // `typeof(value) ~= "table"` holds) for a copy that is a whole `then`
+        // arm of an `if` testing what an `if` of the helper tests: that `if`
+        // is the helper's, run on the actual argument, and the copy is the
+        // whole `if` (`assertSignalLike(value)`), not its arm with a guessed
+        // argument (`if ... then assertSignalLike() end`).
+        if let Some((hit, _)) = &found
+            && let Some(inferred) = &hit.inferred
+            && let Some(guard) = around.guard
+            && stmts[..i].iter().all(is_match_trivia)
+            && stmts[i + hit.consume..].iter().all(is_match_trivia)
+            && targets.iter().filter(|t| t.f_local == hit.f_local).any(|t| tests_like(t, &t.pat, guard, inferred))
+        {
+            found = None;
+        }
         // A caller's `local y = <literal>` (or `nil`) Luau set inside a copy,
         // where its register is written (`local h = 2166136302; local color
         // = nil; for ...` of `hashInt`, or the `0` loaded for `Vector3.new(x,

@@ -66,6 +66,7 @@ const LOOKUP_NAMES_AND_SETTER_FLAGS: &[u8] = include_bytes!("fixtures/deinline_l
 const INERT_DECLARATION_BETWEEN_TEMPS: &[u8] = include_bytes!("fixtures/deinline_inert_declaration_between_temps.luaubc");
 const WRITTEN_LITERAL_KEEPS_FOLDED_COPY: &[u8] = include_bytes!("fixtures/deinline_written_literal_keeps_folded_copy.luaubc");
 const EXPLICIT_ARRAY_KEYS_WITH_RECORD: &[u8] = include_bytes!("fixtures/table_explicit_array_keys_with_record.luaubc");
+const GUARD_IS_THE_HELPERS_OWN: &[u8] = include_bytes!("fixtures/deinline_guard_is_the_helpers_own.luaubc");
 
 fn decompile(bytecode: &[u8]) -> String {
     luau_lifter::try_decompile_bytecode_with_options(bytecode, 1, None, Default::default())
@@ -717,4 +718,11 @@ fn explicit_array_keys_beside_a_record_key_do_not_use_the_hash_part() {
     let source = decompile(EXPLICIT_ARRAY_KEYS_WITH_RECORD);
     assert!(source.contains("SellRewards = {\n\t{\n\t\t{ Asset = \"Gold\", Amount = 25 }"), "{source}");
     assert!(source.contains("Secret = {"), "{source}");
+}
+
+#[test]
+fn a_copy_inside_the_helpers_own_guard_is_the_whole_guard() {
+    let source = decompile(GUARD_IS_THE_HELPERS_OWN);
+    assert_eq!(source.matches("assertSignalLike(object) -- inferred equivalent call").count(), 2, "{source}");
+    assert!(!source.contains("assertSignalLike()"), "{source}");
 }

@@ -1048,6 +1048,18 @@
       "bytes": 1739,
       "lines": 80
     },
+    "semantic/deinline_guard_is_the_helpers_own__O0.luau": {
+      "bytes": 872,
+      "lines": 34
+    },
+    "semantic/deinline_guard_is_the_helpers_own__O1.luau": {
+      "bytes": 892,
+      "lines": 35
+    },
+    "semantic/deinline_guard_is_the_helpers_own__O2.luau": {
+      "bytes": 997,
+      "lines": 36
+    },
     "semantic/deinline_guarded_tail_and_table_arguments__O0.luau": {
       "bytes": 1051,
       "lines": 57
