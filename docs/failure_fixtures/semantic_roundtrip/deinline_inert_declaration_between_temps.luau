@@ -5,7 +5,8 @@
 -- and before its loop; `snapshot` builds its result table, a constant
 -- template, after `countActive`'s `local count = 0`. Such a declaration
 -- runs no code: it moves above the temps with the call, and each copy is
--- its call again (`report({...}, {...})`, `{ active = countActive(), ... }`).
+-- its call again (`report({...}, {...})`, `{ active = countActive(), ... }`),
+-- also where the copy opens a function's body (`summary`).
 local root = { Assets = { Effects = { Coin = "coin" } } }
 local registry = {}
 local stats = { loops = 0, cycles = 0 }
@@ -49,11 +50,17 @@ local function snapshot()
 	return { active = countActive(), loops = stats.loops, cycles = stats.cycles }
 end
 
+local function summary()
+	return { active = countActive(), loops = stats.loops }
+end
+
 report({ { "Assets", "Effects", "Coin" }, { "Assets", "Sounds" } }, { { 1, 2, 3 }, { 60, 70 } })
-local api = { snapshot = snapshot }
+local api = { snapshot = snapshot, summary = summary }
 registry.a = true
 registry.b = true
 stats.loops = 2
 stats.cycles = 5
 local result = api.snapshot()
 print(result.active, result.loops, result.cycles, snapshots)
+local short = api.summary()
+print(short.active, short.loops)

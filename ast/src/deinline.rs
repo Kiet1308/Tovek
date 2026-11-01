@@ -5025,11 +5025,11 @@ fn deinline_block(
         // 0, hashInt(id, 7) % 1)` before the copy runs): the copy is tried
         // with the declaration before it, which moves there only with the
         // call. `y` is in scope from its declaration only, so nothing before
-        // reads it.
-        // (Not at a function body's top: the rest of the body is no copy.)
+        // reads it. At a function body's top, a call that would be the rest of
+        // the body passes the whole-body gate ([`match_void`]) only where line
+        // info shows a copy of its helper there.
         if found.is_none()
             && holds_copies
-            && !(is_func_body_top && i == 0)
             && let Some(at) = interleaved_declaration(stmts, i)
         {
             // Above the temps of the arguments the copy takes in too (`local
@@ -5060,7 +5060,9 @@ fn deinline_block(
                 &mut last_occ,
                 &mut canon_cache,
             );
-            match retried {
+            let whole_body = |hit: &Hit| is_func_body_top && i == 0 && i + 1 + hit.consume >= stmts.len()
+                && !lines.as_ref().is_some_and(|lines| lines.copies(current_func, hit.proto) > 0);
+            match retried.filter(|hit| !whole_body(hit)) {
                 Some(hit) if !(hit.evidence && matches!(round, EvidenceRound::Probe)) => {
                     // Right before the temps the call takes in, no higher.
                     let below = i - hit.absorbed.min(i - to);
@@ -9907,6 +9909,42 @@ fn fold_specialized_leading_concat(t: &Target, specialized: &mut Vec<Statement>)
     expand_leading_scalar_snapshot(specialized)
 }
 
+/// Whether the constants of `params` fold a builtin call of `t`'s body that
+/// specialization folds (`math.pow(10, places)` as 100), directly or through
+/// a local declared from them, where a call of the helper written with a
+/// literal there (`round(x, 2)`) groups that builtin call to keep it a call
+/// (`preserve_builtin_calls`): the helper's one body cannot also be the
+/// copy that folded it.
+fn folds_builtin_of_written_literal(t: &Target, params: &FxHashMap<RcLocal, RValue>) -> bool {
+    fn folds(value: &RValue, constant: &[RcLocal]) -> bool {
+        match value {
+            RValue::Call(call) | RValue::Select(Select::Call(call))
+                if fold::specialization_folds(call)
+                    && call.arguments.iter().any(|argument| constant.iter().any(|local| fold::reads(argument, local) > 0)) => true,
+            RValue::Closure(_) => false,
+            _ => !value.visit_rvalues(&mut |child| !folds(child, constant)),
+        }
+    }
+    fn block(stmts: &[Statement], constant: &mut Vec<RcLocal>) -> bool {
+        stmts.iter().any(|statement| {
+            if let Statement::Assign(assign) = statement
+                && assign.prefix
+                && let ([LValue::Local(local)], [value]) = (assign.left.as_slice(), assign.right.as_slice())
+                && constant.iter().any(|read| fold::reads(value, read) > 0)
+            {
+                constant.push(local.clone());
+            }
+            !visit_stmt_rvalues(statement, &mut |value| !folds(value, constant))
+                || nested_blocks(statement).iter().any(|nested| block(&nested.lock().0, constant))
+        })
+    }
+    let mut constant: Vec<RcLocal> = t.param_order.iter().enumerate()
+        .filter(|(index, param)| matches!(params.get(*param), Some(RValue::Literal(_))) && t.captures.literal_argument(&t.f_local, *index))
+        .map(|(_, param)| param.clone())
+        .collect();
+    !constant.is_empty() && block(&t.pat, &mut constant)
+}
+
 /// The number constants `pat` refers to, its function literals' aside.
 fn pattern_numbers(pat: &[Statement]) -> FxHashSet<u64> {
     fn numbers_in(value: &RValue, numbers: &mut FxHashSet<u64>) {
@@ -10247,6 +10285,9 @@ fn try_seeded_specialization(t: &Target, cwin: &[Statement], current_func: Optio
 
     // `canon` deep-copies every block-bearing statement, avoiding mutation of
     // the recovered function body's shared Arcs while we prune constant arms.
+    if folds_builtin_of_written_literal(t, &seed.params) {
+        return refused("folded_builtin_of_written_literal");
+    }
     let mut specialized = canon(&t.pat);
     specialize_block(&mut specialized, &seed.params);
     if !fold_constant_locals(&mut specialized, &t.pat) {

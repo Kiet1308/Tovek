@@ -81,6 +81,9 @@ struct CallGraph {
     /// Reads of each local, and those calling it by name (`f(...)`).
     reads: FxHashMap<u64, u32>,
     callee_reads: FxHashMap<u64, u32>,
+    /// Per local, the argument positions (below 64) where a call of it the
+    /// de-inliners did not rebuild passes a literal.
+    literal_arguments: FxHashMap<u64, u64>,
     /// Each function's closure expressions, and the one local declarations
     /// bind them to (`local function f`), when every one of them does.
     closures: FxHashMap<usize, u32>,
@@ -359,6 +362,13 @@ impl CaptureSafety {
 
     pub(crate) fn complete(&self) -> bool { !self.exhausted }
 
+    /// Whether a call of `callee` the de-inliners did not rebuild may pass a
+    /// literal as argument `index` (an exhausted census may).
+    pub(crate) fn literal_argument(&self, callee: &crate::RcLocal, index: usize) -> bool {
+        self.exhausted || index >= 64
+            || self.calls.literal_arguments.get(&callee.stable_id()).is_some_and(|bits| bits & 1 << index != 0)
+    }
+
     /// The full census saw each function body once. Required before using
     /// ordinary tree walkers that do not track repeated closure identities.
     pub(crate) fn unique_function_bodies(&self) -> bool {
@@ -617,6 +627,12 @@ impl CaptureSafety {
     fn call(&mut self, call: &crate::Call, owner: Option<usize>) {
         if let RValue::Local(callee) = call.value.as_ref() {
             *self.calls.callee_reads.entry(callee.stable_id()).or_default() += 1;
+            if call.rebuilt.is_none() {
+                let literals = call.arguments.iter().take(64).enumerate()
+                    .filter(|(_, argument)| matches!(argument, RValue::Literal(_)))
+                    .fold(0u64, |bits, (index, _)| bits | 1 << index);
+                *self.calls.literal_arguments.entry(callee.stable_id()).or_default() |= literals;
+            }
             if let Some(owner) = owner {
                 self.calls.callers.entry(callee.stable_id()).or_default().insert(owner);
             }

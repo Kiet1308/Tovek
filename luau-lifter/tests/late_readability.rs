@@ -64,6 +64,7 @@ const VARARG_FORWARDING: &[u8] = include_bytes!("fixtures/deinline_vararg_forwar
 const POW_SPECIALIZATION: &[u8] = include_bytes!("fixtures/deinline_pow_specialization.luaubc");
 const LOOKUP_NAMES_AND_SETTER_FLAGS: &[u8] = include_bytes!("fixtures/deinline_lookup_names_and_setter_flags.luaubc");
 const INERT_DECLARATION_BETWEEN_TEMPS: &[u8] = include_bytes!("fixtures/deinline_inert_declaration_between_temps.luaubc");
+const WRITTEN_LITERAL_KEEPS_FOLDED_COPY: &[u8] = include_bytes!("fixtures/deinline_written_literal_keeps_folded_copy.luaubc");
 
 fn decompile(bytecode: &[u8]) -> String {
     luau_lifter::try_decompile_bytecode_with_options(bytecode, 1, None, Default::default())
@@ -697,7 +698,15 @@ fn an_inert_declaration_between_temps_and_copy_moves_with_the_call() {
     for line in [
         "report({ -- inferred equivalent call\n",
         "return { active = countActive(), loops = v3.loops, cycles = v3.cycles } -- inferred equivalent call\n",
+        "local function summary() -- 1 equivalent call inferred from this helper\n\treturn { active = countActive(), loops = v3.loops } -- inferred equivalent call\n",
     ] {
         assert!(source.contains(line), "{line}\n{source}");
     }
+}
+
+#[test]
+fn a_written_literal_call_keeps_the_copy_its_builtins_folded() {
+    let source = decompile(WRITTEN_LITERAL_KEEPS_FOLDED_COPY);
+    assert!(source.contains("local function round(value, p)\n\tlocal v = (math.pow)(10, p)\n"), "{source}");
+    assert!(source.contains("print((math.round)(\"1.23456\" * 100) / 100, round(v, 3))"), "{source}");
 }
