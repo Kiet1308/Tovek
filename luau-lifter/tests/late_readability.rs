@@ -58,6 +58,7 @@ const VALUE_CHAIN_KEEPS_TARGET: &[u8] = include_bytes!("fixtures/value_chain_kee
 const SAME_LINE_COPIES: &[u8] = include_bytes!("fixtures/deinline_census_same_line_copies.luaubc");
 const PROBE_EMBEDDED_HOST: &[u8] = include_bytes!("fixtures/deinline_probe_embedded_host.luaubc");
 const VOID_GUARD_POLARITY: &[u8] = include_bytes!("fixtures/deinline_void_guard_polarity.luaubc");
+const ONE_VALUED_CALLS: &[u8] = include_bytes!("fixtures/one_valued_call_parentheses.luaubc");
 
 fn decompile(bytecode: &[u8]) -> String {
     luau_lifter::try_decompile_bytecode_with_options(bytecode, 1, None, Default::default())
@@ -465,7 +466,7 @@ fn a_function_literal_argument_called_in_a_copy_is_passed_again() {
 #[test]
 fn a_literal_argument_capturing_an_upvalue_is_passed_again() {
     let source = decompile(LITERAL_ARGUMENT_UPVALUE);
-    for call in ["\t\treturn activate(\"Shop\", function() -- inferred equivalent call\n\t\t\treturn (teleportToNpc(\"Emilia\"))\n\t\tend)\n",
+    for call in ["\t\treturn activate(\"Shop\", function() -- inferred equivalent call\n\t\t\treturn teleportToNpc(\"Emilia\")\n\t\tend)\n",
         "\t\treturn activate(\"Pot\", function() -- inferred equivalent call\n"]
     {
         assert!(source.contains(call), "{call}\n{source}");
@@ -630,6 +631,16 @@ fn a_copy_opening_where_another_is_embedded_is_counted() {
 fn a_void_copy_matches_its_helper_in_either_polarity() {
     let source = decompile(VOID_GUARD_POLARITY);
     for line in ["\tpositionClone(object, cframe) -- inferred equivalent call\n", "\tpositionClone(object, cframe .. \"!\") -- inferred equivalent call\n"] {
+        assert!(source.contains(line), "{line}\n{source}");
+    }
+}
+
+#[test]
+fn a_call_giving_one_value_drops_its_adjusting_parentheses() {
+    let source = decompile(ONE_VALUED_CALLS);
+    for line in ["print(fib(10))\n", "print(select(\"#\", fib(5)), fib(3))\n", "local v = { fib(4), fib(6) }\n",
+        "(math.max(fib(7), 3)))"]
+    {
         assert!(source.contains(line), "{line}\n{source}");
     }
 }

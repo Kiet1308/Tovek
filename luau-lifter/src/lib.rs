@@ -1500,7 +1500,7 @@ fn decompile_bytecode_internal(
             }
             ast::forward_declarations::bare_forward_declarations(&mut body);
             ast::compound_bases::fold_compound_bases(&mut body);
-            ast::untruncate_arguments::untruncate_arguments(&mut body);
+            ast::untruncate_arguments::untruncate_arguments(&mut body, options.assume_standard_libraries);
             // Preserve unfinished array stores and the original hash allocation.
             // An AUX word reading as an allocation only costs the walk.
             let mut table_open_list_snapshots = None;

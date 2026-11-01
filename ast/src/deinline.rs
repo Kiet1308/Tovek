@@ -2014,7 +2014,7 @@ fn call_callee_local(call: &RValue) -> Option<&RcLocal> {
 /// Whether every call of a function with this body returns exactly one
 /// value: each `return` lists one value that is not a call's or `...`'s
 /// results, and no path runs off the end of the body.
-fn returns_exactly_one(body: &[Statement]) -> bool {
+pub(crate) fn returns_exactly_one(body: &[Statement]) -> bool {
     fn one_value_returns(stmts: &[Statement]) -> bool {
         stmts.iter().all(|statement| match statement {
             Statement::Return(ret) => {

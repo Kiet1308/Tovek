@@ -14,33 +14,54 @@
 //! raises "missing argument" where `tostring(nil)` is `"nil"`, so its
 //! parentheses stay.
 //!
+//! A call giving exactly one value reads the same without the parentheses
+//! adjusting it to one, wherever it is: `print((tostring(x)))` is
+//! `print(tostring(x))`: a local function declared once each path of which
+//! returns one value that is not a call's. A builtin may be replaced at run
+//! time by one giving more values, which its fast call's fallback still
+//! adjusts to one where the source wrote `(math.max(a, b))`, so a builtin
+//! of one result it fast-called drops them only assuming the standard
+//! libraries.
+//!
 //! An equivalent call a de-inliner inferred ends in no `nil` after another
 //! argument: its copy cannot tell a `nil` passed from one left out, and the
 //! source most often leaves those out (`getCutscene("House")`, not
 //! `getCutscene("House", nil, nil)`). A lone `nil` is most often written
 //! (`purchase(nil)`), and stays.
-use rustc_hash::FxHashMap;
+use rustc_hash::{FxHashMap, FxHashSet};
 
-use crate::{Block, LValue, RValue, RcLocal, Select, Statement, Traverse};
+use crate::{Block, Call, LValue, RValue, RcLocal, Select, Statement, Traverse};
 
-pub fn untruncate_arguments(body: &mut Block) {
+pub fn untruncate_arguments(body: &mut Block, standard_libraries: bool) {
     let mut writes = FxHashMap::default();
     crate::expr_deinline::collect_write_counts(&body.0, &mut writes);
     let mut parameters = FxHashMap::default();
-    local_functions(&body.0, &writes, &mut parameters);
-    if parameters.is_empty() {
-        return;
-    }
+    let mut one_valued = FxHashSet::default();
+    local_functions(&body.0, &writes, &mut parameters, &mut one_valued);
     let arity = |callee: &RValue| match callee {
         RValue::Local(local) => parameters.get(local).copied(),
         _ => None,
     };
-    block(&mut body.0, &arity);
+    let one = |call: &Call| {
+        (standard_libraries && !call.group_callee && call.builtin_fastcall.is_some_and(|(builtin, _)| one_result_builtin(builtin)))
+            || matches!(call.value.as_ref(), RValue::Local(local) if one_valued.contains(local))
+    };
+    block(&mut body.0, &arity, &one);
+}
+
+/// Luau's builtins (`LuauBuiltinFunction`) returning one value
+/// (`getBuiltinInfo(id).results == 1`): every id up to `bit32.byteswap`'s
+/// but none, `assert`, `math.frexp`/`modf`, `string.byte`, `table.insert`/
+/// `unpack`, `select(n, ...)` and the buffer writes.
+fn one_result_builtin(id: u8) -> bool {
+    id <= 131 && !matches!(id, 0 | 1 | 14 | 20 | 41 | 52 | 53 | 57 | 67 | 70 | 73 | 75 | 77)
 }
 
 /// The parameter count of every non-variadic local function whose binder
-/// is written only by its declaration.
-fn local_functions(stmts: &[Statement], writes: &FxHashMap<RcLocal, usize>, out: &mut FxHashMap<RcLocal, usize>) {
+/// is written only by its declaration, and those of them each path of
+/// which returns exactly one value.
+fn local_functions(stmts: &[Statement], writes: &FxHashMap<RcLocal, usize>, out: &mut FxHashMap<RcLocal, usize>,
+    one_valued: &mut FxHashSet<RcLocal>) {
     for statement in stmts {
         if let Statement::Assign(assign) = statement
             && assign.prefix
@@ -52,27 +73,57 @@ fn local_functions(stmts: &[Statement], writes: &FxHashMap<RcLocal, usize>, out:
             if !function.is_variadic {
                 out.insert(local.clone(), function.parameters.len());
             }
+            if crate::deinline::returns_exactly_one(&function.body.0) {
+                one_valued.insert(local.clone());
+            }
         }
-        for_each_block(statement, &mut |nested| local_functions(nested, writes, out));
+        for_each_block(statement, &mut |nested| local_functions(nested, writes, out, one_valued));
         crate::deinline::visit_stmt_rvalues(statement, &mut |value| {
-            closures(value, &mut |body| local_functions(&body.0, writes, out));
+            closures(value, &mut |body| local_functions(&body.0, writes, out, one_valued));
             true
         });
     }
 }
 
-fn block(stmts: &mut [Statement], arity: &impl Fn(&RValue) -> Option<usize>) {
+fn block(stmts: &mut [Statement], arity: &impl Fn(&RValue) -> Option<usize>, one: &impl Fn(&Call) -> bool) {
     for statement in stmts {
         match statement {
-            Statement::Call(call) => untruncate(call, arity),
+            Statement::Call(call) => {
+                one_valued_last(&mut call.arguments, one);
+                untruncate(call, arity);
+            }
+            Statement::MethodCall(call) => one_valued_last(&mut call.arguments, one),
+            Statement::Return(ret) => one_valued_last(&mut ret.values, one),
+            Statement::Assign(assign) if assign.left.len() > assign.right.len() => one_valued_last(&mut assign.right, one),
             _ => {}
         }
         statement.traverse_rvalues(&mut |value| match value {
-            RValue::Call(call) | RValue::Select(Select::Call(call)) => untruncate(call, arity),
-            RValue::Closure(closure) => block(&mut closure.function.0.lock().body.0, arity),
+            RValue::Call(call) | RValue::Select(Select::Call(call)) => {
+                one_valued_last(&mut call.arguments, one);
+                untruncate(call, arity);
+            }
+            RValue::MethodCall(call) | RValue::Select(Select::MethodCall(call)) => one_valued_last(&mut call.arguments, one),
+            RValue::Table(table) => {
+                if let Some((None, last)) = table.0.last_mut() {
+                    one_valued_last(std::slice::from_mut(last), one);
+                }
+            }
+            RValue::Closure(closure) => block(&mut closure.function.0.lock().body.0, arity, one),
             _ => {}
         });
-        for_each_block_mut(statement, &mut |nested| block(nested, arity));
+        for_each_block_mut(statement, &mut |nested| block(nested, arity, one));
+    }
+}
+
+/// The last of `values`, where all of a call's results spread, without the
+/// parentheses adjusting it to one where it gives exactly one.
+fn one_valued_last(values: &mut [RValue], one: &impl Fn(&Call) -> bool) {
+    if let Some(last) = values.last_mut()
+        && let RValue::Select(Select::Call(call)) = last
+        && one(call)
+    {
+        call.one_result = true;
+        *last = crate::untruncated(std::mem::replace(last, RValue::Literal(crate::Literal::Nil)));
     }
 }
 
@@ -193,7 +244,7 @@ mod tests {
 
     fn run(mut statements: Vec<Statement>) -> String {
         let mut block = Block(std::mem::take(&mut statements));
-        untruncate_arguments(&mut block);
+        untruncate_arguments(&mut block, false);
         block.to_string()
     }
 
