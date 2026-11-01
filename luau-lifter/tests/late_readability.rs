@@ -386,7 +386,7 @@ fn a_returned_local_stored_at_every_leaf_is_a_value_helper() {
 "), "{source}");
     assert!(source.contains("local function IsFinite(p): boolean -- 3 equivalent calls inferred from this helper
 "), "{source}");
-    assert!(source.contains("		if IsFiniteVector3(v) then -- inferred equivalent call
+    assert!(source.contains("		if IsFiniteVector3(item) then -- inferred equivalent call
 "), "{source}");
 }
 

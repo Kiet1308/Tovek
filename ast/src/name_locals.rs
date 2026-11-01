@@ -1767,6 +1767,46 @@ fn singularize(name: &str) -> Option<String> {
     sanitize(&singular)
 }
 
+/// The name of one element of a collection named `collection`: its
+/// singular (`parts` -> `part`), what a map by a key holds (`modulesByName`
+/// -> `module`, `zoneIdToZoneObj` -> `zoneObj`), or the noun a container
+/// word follows (`pointList` -> `point`).
+fn element_name(collection: &str) -> Option<String> {
+    if let Some(singular) = singularize(collection) {
+        return Some(singular);
+    }
+    let base = collection.trim_end_matches(|c: char| c.is_ascii_digit());
+    // A camel-case word boundary at `at`: an upper-case letter after a lower-case one.
+    let boundary = |at: usize| {
+        at > 0
+            && base.as_bytes().get(at).is_some_and(u8::is_ascii_uppercase)
+            && base.as_bytes()[at - 1].is_ascii_lowercase()
+    };
+    if let Some(at) = base.find("By").filter(|&at| boundary(at) && base.as_bytes().get(at + 2).is_some_and(u8::is_ascii_uppercase)) {
+        return element_name(&base[..at]);
+    }
+    if let Some(at) = base.find("To").filter(|&at| boundary(at) && base.as_bytes().get(at + 2).is_some_and(u8::is_ascii_uppercase))
+        && ["Id", "Name", "Key", "Index"].iter().any(|key| base[..at].ends_with(key))
+    {
+        let target = &base[at + 2..];
+        return sanitize(&format!("{}{}", target[..1].to_ascii_lowercase(), &target[1..]));
+    }
+    for suffix in ["List", "Array", "Map", "Dict", "Lookup", "Registry"] {
+        if let Some(stem) = base.strip_suffix(suffix)
+            && boundary(stem.len())
+        {
+            return singularize(stem).or_else(|| sanitize(stem));
+        }
+    }
+    None
+}
+
+/// A collection named for being one alone (`list`, `array2`): its element
+/// is an `item`, a name any usage evidence outranks.
+fn bare_collection(name: &str) -> bool {
+    matches!(name.trim_end_matches(|c: char| c.is_ascii_digit()), "list" | "List" | "array" | "Array")
+}
+
 fn pluralize(name: &str) -> Option<String> {
     if !name.is_ascii() || name.is_empty() {
         return None;
@@ -4263,6 +4303,15 @@ impl Namer {
     /// iterates (`for index, crop in crops`). Higher priority (47) than the
     /// hardcoded `child`/`descendant` context names because it is derived from a
     /// real source identifier rather than guessed.
+    /// Whether the loop iterates a collection named `list` alone ([`bare_collection`]).
+    fn iterates_bare_collection(&self, right: &[RValue]) -> bool {
+        right.first().is_some_and(|value| match unwrap_iter_arg(value, &self.callee_aliases) {
+            RValue::Local(local) => self.local_known_name(local).as_deref().is_some_and(bare_collection),
+            RValue::Index(index) => index_key(index).is_some_and(bare_collection),
+            _ => false,
+        })
+    }
+
     fn collection_element_name(&self, right: &[RValue]) -> Option<String> {
         for rvalue in right {
             let name = match unwrap_iter_arg(rvalue, &self.callee_aliases) {
@@ -4271,7 +4320,7 @@ impl Namer {
                 _ => None,
             };
             if let Some(name) = name
-                && let Some(singular) = singularize(&name)
+                && let Some(singular) = element_name(&name)
             {
                 return Some(singular);
             }
@@ -4381,11 +4430,13 @@ impl Namer {
                     RValue::Global(global) => std::str::from_utf8(&global.0).ok().map(str::to_string),
                     _ => None,
                 };
-                if let Some(collection) = collection
-                    && !is_default_name(&collection)
-                    && let Some(element) = singularize(&collection)
+                if let Some(collection) = &collection
+                    && !is_default_name(collection)
+                    && let Some(element) = element_name(collection)
                 {
                     self.set_hint(local, element, 45);
+                } else if collection.as_deref().is_some_and(bare_collection) {
+                    self.set_hint_str(local, "item", 30);
                 } else if let RValue::Local(collection) = &*index.left
                     && self.usage.get(&local_ptr(collection)).is_some_and(|usage| usage.typeof_conflict && usage.iterated)
                 {
@@ -5451,6 +5502,9 @@ impl Namer {
                         {
                             self.set_hint(res_local, element_name.clone(), 47);
                             continue;
+                        }
+                        if index == 1 && self.iterates_bare_collection(&generic_for.right) {
+                            self.set_hint_str(res_local, "item", 30);
                         }
                         let base = names
                             .as_ref()
@@ -8773,6 +8827,19 @@ mod tests {
         for word in ["axes", "bases", "status", "species", "series", "data", "đứa trẻ"] {
             assert_eq!(super::singularize(word), None, "{word}");
         }
+    }
+
+    #[test]
+    fn element_names_of_collections() {
+        for (collection, element) in [("parts", "part"), ("modulesByName", "module"), ("zoneIdToZoneObj", "zoneObj"),
+            ("pointList", "point"), ("partsList", "part"), ("questArray", "quest"), ("dtorMap", "dtor")]
+        {
+            assert_eq!(super::element_name(collection).as_deref(), Some(element), "{collection}");
+        }
+        for collection in ["list", "historyToKeep", "standBy", "Map", "status"] {
+            assert_eq!(super::element_name(collection), None, "{collection}");
+        }
+        assert!(super::bare_collection("list2") && !super::bare_collection("lists"));
     }
 
     /// A config/props table that merely holds ONE nested element among scalar
