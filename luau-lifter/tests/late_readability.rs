@@ -60,6 +60,7 @@ const PROBE_EMBEDDED_HOST: &[u8] = include_bytes!("fixtures/deinline_probe_embed
 const VOID_GUARD_POLARITY: &[u8] = include_bytes!("fixtures/deinline_void_guard_polarity.luaubc");
 const ONE_VALUED_CALLS: &[u8] = include_bytes!("fixtures/one_valued_call_parentheses.luaubc");
 const OWN_LOCAL_LOOP_EXIT: &[u8] = include_bytes!("fixtures/deinline_own_local_loop_exit.luaubc");
+const VARARG_FORWARDING: &[u8] = include_bytes!("fixtures/deinline_vararg_forwarding.luaubc");
 
 fn decompile(bytecode: &[u8]) -> String {
     luau_lifter::try_decompile_bytecode_with_options(bytecode, 1, None, Default::default())
@@ -651,4 +652,12 @@ fn a_helper_returning_its_own_local_after_a_loop_exit_is_a_call() {
     let source = decompile(OWN_LOCAL_LOOP_EXIT);
     let line = "\tprint(find(v, list[1]), find(v, list[2]), total(list2[1]), total(list2[2])) -- inferred equivalent call\n";
     assert!(source.contains(line), "{line}\n{source}");
+}
+
+#[test]
+fn a_copy_spreading_the_varargs_forwards_them() {
+    let source = decompile(VARARG_FORWARDING);
+    for line in ["onParameterChanged(\"Stats\", i, ...) -- inferred equivalent call\n", "onParameterChanged(\"Passives\", i, ...) -- inferred equivalent call\n"] {
+        assert!(source.contains(line), "{line}\n{source}");
+    }
 }

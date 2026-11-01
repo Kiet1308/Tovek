@@ -5943,11 +5943,13 @@ fn match_void(
     // candidate region carrying 2+ interposed `Empty`s is still reachable. The
     // ceiling is the pattern's tail-spine length (guard-form expansion of every
     // tail `if`, see `tail_spine_len`) plus one for a site-only trailing `return`.
-    let max_w = raw_width_for_effective(stmts, start, t.pat_spine_len + 1);
+    // A constant argument can remove a branch or a proved concat snapshot
+    // (Tier B), so a specializable helper's copy may be shorter than its
+    // body, or longer where the branch it takes spreads its statements.
+    let spread = if t.specializable { statements_spread(&t.pat) } else { 0 };
+    let max_w = raw_width_for_effective(stmts, start, (t.pat_spine_len + 1).max(spread));
     let mut site: Option<Site> = None;
     let mut ambiguous = false;
-    // A constant argument can remove a branch or a proved concat snapshot
-    // (Tier B), so a specializable helper's copy may be shorter than its body.
     let min_w = if t.specializable { 1 } else { kc };
     // The canon length and return scan of each width, one statement at a time.
     let mut grown = WindowGrowth::new(stmts, start, min_w);
@@ -5975,6 +5977,19 @@ fn match_void(
                 }
             }
             continue;
+        }
+        // Longer only where a constant shows in the copy: one inferred from
+        // a branch's truth alone takes an arm (`if p >= 50 then` of a copy
+        // whose argument is `p >= 50`).
+        if top_len > kc && top_len <= spread && !has_return {
+            let plain = canon_window(canon_cache, t, stmts, start, w);
+            if charge_unify(t, &plain)
+                && let Some(u) = try_unify_specialized_site(t, &plain, current_func)
+                && u.inferred.is_none()
+                && !tail_has_live(last_occ, stmts, i, start + w, &u.callee_locals)
+            {
+                record_site(&mut site, &mut ambiguous, w, &u, None);
+            }
         }
         // Attempt 1 — plain canon, with tail-safety for consuming a caller return.
         // The canon length rejects most widths before any window is built.
@@ -6883,8 +6898,28 @@ fn absorb_arguments(
             count_local_reads(std::slice::from_ref(host), local) > in_call
         })
     };
+    // The varargs spread into the last parameters (`local _, value = ...`
+    // for `f("Stats", key, ...)`), from where the call passes `...`.
+    let mut spread: Option<(usize, RValue)> = None;
     while let Some(k) = (0..start).rev().find(|&k| !is_match_trivia(&stmts[k])) {
         let Statement::Assign(declaration) = &stmts[k] else { break };
+        if spread.is_none()
+            && taken.is_empty()
+            && let Some(at) = vararg_spread(declaration, &hit.args, &mut |local| {
+                tail_has_live(last_occ, stmts, i, end, &FxHashSet::from_iter([local.clone()])) || host_reads(local)
+            })
+            && at < below
+            && !hit.written.iter().any(|&written| written >= at)
+            // `...` fills every parameter after it too: the declared ones
+            // only, or ones the body never reads (`show(..., nil)` stays).
+            && t.param_order.iter().skip(at + declaration.left.len()).all(|param| t.unread.contains(param))
+            && !(is_func_body_top && k == 0 && end == stmts.len())
+        {
+            spread = Some((at, crate::untruncated(declaration.right[0].clone())));
+            below = at;
+            start = k;
+            continue;
+        }
         let ([LValue::Local(local)], [init]) = (declaration.left.as_slice(), declaration.right.as_slice()) else { break };
         if !declaration.prefix || declaration.parallel || declaration.compound || matches!(init, RValue::Closure(_)) {
             break;
@@ -6950,6 +6985,12 @@ fn absorb_arguments(
     for (at, _, init) in taken {
         hit.args[at] = crate::untruncated(init);
     }
+    if let Some((at, varargs)) = spread {
+        hit.args.truncate(at);
+        hit.args.push(varargs);
+        // `...` gives the parameters after it what they had: no `nil` fills them.
+        hit.read_arity = hit.args.len();
+    }
     // The host holds the call already: its arguments too.
     if !taken_at.is_empty()
         && !into_host
@@ -6995,6 +7036,39 @@ fn absorb_arguments(
     }
     hit.absorbed = i - start;
     Some(hit)
+}
+
+/// Where `local a, b = ...` gives the last arguments of `args`: each of
+/// `a, b` the argument at its place (one past the end, or `nil` standing for
+/// a parameter nothing reads, only where nothing reads it), and none read by
+/// another argument or after the window (`live`).
+fn vararg_spread(declaration: &Assign, args: &[RValue], live: &mut dyn FnMut(&RcLocal) -> bool) -> Option<usize> {
+    if !declaration.prefix || declaration.parallel || declaration.compound
+        || !matches!(declaration.right.as_slice(), [RValue::VarArg(_) | RValue::Select(Select::VarArg(_))])
+    {
+        return None;
+    }
+    let locals: Vec<&RcLocal> = declaration.left.iter().map(LValue::as_local).collect::<Option<_>>()?;
+    let (j, at) = locals.iter().enumerate().find_map(|(j, local)| {
+        args.iter().position(|arg| matches!(arg, RValue::Local(read) if read == *local)).map(|at| (j, at))
+    })?;
+    let at = at.checked_sub(j)?;
+    if at + locals.len() < args.len() {
+        return None;
+    }
+    let read_by_others = |local: &RcLocal, own: usize| {
+        args.iter().enumerate().any(|(other, arg)| other != own && arg.any_local_read(&mut |read| read == local))
+    };
+    locals.iter().enumerate().all(|(j, local)| {
+        let own = at + j;
+        let in_place = match args.get(own) {
+            Some(RValue::Local(read)) => read == *local,
+            Some(RValue::Literal(Literal::Nil)) | None => !args.iter().any(|arg| arg.any_local_read(&mut |read| read == *local)),
+            Some(_) => false,
+        };
+        in_place && !read_by_others(local, own) && !live(local)
+    })
+    .then_some(at)
 }
 
 /// Whether `local`, the parameter local a copy evaluated in place in `host`
@@ -7593,6 +7667,12 @@ fn hosted_pattern(t: &Target) -> Option<RValue> {
     // Below the floor, line evidence admits it, and only the saving gate
     // of the matcher applies.
     (t.evidence || value_nodes(value) >= crate::expr_deinline::NODE_COUNT_FLOOR).then(|| value.clone())
+}
+
+/// How many statements `stmts` hold, those of their nested blocks too: the
+/// most a copy taking every branch it reaches whole can spread to.
+fn statements_spread(stmts: &[Statement]) -> usize {
+    stmts.iter().map(|statement| 1 + nested_blocks(statement).iter().map(|block| statements_spread(&block.lock().0)).sum::<usize>()).sum()
 }
 
 /// The value a value helper that may specialize returns last, after
@@ -9762,11 +9842,18 @@ fn try_seeded_specialization(t: &Target, cwin: &[Statement], current_func: Optio
     {
         return None;
     }
-    if t.param_order
-        .iter()
-        .any(|param| !seed.params.contains_key(param) && !t.unread.contains(param))
-    {
-        return None;
+    // A parameter only a branch the constants dropped reads (`slot` where
+    // `kind` is "Stats"): passed `nil`, which nothing then reads.
+    let missing: Vec<RcLocal> = t.param_order.iter().filter(|param| !seed.params.contains_key(*param) && !t.unread.contains(*param)).cloned().collect();
+    if !missing.is_empty() {
+        let mut probe = canon(&t.pat);
+        specialize_block(&mut probe, &seed.params);
+        if !fold_constant_locals(&mut probe, &t.pat) || missing.iter().any(|param| local_queries::reads(&probe, param)) {
+            return None;
+        }
+        for param in missing {
+            seed.params.insert(param, RValue::Literal(Literal::Nil));
+        }
     }
     // Seeding intentionally tolerates structural mismatches, but substituting a
     // repeated identity-producing argument (`{}` / closure-valued if-expression)
@@ -10526,10 +10613,23 @@ fn align_seed(
                 }
                 truths.push((param.clone(), truth));
             }
+            // An arm taken on `p == K` tells `p` is `K` (`kind == "Stats"`).
+            let mut b = b.clone();
+            if let Some((param, literal, equal_when)) = equality_test(&branch.condition, &t.params)
+                && equal_when == taken
+            {
+                match b.params.get(param) {
+                    Some(RValue::Literal(bound)) if bound != literal => continue,
+                    Some(_) => {}
+                    None => {
+                        b.params.insert(param.clone(), RValue::Literal(literal.clone()));
+                    }
+                }
+            }
             let arm = if taken { branch.then_block.lock().0.clone() } else { branch.else_block.lock().0.clone() };
             // An arm leaving the function ends the copy.
             let next = (!sequence_has_terminal_tail(&arm)).then_some(&after);
-            if let Some(found) = align_seed(t, ctx, &arm, next, candidate, b.clone(), truths, budget) {
+            if let Some(found) = align_seed(t, ctx, &arm, next, candidate, b, truths, budget) {
                 return Some(found);
             }
         }
@@ -10548,6 +10648,26 @@ fn align_seed(
     let mut b = b;
     seed_unify_stmt(ctx, head, site, &mut b);
     align_seed(t, ctx, rest, then, site_rest, b, truths, budget)
+}
+
+/// `p == K` / `K ~= p` of a parameter and a literal: the parameter, the
+/// literal, and the truth of the condition where `p` is `K`.
+fn equality_test<'a>(condition: &'a RValue, params: &FxHashSet<RcLocal>) -> Option<(&'a RcLocal, &'a Literal, bool)> {
+    let RValue::Binary(binary) = condition else { return None };
+    let equal_when = match binary.operation {
+        BinaryOperation::Equal => true,
+        BinaryOperation::NotEqual => false,
+        _ => return None,
+    };
+    match (binary.left.as_ref(), binary.right.as_ref()) {
+        // A `nil` test is an optional parameter's, left to its truth.
+        (RValue::Local(param), RValue::Literal(literal)) | (RValue::Literal(literal), RValue::Local(param))
+            if params.contains(param) && *literal != Literal::Nil =>
+        {
+            Some((param, literal, equal_when))
+        }
+        _ => None,
+    }
 }
 
 /// Whether a pattern statement and a site statement can be one statement
