@@ -21,6 +21,14 @@ impl Table {
         { Some(*index as usize) } else { None }
     }
 
+    /// The keyed fields Luau sizes the hash part for: an explicit key in the
+    /// allocated array part counts there, unless list items share the
+    /// constructor (`{ [1] = a, [2] = b, Secret = c }` is hash 1, array 2).
+    pub(crate) fn hash_keys(&self) -> usize {
+        let has_list = self.0.iter().any(|(key, _)| key.is_none());
+        self.0.iter().filter(|(key, _)| key.as_ref().is_some_and(|key| has_list || self.array_index(key).is_none())).count()
+    }
+
     /// Extra keyed syntax needed to preserve the original hash allocation.
     /// None as the key means array slot 1, which already exists and is nil.
     pub(crate) fn hash_padding(&self) -> Result<(usize, Option<&RValue>), &'static str> {
@@ -28,7 +36,7 @@ impl Table {
         // shortcut: preserve legacy empty-table output across compiler allocation
         // prediction; upgrade when empty hash hints have an exact source encoding.
         if hash == 0 || self.0.is_empty() { return Ok((0, None)); }
-        let listed = self.0.iter().filter(|(key, _)| key.is_some()).count();
+        let listed = self.hash_keys();
         if listed > hash as usize {
             return Err("constructor fields exceed the original NEWTABLE hash allocation");
         }
@@ -104,10 +112,7 @@ pub fn table_takes_another_key(table: &Table, key: &RValue) -> bool {
     };
     // Mixed constructors cannot lower explicit array keys to list items:
     // doing so shifts the later list stores. Luau counts those keys as hash fields.
-    let has_list = table.0.iter().any(|(key, _)| key.is_none());
-    let listed = table.0.iter().filter(|(key, _)| key.as_ref()
-        .is_some_and(|key| has_list || table.array_index(key).is_none())).count();
-    u32::try_from(listed + 1).is_ok_and(|after| after <= capacity)
+    u32::try_from(table.hash_keys() + 1).is_ok_and(|after| after <= capacity)
 }
 
 /// Replacing an earlier NEWTABLE value must not change whether its node can
@@ -180,6 +185,17 @@ mod tests {
         let mut other = t.clone();
         other.2 = TableShape::NewTable { hash: 2, array: 4 };
         assert!(!compatible_table_layouts(&t, &other));
+    }
+
+    #[test]
+    fn explicit_array_keys_without_list_items_leave_the_hash_part_to_the_others() {
+        // `SellRewards = { [1] = ..., [5] = ..., Secret = ... }`: NEWTABLE hash 1, array 5.
+        let mut fields: Vec<(Option<RValue>, RValue)> = (1..=5).map(|index| (Some(Literal::Number(f64::from(index)).into()), number())).collect();
+        fields.push((Some(Literal::String(b"Secret".to_vec()).into()), number()));
+        let t = Table(fields, Default::default(), TableShape::NewTable { hash: 1, array: 5 });
+        assert_eq!(t.hash_keys(), 1);
+        assert_eq!(t.hash_padding(), Ok((0, None)));
+        assert!(t.to_string().contains("[5] = 1"));
     }
 
     #[test]

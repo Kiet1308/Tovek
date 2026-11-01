@@ -221,7 +221,7 @@ def run(command):
 
 def normalize(output):
     output = re.sub(r'(subject|driver):\d+', 'FILE:N', output)
-    return re.sub(r'[^\s:]+\.luau:\d+(?::\d+)?', 'FILE:N', output.replace('\r\n', '\n')).strip()
+    return re.sub(r'(?:[A-Za-z]:)?[^\s:]+\.luau:\d+(?::\d+)?', 'FILE:N', output.replace('\r\n', '\n')).strip()
 
 
 def compiler_options(integer=False, vector3=False):
@@ -267,6 +267,12 @@ def observation_fingerprints(row):
             for field in ('goc', 'sau_sua', 'source_at_output_optimization') if field in row}
 
 
+def portable_fingerprints(observations):
+    """The fingerprints a reviewed profile is matched by: normalized only, as raw
+    output differs by platform (line endings, paths in error messages)."""
+    return {field: fingerprints['normalized'] for field, fingerprints in observations.items()}
+
+
 def classify_baseline(row, baseline):
     if baseline is None:
         return
@@ -288,12 +294,12 @@ def classify_baseline(row, baseline):
             # Only exact at the input's level is promised; these exact runs stay known.
             if (row['input_optimization'] != row['output_optimization']
                     and all(field in row for field in fields)
-                    and observation_fingerprints(row) == baseline['observations']):
+                    and portable_fingerprints(observation_fingerprints(row)) == portable_fingerprints(baseline['observations'])):
                 row.update(status='cross_level_limit', ket_qua='CROSS_LEVEL_LIMIT')
         elif (all(field in row and row[field]['exit_code'] == 0 for field in fields)
                 and observation(row['goc'], True) != observation(row['source_at_output_optimization'], True)
                 and observation(row['sau_sua']) == observation(row['source_at_output_optimization'])
-                and observation_fingerprints(row) == baseline['observations']):
+                and portable_fingerprints(observation_fingerprints(row)) == portable_fingerprints(baseline['observations'])):
             row.update(status='compiler_sensitive', ket_qua='COMPILER_SENSITIVE')
 
 

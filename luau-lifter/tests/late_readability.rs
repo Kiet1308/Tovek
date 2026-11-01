@@ -65,6 +65,7 @@ const POW_SPECIALIZATION: &[u8] = include_bytes!("fixtures/deinline_pow_speciali
 const LOOKUP_NAMES_AND_SETTER_FLAGS: &[u8] = include_bytes!("fixtures/deinline_lookup_names_and_setter_flags.luaubc");
 const INERT_DECLARATION_BETWEEN_TEMPS: &[u8] = include_bytes!("fixtures/deinline_inert_declaration_between_temps.luaubc");
 const WRITTEN_LITERAL_KEEPS_FOLDED_COPY: &[u8] = include_bytes!("fixtures/deinline_written_literal_keeps_folded_copy.luaubc");
+const EXPLICIT_ARRAY_KEYS_WITH_RECORD: &[u8] = include_bytes!("fixtures/table_explicit_array_keys_with_record.luaubc");
 
 fn decompile(bytecode: &[u8]) -> String {
     luau_lifter::try_decompile_bytecode_with_options(bytecode, 1, None, Default::default())
@@ -709,4 +710,11 @@ fn a_written_literal_call_keeps_the_copy_its_builtins_folded() {
     let source = decompile(WRITTEN_LITERAL_KEEPS_FOLDED_COPY);
     assert!(source.contains("local function round(value, p)\n\tlocal v = (math.pow)(10, p)\n"), "{source}");
     assert!(source.contains("print((math.round)(\"1.23456\" * 100) / 100, round(v, 3))"), "{source}");
+}
+
+#[test]
+fn explicit_array_keys_beside_a_record_key_do_not_use_the_hash_part() {
+    let source = decompile(EXPLICIT_ARRAY_KEYS_WITH_RECORD);
+    assert!(source.contains("SellRewards = {\n\t{\n\t\t{ Asset = \"Gold\", Amount = 25 }"), "{source}");
+    assert!(source.contains("Secret = {"), "{source}");
 }
