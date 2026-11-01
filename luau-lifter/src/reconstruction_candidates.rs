@@ -264,11 +264,21 @@ pub(crate) fn inlined_copies(functions: &[Function], lines: &[Vec<Option<u32>>],
             .filter(|(instruction, _)| opcode_of(instruction) != LOP_RETURN)
             .find_map(|(_, line)| line.filter(|&line| line >= first))
             .unwrap_or(own_end);
-        // The span ends where a copy can: on the line of the last operation
-        // but a return. A void helper's lone `RETURN` sits on its `end`
-        // line, which code after the `end` shares (`end print("start")`):
-        // that code is the caller's, never a copy.
-        let end = last.max(first);
+        // The span ends where a copy can: on the last line of an operation
+        // but a return, which a call written over several lines comes back
+        // from (`Vector3.new(` with its arguments below). A void helper's
+        // lone `RETURN` sits on its `end` line, which code after the `end`
+        // shares (`end print("start")`): that code is the caller's, never a
+        // copy.
+        let end = function
+            .instructions
+            .iter()
+            .zip(pcs)
+            .filter(|(instruction, _)| opcode_of(instruction) != LOP_RETURN)
+            .filter_map(|(_, line)| line.filter(|&line| line >= first))
+            .max()
+            .unwrap_or(last)
+            .max(first);
         let single = (first == end).then(|| {
             let mut operations = Vec::new();
             let mut pc = 0;
@@ -560,10 +570,10 @@ pub(crate) fn inlined_copies(functions: &[Function], lines: &[Vec<Option<u32>>],
         let mut last_line: Option<(u32, Option<u32>)> = None;
         // The copy going on: its helper, the last of its lines reached, and
         // for a one-line helper, how many of its operations the copy passed.
-        let mut current: Option<(u32, u32, usize, usize)> = None;
+        let mut current: Option<(u32, u32, usize, usize, bool)> = None;
         // The copies of other helpers going on inside `current`, alike,
         // outermost first ([`Copies::nested_copies`]).
-        let mut nested: Vec<(u32, u32, usize, usize)> = Vec::new();
+        let mut nested: Vec<(u32, u32, usize, usize, bool)> = Vec::new();
         // The copy going on is one load of a constant, folded whole: the
         // next operation on the helper's line is another copy.
         let mut complete = false;
@@ -631,13 +641,19 @@ pub(crate) fn inlined_copies(functions: &[Function], lines: &[Vec<Option<u32>>],
         // Whether the copy going on (`current` or `nested`) goes on with the
         // PC on `line`, then reaching it; `complete`: the copy is one
         // constant folded whole.
-        let goes_on = |(helper, reached, passed, began): &mut (u32, u32, usize, usize), line: u32, pc: usize, complete: bool| {
+        let goes_on = |(helper, reached, passed, began, returned): &mut (u32, u32, usize, usize, bool), line: u32, pc: usize, complete: bool| {
             let copy = helpers[*helper as usize].as_ref().unwrap();
             if !copy.lines.contains(line) {
                 return false;
             }
             let (start, end) = copy.span;
             let inside = start <= line && line <= end;
+            // Back on its last line from the arguments below it, the copy
+            // made its last operation (`Vector3.new(` written over several
+            // lines): code of another helper after it is no part of it.
+            if *returned && !inside {
+                return false;
+            }
             // Past its last operation, the helper's code is returns alone: a
             // line before it is another copy, its first lines perhaps folded
             // away (`jitter(x, 1.5)` right after `jitter(x, 3)`). So is the
@@ -658,11 +674,20 @@ pub(crate) fn inlined_copies(functions: &[Function], lines: &[Vec<Option<u32>>],
                     Some(_) if complete && instructions.get(pc).is_some_and(|instruction| kind(opcode_of(instruction)).is_some()) => {
                         restarts = true
                     }
-                    Some(next) => *passed = next,
+                    Some(next) => {
+                        // A copy opening with loads of its own (constant
+                        // arguments) begins with the first operation of the
+                        // helper it has.
+                        if *passed == 0 && next > 0 {
+                            *began = next - 1;
+                        }
+                        *passed = next;
+                    }
                     None => restarts = true,
                 }
             }
             if !restarts && inside {
+                *returned |= line == copy.last && *reached > copy.last;
                 *reached = line;
             }
             !restarts
@@ -680,7 +705,7 @@ pub(crate) fn inlined_copies(functions: &[Function], lines: &[Vec<Option<u32>>],
                 Some(single) if line == copy.first => advance(single, 0, 0, pc).unwrap_or(0),
                 _ => 0,
             };
-            (helper, line, passed, passed.saturating_sub(1))
+            (helper, line, passed, passed.saturating_sub(1), false)
         };
         let enclosing = |helper: u32, pc: usize| {
             let mut outer = helper;

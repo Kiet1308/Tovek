@@ -55,6 +55,7 @@ const CONSTANT_KEYED_LOCALS: &[u8] = include_bytes!("fixtures/deinline_constant_
 const HOSTED_SPECIALIZED_VALUE: &[u8] = include_bytes!("fixtures/deinline_hosted_specialized_value.luaubc");
 const VALUE_CHAIN: &[u8] = include_bytes!("fixtures/value_chain_and_or_clamp.luaubc");
 const VALUE_CHAIN_KEEPS_TARGET: &[u8] = include_bytes!("fixtures/value_chain_keeps_target.luaubc");
+const SAME_LINE_COPIES: &[u8] = include_bytes!("fixtures/deinline_census_same_line_copies.luaubc");
 
 fn decompile(bytecode: &[u8]) -> String {
     luau_lifter::try_decompile_bytecode_with_options(bytecode, 1, None, Default::default())
@@ -600,6 +601,17 @@ fn a_select_kept_in_its_default_reads_as_and_or() {
     for line in ["\treturn success and result or p3\n",
         "safeEnum(v, data.Mode, v.Loop), -- inferred equivalent call\n",
         "Mode = safeEnum(v, data.FlipbookMode), -- inferred equivalent call\n"]
+    {
+        assert!(source.contains(line), "{line}\n{source}");
+    }
+}
+
+#[test]
+fn copies_line_info_counts_on_one_line_are_calls() {
+    let source = decompile(SAME_LINE_COPIES);
+    for line in ["v.new(randomRange(-0.08, 0.08), randomRange(0, 0.08), randomRange(-0.08, 0.08)) -- inferred equivalent call\n",
+        "\tlocal v4 = randomRange(0, 6.283185307179586) -- inferred equivalent call\n",
+        "\treturn randomVector(data, data2), randomRange(0.5, 1.5) -- inferred equivalent call\n"]
     {
         assert!(source.contains(line), "{line}\n{source}");
     }
