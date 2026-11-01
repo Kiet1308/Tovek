@@ -2853,6 +2853,25 @@ fn note_method_arg_usage(method_call: &MethodCall, usage: &mut FxHashMap<usize, 
     {
         note_api_slot(arg, slot, usage);
     }
+    // Roblox methods whose every argument has one documented role.
+    let receiver_tweens = match method_call.value.as_ref() {
+        RValue::Local(receiver) => current_name(receiver)
+            .or_else(|| usage.get(&local_ptr(receiver)).and_then(|entry| entry.assignment_name.clone()))
+            .is_some_and(|name| name.contains("Tween")),
+        RValue::Global(global) => global.0.windows(5).any(|window| window == b"Tween"),
+        _ => false,
+    };
+    let slots: &[&str] = match method {
+        "Raycast" => &["origin", "direction", "raycastParams"],
+        "Create" if args.len() == 3 && receiver_tweens => &["instance", "tweenInfo", "goal"],
+        "BulkMoveTo" => &["parts", "cframes"],
+        _ => &[],
+    };
+    for (argument, slot) in args.iter().zip(slots) {
+        if let RValue::Local(arg) = argument {
+            note_api_slot(arg, slot, usage);
+        }
+    }
     if matches!(method, "HasTag" | "AddTag" | "RemoveTag") && args.len() == 2 {
         if let Some(RValue::Local(arg)) = args.first() {
             note_api_slot(arg, "instance", usage);
@@ -11521,6 +11540,15 @@ mod tests {
         let mut block = Block(vec![declare(&v, len()), use_local(&v)]);
         name_locals(&mut block, true);
         assert_eq!(name_of(&v), "v");
+    }
+
+    /// The documented roles of `workspace:Raycast(origin, direction, params)`.
+    #[test]
+    fn raycast_argument_roles() {
+        let (origin, direction) = (RcLocal::default(), RcLocal::default());
+        let cast = MethodCall::new(global("workspace"), "Raycast".into(), vec![RValue::Local(origin.clone()), RValue::Local(direction.clone())]);
+        name_param_fn(vec![origin.clone(), direction.clone()], vec![Statement::MethodCall(cast)]);
+        assert_eq!((name_of(&origin).as_str(), name_of(&direction).as_str()), ("origin", "direction"));
     }
 
     /// `local v = {}` stored only `v[child.Name] = true` -> `nameSet`.
