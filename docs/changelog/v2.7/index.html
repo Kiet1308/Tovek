@@ -1,0 +1,890 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Introducing Tovek V2.7</title>
+<meta name="description" content="Tovek V2.7: 9,623 helper calls rebuilt across four real games, every edge case decompiled exactly, and no wrong output on 9,000 fresh programs.">
+<meta property="og:title" content="Introducing Tovek V2.7">
+<meta property="og:description" content="More inlined helpers come back as calls, and every edge case decompiles exactly.">
+<meta property="og:type" content="article">
+<meta property="og:url" content="https://kiet1308.github.io/Tovek/changelog/v2.7/">
+<meta property="og:image" content="https://kiet1308.github.io/Tovek/changelog/v2.7/og.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Tovek V2.7: the title 2.7 over ink-wash mountains in a sea of clouds.">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="../../assets/favicon.svg?v=2" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600&family=Lora:ital,wght@0,400;0,600;1,400&family=Inter:wght@300;400;500;600;700&family=Google+Sans+Code:wght@400;500&display=swap">
+<link rel="stylesheet" href="v27.css">
+</head>
+<body>
+<a class="skip" href="#intro">Skip to content</a>
+
+<header class="head">
+  <a class="brand" href="../../index.html" aria-label="Tovek overview"><svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7" fill="#111"/><path fill="#fff" d="M6.5 5h19A1.5 1.5 0 0 1 27 6.5v3A1.5 1.5 0 0 1 25.5 11H20v8h-8v-8H6.5A1.5 1.5 0 0 1 5 9.5v-3A1.5 1.5 0 0 1 6.5 5zM12 20h3v3h-3zM17 20h3v3h-3zM17 24h3v3h-3z"/></svg>tovek</a>
+  <nav aria-label="Site">
+    <a href="../../index.html">Overview</a>
+    <a href="../../index.html#read">Decompiler</a>
+    <a href="../../watch/?film=v27">Films</a>
+    <a href="../../changelog.html" aria-current="page">Changelog</a>
+    <a href="https://github.com/Kiet1308/Tovek">GitHub</a>
+  </nav>
+  <div class="actions">
+    <div class="dl">
+      <button type="button" aria-expanded="false" aria-haspopup="true"><span class="lbl">Download</span><i></i><svg viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 4.5 6 8l3.5-3.5" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      <ul>
+        <li><a href="https://github.com/Kiet1308/Tovek/releases/download/v2.7/Tovek-V2.7-windows-x86_64.zip">Windows<small>x86-64</small></a></li>
+        <li><a href="https://github.com/Kiet1308/Tovek/releases/download/v2.7/Tovek-V2.7-macos-aarch64.tar.gz">macOS<small>Apple silicon</small></a></li>
+        <li><a href="https://github.com/Kiet1308/Tovek/releases/download/v2.7/Tovek-V2.7-linux-x86_64.tar.gz">Linux<small>x86-64</small></a></li>
+        <li><a href="https://github.com/Kiet1308/Tovek/releases/download/v2.7/Tovek-V2.7-linux-aarch64.tar.gz">Linux<small>ARM64</small></a></li>
+        <li><a href="https://github.com/Kiet1308/Tovek/releases/tag/v2.7">All files and checksums<small>↗</small></a></li>
+      </ul>
+    </div>
+    <a class="try" href="../../index.html#read">Try V2.7</a>
+  </div>
+</header>
+
+<section class="hero" aria-label="Tovek V2.7">
+  <div class="fallback" aria-hidden="true"></div>
+  <canvas aria-hidden="true"></canvas>
+  <p class="name" aria-hidden="true">Tovek V2.7</p>
+  <button class="scroll" type="button"><svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M11.39 8.46a.9.9 0 0 1 1.27 0l6.98 6.98a.9.9 0 0 1-1.28 1.27L12.02 10.37l-6.39 6.34a.9.9 0 1 1-1.27-1.28z"/></svg><span>Scroll to explore</span></button>
+  <div class="scene" role="group" aria-label="Scene">
+    <button type="button" data-scene="clouds" aria-pressed="true" aria-label="Clouds"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7.5 18h9a4 4 0 0 0 .6-7.96A5.5 5.5 0 0 0 6.6 9.2 4.4 4.4 0 0 0 7.5 18z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg></button>
+    <button type="button" data-scene="wind" aria-pressed="true" aria-label="Drift"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h11a2.5 2.5 0 1 0-2.5-2.5M4 13h14a2.5 2.5 0 1 1-2.5 2.5M4 17h7" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></button>
+    <button type="button" data-scene="mark" aria-label="Write the title again"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6h12M12 6v12M9 18h6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></button>
+    <button type="button" data-scene="range" aria-label="Another range"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 18l5.5-8 3.5 5 2.5-3.5L21 18z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg></button>
+  </div>
+</section>
+
+<div class="rail" aria-hidden="true"><i></i></div>
+
+<main id="main">
+  <div class="mist" style="left:-180px;top:1450px;width:620px;height:260px" aria-hidden="true"></div>
+  <div class="mist" style="right:-160px;top:4300px;width:560px;height:240px" aria-hidden="true"></div>
+  <div class="mist" style="left:-120px;top:7600px;width:520px;height:220px" aria-hidden="true"></div>
+
+  <section class="prose intro" id="intro">
+    <h1 class="blur-in">Introducing Tovek V2.7</h1>
+    <p>We’re introducing <a class="u" href="https://github.com/Kiet1308/Tovek/releases/tag/v2.7">Tovek V2.7</a>, the newest release of our Luau decompiler. It gives back more of the functions Luau inlined than any release before it: across four real games, <b>9,623 helper calls come back as calls</b>, 14% more than V2.6.1, and every one of the 9,987 scripts still decompiles.</p>
+    <p>V2.7 is also our most exact release. It decompiles <b>all 1,023 edge-case runs</b> and <b>every executable review case</b> correctly, where V2.6.1 got 58 and 93 of them wrong, and it gave no wrong output on 9,000 freshly generated programs.</p>
+    <p>Tovek V2.7 is available today for <a href="https://github.com/Kiet1308/Tovek/releases/download/v2.7/Tovek-V2.7-windows-x86_64.zip">Windows</a>, <a href="https://github.com/Kiet1308/Tovek/releases/tag/v2.7">Linux and macOS</a>, as a command-line tool and an HTTP server, and <a href="../../index.html#read">in your browser</a>.</p>
+  </section>
+
+  <section class="wide" aria-label="Benchmarks at a glance" style="margin-top:64px">
+    <div class="card">
+      <div class="grid">
+        <div class="chart" role="img" aria-label="Rebuilt helper calls: Tovek V2.7 9,623, Tovek V2.6.1 8,474, Tovek V2.5.1 4,260">
+<h4>Rebuilt helper calls<small>4 real games · 9,987 scripts</small></h4>
+<div class="row me"><span>Tovek V2.7</span><span class="ico"><svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7" fill="#111"/><path fill="#fff" d="M6.5 5h19A1.5 1.5 0 0 1 27 6.5v3A1.5 1.5 0 0 1 25.5 11H20v8h-8v-8H6.5A1.5 1.5 0 0 1 5 9.5v-3A1.5 1.5 0 0 1 6.5 5zM12 20h3v3h-3zM17 20h3v3h-3zM17 24h3v3h-3z"/></svg></span><span class="bar"><i data-w="100.00"></i><span>9,623</span></span></div>
+<div class="row"><span>Tovek V2.6.1</span><span class="ico"><svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7" fill="#9aa1a8"/><path fill="#fff" d="M6.5 5h19A1.5 1.5 0 0 1 27 6.5v3A1.5 1.5 0 0 1 25.5 11H20v8h-8v-8H6.5A1.5 1.5 0 0 1 5 9.5v-3A1.5 1.5 0 0 1 6.5 5zM12 20h3v3h-3zM17 20h3v3h-3zM17 24h3v3h-3z"/></svg></span><span class="bar"><i data-w="88.06"></i><span>8,474</span></span></div>
+<div class="row"><span>Tovek V2.5.1</span><span class="ico"><svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7" fill="#9aa1a8"/><path fill="#fff" d="M6.5 5h19A1.5 1.5 0 0 1 27 6.5v3A1.5 1.5 0 0 1 25.5 11H20v8h-8v-8H6.5A1.5 1.5 0 0 1 5 9.5v-3A1.5 1.5 0 0 1 6.5 5zM12 20h3v3h-3zM17 20h3v3h-3zM17 24h3v3h-3z"/></svg></span><span class="bar"><i data-w="44.27"></i><span>4,260</span></span></div>
+</div><div class="chart" role="img" aria-label="Edge cases decompiled exactly: Tovek V2.7 1,023, Tovek V2.6.1 965, Tovek V2.5.1 507">
+<h4>Edge cases decompiled exactly<small>1,023 runs · output recompiled and run</small></h4>
+<div class="row me"><span>Tovek V2.7</span><span class="ico"><svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7" fill="#111"/><path fill="#fff" d="M6.5 5h19A1.5 1.5 0 0 1 27 6.5v3A1.5 1.5 0 0 1 25.5 11H20v8h-8v-8H6.5A1.5 1.5 0 0 1 5 9.5v-3A1.5 1.5 0 0 1 6.5 5zM12 20h3v3h-3zM17 20h3v3h-3zM17 24h3v3h-3z"/></svg></span><span class="bar"><i data-w="100.00"></i><span>1,023</span></span></div>
+<div class="row"><span>Tovek V2.6.1</span><span class="ico"><svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7" fill="#9aa1a8"/><path fill="#fff" d="M6.5 5h19A1.5 1.5 0 0 1 27 6.5v3A1.5 1.5 0 0 1 25.5 11H20v8h-8v-8H6.5A1.5 1.5 0 0 1 5 9.5v-3A1.5 1.5 0 0 1 6.5 5zM12 20h3v3h-3zM17 20h3v3h-3zM17 24h3v3h-3z"/></svg></span><span class="bar"><i data-w="94.33"></i><span>965</span></span></div>
+<div class="row"><span>Tovek V2.5.1</span><span class="ico"><svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7" fill="#9aa1a8"/><path fill="#fff" d="M6.5 5h19A1.5 1.5 0 0 1 27 6.5v3A1.5 1.5 0 0 1 25.5 11H20v8h-8v-8H6.5A1.5 1.5 0 0 1 5 9.5v-3A1.5 1.5 0 0 1 6.5 5zM12 20h3v3h-3zM17 20h3v3h-3zM17 24h3v3h-3z"/></svg></span><span class="bar"><i data-w="49.56"></i><span>507</span></span></div>
+</div><div class="chart" role="img" aria-label="Review cases decompiled correctly: Tovek V2.7 633, Tovek V2.6.1 540, Tovek V2.5.1 516">
+<h4>Review cases decompiled correctly<small>658 cases · 25 are refusals by design</small></h4>
+<div class="row me"><span>Tovek V2.7</span><span class="ico"><svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7" fill="#111"/><path fill="#fff" d="M6.5 5h19A1.5 1.5 0 0 1 27 6.5v3A1.5 1.5 0 0 1 25.5 11H20v8h-8v-8H6.5A1.5 1.5 0 0 1 5 9.5v-3A1.5 1.5 0 0 1 6.5 5zM12 20h3v3h-3zM17 20h3v3h-3zM17 24h3v3h-3z"/></svg></span><span class="bar"><i data-w="100.00"></i><span>633</span></span></div>
+<div class="row"><span>Tovek V2.6.1</span><span class="ico"><svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7" fill="#9aa1a8"/><path fill="#fff" d="M6.5 5h19A1.5 1.5 0 0 1 27 6.5v3A1.5 1.5 0 0 1 25.5 11H20v8h-8v-8H6.5A1.5 1.5 0 0 1 5 9.5v-3A1.5 1.5 0 0 1 6.5 5zM12 20h3v3h-3zM17 20h3v3h-3zM17 24h3v3h-3z"/></svg></span><span class="bar"><i data-w="85.31"></i><span>540</span></span></div>
+<div class="row"><span>Tovek V2.5.1</span><span class="ico"><svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7" fill="#9aa1a8"/><path fill="#fff" d="M6.5 5h19A1.5 1.5 0 0 1 27 6.5v3A1.5 1.5 0 0 1 25.5 11H20v8h-8v-8H6.5A1.5 1.5 0 0 1 5 9.5v-3A1.5 1.5 0 0 1 6.5 5zM12 20h3v3h-3zM17 20h3v3h-3zM17 24h3v3h-3z"/></svg></span><span class="bar"><i data-w="81.52"></i><span>516</span></span></div>
+</div><div class="chart" role="img" aria-label="Wrong outputs, fresh programs: Tovek V2.7 0, Tovek V2.6.1 0, Tovek V2.5.1 1,912">
+<h4>Wrong outputs, fresh programs<small>9,000 generated programs · lower is better</small></h4>
+<div class="row me zero"><span>Tovek V2.7</span><span class="ico"><svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7" fill="#111"/><path fill="#fff" d="M6.5 5h19A1.5 1.5 0 0 1 27 6.5v3A1.5 1.5 0 0 1 25.5 11H20v8h-8v-8H6.5A1.5 1.5 0 0 1 5 9.5v-3A1.5 1.5 0 0 1 6.5 5zM12 20h3v3h-3zM17 20h3v3h-3zM17 24h3v3h-3z"/></svg></span><span class="bar"><i data-w="0.00"></i><span>0</span></span></div>
+<div class="row zero"><span>Tovek V2.6.1</span><span class="ico"><svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7" fill="#9aa1a8"/><path fill="#fff" d="M6.5 5h19A1.5 1.5 0 0 1 27 6.5v3A1.5 1.5 0 0 1 25.5 11H20v8h-8v-8H6.5A1.5 1.5 0 0 1 5 9.5v-3A1.5 1.5 0 0 1 6.5 5zM12 20h3v3h-3zM17 20h3v3h-3zM17 24h3v3h-3z"/></svg></span><span class="bar"><i data-w="0.00"></i><span>0</span></span></div>
+<div class="row"><span>Tovek V2.5.1</span><span class="ico"><svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7" fill="#9aa1a8"/><path fill="#fff" d="M6.5 5h19A1.5 1.5 0 0 1 27 6.5v3A1.5 1.5 0 0 1 25.5 11H20v8h-8v-8H6.5A1.5 1.5 0 0 1 5 9.5v-3A1.5 1.5 0 0 1 6.5 5zM12 20h3v3h-3zM17 20h3v3h-3zM17 24h3v3h-3z"/></svg></span><span class="bar"><i data-w="100.00"></i><span>1,912</span></span></div>
+</div><div class="chart" role="img" aria-label="Rebuilt helper calls: Tovek V2.7 658, Tovek V2.6.1 645, luacid 509">
+<h4>Rebuilt helper calls<small>51-script research set</small></h4>
+<div class="row me"><span>Tovek V2.7</span><span class="ico"><svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7" fill="#111"/><path fill="#fff" d="M6.5 5h19A1.5 1.5 0 0 1 27 6.5v3A1.5 1.5 0 0 1 25.5 11H20v8h-8v-8H6.5A1.5 1.5 0 0 1 5 9.5v-3A1.5 1.5 0 0 1 6.5 5zM12 20h3v3h-3zM17 20h3v3h-3zM17 24h3v3h-3z"/></svg></span><span class="bar"><i data-w="100.00"></i><span>658</span></span></div>
+<div class="row"><span>Tovek V2.6.1</span><span class="ico"><svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7" fill="#9aa1a8"/><path fill="#fff" d="M6.5 5h19A1.5 1.5 0 0 1 27 6.5v3A1.5 1.5 0 0 1 25.5 11H20v8h-8v-8H6.5A1.5 1.5 0 0 1 5 9.5v-3A1.5 1.5 0 0 1 6.5 5zM12 20h3v3h-3zM17 20h3v3h-3zM17 24h3v3h-3z"/></svg></span><span class="bar"><i data-w="98.02"></i><span>645</span></span></div>
+<div class="row"><span>luacid</span><span class="ico"><svg viewBox="0 0 14 14" aria-hidden="true"><circle cx="7" cy="7" r="5.5" fill="none" stroke="#9aa1a8" stroke-width="1.6"/></svg></span><span class="bar"><i data-w="77.36"></i><span>509</span></span></div>
+</div><div class="chart" role="img" aria-label="Similarity to the original source: Tovek V2.7 74.1, Tovek V2.6.1 73.7, luacid 73.0">
+<h4>Similarity to the original source<small>13 open-source modules · token similarity, %</small></h4>
+<div class="row me"><span>Tovek V2.7</span><span class="ico"><svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7" fill="#111"/><path fill="#fff" d="M6.5 5h19A1.5 1.5 0 0 1 27 6.5v3A1.5 1.5 0 0 1 25.5 11H20v8h-8v-8H6.5A1.5 1.5 0 0 1 5 9.5v-3A1.5 1.5 0 0 1 6.5 5zM12 20h3v3h-3zM17 20h3v3h-3zM17 24h3v3h-3z"/></svg></span><span class="bar"><i data-w="74.10"></i><span>74.1</span></span></div>
+<div class="row"><span>Tovek V2.6.1</span><span class="ico"><svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7" fill="#9aa1a8"/><path fill="#fff" d="M6.5 5h19A1.5 1.5 0 0 1 27 6.5v3A1.5 1.5 0 0 1 25.5 11H20v8h-8v-8H6.5A1.5 1.5 0 0 1 5 9.5v-3A1.5 1.5 0 0 1 6.5 5zM12 20h3v3h-3zM17 20h3v3h-3zM17 24h3v3h-3z"/></svg></span><span class="bar"><i data-w="73.70"></i><span>73.7</span></span></div>
+<div class="row"><span>luacid</span><span class="ico"><svg viewBox="0 0 14 14" aria-hidden="true"><circle cx="7" cy="7" r="5.5" fill="none" stroke="#9aa1a8" stroke-width="1.6"/></svg></span><span class="bar"><i data-w="73.00"></i><span>73.0</span></span></div>
+</div><div class="chart" role="img" aria-label="Generated names: Tovek V2.7 29.3, Tovek V2.6.1 29.7, luacid 46.2">
+<h4>Generated names<small>51-script research set · share of declarations, % · lower is better</small></h4>
+<div class="row me"><span>Tovek V2.7</span><span class="ico"><svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7" fill="#111"/><path fill="#fff" d="M6.5 5h19A1.5 1.5 0 0 1 27 6.5v3A1.5 1.5 0 0 1 25.5 11H20v8h-8v-8H6.5A1.5 1.5 0 0 1 5 9.5v-3A1.5 1.5 0 0 1 6.5 5zM12 20h3v3h-3zM17 20h3v3h-3zM17 24h3v3h-3z"/></svg></span><span class="bar"><i data-w="63.42"></i><span>29.3</span></span></div>
+<div class="row"><span>Tovek V2.6.1</span><span class="ico"><svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7" fill="#9aa1a8"/><path fill="#fff" d="M6.5 5h19A1.5 1.5 0 0 1 27 6.5v3A1.5 1.5 0 0 1 25.5 11H20v8h-8v-8H6.5A1.5 1.5 0 0 1 5 9.5v-3A1.5 1.5 0 0 1 6.5 5zM12 20h3v3h-3zM17 20h3v3h-3zM17 24h3v3h-3z"/></svg></span><span class="bar"><i data-w="64.29"></i><span>29.7</span></span></div>
+<div class="row"><span>luacid</span><span class="ico"><svg viewBox="0 0 14 14" aria-hidden="true"><circle cx="7" cy="7" r="5.5" fill="none" stroke="#9aa1a8" stroke-width="1.6"/></svg></span><span class="bar"><i data-w="100.00"></i><span>46.2</span></span></div>
+</div><div class="chart" role="img" aria-label="Non-blank output lines: Tovek V2.7 1,017.8, Tovek V2.6.1 1,033.1, Tovek V2.5.1 1,169.0">
+<h4>Non-blank output lines<small>4 real games · thousands · lower is better</small></h4>
+<div class="row me"><span>Tovek V2.7</span><span class="ico"><svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7" fill="#111"/><path fill="#fff" d="M6.5 5h19A1.5 1.5 0 0 1 27 6.5v3A1.5 1.5 0 0 1 25.5 11H20v8h-8v-8H6.5A1.5 1.5 0 0 1 5 9.5v-3A1.5 1.5 0 0 1 6.5 5zM12 20h3v3h-3zM17 20h3v3h-3zM17 24h3v3h-3z"/></svg></span><span class="bar"><i data-w="87.07"></i><span>1,017.8</span></span></div>
+<div class="row"><span>Tovek V2.6.1</span><span class="ico"><svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7" fill="#9aa1a8"/><path fill="#fff" d="M6.5 5h19A1.5 1.5 0 0 1 27 6.5v3A1.5 1.5 0 0 1 25.5 11H20v8h-8v-8H6.5A1.5 1.5 0 0 1 5 9.5v-3A1.5 1.5 0 0 1 6.5 5zM12 20h3v3h-3zM17 20h3v3h-3zM17 24h3v3h-3z"/></svg></span><span class="bar"><i data-w="88.37"></i><span>1,033.1</span></span></div>
+<div class="row"><span>Tovek V2.5.1</span><span class="ico"><svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="7" fill="#9aa1a8"/><path fill="#fff" d="M6.5 5h19A1.5 1.5 0 0 1 27 6.5v3A1.5 1.5 0 0 1 25.5 11H20v8h-8v-8H6.5A1.5 1.5 0 0 1 5 9.5v-3A1.5 1.5 0 0 1 6.5 5zM12 20h3v3h-3zM17 20h3v3h-3zM17 24h3v3h-3z"/></svg></span><span class="bar"><i data-w="100.00"></i><span>1,169.0</span></span></div>
+</div>
+      </div>
+      <p class="note">Note: every row is measured with the published release binary of that version on the same inputs. The four games are private; only totals are shown. luacid rows use the outputs saved with each research sample.</p>
+    </div>
+  </section>
+
+  <section class="prose sec" id="faithful">
+    <h2 class="blur-in">Giving back what the compiler took</h2>
+    <p>Luau’s optimizer copies small local functions into the code that calls them. A decompiler reading that bytecode sees the copies, not the calls, and a script full of copies is long and hard to follow. Tovek’s job is to <span class="u">find each copy, prove it is one, and write the call the author wrote</span>, without ever changing what the script does.</p>
+    <p>V2.7 rebuilds copies in places earlier releases could not reach: <span class="u">helpers whose return from a loop Luau turned into a store and a break</span>, copies whose constants Luau folded through branches, locals and even <code>math.pow</code>, copies that sit inside other copies, copies split by a declaration the caller evaluated in between, and calls that forward their varargs. On the four real games that took rebuilt calls from 8,474 to <b>9,623</b>, and on our 51-script research set from 645 to 658, against 509 for luacid.</p>
+    <p>It is also stricter about what counts as a copy. Where the bytecode’s own line numbers show that none of a helper’s code is in a function, a match there is code the author wrote by hand, and V2.7 leaves it as written.</p>
+  </section>
+
+  <section class="wide" style="margin-top:56px" aria-label="Every V2 release">
+    <div class="card scatter">
+      <div class="card-head"><h3>Every V2 release</h3><span>same inputs · same machine</span></div>
+      <div class="plot"><svg viewBox="0 0 980 420" role="img" aria-label="Rebuilt helper calls against exact edge cases, every V2 release">
+<line class="gridl" x1="70" x2="950" y1="370.0" y2="370.0"/><text x="60" y="374.0" text-anchor="end">0</text>
+<line class="gridl" x1="70" x2="950" y1="300.0" y2="300.0"/><text x="60" y="304.0" text-anchor="end">2,000</text>
+<line class="gridl" x1="70" x2="950" y1="230.0" y2="230.0"/><text x="60" y="234.0" text-anchor="end">4,000</text>
+<line class="gridl" x1="70" x2="950" y1="160.0" y2="160.0"/><text x="60" y="164.0" text-anchor="end">6,000</text>
+<line class="gridl" x1="70" x2="950" y1="90.0" y2="90.0"/><text x="60" y="94.0" text-anchor="end">8,000</text>
+<line class="gridl" x1="70" x2="950" y1="20.0" y2="20.0"/><text x="60" y="24.0" text-anchor="end">10,000</text>
+<text x="143.3" y="392" text-anchor="middle">500</text>
+<text x="290.0" y="392" text-anchor="middle">600</text>
+<text x="436.7" y="392" text-anchor="middle">700</text>
+<text x="583.3" y="392" text-anchor="middle">800</text>
+<text x="730.0" y="392" text-anchor="middle">900</text>
+<text x="876.7" y="392" text-anchor="middle">1,000</text>
+<line class="axis" x1="70" x2="70" y1="20" y2="370"/><line class="axis" x1="70" x2="950" y1="370" y2="370"/><text x="510" y="414" text-anchor="middle">Edge-case runs decompiled exactly (of 1,023)</text><text transform="translate(16 195) rotate(-90)" text-anchor="middle">Rebuilt helper calls, 4 games</text>
+<g class="other"><polyline points="127.2,312.9 125.7,312.9 153.6,220.9 825.3,73.4 910.4,33.2" fill="none" stroke="#c6ccd2" stroke-width="1.4"/></g>
+<g class="other"><circle cx="127.2" cy="312.9" r="5"/><text class="lbl" x="137.2" y="298.9" text-anchor="start">Tovek V2</text></g>
+<g class="other"><circle cx="125.7" cy="312.9" r="5"/><text class="lbl" x="135.7" y="334.9" text-anchor="start">Tovek V2.1.1</text></g>
+<g class="other"><circle cx="153.6" cy="220.9" r="5"/><text class="lbl" x="163.6" y="206.9" text-anchor="start">Tovek V2.5.1</text></g>
+<g class="other"><circle cx="825.3" cy="73.4" r="5"/><text class="lbl" x="835.3" y="59.4" text-anchor="start">Tovek V2.6.1</text></g>
+<g class="me"><circle cx="910.4" cy="33.2" r="6"/><text class="lbl" x="898.4" y="19.2" text-anchor="end">Tovek V2.7</text></g>
+</svg></div>
+      <div class="legend"><span>Tovek</span><div><span><i class="me"></i>V2.7</span><span><i></i>Earlier V2 releases</span></div></div>
+      <p class="note">Rebuilt helper calls across the four games against edge-case runs whose output, recompiled and run, prints what the original prints. Both use the published binaries.</p>
+    </div>
+  </section>
+
+  <section class="prose sec" id="deinline">
+    <h2 class="blur-in">De-inlining</h2>
+    <p><span class="u">Every rebuilt call is checked twice</span>: its helper, specialized to the call’s constant arguments, must match the copy exactly, and evaluating the arguments first must change nothing the copy observed. Where Luau folded a constant, V2.7 folds the helper the same way before comparing; where a parameter is only tested for truth, the branch the copy kept tells its value.</p>
+    <p>The examples below are our own test scripts, compiled with Luau at <code>-O2</code> and decompiled by V2.6.1 and V2.7. Rebuilt calls are marked.</p>
+  </section>
+  <div class="wide examples" data-examples><div class="thumbs" role="tablist" aria-label="Examples"><button type="button" role="tab" aria-selected="false" aria-controls="ex-0"><span class="mini"><b>Returns that became breaks</b><em>print(find(v, list[1]), find(v, list[2]), total(list2[1]), t</em></span></button><button type="button" role="tab" aria-selected="false" aria-controls="ex-1"><span class="mini"><b>Constants Luau folded</b><em>return round(p2, 2) -- inferred equivalent call</em></span></button><button type="button" role="tab" aria-selected="false" aria-controls="ex-2"><span class="mini"><b>Value chains</b><em>v = clamp(-v2, v2, v) -- inferred equivalent call</em></span></button><button type="button" role="tab" aria-selected="false" aria-controls="ex-3"><span class="mini"><b>Forwarded varargs</b><em>onParameterChanged(&quot;Stats&quot;, i, ...) -- inferred equivalent c</em></span></button><button type="button" role="tab" aria-selected="false" aria-controls="ex-4"><span class="mini"><b>Constant locals</b><em>local v3 = refreshDesired(p, &quot;Enabled&quot;, data.Enabled) -- inf</em></span></button></div><div class="stage"><div class="pane" id="ex-0" role="tabpanel"><div class="code"><header>Tovek V2.6.1<small>0 rebuilt calls · 108 lines</small></header><pre tabindex="0"><span class="k">local</span> v = {
+	Assets = {
+		Effects = { Coin = <span class="s">&quot;coin&quot;</span> }
+	}
+}
+ 
+<span class="k">local</span> <span class="k">function</span> find(p, items)
+	<span class="k">for</span> _, item <span class="k">in</span> items <span class="k">do</span>
+		p = p[item]
+ 
+		<span class="k">if</span> <span class="k">not</span> p <span class="k">then</span>
+			<span class="k">return</span> <span class="k">nil</span>
+		<span class="k">end</span>
+	<span class="k">end</span>
+ 
+	<span class="k">return</span> p
+<span class="k">end</span>
+ 
+<span class="k">local</span> <span class="k">function</span> total(items)
+	<span class="k">local</span> total2 = <span class="n">0</span>
+ 
+	<span class="k">for</span> _, item <span class="k">in</span> items <span class="k">do</span>
+		total2 += item
+ 
+		<span class="k">if</span> total2 &gt; <span class="n">100</span> <span class="k">then</span>
+			<span class="k">return</span> <span class="n">100</span>
+		<span class="k">end</span>
+	<span class="k">end</span>
+ 
+	<span class="k">return</span> total2
+<span class="k">end</span>
+ 
+<span class="k">local</span> v2 = v
+ 
+<span class="k">local</span> <span class="k">function</span> report(list, list2)
+	<span class="k">local</span> v3 = v2
+ 
+	<span class="k">for</span> _, v4 <span class="k">in</span> list[<span class="n">1</span>] <span class="k">do</span>
+		v3 = v3[v4]
+ 
+		<span class="k">if</span> v3 <span class="k">then</span>
+			<span class="k">continue</span>
+		<span class="k">end</span>
+ 
+		v3 = <span class="k">nil</span>
+		<span class="k">break</span>
+	<span class="k">end</span>
+ 
+	<span class="k">local</span> v4 = v2
+ 
+	<span class="k">for</span> _, v5 <span class="k">in</span> list[<span class="n">2</span>] <span class="k">do</span>
+		v4 = v4[v5]
+ 
+		<span class="k">if</span> v4 <span class="k">then</span>
+			<span class="k">continue</span>
+		<span class="k">end</span>
+ 
+		v4 = <span class="k">nil</span>
+		<span class="k">break</span>
+	<span class="k">end</span>
+ 
+	<span class="k">local</span> total2 = <span class="n">0</span>
+ 
+	<span class="k">for</span> _, v5 <span class="k">in</span> list2[<span class="n">1</span>] <span class="k">do</span>
+		total2 += v5
+ 
+		<span class="k">if</span> <span class="k">not</span> (total2 &gt; <span class="n">100</span>) <span class="k">then</span>
+			<span class="k">continue</span>
+		<span class="k">end</span>
+ 
+		total2 = <span class="n">100</span>
+		<span class="k">break</span>
+	<span class="k">end</span>
+ 
+	<span class="k">local</span> total3 = <span class="n">0</span>
+ 
+	<span class="k">for</span> _, v5 <span class="k">in</span> list2[<span class="n">2</span>] <span class="k">do</span>
+		total3 += v5
+ 
+		<span class="k">if</span> <span class="k">not</span> (total3 &gt; <span class="n">100</span>) <span class="k">then</span>
+			<span class="k">continue</span>
+		<span class="k">end</span>
+ 
+		total3 = <span class="n">100</span>
+		<span class="k">break</span>
+	<span class="k">end</span>
+ 
+	print(v3, v4, total2, total3)
+<span class="k">end</span>
+ 
+<span class="k">local</span> v3 = {
+	{ <span class="s">&quot;Assets&quot;</span>, <span class="s">&quot;Effects&quot;</span>, <span class="s">&quot;Coin&quot;</span> },
+	{ <span class="s">&quot;Assets&quot;</span>, <span class="s">&quot;Sounds&quot;</span> }
+}
+<span class="k">local</span> v4 = v
+<span class="k">local</span> v5 = {
+	{ <span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span> },
+	{ <span class="n">60</span>, <span class="n">70</span> }
+}
+ 
+<span class="k">for</span> _, v6 <span class="k">in</span> v3[<span class="n">1</span>] <span class="k">do</span>
+	v4 = v4[v6]
+ 
+	<span class="k">if</span> v4 <span class="k">then</span>
+		<span class="k">continue</span>
+	<span class="k">end</span>
+ 
+	v4 = <span class="k">nil</span>
+	<span class="k">break</span>
+<span class="k">end</span>
+ 
+<span class="k">for</span> _, v6 <span class="k">in</span> v3[<span class="n">2</span>] <span class="k">do</span>
+	v = v[v6]
+ 
+	<span class="k">if</span> v <span class="k">then</span>
+		<span class="k">continue</span>
+	<span class="k">end</span>
+ 
+	v = <span class="k">nil</span>
+	<span class="k">break</span>
+<span class="k">end</span>
+ 
+<span class="k">local</span> total2 = <span class="n">0</span>
+ 
+<span class="k">for</span> _, v6 <span class="k">in</span> v5[<span class="n">1</span>] <span class="k">do</span>
+	total2 += v6
+ 
+	<span class="k">if</span> <span class="k">not</span> (total2 &gt; <span class="n">100</span>) <span class="k">then</span>
+		<span class="k">continue</span>
+	<span class="k">end</span>
+ 
+	total2 = <span class="n">100</span>
+	<span class="k">break</span>
+<span class="k">end</span>
+ 
+<span class="k">local</span> total3 = <span class="n">0</span>
+ 
+<span class="k">for</span> _, v6 <span class="k">in</span> v5[<span class="n">2</span>] <span class="k">do</span>
+	total3 += v6
+ 
+	<span class="k">if</span> <span class="k">not</span> (total3 &gt; <span class="n">100</span>) <span class="k">then</span>
+		<span class="k">continue</span>
+	<span class="k">end</span>
+ 
+	total3 = <span class="n">100</span>
+	<span class="k">break</span>
+<span class="k">end</span>
+ 
+print(v4, v, total2, total3)</pre></div><div class="code after"><header>Tovek V2.7<small><b>2 rebuilt calls</b> · 34 lines</small></header><pre tabindex="0"><span class="k">local</span> v = {
+	Assets = {
+		Effects = { Coin = <span class="s">&quot;coin&quot;</span> }
+	}
+}
+ 
+<span class="k">local</span> <span class="k">function</span> find(p, items) <span class="r">-- 2 equivalent calls inferred from this helper</span>
+	<span class="k">for</span> _, item <span class="k">in</span> items <span class="k">do</span>
+		p = p[item]
+ 
+		<span class="k">if</span> <span class="k">not</span> p <span class="k">then</span>
+			<span class="k">return</span> <span class="k">nil</span>
+		<span class="k">end</span>
+	<span class="k">end</span>
+ 
+	<span class="k">return</span> p
+<span class="k">end</span>
+ 
+<span class="k">local</span> <span class="k">function</span> total(items) <span class="r">-- 2 equivalent calls inferred from this helper</span>
+	<span class="k">local</span> total2 = <span class="n">0</span>
+ 
+	<span class="k">for</span> _, item <span class="k">in</span> items <span class="k">do</span>
+		total2 += item
+ 
+		<span class="k">if</span> total2 &gt; <span class="n">100</span> <span class="k">then</span>
+			<span class="k">return</span> <span class="n">100</span>
+		<span class="k">end</span>
+	<span class="k">end</span>
+ 
+	<span class="k">return</span> total2
+<span class="k">end</span>
+ 
+<span class="k">local</span> <span class="k">function</span> report(list, list2) <span class="r">-- 1 equivalent call inferred from this helper</span>
+<span class="rl">	print(find(v, list[<span class="n">1</span>]), find(v, list[<span class="n">2</span>]), total(list2[<span class="n">1</span>]), total(list2[<span class="n">2</span>])) <span class="r">-- inferred equivalent call</span></span>
+<span class="k">end</span>
+ 
+<span class="rl">report({ <span class="r">-- inferred equivalent call</span></span>
+	{ <span class="s">&quot;Assets&quot;</span>, <span class="s">&quot;Effects&quot;</span>, <span class="s">&quot;Coin&quot;</span> },
+	{ <span class="s">&quot;Assets&quot;</span>, <span class="s">&quot;Sounds&quot;</span> }
+}, {
+	{ <span class="n">1</span>, <span class="n">2</span>, <span class="n">3</span> },
+	{ <span class="n">60</span>, <span class="n">70</span> }
+})</pre></div></div><div class="pane" id="ex-1" role="tabpanel"><div class="code"><header>Tovek V2.6.1<small>0 rebuilt calls · 27 lines</small></header><pre tabindex="0"><span class="k">local</span> <span class="k">function</span> round(p, p2)
+	<span class="k">local</span> v = math.pow(<span class="n">10</span>, p2)
+	<span class="k">return</span> math.round(p * v) / v
+<span class="k">end</span>
+ 
+<span class="k">local</span> <span class="k">function</span> present(p, p2)
+	<span class="k">if</span> p == <span class="s">&quot;Float&quot;</span> <span class="k">then</span>
+		print(<span class="s">&quot;float&quot;</span>)
+		<span class="k">return</span> math.round(p2 * <span class="n">100</span>) / <span class="n">100</span>
+	<span class="k">end</span>
+ 
+	<span class="k">if</span> p == <span class="s">&quot;Percent&quot;</span> <span class="k">then</span>
+		print(<span class="s">&quot;percent&quot;</span>)
+		p2 = math.round(p2 / <span class="n">100</span> * <span class="n">10000</span>) / <span class="n">10000</span>
+	<span class="k">end</span>
+ 
+	<span class="k">return</span> p2
+<span class="k">end</span>
+ 
+<span class="k">local</span> <span class="k">function</span> scaled(p, p2)
+	<span class="k">if</span> p == <span class="s">&quot;Basis&quot;</span> <span class="k">then</span>
+		p2 = math.round(p2 * <span class="n">10000</span>) / <span class="n">10000</span>
+	<span class="k">end</span>
+ 
+	<span class="k">return</span> p2
+<span class="k">end</span>
+ 
+<span class="k">local</span> <span class="k">function</span> exact(p)
+	<span class="k">return</span> math.round(p * <span class="n">1000</span>) / <span class="n">1000</span>
+<span class="k">end</span>
+ 
+<span class="k">local</span> v = { present, scaled, exact, round }
+print(v[<span class="n">1</span>](<span class="s">&quot;Float&quot;</span>, <span class="n">1.23456</span>), v[<span class="n">1</span>](<span class="s">&quot;Percent&quot;</span>, <span class="n">12.345678</span>), v[<span class="n">1</span>](<span class="s">&quot;Int&quot;</span>, <span class="n">3</span>))
+print(v[<span class="n">2</span>](<span class="s">&quot;Basis&quot;</span>, <span class="n">0.123456789</span>), v[<span class="n">2</span>](<span class="s">&quot;Other&quot;</span>, <span class="n">0.5</span>), v[<span class="n">3</span>](<span class="n">2.71828</span>), v[<span class="n">4</span>](<span class="n">9.87654</span>, <span class="n">1</span>))</pre></div><div class="code after"><header>Tovek V2.7<small><b>4 rebuilt calls</b> · 27 lines</small></header><pre tabindex="0"><span class="k">local</span> <span class="k">function</span> round(p, p2) <span class="r">-- 4 equivalent calls inferred from this helper</span>
+	<span class="k">local</span> v = math.pow(<span class="n">10</span>, p2)
+	<span class="k">return</span> math.round(p * v) / v
+<span class="k">end</span>
+ 
+<span class="k">local</span> <span class="k">function</span> present(p, p2)
+	<span class="k">if</span> p == <span class="s">&quot;Float&quot;</span> <span class="k">then</span>
+		print(<span class="s">&quot;float&quot;</span>)
+<span class="rl">		<span class="k">return</span> round(p2, <span class="n">2</span>) <span class="r">-- inferred equivalent call</span></span>
+	<span class="k">end</span>
+ 
+	<span class="k">if</span> p == <span class="s">&quot;Percent&quot;</span> <span class="k">then</span>
+		print(<span class="s">&quot;percent&quot;</span>)
+<span class="rl">		p2 = round(p2 / <span class="n">100</span>, <span class="n">4</span>) <span class="r">-- inferred equivalent call</span></span>
+	<span class="k">end</span>
+ 
+	<span class="k">return</span> p2
+<span class="k">end</span>
+ 
+<span class="k">local</span> <span class="k">function</span> scaled(p, p2)
+	<span class="k">if</span> p == <span class="s">&quot;Basis&quot;</span> <span class="k">then</span>
+<span class="rl">		p2 = round(p2, <span class="n">4</span>) <span class="r">-- inferred equivalent call</span></span>
+	<span class="k">end</span>
+ 
+	<span class="k">return</span> p2
+<span class="k">end</span>
+ 
+<span class="k">local</span> <span class="k">function</span> exact(p)
+<span class="rl">	<span class="k">return</span> round(p, <span class="n">3</span>) <span class="r">-- inferred equivalent call</span></span>
+<span class="k">end</span>
+ 
+<span class="k">local</span> v = { present, scaled, exact, round }
+print(v[<span class="n">1</span>](<span class="s">&quot;Float&quot;</span>, <span class="n">1.23456</span>), v[<span class="n">1</span>](<span class="s">&quot;Percent&quot;</span>, <span class="n">12.345678</span>), v[<span class="n">1</span>](<span class="s">&quot;Int&quot;</span>, <span class="n">3</span>))
+print(v[<span class="n">2</span>](<span class="s">&quot;Basis&quot;</span>, <span class="n">0.123456789</span>), v[<span class="n">2</span>](<span class="s">&quot;Other&quot;</span>, <span class="n">0.5</span>), v[<span class="n">3</span>](<span class="n">2.71828</span>), v[<span class="n">4</span>](<span class="n">9.87654</span>, <span class="n">1</span>))</pre></div></div><div class="pane" id="ex-2" role="tabpanel"><div class="code"><header>Tovek V2.6.1<small>0 rebuilt calls · 81 lines</small></header><pre tabindex="0"><span class="k">local</span> <span class="k">function</span> clamp(p, p2, p3)
+	<span class="k">if</span> p2 &lt; p3 <span class="k">and</span> p2 <span class="k">then</span>
+		p3 = p2
+	<span class="k">elseif</span> p3 &lt; p <span class="k">then</span>
+		p3 = p <span class="k">or</span> p3
+	<span class="k">end</span>
+ 
+	<span class="k">return</span> p3
+<span class="k">end</span>
+ 
+<span class="k">local</span> total = <span class="n">0</span>
+ 
+<span class="k">local</span> <span class="k">function</span> update(p, p2, p3)
+	<span class="k">local</span> v = p - total
+ 
+	<span class="k">if</span> p &lt; <span class="n">1</span> <span class="k">and</span> total &lt; <span class="n">0.95</span> <span class="k">then</span>
+		<span class="k">local</span> v2 = <span class="n">2.8</span> * (p2 - p3)
+		<span class="k">local</span> v3 = -v2
+ 
+		<span class="k">if</span> v2 &lt; v <span class="k">and</span> v2 <span class="k">then</span>
+			v = v2
+		<span class="k">elseif</span> v &lt; v3 <span class="k">then</span>
+			v = v3 <span class="k">or</span> v
+		<span class="k">end</span>
+	<span class="k">end</span>
+ 
+	total += v
+	<span class="k">local</span> v2 = math.floor(total * <span class="n">100</span> + <span class="n">0.5</span>) / <span class="n">100</span>
+ 
+	<span class="k">if</span> v2 &gt; <span class="n">1</span> <span class="k">then</span>
+		<span class="k">return</span> <span class="n">1</span>
+	<span class="k">end</span>
+ 
+	<span class="k">if</span> v2 &lt; <span class="n">0</span> <span class="k">then</span>
+		<span class="k">return</span> <span class="n">0</span>
+	<span class="k">end</span>
+ 
+	<span class="k">return</span> v2
+<span class="k">end</span>
+ 
+<span class="k">local</span> <span class="k">function</span> rotate(p, p2)
+	<span class="k">local</span> v = math.asin(p.y)
+	<span class="k">local</span> v2 = v + -<span class="n">1.4</span>
+	<span class="k">local</span> v3 = v + <span class="n">1.4</span>
+	<span class="k">local</span> y = p2.y
+ 
+	<span class="k">if</span> v3 &lt; y <span class="k">and</span> v3 <span class="k">then</span>
+		y = v3
+	<span class="k">elseif</span> y &lt; v2 <span class="k">then</span>
+		y = v2 <span class="k">or</span> y
+	<span class="k">end</span>
+ 
+	<span class="k">return</span> p2.x, y
+<span class="k">end</span>
+ 
+<span class="k">local</span> v = { DefaultZoom = <span class="n">12</span> }
+ 
+<span class="k">local</span> <span class="k">function</span> zoom(p, p2, p3)
+	<span class="k">local</span> defaultZoom
+ 
+	<span class="k">if</span> p3 <span class="k">then</span>
+		<span class="k">local</span> defaultZoom2 = v.DefaultZoom
+ 
+		<span class="k">if</span> p2 &lt; defaultZoom2 <span class="k">and</span> p2 <span class="k">then</span>
+			defaultZoom2 = p2
+		<span class="k">elseif</span> defaultZoom2 &lt; p <span class="k">then</span>
+			defaultZoom2 = p <span class="k">or</span> defaultZoom2
+		<span class="k">end</span>
+ 
+		defaultZoom = defaultZoom2 <span class="k">or</span> v.DefaultZoom
+	<span class="k">else</span>
+		defaultZoom = v.DefaultZoom
+	<span class="k">end</span>
+ 
+	v.Current = defaultZoom
+<span class="k">end</span>
+ 
+<span class="k">local</span> v2 = <span class="n">0.5</span> - total
+ 
+<span class="k">if</span> total &lt; <span class="n">0.95</span> <span class="k">then</span>
+	v2 = v2 &gt; <span class="n">0.2799999999999999</span> <span class="k">and</span> <span class="n">0.2799999999999999</span> <span class="k">or</span> v2 &lt; -<span class="n">0.2799999999999999</span> <span class="k">and</span> -<span class="n">0.2799999999999999</span> <span class="k">or</span> v2
+<span class="k">end</span>
+ 
+total += v2
+<span class="k">local</span> v3 = math.floor(total * <span class="n">100</span> + <span class="n">0.5</span>) / <span class="n">100</span>
+<span class="k">local</span> v4 = v3 &gt; <span class="n">1</span> <span class="k">and</span> <span class="n">1</span> <span class="k">or</span> v3 &lt; <span class="n">0</span> <span class="k">and</span> <span class="n">0</span> <span class="k">or</span> v3
+<span class="k">local</span> v5 = <span class="n">0.2</span> - total
+ 
+<span class="k">if</span> total &lt; <span class="n">0.95</span> <span class="k">then</span>
+	v5 = v5 &gt; <span class="n">0.14000000000000012</span> <span class="k">and</span> <span class="n">0.14000000000000012</span> <span class="k">or</span> v5 &lt; -<span class="n">0.14000000000000012</span> <span class="k">and</span> -<span class="n">0.14000000000000012</span> <span class="k">or</span> v5
+<span class="k">end</span>
+ 
+total += v5
+<span class="k">local</span> v6 = math.floor(total * <span class="n">100</span> + <span class="n">0.5</span>) / <span class="n">100</span>
+<span class="k">local</span> v7 = v6 &gt; <span class="n">1</span> <span class="k">and</span> <span class="n">1</span> <span class="k">or</span> v6 &lt; <span class="n">0</span> <span class="k">and</span> <span class="n">0</span> <span class="k">or</span> v6
+total += <span class="n">3</span> - total
+<span class="k">local</span> v8 = math.floor(total * <span class="n">100</span> + <span class="n">0.5</span>) / <span class="n">100</span>
+print(v4, v7, v8 &gt; <span class="n">1</span> <span class="k">and</span> <span class="n">1</span> <span class="k">or</span> v8 &lt; <span class="n">0</span> <span class="k">and</span> <span class="n">0</span> <span class="k">or</span> v8)
+print(rotate({ y = <span class="n">0.5</span> }, { x = <span class="n">1</span>, y = <span class="n">3</span> }))
+<span class="k">local</span> defaultZoom = v.DefaultZoom
+v.Current = defaultZoom &gt; <span class="n">10</span> <span class="k">and</span> <span class="n">10</span> <span class="k">or</span> defaultZoom &lt; <span class="n">1</span> <span class="k">and</span> <span class="n">1</span> <span class="k">or</span> defaultZoom <span class="k">or</span> v.DefaultZoom
+print(v.Current)
+v.Current = v.DefaultZoom
+print(v.Current)</pre></div><div class="code after"><header>Tovek V2.7<small><b>10 rebuilt calls</b> · 47 lines</small></header><pre tabindex="0"><span class="k">local</span> <span class="k">function</span> clamp(p, p2, p3) <span class="r">-- 10 equivalent calls inferred from this helper</span>
+	<span class="k">return</span> p2 &lt; p3 <span class="k">and</span> p2 <span class="k">or</span> p3 &lt; p <span class="k">and</span> p <span class="k">or</span> p3
+<span class="k">end</span>
+ 
+<span class="k">local</span> total = <span class="n">0</span>
+<span class="k">local</span> <span class="k">function</span> update(p, p2, p3)
+	<span class="k">local</span> v = p - total
+ 
+	<span class="k">if</span> p &lt; <span class="n">1</span> <span class="k">and</span> total &lt; <span class="n">0.95</span> <span class="k">then</span>
+		<span class="k">local</span> v2 = <span class="n">2.8</span> * (p2 - p3)
+<span class="rl">		v = clamp(-v2, v2, v) <span class="r">-- inferred equivalent call</span></span>
+	<span class="k">end</span>
+ 
+	total += v
+<span class="rl">	<span class="k">return</span> clamp(<span class="n">0</span>, <span class="n">1</span>, math.floor(total * <span class="n">100</span> + <span class="n">0.5</span>) / <span class="n">100</span>) <span class="r">-- inferred equivalent call</span></span>
+<span class="k">end</span>
+ 
+<span class="k">local</span> <span class="k">function</span> rotate(p, p2)
+	<span class="k">local</span> v = math.asin(p.y)
+<span class="rl">	<span class="k">local</span> v2 = clamp(v + -<span class="n">1.4</span>, v + <span class="n">1.4</span>, p2.y) <span class="r">-- inferred equivalent call</span></span>
+	<span class="k">return</span> p2.x, v2
+<span class="k">end</span>
+ 
+<span class="k">local</span> v = { DefaultZoom = <span class="n">12</span> }
+<span class="k">local</span> <span class="k">function</span> zoom(p, p2, p3)
+	<span class="k">local</span> current
+ 
+	<span class="k">if</span> p3 <span class="k">then</span>
+<span class="rl">		current = clamp(p, p2, v.DefaultZoom) <span class="k">or</span> v.DefaultZoom <span class="r">-- inferred equivalent call</span></span>
+	<span class="k">else</span>
+		current = v.DefaultZoom
+	<span class="k">end</span>
+ 
+	v.Current = current
+<span class="k">end</span>
+ 
+<span class="k">local</span> v2 = <span class="n">0.5</span> - total
+ 
+<span class="k">if</span> total &lt; <span class="n">0.95</span> <span class="k">then</span>
+<span class="rl">	v2 = clamp(-<span class="n">0.2799999999999999</span>, <span class="n">0.2799999999999999</span>, v2) <span class="r">-- inferred equivalent call</span></span>
+<span class="k">end</span>
+ 
+total += v2
+<span class="rl"><span class="k">local</span> v3 = clamp(<span class="n">0</span>, <span class="n">1</span>, math.floor(total * <span class="n">100</span> + <span class="n">0.5</span>) / <span class="n">100</span>) <span class="r">-- inferred equivalent call</span></span>
+<span class="k">local</span> v4 = <span class="n">0.2</span> - total
+ 
+<span class="k">if</span> total &lt; <span class="n">0.95</span> <span class="k">then</span>
+<span class="rl">	v4 = clamp(-<span class="n">0.14000000000000012</span>, <span class="n">0.14000000000000012</span>, v4) <span class="r">-- inferred equivalent call</span></span>
+<span class="k">end</span>
+ 
+total += v4
+<span class="rl"><span class="k">local</span> v5 = clamp(<span class="n">0</span>, <span class="n">1</span>, math.floor(total * <span class="n">100</span> + <span class="n">0.5</span>) / <span class="n">100</span>) <span class="r">-- inferred equivalent call</span></span>
+total += <span class="n">3</span> - total
+<span class="rl">print(v3, v5, clamp(<span class="n">0</span>, <span class="n">1</span>, math.floor(total * <span class="n">100</span> + <span class="n">0.5</span>) / <span class="n">100</span>)) <span class="r">-- inferred equivalent call</span></span>
+print(rotate({ y = <span class="n">0.5</span> }, { x = <span class="n">1</span>, y = <span class="n">3</span> }))
+<span class="rl">v.Current = clamp(<span class="n">1</span>, <span class="n">10</span>, v.DefaultZoom) <span class="k">or</span> v.DefaultZoom <span class="r">-- inferred equivalent call</span></span>
+ 
+print(v.Current)
+v.Current = v.DefaultZoom
+ 
+print(v.Current)</pre></div></div><div class="pane" id="ex-3" role="tabpanel"><div class="code"><header>Tovek V2.6.1<small>0 rebuilt calls · 37 lines</small></header><pre tabindex="0"><span class="k">local</span> v = { Stats = {}, Passives = {} }
+<span class="k">local</span> v2 = {}
+ 
+<span class="k">local</span> <span class="k">function</span> onParameterChanged(p, p2, p3, p4)
+	<span class="k">if</span> p == <span class="s">&quot;Stats&quot;</span> <span class="k">then</span>
+		v.Stats[p2] = v.Stats[p2] <span class="k">or</span> {}
+		v.Stats[p2].Value = p4
+	<span class="k">elseif</span> p == <span class="s">&quot;Passives&quot;</span> <span class="k">then</span>
+		v.Passives[p2] = v.Passives[p2] <span class="k">or</span> { Values = {} }
+		v.Passives[p2].Values[p3] = p4
+	<span class="k">end</span>
+ 
+	table.insert(v2, p2)
+<span class="k">end</span>
+ 
+<span class="k">local</span> v3 = {}
+ 
+<span class="k">for</span> i = <span class="n">1</span>, <span class="n">2</span> <span class="k">do</span>
+	<span class="k">local</span> v4 = i
+	<span class="k">local</span> v5 = i
+	v3[i] = {
+		Stat = <span class="k">function</span>(...)
+			<span class="k">local</span> v6 = v4
+			<span class="k">local</span> _, v7 = ...
+			v.Stats[v6] = v.Stats[v6] <span class="k">or</span> {}
+			v.Stats[v6].Value = v7
+			table.insert(v2, v6)
+		<span class="k">end</span>,
+		Passive = <span class="k">function</span>(...)
+			<span class="k">local</span> v6 = v5
+			<span class="k">local</span> v7, v8 = ...
+			v.Passives[v6] = v.Passives[v6] <span class="k">or</span> { Values = {} }
+			v.Passives[v6].Values[v7] = v8
+			table.insert(v2, v6)
+		<span class="k">end</span>
+	}
+<span class="k">end</span>
+ 
+v3[<span class="n">1</span>].Stat(<span class="k">nil</span>, <span class="n">5</span>)
+v3[<span class="n">2</span>].Passive(<span class="n">3</span>, <span class="n">7</span>)
+v3[<span class="n">1</span>].Passive(<span class="n">1</span>, <span class="n">2</span>, <span class="s">&quot;extra&quot;</span>)
+print(v.Stats[<span class="n">1</span>].Value, v.Passives[<span class="n">2</span>].Values[<span class="n">3</span>], v.Passives[<span class="n">1</span>].Values[<span class="n">1</span>], table.concat(v2, <span class="s">&quot;,&quot;</span>))</pre></div><div class="code after"><header>Tovek V2.7<small><b>2 rebuilt calls</b> · 27 lines</small></header><pre tabindex="0"><span class="k">local</span> v = { Stats = {}, Passives = {} }
+<span class="k">local</span> v2 = {}
+ 
+<span class="k">local</span> <span class="k">function</span> onParameterChanged(p, i, p2, p3) <span class="r">-- 2 equivalent calls inferred from this helper</span>
+	<span class="k">if</span> p == <span class="s">&quot;Stats&quot;</span> <span class="k">then</span>
+		v.Stats[i] = v.Stats[i] <span class="k">or</span> {}
+		v.Stats[i].Value = p3
+	<span class="k">elseif</span> p == <span class="s">&quot;Passives&quot;</span> <span class="k">then</span>
+		v.Passives[i] = v.Passives[i] <span class="k">or</span> { Values = {} }
+		v.Passives[i].Values[p2] = p3
+	<span class="k">end</span>
+ 
+	table.insert(v2, i)
+<span class="k">end</span>
+ 
+<span class="k">local</span> v3 = {}
+ 
+<span class="k">for</span> i = <span class="n">1</span>, <span class="n">2</span> <span class="k">do</span>
+	v3[i] = {
+		Stat = <span class="k">function</span>(...)
+<span class="rl">			onParameterChanged(<span class="s">&quot;Stats&quot;</span>, i, ...) <span class="r">-- inferred equivalent call</span></span>
+		<span class="k">end</span>,
+		Passive = <span class="k">function</span>(...)
+<span class="rl">			onParameterChanged(<span class="s">&quot;Passives&quot;</span>, i, ...) <span class="r">-- inferred equivalent call</span></span>
+		<span class="k">end</span>
+	}
+<span class="k">end</span>
+ 
+v3[<span class="n">1</span>].Stat(<span class="k">nil</span>, <span class="n">5</span>)
+v3[<span class="n">2</span>].Passive(<span class="n">3</span>, <span class="n">7</span>)
+v3[<span class="n">1</span>].Passive(<span class="n">1</span>, <span class="n">2</span>, <span class="s">&quot;extra&quot;</span>)
+print(v.Stats[<span class="n">1</span>].Value, v.Passives[<span class="n">2</span>].Values[<span class="n">3</span>], v.Passives[<span class="n">1</span>].Values[<span class="n">1</span>], table.concat(v2, <span class="s">&quot;,&quot;</span>))</pre></div></div><div class="pane" id="ex-4" role="tabpanel"><div class="code"><header>Tovek V2.6.1<small>0 rebuilt calls · 82 lines</small></header><pre tabindex="0"><span class="k">local</span> <span class="k">function</span> refreshDesired(p, p2, p3)
+	<span class="k">local</span> formatted = <span class="s">`LastApplied{p2}`</span>
+	<span class="k">local</span> formatted2 = <span class="s">`Desired{p2}`</span>
+ 
+	<span class="k">if</span> p[formatted] ~= <span class="k">nil</span> <span class="k">and</span> p3 == p[formatted] <span class="k">then</span>
+		<span class="k">return</span> <span class="k">false</span>
+	<span class="k">end</span>
+ 
+	<span class="k">local</span> v = p[formatted2] ~= p3
+	p[formatted2] = p3
+	p[formatted] = p3
+	<span class="k">return</span> v
+<span class="k">end</span>
+ 
+<span class="k">local</span> v = <span class="k">nil</span>
+<span class="k">local</span> v2 = {
+	{ Transparency = <span class="n">0</span> },
+	{ Transparency = <span class="n">0.5</span> }
+}
+ 
+<span class="k">local</span> <span class="k">function</span> setVisible(p)
+	<span class="k">if</span> v == p <span class="k">then</span>
+		<span class="k">return</span>
+	<span class="k">end</span>
+ 
+	v = p
+	<span class="k">local</span> v3 = p <span class="k">and</span> <span class="n">0.3</span> <span class="k">or</span> <span class="n">0.75</span>
+ 
+	<span class="k">for</span> _, v4 <span class="k">in</span> v2 <span class="k">do</span>
+		v4.Transparency = math.clamp(v4.Transparency + v3, <span class="n">0</span>, <span class="n">1</span>)
+	<span class="k">end</span>
+<span class="k">end</span>
+ 
+<span class="k">local</span> <span class="k">function</span> sync(state, data)
+	<span class="k">local</span> enabled = data.Enabled
+	<span class="k">local</span> v3
+ 
+	<span class="k">if</span> state.LastAppliedEnabled == <span class="k">nil</span> <span class="k">or</span> enabled ~= state.LastAppliedEnabled <span class="k">then</span>
+		v3 = state.DesiredEnabled ~= enabled
+		state.DesiredEnabled = enabled
+		state.LastAppliedEnabled = enabled
+	<span class="k">else</span>
+		v3 = <span class="k">false</span>
+	<span class="k">end</span>
+ 
+	<span class="k">if</span> data.Kind == <span class="s">&quot;Emitter&quot;</span> <span class="k">then</span>
+		<span class="k">local</span> rate = data.Rate
+		<span class="k">local</span> v4
+ 
+		<span class="k">if</span> state.LastAppliedRate == <span class="k">nil</span> <span class="k">or</span> rate ~= state.LastAppliedRate <span class="k">then</span>
+			v4 = state.DesiredRate ~= rate
+			state.DesiredRate = rate
+			state.LastAppliedRate = rate
+		<span class="k">else</span>
+			v4 = <span class="k">false</span>
+		<span class="k">end</span>
+ 
+		<span class="k">local</span> v5 = v4 <span class="k">or</span> v3
+ 
+		<span class="k">if</span> v == <span class="k">false</span> <span class="k">then</span>
+			<span class="k">return</span> v5
+		<span class="k">end</span>
+ 
+		v = <span class="k">false</span>
+ 
+		<span class="k">for</span> _, v6 <span class="k">in</span> v2 <span class="k">do</span>
+			v6.Transparency = math.clamp(v6.Transparency + <span class="n">0.75</span>, <span class="n">0</span>, <span class="n">1</span>)
+		<span class="k">end</span>
+ 
+		<span class="k">return</span> v5
+	<span class="k">else</span>
+		<span class="k">local</span> brightness = data.Brightness
+		<span class="k">local</span> v4
+ 
+		<span class="k">if</span> state.LastAppliedBrightness == <span class="k">nil</span> <span class="k">or</span> brightness ~= state.LastAppliedBrightness <span class="k">then</span>
+			v4 = state.DesiredBrightness ~= brightness
+			state.DesiredBrightness = brightness
+			state.LastAppliedBrightness = brightness
+		<span class="k">else</span>
+			v4 = <span class="k">false</span>
+		<span class="k">end</span>
+ 
+		<span class="k">local</span> v5 = v4 <span class="k">or</span> v3
+ 
+		<span class="k">if</span> v == <span class="k">true</span> <span class="k">then</span>
+			<span class="k">return</span> v5
+		<span class="k">end</span>
+ 
+		v = <span class="k">true</span>
+ 
+		<span class="k">for</span> _, v6 <span class="k">in</span> v2 <span class="k">do</span>
+			v6.Transparency = math.clamp(v6.Transparency + <span class="n">0.3</span>, <span class="n">0</span>, <span class="n">1</span>)
+		<span class="k">end</span>
+ 
+		<span class="k">return</span> v5
+	<span class="k">end</span>
+<span class="k">end</span>
+ 
+<span class="k">local</span> v3 = {}
+print((sync(v3, { Enabled = <span class="k">true</span>, Kind = <span class="s">&quot;Emitter&quot;</span>, Rate = <span class="n">5</span> })))
+print((sync(v3, { Enabled = <span class="k">true</span>, Kind = <span class="s">&quot;Emitter&quot;</span>, Rate = <span class="n">5</span> })))
+print((sync(v3, { Enabled = <span class="k">false</span>, Kind = <span class="s">&quot;Light&quot;</span>, Brightness = <span class="n">2</span> })))
+print(v3.DesiredEnabled, v3.LastAppliedRate, v3.DesiredBrightness)
+print(v2[<span class="n">1</span>].Transparency, v2[<span class="n">2</span>].Transparency)</pre></div><div class="code after"><header>Tovek V2.7<small><b>5 rebuilt calls</b> · 44 lines</small></header><pre tabindex="0"><span class="k">local</span> <span class="k">function</span> refreshDesired(p, p2, p3) <span class="r">-- 3 equivalent calls inferred from this helper</span>
+	<span class="k">local</span> formatted = <span class="s">`LastApplied{p2}`</span>
+	<span class="k">local</span> formatted2 = <span class="s">`Desired{p2}`</span>
+ 
+	<span class="k">if</span> p[formatted] ~= <span class="k">nil</span> <span class="k">and</span> p3 == p[formatted] <span class="k">then</span>
+		<span class="k">return</span> <span class="k">false</span>
+	<span class="k">end</span>
+ 
+	<span class="k">local</span> v = p[formatted2] ~= p3
+	p[formatted2] = p3
+	p[formatted] = p3
+	<span class="k">return</span> v
+<span class="k">end</span>
+ 
+<span class="k">local</span> v = <span class="k">nil</span>
+<span class="k">local</span> v2 = {
+	{ Transparency = <span class="n">0</span> },
+	{ Transparency = <span class="n">0.5</span> }
+}
+<span class="k">local</span> <span class="k">function</span> setVisible(p) <span class="r">-- 2 equivalent calls inferred from this helper</span>
+	<span class="k">if</span> v == p <span class="k">then</span>
+		<span class="k">return</span>
+	<span class="k">end</span>
+ 
+	v = p
+	<span class="k">local</span> v3 = p <span class="k">and</span> <span class="n">0.3</span> <span class="k">or</span> <span class="n">0.75</span>
+ 
+	<span class="k">for</span> _, v4 <span class="k">in</span> v2 <span class="k">do</span>
+		v4.Transparency = math.clamp(v4.Transparency + v3, <span class="n">0</span>, <span class="n">1</span>)
+	<span class="k">end</span>
+<span class="k">end</span>
+ 
+<span class="k">local</span> <span class="k">function</span> sync(p, data)
+<span class="rl">	<span class="k">local</span> v3 = refreshDesired(p, <span class="s">&quot;Enabled&quot;</span>, data.Enabled) <span class="r">-- inferred equivalent call</span></span>
+ 
+	<span class="k">if</span> data.Kind == <span class="s">&quot;Emitter&quot;</span> <span class="k">then</span>
+<span class="rl">		<span class="k">local</span> v4 = refreshDesired(p, <span class="s">&quot;Rate&quot;</span>, data.Rate) <span class="k">or</span> v3 <span class="r">-- inferred equivalent call</span></span>
+<span class="rl">		setVisible(<span class="k">false</span>) <span class="r">-- inferred equivalent call</span></span>
+		<span class="k">return</span> v4
+	<span class="k">else</span>
+<span class="rl">		<span class="k">local</span> v4 = refreshDesired(p, <span class="s">&quot;Brightness&quot;</span>, data.Brightness) <span class="k">or</span> v3 <span class="r">-- inferred equivalent call</span></span>
+<span class="rl">		setVisible(<span class="k">true</span>) <span class="r">-- inferred equivalent call</span></span>
+		<span class="k">return</span> v4
+	<span class="k">end</span>
+<span class="k">end</span>
+ 
+<span class="k">local</span> v3 = {}
+print(sync(v3, { Enabled = <span class="k">true</span>, Kind = <span class="s">&quot;Emitter&quot;</span>, Rate = <span class="n">5</span> }))
+print(sync(v3, { Enabled = <span class="k">true</span>, Kind = <span class="s">&quot;Emitter&quot;</span>, Rate = <span class="n">5</span> }))
+print(sync(v3, { Enabled = <span class="k">false</span>, Kind = <span class="s">&quot;Light&quot;</span>, Brightness = <span class="n">2</span> }))
+print(v3.DesiredEnabled, v3.LastAppliedRate, v3.DesiredBrightness)
+print(v2[<span class="n">1</span>].Transparency, v2[<span class="n">2</span>].Transparency)</pre></div></div></div><div data-caption><div class="caption"><h4>Calls of find and total inlined into report, and report inlined into the chunk</h4><a href="https://github.com/Kiet1308/Tovek/blob/main/docs/failure_fixtures/semantic_roundtrip/deinline_own_local_loop_exit.luau">View the source ↗</a></div><p class="small">Each copy of <code>find</code> walks its path in a loop and stops at the first missing key; each copy of <code>total</code> sums until it passes 100. Luau turned their early returns into stores and breaks. V2.7 recognises those exits as returns, rebuilds all four calls, and then the call of <code>report</code> itself.</p></div><div data-caption><div class="caption"><h4>round(value, places) after Luau folded math.pow(10, places)</h4><a href="https://github.com/Kiet1308/Tovek/blob/main/docs/failure_fixtures/semantic_roundtrip/deinline_pow_specialization.luau">View the source ↗</a></div><p class="small">With <code>places</code> constant, Luau computes <code>math.pow(10, places)</code> at compile time and the helper's first statement disappears from every copy. V2.7 solves the number back to its argument (<code>10^places = 10000</code> gives 4) and rebuilds each copy as a call, whether it is returned, stored, or computed from an argument expression.</p></div><div data-caption><div class="caption"><h4>clamp(low, high, num) written as an and/or chain</h4><a href="https://github.com/Kiet1308/Tovek/blob/main/docs/failure_fixtures/semantic_roundtrip/value_chain_and_or_clamp.luau">View the source ↗</a></div><p class="small">An <code>a and b or c</code> chain compiles to jumps that read like an <code>if</code> writing a local. V2.7 reads the chain back as the value it is, and every copy of <code>clamp</code>, with folded constants, stored into a caller's local or returned, is a call again.</p></div><div data-caption><div class="caption"><h4>onParameterChanged(kind, index, ...) called from handlers that forward their varargs</h4><a href="https://github.com/Kiet1308/Tovek/blob/main/docs/failure_fixtures/semantic_roundtrip/deinline_vararg_forwarding.luau">View the source ↗</a></div><p class="small">A constant <code>kind</code> decides which branch each copy keeps, and the forwarded <code>...</code> spreads into the helper's last parameters. V2.7 reads the constant off the branch taken and gives the spread back as <code>...</code>.</p></div><div data-caption><div class="caption"><h4>refreshDesired(state, key, value) with keys built from constants</h4><a href="https://github.com/Kiet1308/Tovek/blob/main/docs/failure_fixtures/semantic_roundtrip/deinline_constant_keyed_locals.luau">View the source ↗</a></div><p class="small">Given a constant <code>key</code>, the local holding <code>`LastApplied{key}`</code> is a constant too, and Luau folds it into every read. V2.7 specializes the helper the same way before comparing it with the copy.</p></div></div>
+
+  <section class="prose sec" id="exact">
+    <h2 class="blur-in">Exactness</h2>
+    <p>A decompiled script must do what the original did. Every edge case we have found since V2 is kept as a test: the script is compiled at <code>-O0</code>, <code>-O1</code> and <code>-O2</code>, decompiled, compiled again and run, and its output must match. <span class="u">V2.7 passes all 1,023 runs</span>; V2.6.1 passes 965.</p>
+    <ul class="leads">
+      <li><b>Exact at the level you compiled.</b> Output recompiled at the input’s optimization level behaves exactly like the input; at another level it follows that level’s rules, as the source would.</li>
+      <li><b>Tables keep their layout.</b> A constructor keeps the allocation its bytecode had, so <code>pairs</code> visits keys in the same order, including explicit array keys beside record keys.</li>
+      <li><b>Reads keep their timing.</b> A captured local read after a call that changes it, or an argument with side effects, stays where it ran.</li>
+      <li><b>Refusal over guessing.</b> Hand-patched bytecode that no source can spell is refused, never printed as something else: 859 of the generated programs were patched that way, and all were refused.</li>
+    </ul>
+  </section>
+
+  <section class="prose sec" id="names">
+    <h2 class="blur-in">Names and presentation</h2>
+    <p>Names come from evidence in the script: what a value is read from, what it is passed to, what a function returns. V2.7 adds rules for rebuilt calls, running extremes, sets, collection elements, stored clock readings and documented Roblox APIs. Across the four games, <b>generated names fell from 60,491 to 58,668</b>, and output is 1.5% shorter.</p>
+    <p>Presentation follows the source: guard clauses, bottom-tested loops and one-shot loops read as they were written, <code>do</code> blocks keep their scope, self-updates print as <code>x += 1</code>, Roblox vector constants print as <code>Vector3.new</code>, and a value chain reads as <code>a and b or c</code>.</p>
+  </section>
+  <div class="wide"><div class="names"><div><code>local <b>drop</b> = findChild(folder, "Drop", path)</code><p>A rebuilt call takes the name its constant argument gives the helper's own lookup.</p></div><div><code>local <b>bloomEffect</b> = ensure("BloomEffect")</code><p>The same rule for a helper that finds or creates an instance by class.</p></div><div><code>local <b>maxValue</b> = 0
+for _, entry in entries do</code><p>A running maximum or minimum is named for what it tracks.</p></div><div><code>local <b>assetSet</b> = {}
+assetSet[id] = true</code><p>A table only ever stored <code>true</code> is a set.</p></div><div><code>for _, <b>module</b> in modulesByName do</code><p>An element is named for the collection it comes from.</p></div><div><code>local <b>raycastResult</b> = workspace:Raycast(...)</code><p>Documented roles of Raycast, TweenService:Create and BulkMoveTo.</p></div></div></div>
+
+  <section class="prose sec" id="scale">
+    <h2 class="blur-in">Speed and scale</h2>
+    <p>V2.7 decompiles the four games in about the same time as V2.6.1: 43.4 seconds on one core and 3.55 seconds on all of them, within the noise of repeated runs. Several passes that grew quadratically on very long functions are now linear, and the HTTP server streams large batches and returns memory when idle, so thousands of scripts decompile without the server’s memory growing with them.</p>
+  </section>
+
+  <section class="prose sec" id="availability">
+    <h2 class="blur-in">Availability</h2>
+    <p>Tovek V2.7 is available today under the MIT license.</p>
+    <ul class="leads">
+      <li><b>Command line:</b> download <code>luau-lifter</code> for <a href="https://github.com/Kiet1308/Tovek/releases/download/v2.7/Tovek-V2.7-windows-x86_64.zip">Windows x86-64</a>, <a href="https://github.com/Kiet1308/Tovek/releases/download/v2.7/Tovek-V2.7-linux-x86_64.tar.gz">Linux x86-64</a>, <a href="https://github.com/Kiet1308/Tovek/releases/download/v2.7/Tovek-V2.7-linux-aarch64.tar.gz">Linux ARM64</a> or <a href="https://github.com/Kiet1308/Tovek/releases/download/v2.7/Tovek-V2.7-macos-aarch64.tar.gz">macOS on Apple silicon</a>. It decompiles one file or a whole folder in parallel.</li>
+      <li><b>Server:</b> <code>web-server</code>, in the same download, decompiles over HTTP, one script or a batch at a time.</li>
+      <li><b>In your browser:</b> <a href="../../index.html#read">drop a file on our site</a>; it is decompiled on your machine and never uploaded.</li>
+      <li><b>Source:</b> build it from <a href="https://github.com/Kiet1308/Tovek">GitHub</a>.</li>
+    </ul>
+  </section>
+
+  <section class="wide sec" id="benchmarks">
+    <h2 class="blur-in" style="padding:0 0 10px">Benchmarks</h2>
+    <div class="table-wrap"><table class="bench"><thead><tr class="groups"><th></th><th colspan="3">Tovek</th><th>Other</th></tr><tr><th>Benchmark</th><th>V2.7</th><th>V2.6.1</th><th>V2.5.1</th><th>luacid</th></tr></thead><tbody><tr class="group"><td colspan="5">Four real games · 9,987 scripts</td></tr><tr><td>Scripts decompiled</td><td class="best">9,987</td><td class="best">9,987</td><td class="best">9,987</td><td class="na">—</td></tr><tr><td>Rebuilt helper calls</td><td class="best">9,623</td><td class="second">8,474</td><td class="">4,260</td><td class="na">—</td></tr><tr><td>Non-blank output lines</td><td class="best">1,017,836</td><td class="second">1,033,063</td><td class="">1,168,956</td><td class="na">—</td></tr><tr><td>Generated names (v, p)<small>of all declared locals and parameters</small></td><td class="best">58,668</td><td class="second">60,491</td><td class="">63,111</td><td class="na">—</td></tr><tr class="group"><td colspan="5">Correctness</td></tr><tr><td>Edge-case runs decompiled exactly<small>of 1,023</small></td><td class="best">1,023</td><td class="second">965</td><td class="">507</td><td class="na">—</td></tr><tr><td>Review cases decompiled correctly<small>of 658; V2.6.1 and V2.7 refuse 25 by design</small></td><td class="best">633</td><td class="second">540</td><td class="">516</td><td class="na">—</td></tr><tr><td>Wrong outputs, fresh programs<small>9,000 generated programs</small></td><td class="best">0</td><td class="best">0</td><td class="">1,912</td><td class="na">—</td></tr><tr class="group"><td colspan="5">51-script research set</td></tr><tr><td>Rebuilt helper calls</td><td class="best">658</td><td class="second">645</td><td class="na">—</td><td class="">509</td></tr><tr><td>Similarity to the original source<small>13 open-source modules</small></td><td class="best">74.1%</td><td class="second">73.7%</td><td class="na">—</td><td class="">73.0%</td></tr><tr><td>Source names recovered<small>same 13 modules</small></td><td class="second">29.9%</td><td class="best">30.6%</td><td class="na">—</td><td class="">24.0%</td></tr><tr><td>Generated names</td><td class="best">29.3%</td><td class="second">29.7%</td><td class="na">—</td><td class="">46.2%</td></tr><tr><td>Non-blank output lines</td><td class="second">26,440</td><td class="">26,632</td><td class="na">—</td><td class="best">25,566</td></tr><tr><td>Inlined copies rebuilt<small>copies found from line info</small></td><td class="best">84.2%</td><td class="">82.2%</td><td class="na">—</td><td class="na">—</td></tr><tr class="group"><td colspan="5">Speed · four games</td></tr><tr><td>One core, seconds<small>within run-to-run noise of each other</small></td><td class="">43.4</td><td class="best">41.8</td><td class="second">42.2</td><td class="na">—</td></tr><tr><td>All cores, seconds</td><td class="second">3.55</td><td class="">3.70</td><td class="best">3.08</td><td class="na">—</td></tr></tbody></table></div>
+  </section>
+
+  <section class="prose sec foot-notes" id="footnotes">
+    <h2 class="blur-in">Footnotes</h2>
+    <ol>
+      <li>The four games are real Roblox games, 9,987 scripts in all. Their code is private; the page shows totals only. A rebuilt call is a call Tovek wrote in place of an inlined copy and marked with <code>-- inferred equivalent call</code>.</li>
+      <li>Edge cases: 341 edge-case fixtures, each compiled at three optimization levels (1,023 runs). A run passes when the decompiled output, compiled again and run, prints exactly what the original prints.</li>
+      <li>Review cases: 658 cases from our reviews, each compiled, decompiled, recompiled and run at the same level. V2.6.1 and V2.7 refuse 25 of them by design (hand-written bytecode no source can produce); V2.5.1 attempted them.</li>
+      <li>Fresh programs: typed random programs from seeds never used in testing; for half the profiles the bytecode is patched the way only a hand-made chunk can be. A wrong output is one that, recompiled, behaves differently from the bytecode. 441 generated programs did not compile and are left out.</li>
+      <li>Research set: 51 scripts, 14 of them public open-source modules. Similarity is a token-sequence ratio against the original source of 13 of those modules; luacid’s outputs are the ones saved with each sample.</li>
+      <li>Speed: wall time over the four games on one Windows machine, releases run in alternation; the median of repeated runs. Runs of one binary vary by several seconds on one core.</li>
+    </ol>
+  </section>
+</main>
+
+<a class="float" href="../../index.html#read">Try V2.7</a>
+
+<footer class="foot">
+  <div class="top">
+    <p>Built on <a href="https://github.com/Stefanuk12/medal-decompiler">medal</a>. In memory of Jujhar Singh (KowalskiFX) and Mathias Pedersen (Costomality).</p>
+    <nav aria-label="Footer">
+      <a href="../../index.html">Overview</a>
+      <a href="../../changelog.html">Changelog</a>
+      <a href="../../watch/?film=v27">Films</a>
+      <a href="https://github.com/Kiet1308/Tovek">GitHub ↗</a>
+      <a href="https://github.com/Kiet1308/Tovek/releases/tag/v2.7">Releases ↗</a>
+      <a href="https://discord.gg/phY6VUDSF7">Discord ↗</a>
+    </nav>
+  </div>
+  <div class="bottom">
+    <span>© 2026 Tovek · <a href="https://github.com/Kiet1308/Tovek/blob/main/LICENSE.txt">MIT licensed</a></span>
+    <span>Tovek V2.7 · November 2, 2026</span>
+  </div>
+</footer>
+
+<script src="v27.js"></script>
+</body>
+</html>

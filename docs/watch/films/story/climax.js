@@ -657,7 +657,7 @@ function drawNumbers(ctx, t) {
   const n = S.N.v26a, z = S.N.v26b;
   if (!n) return;
   const t0 = T.nums;
-  const out = ease.inOut(clamp((t - (T.orig - 0.6)) / 0.6));
+  const out = ease.inOut(clamp((t - (T.v27 - 0.6)) / 0.6));
   const turn = z ? ease.inOutCubic(clamp((t - t0 - 2.8) / 0.7)) : 0;
   const F = ty.ecu, capF = metrics(F).capHeight || F.size * 0.72;
   const yNum = 540 + capF / 2 - 10;

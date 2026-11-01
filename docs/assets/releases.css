@@ -141,6 +141,9 @@ main { padding: 0 var(--g); }
 .cover--v21 .title span { font: 480 clamp(40px, 5vw, 64px)/1 "Source Serif 4", Georgia, serif; letter-spacing: -.02em; transform: translateY(-14%); }
 
 /* V2.5 cover: the release page's deep-blue card and frosted numeral */
+.cover--v27 .cover-inner { background: #dfe3e8; }
+.cover--v27 img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+
 .cover--v25 .cover-inner {
   background:
     radial-gradient(60% 70% at 85% 0%, rgba(190, 230, 255, .6), transparent 70%),

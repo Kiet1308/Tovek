@@ -4,10 +4,10 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Tovek Changelog</title>
-  <meta name="description" content="Every Tovek release since V2, each with its own release notes: Tovek V2.6, where inlined helpers come back with proof, then V2.5, V2.1 and V2.">
+  <meta name="description" content="Every Tovek release since V2, each with its own release notes: Tovek V2.7, where more inlined helpers come back and every known edge case decompiles exactly, then V2.6, V2.5, V2.1 and V2.">
   <meta name="theme-color" content="#0e100d">
   <meta property="og:title" content="Tovek Changelog">
-  <meta property="og:description" content="Release notes for every Tovek release since V2, up to Tovek V2.6.">
+  <meta property="og:description" content="Release notes for every Tovek release since V2, up to Tovek V2.7.">
   <meta property="og:type" content="website">
   <meta property="og:url" content="https://kiet1308.github.io/Tovek/changelog.html">
   <link rel="icon" href="assets/favicon.svg?v=2" type="image/svg+xml">
@@ -23,9 +23,9 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&family=Instrument+Sans:wght@400..700&family=Martian+Mono:wdth,wght@75..112.5,400..600&family=Source+Serif+4:opsz,wght@8..60,400..600&family=Google+Sans:wght@400..500&family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,600..800&family=Geist+Mono:wght@500&display=swap">
-  <link rel="stylesheet" href="assets/releases.css?v=3">
+  <link rel="stylesheet" href="assets/releases.css?v=4">
   <link rel="stylesheet" href="changelog/v2.6/cover.css">
-  <link rel="prefetch" href="changelog/v2.6/">
+  <link rel="prefetch" href="changelog/v2.7/">
 </head>
 <body>
 <a class="skip" href="#main">Skip to content</a>
@@ -42,7 +42,7 @@
   </nav>
   <div class="top-actions">
     <a class="link-quiet" href="https://github.com/Kiet1308/Tovek">GitHub ↗</a>
-    <a class="btn" href="https://github.com/Kiet1308/Tovek/releases/tag/v2.6.1"><span class="pip" aria-hidden="true"></span>Download V2.6.1</a>
+    <a class="btn" href="https://github.com/Kiet1308/Tovek/releases/tag/v2.7"><span class="pip" aria-hidden="true"></span>Download V2.7</a>
   </div>
 </header>
 
@@ -54,6 +54,23 @@
   </section>
 
   <section class="releases" aria-label="Releases">
+    <a class="release" href="changelog/v2.7/" data-reveal>
+      <div class="cover cover--v27" aria-hidden="true">
+        <div class="cover-inner"><img src="changelog/v2.7/cover.jpg" alt="" width="1200" height="900" loading="eager" decoding="async"></div>
+      </div>
+      <div class="body">
+        <p class="meta"><span class="badge">Latest</span><time datetime="2026-11-02">November 2, 2026</time></p>
+        <h2>Tovek V2.7</h2>
+        <h3>More of what Luau inlined comes back as calls, and every edge case we have found decompiles exactly.</h3>
+        <ul>
+          <li><span>Rebuilt helper calls, 4&nbsp;games</span><b>9,623 <small>from 8,474</small></b></li>
+          <li><span>Edge-case runs decompiled exactly</span><b>1,017 <small>from 959</small></b></li>
+          <li><span>Review cases decompiled wrong</span><b>0 <small>from 93</small></b></li>
+        </ul>
+        <div class="foot-row"><span class="style">Read the release notes</span><span class="go" aria-hidden="true">↗</span></div>
+      </div>
+    </a>
+
     <a class="release" href="changelog/v2.6/" data-reveal>
       <div class="cover cover--v26" aria-hidden="true">
         <div class="cover-inner">
@@ -62,7 +79,7 @@
         </div>
       </div>
       <div class="body">
-        <p class="meta"><span class="badge">Latest</span><time data-vt="release" datetime="2026-10-11">October 11, 2026</time></p>
+        <p class="meta"><span class="badge quiet">V2.6.1</span><time data-vt="release" datetime="2026-10-11">October 11, 2026</time></p>
         <h2>Tovek V2.6</h2>
         <h3 data-v="headline">Inlined helpers come back, proven by the bytecode's own line numbers and by Luau's own constant folding.</h3>
         <ul>
@@ -156,13 +173,13 @@
       <a href="index.html">Overview</a>
       <a href="changelog.html" aria-current="page">Changelog</a>
       <a href="https://github.com/Kiet1308/Tovek">GitHub ↗</a>
-      <a href="https://github.com/Kiet1308/Tovek/releases/tag/v2.6.1">Releases ↗</a>
+      <a href="https://github.com/Kiet1308/Tovek/releases/tag/v2.7">Releases ↗</a>
       <a href="https://discord.gg/phY6VUDSF7">Discord ↗</a>
     </nav>
   </div>
   <div class="foot-bottom">
     <span>© 2026 Tovek · <a href="https://github.com/Kiet1308/Tovek/blob/main/LICENSE.txt">MIT licensed</a></span>
-    <span>Tovek V2.6 · October 2026</span>
+    <span>Tovek V2.7 · November 2026</span>
   </div>
 </footer>
 

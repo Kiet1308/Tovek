@@ -33,8 +33,10 @@ export const T = {
   v21: 84.7, v21race: 87.2, v211: 90.9, v25: 95.1, fuzz0: 97.2, ctx25: 101.9, v251: 105.2,
   // V2.6: the flood, the copies come home, the constants, the numbers
   flood: 108.8, title26: 110.05, homing0: 113.4, homing1: 130.0, consts0: 130.0, nums: 136.2,
+  // V2.6.1 and V2.7: the mist comes in, two changes to this script, the numbers
+  v27: 142.6, v27title: 144.2, v27Morph0: 145.6, v27Morph1: 148.0, v27nums: 149.0,
   // the end
-  orig: 142.6, end: 150.0, duration: 160.0,
+  orig: 154.6, end: 162.0, duration: 172.0,
 };
 
 /** The breath after the montage lights the three changed lines in turn, 2.8 s each. */
@@ -47,9 +49,11 @@ export const FAM = {
   inter: '"Inter", "Geist", system-ui, sans-serif',
   hanken: '"Hanken Grotesk", "Geist", system-ui, sans-serif',
   gsans: '"Google Sans", "Geist", system-ui, sans-serif',
+  cinzel: '"Cinzel", "Times New Roman", serif',
+  lora: '"Lora", Georgia, serif',
 };
-// The typefaces of the V2, V2.1 and V2.5 release pages, for their eras (all on Google Fonts).
-export const ERA_FONTS_CSS = 'https://fonts.googleapis.com/css2?family=Inter:wght@400..700&family=Hanken+Grotesk:wght@400..700&family=Google+Sans:wght@400..700&display=swap';
+// The typefaces of the V2, V2.1, V2.5 and V2.7 release pages, for their eras (all on Google Fonts).
+export const ERA_FONTS_CSS = 'https://fonts.googleapis.com/css2?family=Inter:wght@400..700&family=Hanken+Grotesk:wght@400..700&family=Google+Sans:wght@400..700&family=Cinzel:wght@400&family=Lora:wght@400;600&display=swap';
 
 export const ERA = {
   dark: { surface: '#0d0d0c', ink: '#f2f0eb', ink2: '#a9a69c', ink3: '#8b8980', faint: '#3a3935', accent: '#ff4d1a' },
@@ -57,6 +61,7 @@ export const ERA = {
   v21: { surface: '#faf9f5', ink: '#141413', ink2: '#5e5d59', ink3: '#87867f', faint: '#e5e4dd', accent: '#b0512f', fill: '#d97757' },
   v25: { surface: '#0b2a6b', ink: '#ffffff', ink2: '#bcd0f5', ink3: '#86a2d8', faint: '#24447f', accent: '#9dd2ff' },
   v26: { surface: '#f2f0eb', ink: '#121210', ink2: '#4a4943', ink3: '#8b8980', faint: '#dedbd3', accent: '#d63a0c', signal: '#ff4d1a' },
+  v27: { surface: '#e8e8e8', ink: '#111111', ink2: '#5a5a5a', ink3: '#8a8a8a', faint: '#d3d6da', accent: '#1677ff', fog: '238,240,243', card: '#f6f6f6' },
   end: { surface: '#0d0d0c', ink: '#f2f0eb', ink2: '#a9a69c', ink3: '#8b8980', faint: '#3a3935', accent: '#ff4d1a' },
 };
 
@@ -107,6 +112,10 @@ export const TY = {
     small: f(17, 'mono', 500), corner: f(30, 'display', 600, 87.5), cornerHead: f(19, 'text', 500),
     stat: f(50, 'display', 600, 87.5), side: f(17, 'mono', 500), tally: f(16, 'mono', 500),
   },
+  v27: {
+    title: f(150, FAM.cinzel, 400), head: f(40, FAM.lora, 400), meta: f(20, FAM.inter, 500),
+    num: f(84, FAM.inter, 600), unit: f(22, FAM.inter, 400),
+  },
   end: {
     num: f(200, 'display', 600, 87.5), unit: f(28, 'text', 400), card: f(160, 'display', 650, 87.5),
     credit: f(19, 'mono', 500), url: f(24, 'mono', 400),
@@ -126,11 +135,12 @@ export const CLIP = { x: 740, y: 80, w: 1140, h: 900 };  // where that code may 
 export const S = {
   D: null,          // story.json
   ST: null,         // stage by tag (+ 'last' for V2.6)
+  LAST: null,       // the newest stage (V2.7)
   ORDER: null,      // stages in order
   V26: null,        // the V2.6 stage, whatever its tag
   CM: null,         // code metrics at CODE.size
   PAL: null,        // code palette per era
-  RIDX: null,       // stage -> release number (1..17)
+  RIDX: null,       // stage -> release number (1..19)
   REPO: '',         // the Tovek repository, read from the release binaries' sources
   N: null,          // numbers parsed from the release notes
 };

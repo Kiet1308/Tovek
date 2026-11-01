@@ -1,9 +1,9 @@
-// "One function, seventeen releases": the history film.
+// "One function, nineteen releases": the history film.
 //
 // One small script, compiled once to Luau bytecode, decompiled by medal and by every Tovek release.
 // The code on screen is each release's real output; dates, publish times, headlines, notes and
 // numbers come from the release notes. Everything is read from ../data/story.json (written by
-// v26/data/story.py), so the film follows the data when the final V2.6 binary regenerates it.
+// v26/data/story.py, then brought up to V2.7 by v27/film/story_add.py).
 //
 // The cut, in five acts (films/story/*.js):
 //   I    open.js    the dump, a dive into one byte, its opcode, its instruction, its line; medal
@@ -11,6 +11,7 @@
 //                   0.7's goto jumps as huge arcs, snapped into a loop by 0.8
 //   III  pages.js   the release pages: V2 fills a white frame, V2.1 races, V2.5 counts 198 down
 //   IV   climax.js  V2.6: paper floods out of one point; the pasted copies fly home; constants
+//        v27.js     V2.6.1, then V2.7 in the mist of its page: two changes to this script, its numbers
 //   V    end.js     beside the original, the numbers, the mark
 // A frame is a pure function of t: each shot draws its own surface, later shots draw over earlier
 // ones while they arrive (a page turn, a flood, tiles, a wipe), and nothing is carried between frames.
@@ -22,6 +23,7 @@ import { prepareBetas, bmeta, drawBeta01, drawMontage, drawBreath, drawJuly } fr
 import { preparePages, drawV2, drawV21, drawV25, FUZZ } from './story/pages.js';
 import { prepareClimax, hmeta, drawV26 } from './story/climax.js';
 import { prepareEnd, smeta, drawSide, drawEnd } from './story/end.js';
+import { prepareV27, vmeta, drawV27 } from './story/v27.js';
 
 // Each shot draws from t0 to t1. Where two overlap, the later one is arriving over the earlier.
 const SHOTS = [
@@ -35,7 +37,8 @@ const SHOTS = [
   { id: 'v2', t0: T.v2, t1: T.v21 + 1.2, draw: drawV2 },
   { id: 'v21', t0: T.v21, t1: T.v25 + 1.15, draw: drawV21 },
   { id: 'v25', t0: T.v25, t1: T.flood + 1.35, draw: drawV25 },
-  { id: 'v26', t0: T.flood, t1: T.orig, draw: drawV26 },
+  { id: 'v26', t0: T.flood, t1: T.v27 + 0.9, draw: drawV26 },
+  { id: 'v27', t0: T.v27, t1: T.orig + 0.9, draw: drawV27 },
   { id: 'side', t0: T.orig, t1: T.end + 1.5, draw: drawSide },
   { id: 'end', t0: T.end - 0.2, t1: T.duration + 1, draw: drawEnd },
 ];
@@ -94,12 +97,12 @@ function warmUp(ctx, t) {
 
 const story = {
   id: 'story',
-  title: 'One function, seventeen releases',
+  title: 'One function, nineteen releases',
   description: 'The same function, decompiled by medal and by every Tovek release.',
   duration: T.duration,
   poster: 5.3,
   background: V26.night,
-  fonts: Object.values(TY).flatMap((set) => Object.values(set)).filter((x) => !/Inter|Hanken|Google/.test(x.family)).map((x) => x.css),
+  fonts: Object.values(TY).flatMap((set) => Object.values(set)).filter((x) => !/Inter|Hanken|Google|Cinzel|Lora/.test(x.family)).map((x) => x.css),
   glyphs: 'Tovek 0123456789 →·—–…×#$-_/:()[]',
   chapters: [{ t: 0, title: 'One script, as bytes' }],
   captions: [],
@@ -112,7 +115,8 @@ const story = {
     S.D = D;
     S.ORDER = D.stages;
     S.ST = Object.fromEntries(S.ORDER.map((s) => [s.tag, s]));
-    S.V26 = S.ORDER[S.ORDER.length - 1];
+    S.V26 = S.ST['v2.6'];
+    S.LAST = S.ORDER[S.ORDER.length - 1];
     S.ST.last = S.V26;
     S.RIDX = new Map(S.ORDER.slice(1).map((s, i) => [s, i + 1]));
     S.REPO = ((S.ORDER.find((s) => /github\.com\/[\w.-]+\/[\w.-]+\/releases/.test(s.tool || ''))?.tool || '').match(/github\.com\/[\w.-]+\/[\w.-]+/) || [''])[0];
@@ -123,6 +127,7 @@ const story = {
       v21: makePalette(ERA.v21, 'rgba(217,119,87,0.2)'),
       v25: makePalette(ERA.v25, 'rgba(157,210,255,0.2)'),
       v26: codePalettes.paper,
+      v27: makePalette(ERA.v27, 'rgba(22,119,255,0.12)'),
       end: codePalettes.night,
     };
     S.PAL.v2.accent = ERA.v2.ink;
@@ -133,6 +138,7 @@ const story = {
     prepareBetas(ledger);
     preparePages(ledger);
     prepareClimax();
+    prepareV27();
     prepareEnd();
     buildChaptersCaptionsScore();
   },
@@ -171,6 +177,7 @@ function ledgerEvents() {
   ev.push({ t: T.r07Morph0, stage: ST['v0.7.0'] }, { t: T.snap0, stage: ST['v0.8'] }, { t: T.r09, stage: ST['v0.9.0-beta'] });
   ev.push({ t: T.v2Morph0, stage: ST['v2-v0.1'] }, { t: T.v21, stage: ST['v2.1'] }, { t: T.v211, stage: ST['v2.1.1'] });
   ev.push({ t: T.v25, stage: ST['v2.5'] }, { t: T.v251, stage: ST['v2.5.1'] }, { t: T.homing0 + 6, stage: S.V26 });
+  ev.push({ t: T.v27 + 0.3, stage: ST['v2.6.1'] }, { t: T.v27title, stage: S.LAST });
   return ev.filter((x) => x.stage).sort((a, b) => a.t - b.t);
 }
 
@@ -185,7 +192,7 @@ async function loadEraFonts() {
     document.head.append(link);
     await Promise.race([loaded, new Promise((res) => setTimeout(res, 4000))]);
   }
-  const specs = Object.values(TY).flatMap((set) => Object.values(set)).filter((x) => /Inter|Hanken|Google/.test(x.family)).map((x) => x.css);
+  const specs = Object.values(TY).flatMap((set) => Object.values(set)).filter((x) => /Inter|Hanken|Google|Cinzel|Lora/.test(x.family)).map((x) => x.css);
   await Promise.all(specs.map((s) => document.fonts.load(s, story.glyphs).catch(() => null)));
   await document.fonts.ready;
 }
@@ -208,6 +215,7 @@ function buildChaptersCaptionsScore() {
     { t: T.v21, title: `${s('v2.1').name}: ${hl('v2.1')}`, still: T.v211 - 0.3 },
     { t: T.v25, title: `${s('v2.5').name}: ${hl('v2.5')}`, still: T.fuzz0 + FUZZ.start - 0.02 },
     { t: T.flood, title: `${v26.name}: ${hl('last')}`, still: Hm.copies.length ? Hm.copies[0].depart + 0.4 : T.homing0 + 3 },
+    { t: T.v27, title: `${S.LAST.name}: ${hl('v2.7')}`, still: T.v27nums + 3.2 },
     { t: T.orig, title: 'Beside the original', still: T.end - 1.0 },
     { t: T.end, title: `${cap(word(D.totals.releases))} releases`, still: T.duration - 1.0 },
   ];
@@ -292,8 +300,14 @@ function buildChaptersCaptionsScore() {
   if (N.v26b) {
     const m = N.v26b.label.match(/^(wrong outputs) in (.+)$/);
     const was = N.v26b.paren.match(/^(.+?): ([\d,]+)$/);
-    add(T.nums + 3.0, T.orig - 0.1, m ? `In ${m[2]}: ${N.v26b.to} ${m[1]}.${was ? ` ${was[1]} had ${was[2]}.` : ''}` : `${N.v26b.to} ${N.v26b.label}.`);
+    add(T.nums + 3.0, T.v27 - 0.1, m ? `In ${m[2]}: ${N.v26b.to} ${m[1]}.${was ? ` ${was[1]} had ${was[2]}.` : ''}` : `${N.v26b.to} ${N.v26b.label}.`);
   }
+  // V2.6.1 and V2.7
+  const v261 = s('v2.6.1'), Vm = vmeta();
+  if (v261) add(T.v27 + 0.3, T.v27title + 0.6, `${v261.name} prints this script ${Vm.same261 ? `exactly as ${v26.name} did` : 'differently'}.`);
+  add(T.v27title + 0.7, T.v27Morph0 + 1.2, `${S.LAST.name}: ${lc(hl('v2.7'))}.`);
+  if (Vm.name) add(T.v27Morph0 + 1.3, T.v27nums - 0.1, `It says what isAlive returns, and names the stored clock reading ${Vm.name}.`);
+  Vm.nums.slice(0, 2).forEach((n, i) => add(T.v27nums + i * 1.4 + 0.1, i ? T.orig - 0.1 : T.v27nums + 1.4, `${cap(n.label)}: ${fmt(n.from ?? 0)} to ${fmt(n.to)}.`));
   // V. the end
   add(T.orig + 0.4, T.orig + 2.8, 'Beside the source it was compiled from.');
   add(T.orig + 3.0, T.end - 0.1, Sd.onlyNames ? 'Every keyword, call and operator matches. Only names, constants and comments differ.' : 'Most of it matches, token for token.');
@@ -406,6 +420,16 @@ function buildScore(Bm, Hm) {
   sub(T.nums + 2.8, 0.08, 74, 38, 0.9);
   E.push(...ticks(T.nums + 3.3, T.nums + 4.6, { rate: 44, seed: 91, gain: 0.011, jitter: 0.1 }));
   E.push({ t: T.nums + 4.7, voice: 'chime', freq: note('A5'), gain: 0.045, dur: 3 });
+  // V2.6.1 and V2.7: the mist, the morph, two numbers
+  E.push({ t: T.v27, voice: 'air', dur: T.orig - T.v27 + 1, gain: 0.03, cutoff: 1200 });
+  pulse(T.v27 + 0.3, 'A3', 0.05, 2);
+  E.push({ t: T.v27title, voice: 'swell', dur: T.orig - T.v27title, notes: ['D3', 'A3', 'F#4'].map(note), gain: 0.09, attack: 2.2, release: 2.4, open: 1800 });
+  E.push(...ticks(T.v27Morph0 + 0.6, T.v27Morph1, { rate: 16, seed: 93, gain: 0.02 }));
+  E.push({ t: T.v27Morph1, voice: 'chime', freq: note('F#5'), gain: 0.04, dur: 2.4 });
+  [0, 1].forEach((i) => {
+    E.push(...ticks(T.v27nums + i * 1.4, T.v27nums + i * 1.4 + 1.3, { rate: 30, seed: 95 + i, gain: 0.01, jitter: 0.1 }));
+    E.push({ t: T.v27nums + i * 1.4 + 1.4, voice: 'chime', freq: note(i ? 'D6' : 'A5'), gain: 0.035, dur: 2.4 });
+  });
   // V. the end
   pulse(T.orig + 0.4, 'C#4', 0.06, 3);
   sub(T.end - 0.1, 0.15, 70, 35, 1.8);

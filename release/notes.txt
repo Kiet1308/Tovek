@@ -1,35 +1,45 @@
-Tovek V2.6.1 fixes a control-flow structuring failure in scripts such as Events.lua.
+Tovek V2.7 gives back more of what the Luau compiler took away, and decompiles
+every edge case we have found exactly.
 
-Fix
-- A loop's early return can share its bytecode block with a branch outside the
-  loop. The structurer previously treated that return as another continuing
-  loop exit and rejected the script with "residual goto/label would be invalid
-  Luau" when no common continuation existed.
-- Shared terminal returns now stay returns on their incoming paths. Generic,
-  numeric and while loops use the same rule, including sequential loops that
-  reach the same return block. Output uses ordinary structured Luau, with no
-  goto or synthetic control-flow dispatcher.
-- Normal exhaustion, edge transfers, loop-result rewrites and capture checks
-  keep their existing proofs. The existing join proof runs first, so the new
-  search is only needed when that proof cannot find a continuation.
+De-inlining
+- Copies Luau pasted into their callers come back as calls in more places:
+  helpers whose early return from a loop became a store and a break, copies
+  whose constants Luau folded through branches, locals and math.pow, copies
+  inside other copies, copies split by a declaration the caller evaluated in
+  between, and calls that forward their varargs.
+- Every rebuilt call is checked twice: the helper, specialized to the call's
+  constant arguments, must match the copy exactly, and evaluating the arguments
+  first must change nothing the copy observed. Where the bytecode's line
+  numbers show none of a helper's code in a function, a match there is code the
+  author wrote, and it stays as written.
+- Four real games (9,987 scripts): 8,474 -> 9,623 rebuilt helper calls.
 
-Validation
-- 362 Rust tests passed across the lifter and structurer checks.
-- 690 semantic round-trip profiles passed at O0/O1/O2, plus 60 independent
-  review profiles covering nested/sequential loops, captured state, closures,
-  multiple return values, nil and varargs.
-- All seven existing real residual-control fixtures still decompile and
-  recompile. Events.lua recompiles with the official Luau compiler, produces
-  identical output at 1/4/16 threads, and succeeds on all three local HTTP APIs.
-- The reported bytecode and source/CFG regression cases are saved in the repo.
+Exactness
+- 341 edge-case fixtures at -O0, -O1 and -O2: 1,023 of 1,023
+  runs decompile, recompile and print what the original prints (V2.6.1: 965).
+- 658 review cases: 0 decompiled wrong (V2.6.1: 93).
+- 9,000 fresh typed fuzz programs: no wrong output. Hand-patched bytecode no
+  source can spell is refused, never printed as something else.
+- Table constructors keep their bytecode's allocation, so pairs visits keys in
+  the same order, including explicit array keys beside record keys.
 
-These checks cover the reported failure and tested variants; they do not
-promise that every possible bytecode input can be structured.
+Names and presentation
+- Names from evidence for rebuilt calls, running extremes, sets, collection
+  elements, stored clock readings and documented Roblox APIs. Four games:
+  generated names 60,491 -> 58,668; output 1.5% shorter.
+- Guard clauses, bottom-tested loops and one-shot loops read as written; do
+  blocks keep their scope; Roblox vector constants print as Vector3.new.
+
+Scale
+- Long functions no longer grow passes quadratically, and the HTTP server
+  streams large batches and returns memory when idle. Decompile time on the
+  four games is about the same as V2.6.1.
 
 Downloads: Windows x86_64, Linux x86_64, Linux aarch64 and macOS (Apple silicon).
 Each package contains luau-lifter (CLI), web-server (local HTTP server), and the
 MIT licence. SHA256SUMS.txt lists the checksums.
 
+Release notes: https://kiet1308.github.io/Tovek/changelog/v2.7/
+Film: https://kiet1308.github.io/Tovek/watch/?film=v27
 Usage: https://github.com/Kiet1308/Tovek/blob/main/README.md
-Source: https://github.com/Kiet1308/Tovek/tree/v2.6.1
-V2.6 feature notes: https://kiet1308.github.io/Tovek/changelog/v2.6/
+Source: https://github.com/Kiet1308/Tovek/tree/v2.7

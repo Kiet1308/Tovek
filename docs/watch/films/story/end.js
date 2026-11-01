@@ -24,7 +24,7 @@ function runsOf(L, set) {
 }
 
 export function prepareEnd() {
-  const v = S.V26.excerpts.shield.text, o = S.D.sample.focus_source.text;
+  const v = S.LAST.excerpts.shield.text, o = S.D.sample.focus_source.text;
   const plan = codeMorph(v, o);
   const kinds = new Set([...plan.removed.map((r) => r.k), ...[...plan.inserted].map((i) => plan.b.tokens[i].k)]);
   const onlyNames = [...kinds].every((k) => ['id', 'fn', 'prop', 'glob', 'num', 'com'].includes(k));
@@ -60,7 +60,7 @@ export function drawSide(ctx, t) {
   const top = S2.top;
   const panels = [
     { x: S2.xs[0], L: S2.plan.b, label: `Original source  ·  ${S.D.sample.file}`, runs: S2.insertedRuns },
-    { x: S2.xs[1], L: S2.plan.a, label: `Tovek ${S.V26.name}`, runs: S2.removedRuns },
+    { x: S2.xs[1], L: S2.plan.a, label: `Tovek ${S.LAST.name}`, runs: S2.removedRuns },
   ];
   ctx.save();
   ctx.globalAlpha *= a;
@@ -156,7 +156,7 @@ export function drawEnd(ctx, t) {
   if (t > mt - 0.1) {
     const size = 120 * (0.94 + 0.06 * spring(t - mt, { freq: 1.1, damping: 0.6 }));
     drawMark(ctx, 960 - markWidth(size) / 2, 300 + (120 - size) / 2, size, { color: e.ink, bitColor: e.accent, body: progress(t, mt, 0.8, ease.out), bits: progress(t, mt + 0.25, 1.3) });
-    reveal(ctx, layoutText(`Tovek ${S.V26.name}`, ty.card, { around: AROUND, pairs: PAIRS }), 960, 610, t, { unit: 'word', start: mt + 0.5, stagger: 0.14, dur: 1.1, align: 'center', color: e.ink, tracking: TRACK.hero });
+    reveal(ctx, layoutText(`Tovek ${S.LAST.name}`, ty.card, { around: AROUND, pairs: PAIRS }), 960, 610, t, { unit: 'word', start: mt + 0.5, stagger: 0.14, dur: 1.1, align: 'center', color: e.ink, tracking: TRACK.hero });
     const url = layoutText(S.REPO, ty.url);
     const typed = clamp((t - mt - 1.3) * 28, 0, url.glyphCount);
     const caretOn = typed < url.glyphCount || Math.floor((t - mt) * 1.7) % 2 === 0;
