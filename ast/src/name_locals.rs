@@ -2128,6 +2128,13 @@ struct LocalUsage {
     /// invalidating write flag mirroring the counter facts.
     accumulator_updates: u32,
     accumulator_invalid_write: bool,
+    /// `local = math.max(local, E)` (or `min`) updates, a running extremum
+    /// ([`extremum_update`]): which one, the noun of every `E` where they
+    /// agree, and the invalidating write flag.
+    extremum: Option<&'static str>,
+    extremum_noun: Option<String>,
+    extremum_noun_conflict: bool,
+    extremum_invalid_write: bool,
     /// Some write starts it at a zero vector ([`is_zero_vector`]).
     zero_vector_start: bool,
     /// Written `sum / #list`, by the local divided: a mean when that local
@@ -2260,6 +2267,36 @@ fn is_counter_update(local: &RcLocal, value: &RValue) -> bool {
 /// `local = local + X` (either side) where `X` is not the unit literal a
 /// counter adds: a running sum. `X` may be any expression, including another
 /// numeric literal (`elapsed = elapsed + 0.1`).
+/// `math.max(local, E)` / `math.min(E, local)` (a local alias of either
+/// too): `"max"` or `"min"`, and `E`.
+fn extremum_update<'a>(local: &RcLocal, value: &'a RValue, aliases: &'a FxHashMap<usize, RValue>) -> Option<(&'static str, &'a RValue)> {
+    let (RValue::Call(call) | RValue::Select(Select::Call(call))) = value else { return None };
+    let callee = match call.value.as_ref() {
+        RValue::Local(alias) => aliases.get(&local_ptr(alias))?,
+        callee => callee,
+    };
+    let kind = match static_callee_of(callee)? {
+        (Some("math"), "max") => "max",
+        (Some("math"), "min") => "min",
+        _ => return None,
+    };
+    let is_self = |side: &RValue| matches!(side, RValue::Local(source) if local_ptr(source) == local_ptr(local));
+    match call.arguments.as_slice() {
+        [own, other] | [other, own] if is_self(own) && !is_self(other) => Some((kind, other)),
+        _ => None,
+    }
+}
+
+/// A start a running extremum takes: a number, or `math.huge` either way.
+fn extremum_start(value: &RValue) -> bool {
+    match value {
+        RValue::Literal(Literal::Number(_)) => true,
+        RValue::Unary(unary) => unary.operation == UnaryOperation::Negate && extremum_start(&unary.value),
+        RValue::Index(_) => static_callee_of(value) == Some((Some("math"), "huge")),
+        _ => false,
+    }
+}
+
 fn is_accumulator_update(local: &RcLocal, value: &RValue) -> bool {
     let RValue::Binary(binary) = value else {
         return false;
@@ -2347,6 +2384,22 @@ fn note_local_write(local: &RcLocal, value: &RValue, aliases: &FxHashMap<usize, 
     {
         entry.mean_of = Some(local_ptr(sum));
     }
+    match extremum_update(local, value, aliases) {
+        // Against a constant it is a bound (`math.max(v, 0)`), not the largest seen.
+        Some((kind, other)) if entry.extremum.is_none_or(|seen| seen == kind) && !matches!(other, RValue::Literal(_)) => {
+            entry.extremum = Some(kind);
+            match (rvalue_hint(other), &entry.extremum_noun) {
+                (Some(noun), None) if !entry.extremum_noun_conflict => entry.extremum_noun = Some(noun),
+                (Some(noun), Some(seen)) if &noun == seen => {}
+                _ => {
+                    entry.extremum_noun = None;
+                    entry.extremum_noun_conflict = true;
+                }
+            }
+        }
+        None if extremum_start(value) => {}
+        _ => entry.extremum_invalid_write = true,
+    }
     if is_accumulator_update(local, value) {
         entry.accumulator_updates += 1;
     } else if is_zero_vector(value, aliases) {
@@ -2378,6 +2431,7 @@ fn note_unknown_local_write(local: &RcLocal, usage: &mut FxHashMap<usize, LocalU
     entry.accumulator_invalid_write = true;
     entry.boolean_invalid_write = true;
     entry.clock_invalid_write = true;
+    entry.extremum_invalid_write = true;
     entry.unknown_value_write = true;
 }
 
@@ -3810,6 +3864,20 @@ impl Namer {
                 // `Vector3.zero` names only a type; summing into it names the role.
                 let score = if usage.zero_vector_start { 61 } else { 40 };
                 candidates.push((ptr, "total".to_string(), score, "accumulator_updates"));
+            }
+            // `best = math.max(best, lifetime(p))`: the largest seen.
+            if let Some(kind) = usage.extremum
+                && !usage.extremum_invalid_write
+                && !usage.incoming_parameter
+            {
+                let name = match &usage.extremum_noun {
+                    Some(noun) if noun.to_ascii_lowercase().starts_with(kind) => noun.clone(),
+                    Some(noun) => format!("{kind}{}", capitalize_first(noun)),
+                    None => format!("{kind}Value"),
+                };
+                if let Some(name) = sanitize_preserve(&name) {
+                    candidates.push((ptr, name, 44, "running_extremum"));
+                }
             }
             if usage.assignment_sources == 1
                 && usage.mean_of.and_then(|sum| self.usage.get(&sum))
@@ -11352,6 +11420,29 @@ mod tests {
         let mut block = Block(vec![declare(&v, len()), use_local(&v)]);
         name_locals(&mut block, true);
         assert_eq!(name_of(&v), "v");
+    }
+
+    /// `v = math.max(v, part.Size.X)` -> `maxX`; against a constant it is a
+    /// bound (`math.max(v, 0)`), named nothing.
+    #[test]
+    fn running_extremum() {
+        let extremum = |local: &RcLocal, other: RValue| -> Statement {
+            Assign::new(
+                vec![LValue::Local(local.clone())],
+                vec![lib_call("math", "max", vec![RValue::Local(local.clone()), other])],
+            )
+            .into()
+        };
+        let x = RValue::Index(Index::new(RValue::Index(Index::new(global("part"), string("Size"))), string("X")));
+        let largest = RcLocal::default();
+        let mut block = Block(vec![declare(&largest, number(0.0)), extremum(&largest, x), use_local(&largest)]);
+        name_locals(&mut block, true);
+        assert_eq!(name_of(&largest), "maxX");
+
+        let bounded = RcLocal::default();
+        let mut block = Block(vec![declare(&bounded, number(0.0)), extremum(&bounded, number(1.0)), use_local(&bounded)]);
+        name_locals(&mut block, true);
+        assert_eq!(name_of(&bounded), "v");
     }
 
     /// `local v = parts[i]` -> `part`; a running sum (`v = v + dt`) -> `total`.
