@@ -261,16 +261,24 @@ def baseline_identity_matches(row, baseline):
     return all(row.get(field) == baseline.get(field) for field in IDENTITY_FIELDS)
 
 
+def portable(output):
+    """Output as every platform prints it: LF line ends, a script path as its
+    file name. Every printed location (`subject:12`, `file.luau:34`) stays."""
+    return re.sub(r'(?:[A-Za-z]:)?[^\s:]*[\\/]([^\\/\s:]+\.luau)', r'\1', output.replace('\r\n', '\n'))
+
+
 def observation_fingerprints(row):
     return {field: {'raw': fingerprint(observation(row[field])),
-                    'normalized': fingerprint(observation(row[field], True))}
+                    'normalized': fingerprint(observation(row[field], True)),
+                    'portable': fingerprint({key: portable(value) if key != 'exit_code' else value
+                                             for key, value in observation(row[field]).items()})}
             for field in ('goc', 'sau_sua', 'source_at_output_optimization') if field in row}
 
 
 def portable_fingerprints(observations):
-    """The fingerprints a reviewed profile is matched by: normalized only, as raw
-    output differs by platform (line endings, paths in error messages)."""
-    return {field: fingerprints['normalized'] for field, fingerprints in observations.items()}
+    """The fingerprints a reviewed profile is matched by: the raw output on any
+    platform ([`portable`]), so a changed printed location never matches."""
+    return {field: fingerprints['portable'] for field, fingerprints in observations.items()}
 
 
 def classify_baseline(row, baseline):

@@ -90,6 +90,23 @@ class DeepReviewTests(unittest.TestCase):
         review.classify_baseline(row, known)
         self.assertEqual(row['status'], 'failed')
 
+    def test_a_profile_reviewed_on_windows_matches_on_linux(self):
+        row = mismatch()
+        for key in ('sau_sua', 'source_at_output_optimization'):
+            row[key]['stdout'] = 'after subject:12\r\n'
+            row[key]['stderr'] = 'D:\\work\\x\\driver.luau:34: boom\r\n'
+        known = baseline(row)
+        for key in ('sau_sua', 'source_at_output_optimization'):
+            row[key]['stdout'] = 'after subject:12\n'
+            row[key]['stderr'] = '/home/runner/work/x/driver.luau:34: boom\n'
+        review.classify_baseline(row, known)
+        self.assertEqual(row['status'], 'compiler_sensitive')
+        row = mismatch()
+        known = baseline(row)
+        row['sau_sua']['stderr'] = row['source_at_output_optimization']['stderr'] = '/x/driver.luau:35: boom\n'
+        review.classify_baseline(row, known)
+        self.assertEqual(row['status'], 'failed')
+
     def test_previous_sensitive_profile_that_now_matches_is_an_improvement(self):
         row = mismatch()
         known = baseline(row)
