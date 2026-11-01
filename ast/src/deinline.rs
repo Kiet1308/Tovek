@@ -2928,19 +2928,36 @@ fn function_scope<'a>(active: &'a [usize], targets: &[Target], fp: FnPtr, newly:
     std::borrow::Cow::Owned(active.iter().copied().filter(|&index| !shadowed(index)).chain(own.iter().copied()).collect())
 }
 
-/// A declaration `local y = <literal>` (or `nil`, or none) of one local right
-/// after `stmts[i]`, or one further: one a copy starting at `i` may hold
-/// although it is the caller's.
-fn interleaved_declaration(stmts: &[Statement], i: usize) -> Option<usize> {
-    fn plain_declaration(statement: &Statement) -> bool {
-        matches!(statement, Statement::Assign(declaration)
-            if declaration.prefix
-                && !declaration.parallel
-                && matches!(declaration.left.as_slice(), [LValue::Local(_)])
-                && matches!(declaration.right.as_slice(), [] | [RValue::Literal(_)]))
+/// A declaration of one local that runs no code and reads nothing: `local
+/// y = <literal>` (or `nil`, or none), or a table of such values (`local
+/// list = { {1, 2}, {60} }`). Evaluated earlier, it gives the same. (An
+/// empty table, the most common declaration, is left out: no copy was seen
+/// to hold one, and each would cost a retry.)
+fn inert_declaration(statement: &Statement) -> bool {
+    fn inert(value: &RValue) -> bool {
+        match value {
+            RValue::Literal(_) => true,
+            RValue::Table(table) => table.0.iter().all(|(key, item)| key.as_ref().is_none_or(|key| matches!(key, RValue::Literal(_))) && inert(item)),
+            _ => false,
+        }
     }
+    matches!(statement, Statement::Assign(declaration)
+        if declaration.prefix
+            && !declaration.parallel
+            && matches!(declaration.left.as_slice(), [LValue::Local(_)])
+            && match declaration.right.as_slice() {
+                [] => true,
+                [RValue::Table(table)] => !table.0.is_empty() && inert(&declaration.right[0]),
+                [value] => inert(value),
+                _ => false,
+            })
+}
+
+/// An [`inert_declaration`] right after `stmts[i]`, or one further: one a
+/// copy starting at `i` may hold although it is the caller's.
+fn interleaved_declaration(stmts: &[Statement], i: usize) -> Option<usize> {
     stmts.get(i)?;
-    (i + 1..=(i + 2).min(stmts.len().saturating_sub(2))).find(|&at| plain_declaration(&stmts[at]))
+    (i + 1..=(i + 2).min(stmts.len().saturating_sub(2))).find(|&at| inert_declaration(&stmts[at]))
 }
 
 /// The most statements past a copy a literal result of it may be declared
@@ -5068,6 +5085,85 @@ fn deinline_block(
                     }
                 }
             }
+        }
+        // Such declarations right before a copy whose argument temps are
+        // above them (`local p = root; local list = { {1, 2} }; for _, key
+        // in keys do p = p[key] ...`: an inlined caller evaluated its next
+        // argument between them): the copy is tried with the declarations
+        // above the temps, where they stay only with the call, right before
+        // the temps the call takes in.
+        // The last `inert` of them, fewest first: the temps may be such
+        // declarations too (`report({ {1} }, { {2} })`). Only tables: an
+        // inlined caller's literal argument takes no register.
+        let table = |statement: &Statement| inert_declaration(statement)
+            && matches!(statement, Statement::Assign(declaration) if matches!(declaration.right.as_slice(), [RValue::Table(_)]));
+        let most = (1..=3usize.min(i.saturating_sub(1))).take_while(|&k| table(&stmts[i - k])).last().unwrap_or(0);
+        let mut probed_past = None;
+        for inert in 1..=most {
+            // The temp right above them is an argument the copy reads.
+            let read_temp = match &stmts[i - inert - 1] {
+                Statement::Assign(temp) if is_initialized_declaration(&stmts[i - inert - 1]) => {
+                    temp.left[0].as_local().is_some_and(|temp| block_reads_local(std::slice::from_ref(&stmts[i]), temp))
+                }
+                _ => false,
+            };
+            if found.is_some() || !holds_copies || !read_temp {
+                continue;
+            }
+            let at = i - inert;
+            let mut to = at;
+            while to > 0 && at - to < 3 && is_initialized_declaration(&stmts[to - 1]) {
+                to -= 1;
+            }
+            let moved: Vec<Statement> = stmts.drain(at..i).collect();
+            stmts.splice(to..to, moved);
+            last_occ.index = None;
+            canon_cache.spliced(stmts, to, i - to, i - to);
+            let retried = try_match_at(
+                stmts,
+                i,
+                anchor,
+                targets,
+                &ordered,
+                &rivals,
+                newly,
+                splices_before,
+                current_func,
+                is_func_tail,
+                is_func_body_top,
+                outer_continuation,
+                loop_tail,
+                &mut last_occ,
+                &mut canon_cache,
+            );
+            // The temps end right before `i`; the declarations sit at `to`.
+            let temps = at - to;
+            match retried {
+                Some(hit) if hit.absorbed > 0 && !(hit.evidence && matches!(round, EvidenceRound::Probe)) => {
+                    let below = to + temps - hit.absorbed.min(temps);
+                    if below > to {
+                        let moved: Vec<Statement> = stmts.drain(to..to + inert).collect();
+                        stmts.splice(below..below, moved);
+                        canon_cache.spliced(stmts, to, i - to, i - to);
+                    }
+                    found = Some((hit, None));
+                }
+                other => {
+                    let moved: Vec<Statement> = stmts.drain(to..to + inert).collect();
+                    stmts.splice(at..at, moved);
+                    last_occ.index = None;
+                    canon_cache.spliced(stmts, to, i - to, i - to);
+                    if let Some(hit) = other.filter(|hit| hit.absorbed > 0) {
+                        newly.probed.entry((current_func, hit.f_local.clone())).or_insert((0, hit.proto)).0 += hit.shaped;
+                        probed_past = Some(hit.consume);
+                        break;
+                    }
+                }
+            }
+        }
+        if let Some(consume) = probed_past {
+            i += consume;
+            continue;
         }
         // A helper's literal result the SSA declared further down (`local
         // size, cframe, depth = setupFlag(flags1)` whose `0.745` is declared

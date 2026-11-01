@@ -63,6 +63,7 @@ const OWN_LOCAL_LOOP_EXIT: &[u8] = include_bytes!("fixtures/deinline_own_local_l
 const VARARG_FORWARDING: &[u8] = include_bytes!("fixtures/deinline_vararg_forwarding.luaubc");
 const POW_SPECIALIZATION: &[u8] = include_bytes!("fixtures/deinline_pow_specialization.luaubc");
 const LOOKUP_NAMES_AND_SETTER_FLAGS: &[u8] = include_bytes!("fixtures/deinline_lookup_names_and_setter_flags.luaubc");
+const INERT_DECLARATION_BETWEEN_TEMPS: &[u8] = include_bytes!("fixtures/deinline_inert_declaration_between_temps.luaubc");
 
 fn decompile(bytecode: &[u8]) -> String {
     luau_lifter::try_decompile_bytecode_with_options(bytecode, 1, None, Default::default())
@@ -685,6 +686,17 @@ fn rebuilt_lookups_take_the_constant_name_and_setters_keep_false() {
         "local drop = findChild(instance, \"Drop\", \"Assets/Drop\") -- inferred equivalent call\n",
         "setHighlight(instance2, false) -- inferred equivalent call\n",
         "setHighlight(instance, true) -- inferred equivalent call\n",
+    ] {
+        assert!(source.contains(line), "{line}\n{source}");
+    }
+}
+
+#[test]
+fn an_inert_declaration_between_temps_and_copy_moves_with_the_call() {
+    let source = decompile(INERT_DECLARATION_BETWEEN_TEMPS);
+    for line in [
+        "report({ -- inferred equivalent call\n",
+        "return { active = countActive(), loops = v3.loops, cycles = v3.cycles } -- inferred equivalent call\n",
     ] {
         assert!(source.contains(line), "{line}\n{source}");
     }
