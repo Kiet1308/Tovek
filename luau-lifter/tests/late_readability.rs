@@ -54,6 +54,7 @@ const FOLDED_TEXT_ARGUMENT: &[u8] = include_bytes!("fixtures/deinline_folded_tex
 const CONSTANT_KEYED_LOCALS: &[u8] = include_bytes!("fixtures/deinline_constant_keyed_locals.luaubc");
 const HOSTED_SPECIALIZED_VALUE: &[u8] = include_bytes!("fixtures/deinline_hosted_specialized_value.luaubc");
 const VALUE_CHAIN: &[u8] = include_bytes!("fixtures/value_chain_and_or_clamp.luaubc");
+const VALUE_CHAIN_KEEPS_TARGET: &[u8] = include_bytes!("fixtures/value_chain_keeps_target.luaubc");
 
 fn decompile(bytecode: &[u8]) -> String {
     luau_lifter::try_decompile_bytecode_with_options(bytecode, 1, None, Default::default())
@@ -588,6 +589,17 @@ fn an_and_or_chain_testing_its_value_reads_as_that_value() {
         "\treturn clamp(0, 1, math.floor(total * 100 + 0.5) / 100) -- inferred equivalent call\n",
         "\tlocal v2 = clamp(v + -1.4, v + 1.4, p2.y) -- inferred equivalent call\n",
         "\t\tcurrent = clamp(p, p2, v.DefaultZoom) or v.DefaultZoom -- inferred equivalent call\n"]
+    {
+        assert!(source.contains(line), "{line}\n{source}");
+    }
+}
+
+#[test]
+fn a_select_kept_in_its_default_reads_as_and_or() {
+    let source = decompile(VALUE_CHAIN_KEEPS_TARGET);
+    for line in ["\treturn success and result or p3\n",
+        "safeEnum(v, data.Mode, v.Loop), -- inferred equivalent call\n",
+        "Mode = safeEnum(v, data.FlipbookMode), -- inferred equivalent call\n"]
     {
         assert!(source.contains(line), "{line}\n{source}");
     }

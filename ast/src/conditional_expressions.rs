@@ -157,8 +157,13 @@ fn fold_chains(block: &mut Block, captured: &rustc_hash::FxHashSet<RcLocal>) {
 fn value_chain(statement: &Statement) -> Option<(RcLocal, RValue)> {
     let Statement::If(branch) = statement else { return None };
     let (target, value) = chain_store(&branch.then_block.lock())?;
-    let RValue::Binary(Binary { operation: BinaryOperation::And, right: tested, .. }) = &branch.condition else { return None };
-    if **tested != value || !crate::is_total_pure(&value) {
+    // The arm stores what the condition tests last (`c and x`), or the
+    // value or what `target` holds (`r = y or r`, `return c and y or r`).
+    let tests_value = matches!(&branch.condition, RValue::Binary(Binary { operation: BinaryOperation::And, right, .. })
+        if **right == value && crate::is_total_pure(&value));
+    let keeps_target = matches!(&value, RValue::Binary(Binary { operation: BinaryOperation::Or, right, .. })
+        if matches!(&**right, RValue::Local(kept) if *kept == target));
+    if !tests_value && !keeps_target {
         return None;
     }
     let value = chain_value(branch, &target)?;
