@@ -22,7 +22,7 @@
 // A frame is a pure function of t: each shot draws its own surface, later shots draw over earlier ones
 // while they arrive, and nothing is carried between frames.
 
-import { V26, defineScore, note, ticks, codeFont } from '../engine/index.js';
+import { V26, defineScore, note, ticks, codeFont, idleFallback } from '../engine/index.js';
 import { T, TY, S, BEAT, BAR, f, fmt, timeFromData, buildHero, PAGE } from './v26/base.js';
 import { prepareOpen, drawBytes, drawSource } from './v26/open.js';
 import { prepareNames, drawPage } from './v26/names.js';
@@ -77,7 +77,7 @@ function warmUp(ctx, t) {
   const wctx = canvas.getContext('2d', { alpha: false });
   const n = Math.ceil(T.duration / WARM_STEP);
   warm = { w: c.width, h: c.height, canvas, wctx, done: new Uint8Array(n), left: n, lastT: 0, finished: false, t0: performance.now() };
-  const idle = globalThis.requestIdleCallback || ((cb) => setTimeout(() => cb({ timeRemaining: () => 8 }), 40));
+  const idle = globalThis.requestIdleCallback || idleFallback;
   const W = warm;
   // first the frames where something is drawn for the first time (each shot's start, each new size of
   // display type), then whatever lies ahead of the playhead

@@ -32,15 +32,22 @@ function buildAtlas() {
     probe.font = F.css;
     const gw = Math.ceil(probe.measureText('00').width);
     const cw = gw + Math.ceil(size * 0.5) + blur * 4, ch = Math.ceil(size * 1.25) + blur * 4;
-    const cv = new OffscreenCanvas(cw * 16, ch * 16);
+    const sheet = () => new OffscreenCanvas(cw * 16, ch * 16);
+    const cv = sheet();
     const c = cv.getContext('2d', { willReadFrequently: true });
     c.font = F.css;
     c.textBaseline = 'middle';
     c.textAlign = 'center';
     c.fillStyle = C.onNight;
-    if (blur) c.filter = `blur(${blur}px)`;
     for (let v = 0; v < 256; v++) c.fillText(v.toString(16).padStart(2, '0'), (v % 16) * cw + cw / 2, Math.floor(v / 16) * ch + ch / 2 + size * 0.04);
-    return { cv, cw, ch, gw, size };
+    if (!blur) return { cv, cw, ch, gw, size };
+    // blur the finished sheet once: a filter on each of the 256 fillText calls blurred the whole sheet
+    // every time (8 s on a fast desktop before the film could start)
+    const soft = sheet();
+    const sc = soft.getContext('2d', { willReadFrequently: true });
+    sc.filter = `blur(${blur}px)`;
+    sc.drawImage(cv, 0, 0);
+    return { cv: soft, cw, ch, gw, size };
   };
   ATLAS = { sharp: [make(18, 0), make(36, 0), make(72, 0)], soft: make(48, 5) };
 }

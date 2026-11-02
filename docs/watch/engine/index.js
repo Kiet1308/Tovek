@@ -16,4 +16,4 @@ export { codeMorph, drawMorph, fitCamera, withCamera } from './morph.js';
 export { note, ticks, defineScore, VOICES, ScorePlayer, prepareScore, renderScore, encodeWav, renderScoreWav } from './score.js';
 export { drawMark, markWidth } from './brand.js';
 export { DESIGN_W, DESIGN_H, createStage, pixel } from './stage.js';
-export { normalizeFilm, prepareFilm, openFilm, chapterAt, captionAt } from './film.js';
+export { normalizeFilm, prepareFilm, openFilm, loadFonts, idleFallback, chapterAt, captionAt } from './film.js';

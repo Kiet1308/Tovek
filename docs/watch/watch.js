@@ -420,14 +420,25 @@ function toggleCaptions() {
 const fsElement = () => document.fullscreenElement || document.webkitFullscreenElement;
 function toggleFullscreen() {
   const s = el.screen;
-  if (fsElement()) (document.exitFullscreen || document.webkitExitFullscreen).call(document);
-  else if (s.requestFullscreen) s.requestFullscreen().catch(() => {});
+  if (s.classList.contains('is-filled')) setFilled(false);
+  else if (fsElement()) (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+  else if (s.requestFullscreen) s.requestFullscreen().catch(() => setFilled(true));
   else if (s.webkitRequestFullscreen) s.webkitRequestFullscreen();
+  else setFilled(true);
 }
-document.addEventListener('fullscreenchange', () => {
+// Safari on iPhone has no full screen for anything but <video>: there the screen fills the window instead
+function setFilled(on) {
+  el.screen.classList.toggle('is-filled', on);
+  document.documentElement.classList.toggle('screen-filled', on);
+  el.fs.setAttribute('aria-label', on ? 'Exit full screen' : 'Full screen');
+  wake();
+}
+const onFullscreenChange = () => {
   el.fs.setAttribute('aria-label', fsElement() ? 'Exit full screen' : 'Full screen');
   wake();
-});
+};
+document.addEventListener('fullscreenchange', onFullscreenChange);
+document.addEventListener('webkitfullscreenchange', onFullscreenChange);
 
 // ---------------------------------------------------------------- scrubber input
 
@@ -558,6 +569,7 @@ document.addEventListener('keydown', (e) => {
     case ',': if (!clock.playing) { seekBy(-step); osd(timecode(clock.t, { tenths: true })); } break;
     case '.': if (!clock.playing) { seekBy(step); osd(timecode(clock.t, { tenths: true })); } break;
     case 'f': toggleFullscreen(); break;
+    case 'Escape': if (el.screen.classList.contains('is-filled')) setFilled(false); break;
     case 'm': toggleMute(); break;
     case 'c': toggleCaptions(); break;
     case 'Home': if (target === el.scrub) { e.preventDefault(); seek(0); } break;
@@ -694,7 +706,8 @@ async function boot() {
   el.scrub.setAttribute('aria-valuemax', film.duration.toFixed(1));
   el.posterKicker.textContent = `${entry.kicker || entry.label} · ${timecode(film.duration)}`;
   el.posterTitle.textContent = film.title;
-  if (film.posterTitle === false) el.poster.querySelector('.poster-copy').hidden = true;
+  // a film that draws its own title keeps only the play button on its poster
+  if (film.posterTitle === false) el.poster.classList.add('is-bare');
   el.pillTime.textContent = timecode(film.duration);
   el.pill.disabled = false;
   el.pill.setAttribute('aria-label', `Play ${film.title}, ${timecode(film.duration)}`);

@@ -99,6 +99,9 @@ button { font: inherit; color: inherit; }
 }
 .screen:fullscreen { width: 100vw; height: 100vh; aspect-ratio: auto; border-radius: 0; box-shadow: none; background: #000; }
 .screen:fullscreen .stage { inset: 0; margin: auto; width: min(100vw, calc(100vh * 16 / 9)); height: auto; aspect-ratio: 16 / 9; }
+.screen.is-filled { position: fixed; inset: 0; z-index: 60; width: 100vw; height: 100vh; height: 100dvh; aspect-ratio: auto; border-radius: 0; box-shadow: none; background: #000; }
+.screen.is-filled .stage { inset: 0; margin: auto; width: min(100vw, calc(100dvh * 16 / 9)); height: auto; aspect-ratio: 16 / 9; }
+html.screen-filled, html.screen-filled body { overflow: hidden; }
 .screen.is-idle.is-playing { cursor: none; }
 
 .stage { position: absolute; inset: 0; display: block; width: 100%; height: 100%; }
@@ -114,7 +117,7 @@ button { font: inherit; color: inherit; }
 }
 .screen.is-started .poster { opacity: 0; visibility: hidden; transition: opacity 0.45s var(--ease-out), visibility 0s linear 0.45s; }
 .screen.is-ended .poster { opacity: 1; visibility: visible; transition: opacity 0.8s var(--ease-out); }
-.screen.is-ended .poster-kicker, .screen.is-ended .poster-title { display: none; }
+.screen.is-ended .poster-kicker, .screen.is-ended .poster-title, .poster.is-bare .poster-kicker, .poster.is-bare .poster-title { display: none; }
 
 .poster-copy {
   position: absolute; left: clamp(16px, 4.2cqw, 68px); bottom: clamp(16px, 4.2cqw, 64px); right: clamp(16px, 4.2cqw, 68px);
@@ -308,8 +311,8 @@ button { font: inherit; color: inherit; }
 .screen.is-muted .ctl-mute .ico-wave { display: none; }
 .screen.is-muted .ctl-mute .ico-x { display: inline; }
 .ctl-fs .ico-exit { display: none; }
-.screen:fullscreen .ctl-fs .ico-enter { display: none; }
-.screen:fullscreen .ctl-fs .ico-exit { display: inline; }
+.screen:fullscreen .ctl-fs .ico-enter, .screen.is-filled .ctl-fs .ico-enter { display: none; }
+.screen:fullscreen .ctl-fs .ico-exit, .screen.is-filled .ctl-fs .ico-exit { display: inline; }
 .ctl:disabled { opacity: 0.35; cursor: default; }
 
 .clock { display: flex; align-items: baseline; gap: 6px; margin: 0 10px 0 6px; font: 500 13px/1 var(--font-mono); font-variant-numeric: tabular-nums; white-space: nowrap; }

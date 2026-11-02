@@ -28,14 +28,42 @@ export function normalizeFilm(mod) {
  * layout caches). `base` is the URL the film's relative data paths resolve against.
  */
 export async function prepareFilm(film, { base = location.href } = {}) {
-  if (document.fonts) {
-    // the sample text pulls in every subset a film is likely to draw (digits, arrows, dashes, quotes)
-    const sample = film.glyphs || 'Tovek 0123456789 →←↓·—–…“”‘’×−%#{}[]';
-    await Promise.all((film.fonts || []).map((spec) => document.fonts.load(spec, sample).catch(() => null)));
-    await document.fonts.ready;
-  }
+  // the sample text pulls in every subset a film is likely to draw (digits, arrows, dashes, quotes)
+  await loadFonts(film.fonts || [], film.glyphs || 'Tovek 0123456789 →←↓·—–…“”‘’×−%#{}[]');
   if (typeof film.prepare === 'function') await film.prepare({ base });
   return film;
+}
+
+/**
+ * Load the faces `specs` (CSS font strings) need for `text`. Safari can leave a `document.fonts.load()`
+ * promise pending after its face has loaded, so this also polls `document.fonts.check()`, and it stops
+ * waiting after `ms` (a film then draws with the fallback face rather than never starting).
+ */
+export function loadFonts(specs, text, ms = 8000) {
+  if (typeof document === 'undefined' || !document.fonts) return Promise.resolve();
+  const loads = Promise.all(specs.map((s) => document.fonts.load(s, text).catch(() => null))).then(() => document.fonts.ready);
+  return new Promise((resolve) => {
+    const t0 = performance.now();
+    const poll = () => {
+      let loaded = false;
+      try { loaded = document.fonts.status === 'loaded' && specs.every((s) => document.fonts.check(s, text)); } catch { /* a spec it cannot parse */ }
+      if (loaded || performance.now() - t0 > ms) resolve();
+      else setTimeout(poll, 100);
+    };
+    loads.then(resolve, resolve);
+    setTimeout(poll, 100);
+  });
+}
+
+/**
+ * `requestIdleCallback` for browsers without it (Safari): one slice of about 8 ms per timer tick, with a
+ * deadline that really runs out, so a loop that works while `timeRemaining()` lasts gives the page back.
+ */
+export function idleFallback(cb) {
+  return setTimeout(() => {
+    const end = performance.now() + 8;
+    cb({ didTimeout: false, timeRemaining: () => Math.max(0, end - performance.now()) });
+  }, 40);
 }
 
 /** The chapter that contains `t`. */

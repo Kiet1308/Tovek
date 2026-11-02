@@ -16,7 +16,7 @@
 // A frame is a pure function of t: each shot draws its own surface, later shots draw over earlier
 // ones while they arrive (a page turn, a flood, tiles, a wipe), and nothing is carried between frames.
 
-import { ease, defineScore, note, ticks, V26, formatNumber, codeMetrics, codePalettes, codeMorph } from '../engine/index.js';
+import { ease, defineScore, note, ticks, V26, formatNumber, codeMetrics, codePalettes, codeMorph, loadFonts, idleFallback } from '../engine/index.js';
 import { T, ERA, TY, ERA_FONTS_CSS, CODE, S, makePalette, parseNumber, num, cap, lc, word, stripDot, longDate, hhmm, breathBeat, BREATH_BEAT } from './story/base.js';
 import { prepareOpen, drawOpen, drawMedal, drawDate } from './story/open.js';
 import { prepareBetas, bmeta, drawBeta01, drawMontage, drawBreath, drawJuly } from './story/betas.js';
@@ -74,7 +74,7 @@ function warmUp(ctx, t) {
   const n = Math.ceil(T.duration / WARM_STEP);
   // playback starts at the top, whatever the poster shows: warm from there
   warm = { w: c.width, h: c.height, canvas, wctx, done: new Uint8Array(n), left: n, lastT: 0, finished: false, t0: performance.now() };
-  const idle = globalThis.requestIdleCallback || ((cb) => setTimeout(() => cb({ timeRemaining: () => 8 }), 40));
+  const idle = globalThis.requestIdleCallback || idleFallback;
   const W = warm;
   const step = (deadline) => {
     if (warm !== W) return;
@@ -193,8 +193,7 @@ async function loadEraFonts() {
     await Promise.race([loaded, new Promise((res) => setTimeout(res, 4000))]);
   }
   const specs = Object.values(TY).flatMap((set) => Object.values(set)).filter((x) => /Inter|Hanken|Google|Cinzel|Lora/.test(x.family)).map((x) => x.css);
-  await Promise.all(specs.map((s) => document.fonts.load(s, story.glyphs).catch(() => null)));
-  await document.fonts.ready;
+  await loadFonts(specs, story.glyphs);
 }
 
 // ------------------------------------------------------------ chapters, captions and the score

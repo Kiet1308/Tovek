@@ -20,7 +20,7 @@
 import {
   ease, clamp, lerp, progress, envelope, noise1, hash01, font, layoutText, drawText, reveal, drawOdometer,
   formatNumber, codeMorph, drawMorph, fitCamera, withCamera, drawCode, codePalettes, codeFont, drawMark, markWidth,
-  defineScore, note, ticks, roundRect,
+  defineScore, note, ticks, roundRect, loadFonts as loadFaces,
 } from '../engine/index.js';
 
 const CINZEL = '"Cinzel", "Times New Roman", serif';
@@ -464,8 +464,7 @@ async function loadFonts() {
     document.head.append(link);
     await Promise.race([loaded, new Promise((res) => setTimeout(res, 4000))]);
   }
-  const specs = Object.values(F).map((f) => f.css);
-  await Promise.all(specs.map((s) => document.fonts.load(s, 'Tovek V2.7 0123456789,').catch(() => null)));
+  await loadFaces(Object.values(F).map((f) => f.css), 'Tovek V2.7 0123456789,');
 }
 
 const film = {

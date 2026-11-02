@@ -384,6 +384,8 @@ export class ScorePlayer {
    * the play key was the first input, holding its clock across the call.
    */
   open(reverb = true) {
+    // iOS mutes Web Audio with the ring switch unless the page says it plays media, as a video does
+    if (typeof navigator !== 'undefined' && navigator.audioSession) { try { navigator.audioSession.type = 'playback'; } catch { /* read-only */ } }
     try { this.ac = new AudioContext({ latencyHint: 'playback', sampleRate: LIVE_RATE }); } catch { this.ac = new AudioContext({ latencyHint: 'playback' }); }
     this.bus = buildBus(this.ac, this.score, { reverb });
     this.applyVolume(true);
