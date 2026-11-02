@@ -3,7 +3,7 @@
   "about": "Sample inputs for Tovek in the browser. native = the CLI's own output for the same input and script name (sha256 of the UTF-8 source without the trailing newline the CLI prints).",
   "compiled_with": "luau-compile --binary -O2 -g1",
   "native_cli": {
-    "sha256": "16d618191c03b9c3a4b84a4eea7d24449b88e03d23e3176932e13ec6a7eaf1c8",
+    "sha256": "c964a5cb43bb94dbdc0daea574856cc3d944a5cbaecd63c8f7ba1f8a9a8d910a",
     "raw": "luau-lifter <file> --script-name <name>",
     "text": "luau-lifter decompile-folder <folder holding the file>"
   },
@@ -32,9 +32,9 @@
         "license_file": null
       },
       "native": {
-        "sha256": "986817ce4b233e88712f983b0c63bed20961f55111fbe17cb8bde0226693ad43",
-        "bytes": 1667,
-        "lines": 75,
+        "sha256": "4cee5af9aa910b3cb76ba194756a067bac0efa98282f8baf7a1a83b2d3719f55",
+        "bytes": 1692,
+        "lines": 76,
         "nonblank": 58
       }
     },
@@ -62,9 +62,9 @@
         "license_file": null
       },
       "native": {
-        "sha256": "986817ce4b233e88712f983b0c63bed20961f55111fbe17cb8bde0226693ad43",
-        "bytes": 1667,
-        "lines": 75,
+        "sha256": "4cee5af9aa910b3cb76ba194756a067bac0efa98282f8baf7a1a83b2d3719f55",
+        "bytes": 1692,
+        "lines": 76,
         "nonblank": 58
       }
     },
@@ -92,9 +92,9 @@
         "url": "https://github.com/Roblox/rodux/blob/120e94ec609c4992c9f2da7c7ae45542b168fd25/src/Store.lua"
       },
       "native": {
-        "sha256": "0874124e48f7d1a01114707042a246c9a6c58e2be7e37b0dab652513826f25a1",
-        "bytes": 4218,
-        "lines": 180,
+        "sha256": "c558d74c3f2f8cb199ccc125729bc776e578e4aafd8e7c32af5d3119b7df69c3",
+        "bytes": 4234,
+        "lines": 192,
         "nonblank": 146
       }
     },
@@ -122,9 +122,9 @@
         "url": "https://github.com/Sleitnick/RbxUtil/blob/31f9120fca021e3dec275b42bc7047d626962082/modules/signal/init.luau"
       },
       "native": {
-        "sha256": "c0448daba37ba9f0d265cbaa6f803a5801ba71fa8335951f7d2b7e2b3ee193e0",
-        "bytes": 4462,
-        "lines": 212,
+        "sha256": "c9fa2b5aee3b15f7cab0d68d60630412257c19898a6a85e1019ac7db1c68cb92",
+        "bytes": 4083,
+        "lines": 225,
         "nonblank": 170
       }
     },
@@ -152,10 +152,10 @@
         "url": "https://github.com/Sleitnick/RbxUtil/blob/31f9120fca021e3dec275b42bc7047d626962082/modules/trove/init.luau"
       },
       "native": {
-        "sha256": "dd8684bbbc4a890fe78ada9a527577e5a425ed1b459930534337c5f8472c3a64",
-        "bytes": 5133,
-        "lines": 249,
-        "nonblank": 198
+        "sha256": "3788054877a490c07b9afae6ca34f5b5eacc3f57f9e33f67833c2f7afdbaaf7c",
+        "bytes": 5143,
+        "lines": 254,
+        "nonblank": 197
       }
     },
     {
@@ -182,10 +182,10 @@
         "url": "https://github.com/MaximumADHD/Roblox-Client-Tracker/blob/45007a62fecfc910f099af1497e8a2ef945b95e0/scripts/PlayerScripts/StarterPlayerScripts/PlayerModule.module/ControlModule/ClickToMoveController.lua"
       },
       "native": {
-        "sha256": "7f1f218c9853f03483c502e8de0155ce5891a4bb664ac2401fe26d76ac3d8a20",
-        "bytes": 32295,
-        "lines": 1306,
-        "nonblank": 1071
+        "sha256": "2413a21260b1b54711b6206831ee1e592b5b0ed8285c310d524ae0f6f293438a",
+        "bytes": 31903,
+        "lines": 1312,
+        "nonblank": 1033
       }
     },
     {
@@ -212,10 +212,10 @@
         "url": "https://github.com/evaera/roblox-lua-promise/blob/031d429c82ee458a849e79fa523523bd349d7695/lib/init.lua"
       },
       "native": {
-        "sha256": "44534aa702f13f4c9ffab0b77f2378be5598a81990babb05d1fd5a55e8b4f70e",
-        "bytes": 24864,
-        "lines": 1044,
-        "nonblank": 858
+        "sha256": "b7f77175d27da6041157207a370737a6934be804ff9a2ee1e3e7c964db69ac61",
+        "bytes": 24911,
+        "lines": 1081,
+        "nonblank": 852
       }
     }
   ]

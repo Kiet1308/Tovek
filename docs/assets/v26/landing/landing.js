@@ -804,7 +804,7 @@ async function enterHistory(prev, token) {
   let map;
   try { map = await loadTexts(); } catch { return; }
   if (token !== stepToken) return;
-  // the V2.6 stage prints exactly the script above: swap to it where the reader already is, then settle on the passage
+  // the newest stage prints exactly the script above: swap to it where the reader already is, then settle on the passage
   const y = port.scrollTop;
   inHistory = true;
   hAt = stages.length - 1;
@@ -1035,7 +1035,7 @@ function show(res, meta) {
   const nothing = 'Nothing was uploaded.';
   if (meta.beacon && meta.same) setStatus(`<b>Same ${fmtInt(lines.length)} lines as the script above, byte for byte.</b> ${nothing}`);
   else if (meta.same) setStatus(`<b>=</b> Byte for byte what the Tovek command line prints for this file. ${nothing}`);
-  else if (meta.beacon) setStatus(`Tovek ${escapeHtml(meta.version)} in this page printed ${fmtInt(lines.length)} lines; the script above came from the V2.6 build. ${nothing}`);
+  else if (meta.beacon) setStatus(`Tovek ${escapeHtml(meta.version)} in this page printed ${fmtInt(lines.length)} lines; the script above came from the ${escapeHtml(stages[stages.length - 1].name)} build. ${nothing}`);
   else setStatus(`Decompiled in your browser from ${fmtInt(meta.bytes)} bytes. ${nothing}`);
 }
 
@@ -1092,7 +1092,7 @@ function markDownload() {
   dl.classList.add('is-yours');
   const hero = $('.hero .btn-ink');
   hero.href = dl.href;
-  hero.title = `Tovek V2.6 for ${plat} (${dl.querySelector('span').textContent})`;
+  hero.title = `Tovek ${stages[stages.length - 1].name} for ${plat} (${dl.querySelector('span').textContent})`;
 }
 
 // ------------------------------------------------------------------ films: a card plays its film while the pointer rests on it
