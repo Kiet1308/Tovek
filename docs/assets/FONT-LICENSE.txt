@@ -3,6 +3,11 @@ Fonts bundled in docs/assets (all under the SIL Open Font License 1.1, reproduce
 - Inter (assets/inter-v2-latin.woff2)
   Copyright 2020 The Inter Project Authors (https://github.com/rsms/inter)
 
+- Recursive (assets/landing/recursive-sans-latin.woff2, assets/landing/recursive-mono-latin.woff2)
+  Copyright 2020 The Recursive Project Authors (https://github.com/arrowtype/recursive)
+  Two instances of the variable font as Google Fonts serves them: Sans (MONO 0) and Mono (MONO 1), both CASL 0,
+  weight 300 to 1000, Latin subset. The licence text below applies to it unchanged.
+
 -----------------------------------------------------------
 
 Copyright 2020 The Inter Project Authors (https://github.com/rsms/inter)
